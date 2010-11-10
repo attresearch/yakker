@@ -1,0 +1,55 @@
+923c923
+<    The domain portion identifies the point to which the mail is
+---
+> The domain portion identifies the point to which the mail is
+964c964
+<    The header fields carry most of the semantic information and are
+---
+> The header fields carry most of the semantic information and are
+1007,1014d1006
+< 
+< 
+< 
+< Resnick                     Standards Track                    [Page 18]
+< 
+< RFC 2822                Internet Message Format               April 2001
+< 
+< 
+1109c1101
+<    The origination date specifies the date and time at which the creator
+---
+> The origination date specifies the date and time at which the creator
+1150c1142
+<    The originator fields indicate the mailbox(es) of the source of the
+---
+> The originator fields indicate the mailbox(es) of the source of the
+1297c1289
+<    The "Message-ID:" field provides a unique message identifier that
+---
+> The "Message-ID:" field provides a unique message identifier that
+1421c1413
+<    These three fields are intended to have only human-readable content
+---
+> These three fields are intended to have only human-readable content
+1477c1469
+<    Resent fields are used to identify a message as having been
+---
+> Resent fields are used to identify a message as having been
+1735,1742d1726
+< 
+< 
+< 
+< Resnick                     Standards Track                    [Page 31]
+< 
+< RFC 2822                Internet Message Format               April 2001
+< 
+< 
+1847,1854d1830
+< 
+< 
+< 
+< Resnick                     Standards Track                    [Page 33]
+< 
+< RFC 2822                Internet Message Format               April 2001
+< 
+< 

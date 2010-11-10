@@ -1,0 +1,20 @@
+RFC 2822
+
+Fixup is needed to remove some page breaks that break rules.
+
+Also, this RFC is unusual in that rules are outdented, e.g.,
+------------------------------------------------------------------------
+3.6.1. The origination date field
+
+   The origination date field consists of the field name "Date" followed
+   by a date-time specification.
+
+orig-date       =       "Date:" date-time CRLF
+
+   The origination date specifies the date and time at which the creator
+------------------------------------------------------------------------
+
+Here the extractor will see the final line above as a continuation of
+the rule, since it is indented compared to the first line of the
+rule.  We move this line to the left so that it is not seen as a
+continuation.

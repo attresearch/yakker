@@ -1,0 +1,17 @@
+; Common definitions, from RFC 2234.
+ALPHA = %d65-90|%d97-122.
+BIT = "0"|"1".
+CHAR = %x01-7F.
+CR = %d13.
+CRLF = CR LF.
+CTL = %d0-31|%d127.
+DIGIT = %d48-57.
+DQUOTE = %d34.
+HEXDIG = DIGIT|"A"|"B"|"C"|"D"|"E"|"F".
+HTAB = %d9.
+LF = %d10.
+LWSP = *(WSP|(CRLF WSP)).
+OCTET = %d0-255.
+SP = %d32.
+VCHAR = %d33-126.
+WSP = SP|HTAB.

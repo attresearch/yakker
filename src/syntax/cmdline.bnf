@@ -1,0 +1,150 @@
+; working on getting yakker command-line arguments parsed.
+; remaining issues:
+; (1) what to do about errors, e.g., misspelled option
+; (2) how to handle arguments that start with '-' but are not options
+; (3) how to report the error to the user
+; (4) what about args containing NULs
+;
+@begin {
+(*******************************************************************************
+ * Copyright (c) 2010 AT&T.
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/legal/epl-v10.html
+ *
+ * Contributors:
+ *    Trevor Jim and Yitzhak Mandelbaum
+ *******************************************************************************)
+
+type plugin =
+  | Dypgen_PI of bool (** flag indicating whether the generated grammar should be faux-scannerless. *)
+
+type transformation = Inline_regular_Tx | Add_LR1_lookahead_Tx
+
+type analyses = A_precedence_sets
+
+type command =
+| Exec_cmd of string * string list
+| Compile_cmd
+| Translate_cmd of plugin
+
+| Close_under_core_cmd
+| Dispatch_cmd
+| Wrap_cmd
+| Attributes_cmd
+| Lift_cmd
+| Desugar_cmd
+| Fuse_cmd
+| Tx_prec_cmd
+
+| Compile_only_cmd
+| Dispatch_only_cmd
+| Wrap_only_cmd
+| Attributes_only_cmd
+| Lift_only_cmd
+| Desugar_only_cmd
+
+| Print_gil_cmd
+| Print_gul_cmd
+| Print_npreds_cmd
+| Extract_cmd
+| Rfc_cmd of int
+| Dot_cmd
+| Strip_late_actions_cmd
+
+| Info_cmd (* display internal information about the compiler. *)
+
+| Transform_cmd of transformation list
+
+| Analyze_cmd of analyses (** Perform a grammar analysis. *)
+
+let cmd = ref Print_gul_cmd
+let files = ref []
+let roots = ref []
+
+type backend =
+  | Fun_BE   (** Functional backend (parser combinators).*)
+  | Peg_BE of bool (** PEG backend. argument indicates whether
+                       to use more liberal (PADS-style) star. *)
+  | Trans_BE (** Transducer backend. *)
+
+let backend = ref Trans_BE
+}
+cmd-line-args = command$c *args eof { cmd := c }.
+o = %d0 .
+arg = 1*CHAR !CHAR .
+file = (CHAR - "-") *CHAR !CHAR .
+transformation =
+            "inline-regular" { Inline_regular_Tx }
+          | "add-lr1-lookahead" { Add_LR1_lookahead_Tx }
+          .
+analysis = "precedence" {A_precedence_sets}.
+command =
+        "dot" o                           { Dot_cmd }
+      | "lift-only" o                     { Lift_only_cmd }
+      | "attributes-only" o               { Attributes_only_cmd }
+      | "wrap-only" o                     { Wrap_only_cmd }
+      | "dispatch-only" o                 { Dispatch_only_cmd }
+      | "compile-only" o                  { Compile_only_cmd }
+      | "precedence" o                    { Tx_prec_cmd }
+      | "desugar" o                       { Desugar_cmd }
+      | "lift" o                          { Lift_cmd }
+      | "attributes" o                    { Attributes_cmd }
+      | "wrap" o                          { Wrap_cmd }
+      | "dispatch" o                      { Dispatch_cmd }
+      | "compile" o                       { Compile_cmd }
+      | "translate" o
+           ("dypgen" {Dypgen_PI false}
+           |"dypgen-scannerless"
+                    {Dypgen_PI true})$t o { Translate_cmd t }
+      | "print-gil" o                     { Print_gil_cmd }
+      | "print" o                         { Print_gul_cmd }
+      | "strip-late-actions" o            { Strip_late_actions_cmd }
+      | "extract" o                       { Extract_cmd }
+      | "rfc" (1*DIGIT)$n o               { try Rfc_cmd(int_of_string n) with _ -> raise(Failure "Invalid RFC number") }
+      | "print-npreds" o                  { Print_npreds_cmd }
+      | "exec" o arg$f *(o arg$x {x})$l o { Exec_cmd(f,l) }
+      | "info" o                          { Info_cmd }
+
+      | "transform" o transformation$tx *("," transformation$x {x})$txs o { Transform_cmd (tx::txs) }
+      | "analyze" o analysis$a o            { Analyze_cmd a }
+
+args =
+        "-case-insensitive" o              { Compileopt.case_sensitive := false }
+      | "-backend" o
+          ( "fun" {Fun_BE}
+          | "tx"  {Trans_BE}
+          | "peg-strict" {Peg_BE false}
+          | "peg" {Peg_BE true} )$b o      { backend := b }
+      | "-inline-cs" o                     { Compileopt.inline_cs := true }
+      | "-inline-regular" o                { Compileopt.inline_regular := true }
+      | "-unroll-star" o (1*DIGIT)$n o     { Compileopt.unroll_star_n := (int_of_string n) }
+      | "-counter" o (1*DIGIT)$n o         { Util.cnt := (int_of_string n) (*TODO: move counter to Compileopt *)}
+      | "-lookahead" o                     { Compileopt.lookahead := true }
+      | "-no-coalesce" o                   { Compileopt.coalesce := false }
+      | "-new-engine" o                    { Pami.new_engine_flag := true }
+      | "-check-labels" o                  { Compileopt.check_labels := true }
+      | "-v" o                             { Logging.add_features Logging.Features.verbose }
+      | "-root" o arg$x o                  { roots := x::!roots }
+      | file$f o                           { files := f::!files }
+.
+eof = "" !OCTET .
+@end {
+
+let args_ykbuf = YkBuf.strings2buf Sys.argv 1
+let what_arg = YkBuf.stringsposn2string Sys.argv 1
+let process() =
+    (try
+      ignore(parse args_ykbuf); (!cmd, List.rev !files, List.rev !roots, !backend)
+    with
+      Pami.Parse_error("Error at byte.", i, _, _) ->
+        let bad_arg = what_arg i in
+        let bad = Sys.argv.(bad_arg) in
+        if bad_arg = 1 then
+          raise(Failure(Printf.sprintf "Unrecognized command '%s'" bad))
+        else if String.length bad > 0 && String.get bad 0 = '-' then
+          raise(Failure(Printf.sprintf "Unrecognized option '%s'" bad))
+        else
+          raise(Failure(Printf.sprintf "Bad argument '%s'" bad)))
+}

@@ -1,0 +1,10 @@
+This directory contains libraries derived from the Batteries project,
+
+    http://batteries.forge.ocamlcore.org/
+
+The license for the code in this directory GNU LGPL, with the Ocaml
+linking exception; see the Batteries web page for details.
+
+We have modified some of the files to fix bugs and to make them
+suitable for use with yakker.  We are including them with our
+distribution to remove a dependency and make it easier to build.

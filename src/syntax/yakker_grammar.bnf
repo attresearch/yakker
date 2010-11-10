@@ -1,0 +1,362 @@
+@begin {
+(*******************************************************************************
+ * Copyright (c) 2010 AT&T.
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/legal/epl-v10.html
+ *
+ * Contributors:
+ *    Trevor Jim and Yitzhak Mandelbaum
+ *******************************************************************************)
+
+(*
+Bootstrapping ABNF parser.  Started with RFC4234 and modified.
+
+Stricter on structure of text within braces. Specifically, tracks
+parens and string in addition to braces, while old version only
+tracked braces.
+
+Known deficiencies:
+
+  There are places where abnf-echo.bnf requires spaces that parse.y does not,
+  e.g.,
+
+    a = b$x{foo();}
+
+  fails between the x and the left brace.  Need context-sensitive whitespace to
+  fix this.
+
+Notes on RFC4234:
+  Does not define HASH #.
+  Does not allow spaces between the numbers
+    for repeat: "1*3a" works, but "1 *3a," "1* 3a," and "1*3 a" do not.
+  Uses o to consume whitespace, but that must end in a SP
+  or HTAB, so that
+
+  a
+  = b
+
+  fails, but
+
+  a
+   = b
+
+  succeeds.
+*)
+
+open Gul
+let process_alt r_left = function
+    None -> r_left
+  | Some (0,r) -> mkALT([r_left;r])
+  | Some (_,r) -> mkMINUS(r_left,r)
+
+let process_pdopt r x = r.a.precedence <- x; r
+
+let implicit_parameters = ref None
+
+let partition_map f l =
+  let xs, ys =
+    List.fold_left
+      (fun (xs, ys) z ->
+        match f z with
+          | Util.Left x -> x::xs, ys
+          | Util.Right y -> xs, y::ys) ([],[]) l in
+  List.rev xs, List.rev ys
+
+let extract_pd = function
+      [] -> [||]
+    | [p] -> p
+    | _ -> Util.warn Util.Sys_warn "More than one precedence declaration in file."; [||]
+
+(* Split a string into pieces separated by character c *)
+let split s c =
+  let rec positions i =
+    try
+      let next = String.index_from s i c in
+      next :: positions (next+1)
+    with Not_found -> [] in
+  let rec cut i = function
+      [] -> if i >= String.length s then [] else [String.sub s i (String.length s - i)]
+    | hd::tl ->
+        String.sub s i (hd-i) :: cut (hd+1) tl in
+  match positions 0 with [] -> [s]
+  | x -> cut 0 x
+
+let var_typ s =
+  match split s ':' with
+    [var;typ] -> (var,typ)
+  | _ -> raise Not_found
+
+let var_exp s =
+  match split s '=' with (* This isn't robust because = can be used inside of expressions*)
+    [var;typ] -> (var,typ)
+  | _ -> raise Not_found
+}
+
+rulelist
+  = [shebang-line]
+    o prologue$p
+    o 1*(  rule$rd             {let (n,r,a) = rd in [RuleDef (n,r,a)]}
+         | directive           {[]}
+         | lexer-declaration$d {[d]}
+         | c-nl                {[]} )$xs
+    epilogue$e o
+    { let ts, ps = partition_map (function Text_directive t -> Util.Left t
+                                         | Disamb_directive d  -> Util.Right d) p in
+      let pd = extract_pd ps in
+      let ds = List.flatten xs in
+      mkGrammar ds PMap.empty 0 (List.rev ts) e pd}.
+
+BACKSLASH = "\".
+string = DQUOTE *inside-string DQUOTE.
+
+inside-string
+ = BACKSLASH DQUOTE
+ | BACKSLASH BACKSLASH
+ | BACKSLASH ((OCTET - BACKSLASH) - DQUOTE)
+ | ((OCTET - BACKSLASH) - DQUOTE).
+
+charlit = "'" *inside-char "'".
+
+inside-char
+ = BACKSLASH "'"
+ | BACKSLASH BACKSLASH
+ | BACKSLASH ((OCTET - BACKSLASH) - "'")
+ | ((OCTET - BACKSLASH) - "'").
+
+parens = "(" *inside ")".
+braces = "{" *inside "}".
+inside
+ = parens
+ | string
+ | braces
+ | "'" %d34 "'" | "'" !%d34
+ | ((((((OCTET - "(") - ")") - "{") - "}") - DQUOTE) - "'").
+
+inside-text = *inside .
+braces-text = "{" inside-text$x "}" {x}.
+
+id-body = ALPHA|DIGIT|"_".
+ID = (ALPHA|"_") *(ALPHA|DIGIT|"_") !id-body.
+wsp = WSP|comment|LF|CR.
+o = *wsp !wsp.
+u = 1*wsp !wsp.
+c-nl = comment|LF|CR.
+c-wsp = WSP|(c-nl WSP).
+comment = ";" *(WSP|VCHAR) (LF|CR).
+bitstring = (1*BIT)$x  !BIT {int_of_string x}.
+DIGITS = (1*DIGIT)$x  !DIGIT {int_of_string x}.
+HEXDIGS = (1*HEXDIG)$x  !HEXDIG {int_of_string ("0x" ^ x)}.
+
+rulename-body = ALPHA|DIGIT|"-"|":"|"_".
+
+keyword = "pos" !rulename-body.
+
+rulename = !keyword (ALPHA|"_") *rulename-body !rulename-body.
+
+infix-op-stuff
+  = ("/" | "|") o alternation$x {(0,x)}
+  | "-" wsp o alternation$x {(1,x)} ; force non-empty whitespace after minus sign, for %dx0-7F case
+  .
+
+bin-val = "b" bitstring$b
+    ( *("." bitstring$b0 {b0})$bs  {mkSEQ(List.map (fun b -> mkCHARRANGE(b,b)) (b::bs))}
+    | "-" bitstring$b2     {mkCHARRANGE(b,b2)}).
+
+char-val
+  = DQUOTE (*(%d32-33|%d35-126))$x DQUOTE {mkLIT x}
+  | "<" DQUOTE ">" {mkLIT "\""}.
+
+dec-val = "d" DIGITS$d
+    ( *("." DIGITS$d0 {d0})$ds  {mkSEQ(List.map (fun d -> mkCHARRANGE(d,d)) (d::ds))}
+    | "-" DIGITS$d2     {mkCHARRANGE(d,d2)}).
+
+hex-val = "x" HEXDIGS$x
+   ( *("." HEXDIGS$x0 {x0})$xs  {mkSEQ(List.map (fun x -> mkCHARRANGE(x,x)) (x::xs))}
+   | "-" HEXDIGS$x2     {mkCHARRANGE(x,x2)}).
+
+num-val = "%" (bin-val$x {x} | dec-val$x {x} | hex-val$x {x}).
+
+defined-as = "=" | "=/".
+
+alternation =
+  concatenation$x [o prec-dir]$pdopt [o infix-op-stuff$z {z}]$y
+  {process_alt (process_pdopt x pdopt) y}
+.
+
+prec-dir = "@prec" u rulename$n {n}.
+
+concatenation
+  = lookahead$x {x}
+  | lookahead$x  ">@" ID$e     ; TODO: late attributes
+    { mkASSIGN(x,Some e,None) }
+  | lookahead$x [ "@" ID$i {i} ]$e [ "$" ID$i {i} ]$l 1*c-wsp concatenation$y
+    { mkSEQ2(x,e,l,y) }
+.
+
+element
+  = rulename$x params$p ["$(" inside-text$b ")" {b}]$z {let (e,a) = p in mkSYMB2(x,e,a,z)}
+  | group$x {x} | option$x {x} | char-val$x {x} | num-val$x {x} | prose-val$x {x}
+  | "@when(" inside-text$x ")" { mkWHEN x }
+  | "@delay(" inside-text$x [return-type]$y ")" { mkDELAY(x,y) }
+  | "@box(" inside-text$x [return-type]$y [o "," o boxnull$z o {z}]$z ")" { mkBOX(x,y,match z with None -> Runbox_null | Some w -> w) }
+  | "{" inside-text$x "}" { mkACTION2(None,Some x) }
+  | "${" inside-text$x "}" { mkACTION2(None, Some x) }
+  | "@{" inside-text$x "}" { mkACTION2(Some x,None) }
+  | "@pos" {mkPOSITION true}
+  | "pos" {mkPOSITION false}
+  | "$pos" {mkPOSITION false}.
+
+boxnull =
+  "+" {Never_null}
+| "*" {Always_null}
+| "?" [return-type]$x {match x with None -> Runbox_null | Some y -> Runpred_null y}.
+
+params =
+  "@(" inside-text$t ")"
+    { match split t ';' with  (* This isn't robust because ; can be used inside of expressions*)
+        [] -> (Some t,[])
+      | ""::tl -> (None,List.map var_exp tl)
+      | hd::tl -> (Some hd,List.map var_exp tl) }
+  | "" {(None,[])}
+.
+
+elements = alternation$x {x}.
+
+group = "(" o alternation$x o ")" {x}.
+
+option = "[" o alternation$x o "]" {mkOPT x}.
+
+inside-prose = %d32-61|%d63-126.
+
+prose-val = "<" [(inside-prose - DQUOTE) *inside-prose]$x ">" {mkPROSE x}.
+
+lookahead
+  = repetition$e {e}
+  | "!" o lookahead$e {mkLOOKAHEAD (false,e)}
+  | "&" o lookahead$e {mkLOOKAHEAD (true, e)}
+  | "@repeat(" inside-text$x ")" o lookahead$y {mkRCOUNT(x,y)}
+  | "*" o "@[" (*(CHAR - "="))$v1 "=" o (*(CHAR - "]"))$i1 "]"
+        o lookahead$z { {r=Star(Accumulate(Some(v1,i1),None),z);a=mkAnnot(Some z);} }
+  | "*" o "$[" (*(CHAR - "="))$v2 "=" o (*(CHAR - "]"))$i2 "]"
+        o lookahead$z { {r=Star(Accumulate(None,Some(v2,i2)),z);a=mkAnnot(Some z);} }
+  | "*" o "@[" (*(CHAR - "="))$v1 "=" o (*(CHAR - "]"))$i1 "]"
+        o "$[" (*(CHAR - "="))$v2 "=" o (*(CHAR - "]"))$i2 "]"
+        o lookahead$z { {r=Star(Accumulate(Some(v1,i1),Some(v2,i2)),z);a=mkAnnot(Some z);} }
+  | "#" o "@[" (*(CHAR - "="))$v1 "=" o (*(CHAR - "]"))$i1 "]"
+        o lookahead$z { {r=Hash(Accumulate(Some(v1,i1),None),z);a=mkAnnot(Some z);} }
+  | "#" o "$[" (*(CHAR - "="))$v2 "=" o (*(CHAR - "]"))$i2 "]"
+        o lookahead$z { {r=Hash(Accumulate(None,Some(v2,i2)),z);a=mkAnnot(Some z);} }
+  | "#" o "@[" (*(CHAR - "="))$v1 "=" o (*(CHAR - "]"))$i1 "]"
+        o "$[" (*(CHAR - "="))$v2 "=" o (*(CHAR - "]"))$i2 "]"
+        o lookahead$z { {r=Hash(Accumulate(Some(v1,i1),Some(v2,i2)),z);a=mkAnnot(Some z);} }
+  .
+
+repetition
+  = element$e {e}
+  | DIGITS$x o element$y                  {mkSTAR(x,Num x,y)}
+  | DIGITS$x o "*" o element$y            {mkSTAR(x,Infinity,y)}
+  | DIGITS$x o "*" o DIGITS$z o element$y {mkSTAR(x,Num z,y)}
+  | "*" o DIGITS$z o element$y            {mkSTAR(0,Num z,y)}
+  | "*" o element$y                       {mkSTAR(0,Infinity,y)}
+  | DIGITS$x o "#" o element$y            {mkHASH(x,Infinity,y)}
+  | DIGITS$x o "#" o DIGITS$z o element$y {mkHASH(x,Num z,y)}
+  | "#" o DIGITS$z o element$y            {mkHASH(0,Num z,y)}
+  | "#" o element$y                       {mkHASH(0,Infinity,y)}
+.
+
+typestuff =
+  [early-inputs]$x
+  [o early-outputs]$y
+  [o late-inputs]$z
+  {{Attr.early_params = (match x with None -> None | Some(params,_) -> params);
+    input_attributes =  (match x with None -> []   | Some(_,attributes) -> attributes);
+    early_rettype =     (match y with None -> None | Some(typ,_) -> typ);
+    output_attributes = (match y with None -> []   | Some(_,attributes) -> attributes);
+    late_params=z;
+    copy= !implicit_parameters;}}
+.
+early-inputs =
+  "@("  inside-text$t ")"        ;;; example: >@(a:int,b:bool;x:string;y:bool*int list)
+  { match split t ';' with
+      [] -> (Some t,[])
+(*    | ""::tl -> (None,List.map var_typ tl)  *)
+    | hd::tl -> (Some hd,List.map var_typ tl) }
+.
+early-outputs =
+  ">@(" inside-text$t ")"        ;;; example: >@(int;x:string;y:bool*int list)
+  { match split t ';' with
+      [] -> (Some t,[])
+    | ""::tl -> (None,List.map var_typ tl)
+    | hd::tl -> (Some hd,List.map var_typ tl) }
+.
+late-inputs =
+  "$("  inside-text$t ")" {t}    ;;; example: $(x,y,z)
+.
+
+; TODO: change lexer declarations and blackbox/delay to reflect new
+; return type syntax (early-return)
+return-type = "{" inside-text$y "}" {y}
+.
+rettype = "@" o "(" o "{" o inside-text$t "}" o ")" {t}
+.
+lexer-case =
+  ID$n o [rettype]$t_opt o "=" o ID$n2    { TokenSymb(n,t_opt,Some n2) }
+| ID$n o [rettype]$t_opt                  { TokenSymb(n,t_opt,None) }
+| ID$n o [rettype]$t_opt o "=" o DQUOTE (*inside-string)$s DQUOTE
+                                          { TokenLit(n,t_opt,s) }
+.
+lexer-cases = ["|" o ] lexer-case$hd (*(o "|" o lexer-case))$tl [o "."] { hd::tl }
+.
+
+lexer-declaration =
+  "@declare-lexer" o
+  ID$n o rettype$t o ID$np o "=" o
+  lexer-cases$l *WSP c-nl
+  { LexerDecl(n,np,t,l) }
+.
+
+assoc-tag =
+    "@" ( ("R" |"right") {Right_assoc}
+        | ("L" | "left") {Left_assoc}
+        | ("N" | "non")  {Non_assoc})
+.
+
+prec-declaration =
+  "@precedence" o ":" o
+  ["<" o] assoc-tag$atag u rulename$id *(u rulename$x {x})$ids
+  {(atag, [atag, (id :: ids)])}$v
+  *$[a=v](o "<" o (assoc-tag$t u {t} | {fst a})$atag
+          rulename$id *(u rulename$x {x})$ids
+          {atag, ((atag, (id::ids))::(snd a))})$levels
+  o "." o
+  { Array.of_list (List.rev (snd levels)) }
+.
+
+rule
+  = rulename$n typestuff$y o defined-as o elements$r [o "."] *WSP c-nl
+    {(n, r, y)}
+  .
+
+prologue =
+  *("@begin" o "{" inside-text$x "}" o {Text_directive (Ocaml x)}
+   |"@ocaml" o "{" inside-text$x "}" o {Text_directive (Ocaml x)}
+   | prec-declaration$d                {Disamb_directive d}
+   |"@ocamllex" o "{" inside-text$x "}" o {Text_directive (Ocamllex x)}
+   |"@dypgenlex" o "{" inside-text$x "}" o {Text_directive (Dypgenlex x)})
+.
+
+epilogue =
+  *("@end" o "{" inside-text$x "}" o {Ocaml x}
+   |"@ocaml" o "{" inside-text$x "}" o {Ocaml x}
+   |"@ocamllex" o "{" inside-text$x "}" o {Ocamllex x}).
+
+not-line-end = ((CHAR - LF) - CR) .
+shebang-line = "#!" *not-line-end !not-line-end.
+
+directive =
+  "@implicit-parameters(" inside-text$x ")(" inside-text$y ")" *WSP
+    { if x="" && y="" then implicit_parameters := None else implicit_parameters := Some(x,y)}
+| "@counter(" 1*DIGIT$x ")" *WSP
+    { Util.cnt := (int_of_string x)}.

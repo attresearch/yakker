@@ -1,0 +1,79 @@
+; derived from extract2.bnf
+@begin{
+(*******************************************************************************
+ * Copyright (c) 2010 AT&T.
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/legal/epl-v10.html
+ *
+ * Contributors:
+ *    Trevor Jim and Yitzhak Mandelbaum
+ *******************************************************************************)
+
+let outch = ref stdout
+}
+
+rfc = line *(rule$x { output_string !outch x; output_string !outch "\n";  } "" | line-end-line) .
+
+line = *not-line-end !not-line-end .
+not-line-end = ((CHAR - LF) - CR) .
+line-end-line = !rule (CR | LF) line .
+
+; comment not ending in line feed
+nlf-comment = ";" *(WSP|VCHAR).
+rule = rule-indent@n rulename o@(;n=n) defined-as o@(;n=n) elements@(;n=n) *sp-htab [nlf-comment]. ; assumes rule is not first line, need beginning-of-input to fix
+defined-as = "=" | "=/" .
+
+sp-htab = SP|HTAB.
+
+rule-indent>@(int) = (CR | LF) @pos@left *sp-htab !sp-htab @pos@right @{right - left}. ; not sure how to count HTAB in position
+indent@(;n:int) = c-nl @pos@left *sp-htab !sp-htab @pos@right @when(right - left > n).
+o = *sp-htab [ *(c-nl *sp-htab) indent ] !sp-htab. ; optional whitespace with indentation >= n
+c-nl = comment|LF|CR.
+comment = ";" *(WSP|VCHAR) (LF|CR).
+
+BACKSLASH = "\".
+string = DQUOTE *inside-string DQUOTE.
+inside-string
+ = BACKSLASH DQUOTE
+ | BACKSLASH BACKSLASH
+ | BACKSLASH ((OCTET - BACKSLASH) - DQUOTE)
+ | ((OCTET - BACKSLASH) - DQUOTE).
+
+rulename-body = ALPHA|DIGIT|"-"|":".
+rulename = ALPHA *rulename-body !rulename-body.
+
+elements = alternation .
+alternation = concatenation [o ("/" | "|") o alternation].
+concatenation = repetition *(o repetition).
+repetition = [repeat] element .
+repeat = DIGITS | [DIGITS] ("*"|"#") [DIGITS] .
+element = rulename | group  | option | char-val | num-val | prose-val .
+group = "(" o alternation o ")".
+option = "[" o alternation o "]".
+
+bitstring = 1*BIT !BIT.
+bin-val = "b" bitstring ( *("." bitstring) | "-" bitstring ).
+DIGITS = 1*DIGIT !DIGIT.
+dec-val = "d" DIGITS ( *("." DIGITS) | "-" DIGITS ).
+HEXDIG = DIGIT|"A"|"B"|"C"|"D"|"E"|"F"|"a"|"b"|"c"|"d"|"e"|"f". ; temporary to make things case insensitive
+HEXDIGS = 1*HEXDIG !HEXDIG.
+hex-val = "x" HEXDIGS ( *("." HEXDIGS) | "-" HEXDIGS ).
+num-val = "%" (bin-val | dec-val | hex-val).
+
+char-val
+  = DQUOTE *(%d32-33|%d35-126) DQUOTE
+  | "<" DQUOTE ">" .
+
+inside-prose = %d32-61|%d63-126.
+prose-val = "<" [(inside-prose - DQUOTE) *inside-prose] ">" .
+
+@end{
+let extract ch file =
+  begin
+    outch := ch;
+    ignore(parse_file file);
+    outch := stdout
+  end
+}

@@ -114,14 +114,11 @@ install:
 	fi;\
 	echo "requires = \"unix\"" > META;\
 	echo "description = \"The Yakker runtime library.\"" >> META;\
-	echo "version = \"1.0\"" >> META;\
+	echo "version = \"3.0\"" >> META;\
 	echo "archive(byte) = \"${ARCHIVE}\"" >> META;\
 	echo "archive(native) = \"${XARCHIVE}\"" >> META;\
 	ocamlfind install ${PACKAGE} META ${CMIS} ${ARCHIVE} $$extralib
-	@if test -f yakkeropt; then\
-	  extraapp=yakkeropt;\
-	fi;\
-	godi_install yakker $$extraapp ${PREFIX}/bin
+	godi_install yakker ${PREFIX}/bin
 
 uninstall:
 	ocamlfind remove yakker

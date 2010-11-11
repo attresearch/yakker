@@ -25,7 +25,7 @@ DOCDIR=$(TOPDIR)/doc
 # $(info CYCLONE_YAKKER = $(CYCLONE_YAKKER))
 
 BATTERIES_SOURCES = enum.ml enum.mli dynArray.ml pMap.ml pMap.mli return.ml return.mli pSet.ml pSet.mli bitSet.ml bitSet.mli
-YAKKER_SOURCES := logging.ml util.mli util.ml ykBuf.mli ykBuf.ml \
+YAKKER_SOURCES := logging.ml util.mli util.ml ykBuf.ml \
            wf_set.ml cs.ml pam_internal.mli pam_internal.ml pamJIT.mli pamJIT.ml \
 	   yakker.mli yakker.ml history.mli history.ml \
            allp.ml pami.ml viz.ml engine.ml
@@ -175,6 +175,9 @@ rfcs.ml: $(SRCDIR)/rfcs stringify
 buildinfo.ml:
 	@echo "x--> " $@
 	@echo "let build_dir = \"$(CURDIR)\"" > $@
+
+DEPEND.pdf: $(SOURCES) $(FRONT_END_SOURCES)
+	ocamldep -I $(TOPDIR)/src -I $(TOPDIR)/batteries $^ | ocamldot | dot -Tpdf > $@
 
 # Qian's debugging stuff
 yakker-pcomb-parser.opt: tgraph.cmx bnf.cmx yakker.cmxa

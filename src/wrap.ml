@@ -169,7 +169,11 @@ let wrap gr =
               | Some project ->
                   let x = fresh() in
                   let act = Printf.sprintf "%s(%s)" project x in
-                  r.r <- (mkSEQ2(dupRule r,Some x,None,mkACTION act)).r;
+                  if PSet.mem n gr.late_producers then
+                    let latev = fresh() in
+                    r.r <- (mkSEQ2(dupRule r,Some x,Some latev,mkACTION2(Some act,Some latev))).r;
+                  else
+                    r.r <- (mkSEQ2(dupRule r,Some x,None,mkACTION act)).r;
                   a.early_rettype <- Some(sv_type))
        | _ -> ())
     gr.ds;

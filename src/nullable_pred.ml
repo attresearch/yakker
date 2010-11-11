@@ -14,7 +14,7 @@ let nullable_pred_prefix = "nullable_"
 
 let mk_var c = Printf.sprintf "_x%d_" c
 let mk_pvar c = Printf.sprintf "_p%d_" c
-let mk_npname n = Util.bnf2ocaml (nullable_pred_prefix ^ n)
+let mk_npname n = Variables.bnf2ocaml (nullable_pred_prefix ^ n)
 
 let callc symb_pred action binder =
   (* The generated code binds expression to avoid capture. There are

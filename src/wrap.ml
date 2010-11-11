@@ -16,7 +16,7 @@
  *)
 open Gul
 open Attr
-open Util
+open Variables
 
 let sv_type = "_yk_t"
 let sv_unit = "Yk"^(fresh())

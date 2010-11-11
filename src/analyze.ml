@@ -692,12 +692,12 @@ let unroll_analyze gr =
     let rec unroll n r1 fresh =
       if fresh then
         if n == 1 then
-          let x = Util.fresh() in
+          let x = Variables.fresh() in
           (mkSEQ2(r1, None, None, mkACTION2(None, Some x)), Some x, true)
         else
           let (scd, name, mklistflag) = unroll (n-1) r1 fresh in
           let name  = valOf name in
-          let x,y = Util.fresh(),Util.fresh() in
+          let x,y = Variables.fresh(),Variables.fresh() in
           if mklistflag then
             (mkSEQ2(mkSEQ2(mkSEQ2(r1, None, Some x, scd), None, None,
                            mkACTION2(None, Some ("List.append ["^x^"] ["^name^"]"))),
@@ -767,7 +767,7 @@ let unroll_analyze gr =
               (* note that 2"a" shouldn't be unrolled to "a" "a" 0"a", in which case m=n *)
               begin
                 if late_producer then
-                  let x,y = Util.fresh(),Util.fresh() in
+                  let x,y = Variables.fresh(),Variables.fresh() in
                   let (rhs, name, mklistflag) = unroll m r1 true in
                   let name = valOf(name) in
                   if mklistflag then
@@ -794,7 +794,7 @@ let unroll_analyze gr =
             if 0<m && m <= unroll_n then
               begin
                 if late_producer then
-                  let x,y = Util.fresh(),Util.fresh() in
+                  let x,y = Variables.fresh(),Variables.fresh() in
                   let (rhs, name, mklistflag) = unroll m r1 true in
                   let name = valOf(name) in
                   if mklistflag then

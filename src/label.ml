@@ -12,7 +12,7 @@
 (* The labeling transform *)
 
 open Gul
-open Util
+open Variables
 
 (* Label convention: 0 means unlabeled *)
 (* Assumes that the input grammar has been marked relevant,
@@ -52,13 +52,13 @@ let transform gr =
     | Opt r2 ->
         loop r2
     (* cases below should have been desugared *)
-    | Rcount _    -> impossible "Label.transform.loop.Rcount"
-    | Hash _      -> impossible "Label.transform.loop.Hash"
-    | Minus _     -> impossible "Label.transform.loop.Minus"
+    | Rcount _    -> Util.impossible "Label.transform.loop.Rcount"
+    | Hash _      -> Util.impossible "Label.transform.loop.Hash"
+    | Minus _     -> Util.impossible "Label.transform.loop.Minus"
     (* cases below should not be relevant *)
-    | Lit _       -> impossible "Label.transform.loop.Lit"
-    | CharRange _ -> impossible "Label.transform.loop.CharRange"
-    | Prose _     -> impossible "Label.transform.loop.Prose"
+    | Lit _       -> Util.impossible "Label.transform.loop.Lit"
+    | CharRange _ -> Util.impossible "Label.transform.loop.CharRange"
+    | Prose _     -> Util.impossible "Label.transform.loop.Prose"
   in
   List.iter
     (function RuleDef(n,r,a) -> loop r | _ -> ())

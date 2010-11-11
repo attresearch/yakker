@@ -104,7 +104,7 @@ rulelist
                                          | Disamb_directive d  -> Util.Right d) p in
       let pd = extract_pd ps in
       let ds = List.flatten xs in
-      mkGrammar ds PMap.empty 0 (List.rev ts) e pd}.
+      mkGrammar ds PMap.empty (List.rev ts) e pd}.
 
 BACKSLASH = "\".
 string = DQUOTE *inside-string DQUOTE.
@@ -354,4 +354,4 @@ shebang-line = "#!" *not-line-end !not-line-end.
 
 directive =
   "@counter(" 1*DIGIT$x ")" *WSP
-    { Util.cnt := (int_of_string x)}.
+    { Variables.counter := (int_of_string x)}.

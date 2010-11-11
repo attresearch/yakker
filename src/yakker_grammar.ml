@@ -142,7 +142,7 @@ _r_rulelist(_n,ykinput) = (ignore (*1000*) (_n());
                                          | Disamb_directive d  -> Util.Right d) p in
       let pd = extract_pd ps in
       let ds = List.flatten xs in
-      mkGrammar ds PMap.empty 0 (List.rev ts) e pd)
+      mkGrammar ds PMap.empty (List.rev ts) e pd)
  ))
  ))
  ))
@@ -1402,7 +1402,7 @@ _r_directive(_n,ykinput) = (ignore (*2662*) (_n());
  (let _x300 = (ignore (*2682*) (_n()); _n())
   in (ignore (*2683*) (_n()); 
  (let x = (ignore (*2684*) (_n()); Yakker.get_string _x301 _x300 ykinput)
-  in (ignore (*2687*) (_n());  Util.cnt := (int_of_string x))
+  in (ignore (*2687*) (_n());  Variables.counter := (int_of_string x))
  ))
  ))
  ))

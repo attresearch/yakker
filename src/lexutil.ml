@@ -54,20 +54,20 @@ let run_ocamllex gr =
   gr.epilogue <- replace gr.epilogue
 
 let mk_lexer tokenizer token_type decls =
-  let tok = Util.fresh() in
+  let tok = Variables.fresh() in
   let tok_def =
     let rettype = Some token_type in
     let a = mkAttr() in
     a.Attr.early_rettype <- rettype;
     RuleDef(tok,mkBOX(tokenizer,rettype,Runbox_null),a) in
-  let x = Util.fresh() in
-  let y = Util.fresh() in
+  let x = Variables.fresh() in
+  let y = Variables.fresh() in
   let lit_envs,decls =
     List.split
       (List.map
          (function
            | TokenLit(ocaml_constructor,carried_type,lit) ->
-               let nonterminal = Util.fresh() in
+               let nonterminal = Variables.fresh() in
                ( [(lit,nonterminal)],
                  TokenSymb(ocaml_constructor,carried_type,Some nonterminal) )
            | TokenSymb _ as td -> ([],td))

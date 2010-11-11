@@ -151,9 +151,6 @@ type grammar = {
     mutable late_producers: nonterminal PSet.t;
     mutable grammar_early_relevant: bool;
     mutable grammar_late_relevant: bool;
-    mutable vcount: int; (* TODO: unify with Util.cnt *)
-    (** A count of allocated variables. Used for generating fresh
-        variables. *)
 
     mutable prologue: text list; (* in reverse order *)
     mutable epilogue: text list;
@@ -168,8 +165,8 @@ type grammar = {
     mutable precs : (assoc * nonterminal list) array
   }
 
-let mkGrammar ds m vcount p e pd =
-  {ds=ds; m=m; vcount=vcount;
+let mkGrammar ds m p e pd =
+  {ds=ds; m=m;
    prologue=p;
    epilogue=e;
    early_producers=PSet.empty;
@@ -198,8 +195,7 @@ let add_to_epilogue gr s =
   gr.epilogue <- (Ocaml s)::gr.epilogue
 
 let fresh_nonterminal g : nonterminal =
-  g.vcount <- g.vcount + 1;
-  Printf.sprintf "_%d" g.vcount
+  Printf.sprintf "_%d" (Util.postincr Variables.counter)
 
 (* rhs constructors *)
 let mkRHS r          = {r = r; a = mkAnnot None}
@@ -419,7 +415,6 @@ let remove_late_actions gr =
 
   {gr with
      ds= List.map rla_def gr.ds;
-     vcount = 0;
      early_producers=PSet.empty;
      late_producers=PSet.empty;
      grammar_late_relevant = false;

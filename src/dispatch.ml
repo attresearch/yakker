@@ -12,7 +12,7 @@
 (* The dispatch transform *)
 
 open Gul
-open Util
+open Variables
 
 let add_early_late_prologue gr =
   let hproj = if gr.wrapped_history then "Ykd_int" else "" in
@@ -244,22 +244,22 @@ let transform gr =
     | Star(Bounds(0,Infinity),r1) -> Gil.Star(gul2gil r1)
     | Lookahead(b,r1)  -> Gil.Lookahead(b,d r1) (* CALL D <-- mutual recursion needed*)
           (* The cases below are relevant, gul2gil should not be called on relevant rhs *)
-    | Star _      -> impossible "Dispatch.gul2gil.Star"
-    | Delay _     -> impossible "Dispatch.gul2gil.Delay"
-    | Box _       -> impossible "Dispatch.gul2gil.Box"
-    | Seq _       -> impossible "Dispatch.gul2gil.Seq"
-    | Assign _    -> impossible "Dispatch.gul2gil.Assign"
-    | Action _    -> impossible "Dispatch.gul2gil.Action"
-    | When _      -> impossible "Dispatch.gul2gil.When"
-    | Symb(n,Some _,   _,     _) -> impossible (Printf.sprintf "Dispatch.gul2gil.Symb(%s) with early arguments" n)
-    | Symb(n,     _,_::_,     _) -> impossible (Printf.sprintf "Dispatch.gul2gil.Symb(%s) with attributes" n)
-    | Symb(n,     _,   _,Some _) -> impossible (Printf.sprintf "Dispatch.gul2gil.Symb(%s) with late arguments" n)
+    | Star _      -> Util.impossible "Dispatch.gul2gil.Star"
+    | Delay _     -> Util.impossible "Dispatch.gul2gil.Delay"
+    | Box _       -> Util.impossible "Dispatch.gul2gil.Box"
+    | Seq _       -> Util.impossible "Dispatch.gul2gil.Seq"
+    | Assign _    -> Util.impossible "Dispatch.gul2gil.Assign"
+    | Action _    -> Util.impossible "Dispatch.gul2gil.Action"
+    | When _      -> Util.impossible "Dispatch.gul2gil.When"
+    | Symb(n,Some _,   _,     _) -> Util.impossible (Printf.sprintf "Dispatch.gul2gil.Symb(%s) with early arguments" n)
+    | Symb(n,     _,_::_,     _) -> Util.impossible (Printf.sprintf "Dispatch.gul2gil.Symb(%s) with attributes" n)
+    | Symb(n,     _,   _,Some _) -> Util.impossible (Printf.sprintf "Dispatch.gul2gil.Symb(%s) with late arguments" n)
           (* The cases below should have been desugared *)
-    | Position _  -> impossible "Dispatch.gul2gil.Position"
-    | Hash _      -> impossible "Dispatch.gul2gil.Hash"
-    | Rcount _    -> impossible "Dispatch.gul2gil.Rcount"
-    | Minus _     -> impossible "Dispatch.gul2gil.Minus"
-    | Prose _     -> impossible "Dispatch.gul2gil.Prose"
+    | Position _  -> Util.impossible "Dispatch.gul2gil.Position"
+    | Hash _      -> Util.impossible "Dispatch.gul2gil.Hash"
+    | Rcount _    -> Util.impossible "Dispatch.gul2gil.Rcount"
+    | Minus _     -> Util.impossible "Dispatch.gul2gil.Minus"
+    | Prose _     -> Util.impossible "Dispatch.gul2gil.Prose"
   and d r =
     if not(r.a.early_relevant || r.a.late_relevant) then gul2gil r else
     let (pre,post) = (r.a.pre,r.a.post) in
@@ -271,7 +271,7 @@ let transform gr =
       | Action (_,Some _) ->
           Gil.Action(push(pre))
       | Action (None,None) ->
-          impossible "Dispatch.transform.d.Action(None,None)"
+          Util.impossible "Dispatch.transform.d.Action(None,None)"
       | Symb(n,early_arg_opt,_,_) -> (* TODO: attributes *)
           let f_arg = if early_arg_opt=None then None else Some(disp_arg(pre)) in
           (match r.a.early_relevant,r.a.late_relevant with
@@ -355,17 +355,17 @@ let transform gr =
                       Gil.Seq(Gil.Star(d r1),
                               Gil.Action(push(post))))
           | false,false ->
-              impossible "dispatch Star")
+              Util.impossible "dispatch Star")
       | Position _
       | CharRange(_,_)
       | Prose(_)
       | Lookahead _
       | Lit _  ->
-          impossible "dispatch"
+          Util.impossible "dispatch"
       | Rcount(_,_)
       | Hash(_,_)
       | Minus(_,_) ->
-          impossible "dispatch"
+          Util.impossible "dispatch"
   in
   gr.gildefs <-
     List.concat

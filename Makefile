@@ -74,7 +74,7 @@ ETESTS_ML = $(foreach test,$(ENGINE_TESTS),$(test).ml)
 TESTS = expr int255 intFW scott_example3 yxml2 imap t000 t001 t002 t003 t004 \
 	t006 t007 \
         extract2 blackbox recur_w_args staract eof empty \
-	starchar
+	starchar pexpr2
 TESTS_EXE := $(foreach test,$(TESTS),$(test)-parser)
 TESTS_OPT_EXE := $(foreach test,$(TESTS),$(test)-parser.opt)
 TESTS_PCOMB_EXE := $(foreach test,$(TESTS),$(test)-pcomb-parser)

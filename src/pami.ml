@@ -73,7 +73,13 @@ module Simple = struct
 	if verbose then Printf.eprintf "%s ok.\n%!" file
       with
 	  Parse_error (msg, pos, lnum, cnum) ->
-	    Printf.eprintf "File %S, line %d, characters %d-%d:\n%s\n%!" file lnum cnum cnum msg
+	    (* its really the token preceding the reported character/pos. 
+	       pos is 1-based and cnum is 0-based.
+	     *)
+(* 	    Printf.eprintf "File %S, line %d, characters %d-%d (pos: %d):\n%s\n%!"  *)
+(* 	      file lnum cnum cnum pos msg *)
+	    Printf.eprintf "File %S, line %d, characters %d-%d:\n%s\n%!" 
+	      file lnum cnum cnum msg
 	| e ->
 	    Printf.eprintf "File \"%s\" failed with exception %s\n%!" file
 	      (Printexc.to_string e);

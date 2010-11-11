@@ -316,25 +316,37 @@ module Stringset = Set.Make(struct type t = string let compare = String.compare 
 
 let filter_map f l = List.rev (List.fold_left (fun v x -> match f x with Some y -> y::v | None -> v) [] l)
 
+(* Map precedence levels to integers. 0 is reserved for "no precedence". *)
 let create_prec_table gr =
   let tbl = Hashtbl.create 51 in
   let ps = gr.precs in
   for p = 0 to Array.length ps - 1 do
-    List.iter (fun s -> Hashtbl.add tbl s p) (snd ps.(p));
+    List.iter (fun s -> Hashtbl.add tbl s (p+1)) (snd ps.(p));
   done;
   tbl
 
 exception Found_prec of int
 
-(** Find the precedence of the rule [r]. *)
-let get_prec ptbl r = 
-  let rec loop r = match r.r with
-    | Symb (x, _, _, _) -> 
-	(try 
-	  let p = Hashtbl.find ptbl x in
-	  raise (Found_prec p) 
-	with Not_found -> ())
+let invalid_prec_dir n = invalid_arg ("get_prec: precedence annotation \'" ^ n ^ "\' encountered, \
+                                     but not found in precedence table.")
 
+(** Find the precedence of the rule [r]. Default is precedence of
+    rightmost terminal. If the rightmost terminal has no precedence,
+    then 0 is returned. If there is no terminal and no
+    prec. annotation, then None is returned. *)
+let get_prec ptbl tokmap r = 
+  let rec loop r = 
+      match r.a.precedence with 
+	| Some n -> 
+	    let p = try Hashtbl.find ptbl n with Not_found -> invalid_prec_dir n in
+	    raise (Found_prec p)
+	| None -> loop0 r.r
+  and loop0 = function      
+    | Symb (x, _, _, _) -> 
+	if is_token tokmap x then
+	  let p = match Util.find_option ptbl x with None -> 0 | Some p -> p in
+	  raise (Found_prec p)
+	else ()
     | Assign _ 
     | Action _ 
     | Position _
@@ -342,7 +354,7 @@ let get_prec ptbl r =
     | Prose _ 
     | When _
     | Delay _ 
-    | Lit _ -> ()
+    | Lit _ 
 	
     | Rcount _
     | Star _
@@ -350,19 +362,13 @@ let get_prec ptbl r =
     | Alt _ | Lookahead _ 
     | Opt _
     | Minus _ (* TODO, we should desugar this *)
-    | CharRange _ -> 
-	Pr.pr_rule_channel stderr r; prerr_newline ();
-	invalid_arg ("get_prec does not handle choices.")
+    | CharRange _ -> () 
 
     | Seq(r1,_,_,r2) ->
 	loop r2; loop r1 in
-  match r.a.precedence with 
-    | Some n -> Some (try Hashtbl.find ptbl n with Not_found -> 
-			invalid_arg "get_prec: precedence annotation encountered, \
-                                     but terminal not found in precedence table.")
-    | None -> try loop r; None with Found_prec p -> Some p
+  try loop r; None with Found_prec p -> Some p
 
-type gpos = Right_of | Left_of | Dead_on
+type gpos = Right_of | Left_of
 
 let left_pos = "__yk__left"
 let right_pos = "__yk__right"
@@ -370,24 +376,26 @@ let right_pos = "__yk__right"
 let string_of_gpos = function
   | Right_of -> right_pos
   | Left_of -> left_pos
-  | Dead_on -> "itself"
 
-let iter_with_prec ptbl prec f r =
-  (* There's a loop invariant that position never equals
-     Dead_on. Dead_on is only passed to the function f. *)
-  let rec loop ((p, pos) as v) r = match r.r with
+let iter_with_prec f ptbl prec r =
+  let rec loop v r = 
+    match r.a.precedence with
+      | None -> loop0 v r
+      | Some x ->
+	  (* We update pos to Left_of, regardless of current pos
+	     because either way we're not to the left of a relevant
+	     terminal. *)
+	  let p = try Hashtbl.find ptbl x with Not_found -> invalid_prec_dir x in 
+	  loop0 (p, Left_of) r
+  and loop0 v r = match r.r with
     | Symb (x, _, _, _) ->
 	(* Check to see whether this is the rightmost terminal. 
 	   If it is, change pos. *)
-	(match pos with
-	   | Left_of -> f v r; v
-	   | Dead_on -> assert (false)
-	   | Right_of ->
-	       try 
-		 let p = Hashtbl.find ptbl x in 
-		 f (p, Dead_on) r;
-		 (p, Left_of)
-	       with Not_found -> f v r; v)
+	(try 
+	   let p = Hashtbl.find ptbl x in 
+	   let v2 = (p, Left_of) in
+	   f v2 r; v2
+	 with Not_found -> f v r; v)
     | Assign _
     | Action _
     | Position _
@@ -395,27 +403,69 @@ let iter_with_prec ptbl prec f r =
     | Prose _
     | When _
     | Delay _
-    | Lit _ -> f v r; v
-	
+    | Lit _
     | Rcount _
     | Star _
     | Hash _
     | Alt _ | Lookahead _
     | Opt _
     | Minus _ (* TODO, we should desugar this *)
-    | CharRange _ -> invalid_arg "iter_with_prec does not handle choices."
+    | CharRange _ ->  f v r; v
 
     | Seq(r1,_,_,r2) ->
 	let v2 = loop v r2 in
 	let v1 = loop v2 r1 in
 	f v r; v1 in
-  match r.a.precedence with
-    | None -> ignore (loop (prec, Right_of) r)
-    | Some _ -> ignore (loop (prec, Left_of) r)
+  ignore (loop (prec, Right_of) r)
+
+let prec_dependency_graph ptbl tokmap ds =
+  let rec get_depend g n r = match r.r with
+    (* Add dependencies for n to a graph given definition r *)
+  | Symb(x,_,_,_) ->
+      Tgraph.add_edge (Tgraph.add_node g x) n x
+  | Position _
+  | Prose _
+  | When _ | Action _ | Box _ | Delay _
+  | CharRange _
+  | Lit _ -> g
+  | Minus(r2,r3)
+  | Seq(r2,_,_,r3)
+  | Alt(r2,r3) ->
+      get_depend (get_depend g n r2) n r3
+  | Assign(r2,_,_)
+  | Opt(r2)
+  | Rcount(_,r2)
+  | Star(_,r2)
+  | Hash(_,r2)
+  | Lookahead(_,r2) ->
+      get_depend g n r2
+  in
+  List.fold_left
+    (fun g_result -> function
+        RuleDef(n,r, _)->
+	  let g = Tgraph.add_node g_result n in
+	  let rs = alt2rules r in
+	  List.fold_left (fun g r_b ->
+
+(* TODO: refine further so that a dependency is not drawn for calls when they are not to the left/right of relevant nonterminal. 
+get_depend should be like iter_with_prec. could generalize to fold_right_with_prec. not sure this is right, though. e.g 
+
+LPAREN expr STAR expr RPAREN. ?
+*)
+
+			    match get_prec ptbl tokmap r_b with
+			      | Some 0 -> g
+			      | None | Some _ -> get_depend g n r_b) g rs
+
+      | _ -> g_result)
+    Tgraph.empty
+    ds
 
 let build_prec_sets gr =
   let ptbl = create_prec_table gr in
-  let has_prec r = get_prec ptbl r <> None in
+  let has_prec r = match get_prec ptbl gr.tokmap r with 
+      None | Some 0 -> false 
+    | _ -> true in
   let is_primary = function 
     | RuleDef (n, r, _) -> 
 	let rules = alt2rules r in
@@ -423,7 +473,7 @@ let build_prec_sets gr =
     | _ -> None in	       
   let primary = List.fold_left (fun s x -> Stringset.add x s) 
     Stringset.empty (filter_map is_primary gr.ds) in
-  let g = dependency_graph gr.ds in
+  let g = prec_dependency_graph ptbl gr.tokmap gr.ds in
   let tc_g = Tgraph.tc g in
   let update n1 n2 (ic, cr) =
     ((if Stringset.mem n1 primary then Stringset.add n2 ic else ic),
@@ -490,19 +540,20 @@ let prec_rewrite gr =
      might not be able to take advantage of these analyses without duplicating the symbol.
   *) 
 
-  let instantiate_attrs (prec, pos) r = match r.r with
-    | Symb (n, e1, attrs, e2) -> 
-	if Stringset.mem n secondary then
-	  r.r <- Symb(n, e1, (prec_var, string_of_int prec)
-			::(pos_var, string_of_gpos pos)
-			:: attrs, e2)
-    | _ -> () in
+  let instantiate_attrs =
+    iter_with_prec (fun (prec, pos) r -> match r.r with
+		      | Symb (n, e1, attrs, e2) -> 
+			  if Stringset.mem n secondary then
+			    r.r <- Symb(n, e1, (prec_var, string_of_int prec)
+					  ::(pos_var, string_of_gpos pos)
+					  :: attrs, e2)
+		      | _ -> ()) in
 
   let instantiate_attrs_irrel =
-    iter_rule_postorder (fun r1 -> match r1.r with
+    iter_rule_postorder (fun r -> match r.r with
 			   | Symb (n, e1, attrs, e2) -> 
 			       if Stringset.mem n relevant then
-				 r1.r <- Symb(n, e1, (prec_var, "0")::(pos_var, left_pos)::attrs, e2)
+				 r.r <- Symb(n, e1, (prec_var, "0")::(pos_var, left_pos)::attrs, e2)
 			   | _ -> ()) in
 
   (** Rewrite a rule to include handle precedence. 
@@ -510,35 +561,56 @@ let prec_rewrite gr =
      Step 1: Add attribute declarations to nonterminals.
      Step 2: Instantiate attributes. 
      Step 3: Add guards to branches. 
+
+      Almost there: can still have a secondary nonterm where all branches are "capped" 
+      resulting in copyrule not add params, yet it is still given attributes by others.
+
+      TODO - assign attributes according to *MOST RECENT* rightmost
+      terminal. Seems like it should be insensitive to
+      factoring. Precedence of the rule itself remains that of the rightmost terminal.
+
   *)
-  let add_prec_attrs = function
+  let add_prec_attrs tokmap = function
     | RuleDef (n, r, a) ->
 	if Stringset.mem n primary then begin
 	  a.Attr.input_attributes <- (prec_var, prec_type)::(pos_var, pos_type)::a.Attr.input_attributes;
 
 	  let rs = alt2rules r in
-	  List.iter (fun r ->
-		       match get_prec ptbl r with
-			 | None -> instantiate_attrs_irrel r
+	  List.iter (fun r_b ->
+		       match get_prec ptbl tokmap r_b with
+			 | None -> () (* leave it to copyrule. *)
+			 | Some 0 -> instantiate_attrs_irrel r_b
 			 | Some p ->
-			     iter_with_prec ptbl p instantiate_attrs r;
+			     instantiate_attrs ptbl p r_b;
 			     let guard = mkWHEN (mk_pguard p) in
-			     r.r <- Seq(guard, None, None, mkRHS r.r)) rs
-	end else if not (Stringset.mem n relevant) then begin
+			     r_b.r <- Seq(guard, None, None, mkRHS r_b.r)) rs
+	end else if Stringset.mem n secondary then begin
+	  (* "Cap" attributes in 0-precedence branches of secondary nodes. *)
+	  let rs = alt2rules r in
+	  List.iter (fun r_b ->
+		       match get_prec ptbl tokmap r_b with
+			 | Some 0 -> instantiate_attrs_irrel r_b
+			 | Some _ -> 
+			     Util.impossible ("branch with non-zero precedence found in secondary symbol " ^ n)
+			 | None -> ()) rs
+	end else (* not relevant *) begin
 	  instantiate_attrs_irrel r
 	end;
 	(* Clear any precedence annotations, now that they've been processed. *)
 	iter_rule_postorder (fun r -> r.a.precedence <- None) r
     | LexerDef _ | LexerDecl _ -> () in
-  List.iter add_prec_attrs gr.ds;
+  List.iter (add_prec_attrs gr.tokmap) gr.ds;
 
-  (* Compute associativity predicates (as arrays l_a, n_a, r_a).  *)
+  (* Compute associativity predicates (as arrays l_a, n_a,
+     r_a). Element 0 is reserved for "everything else".  *)
   let n = Array.length gr.precs in
-  let l_a = Array.make n false in
-  let r_a = Array.make n false in
-  let n_a = Array.make n false in
-  for i = 0 to n - 1 do 
-    match gr.precs.(i) with 
+  let sz = n + 1 in
+  let l_a = Array.make sz false in
+  let r_a = Array.make sz false in
+  let n_a = Array.make sz false in
+  l_a.(0) <- true;
+  for i = 1 to n do 
+    match gr.precs.(i-1) with 
       | (Left_assoc, _) -> l_a.(i) <- true
       | (Right_assoc, _) -> r_a.(i) <- true
       | (Non_assoc, _) -> n_a.(i) <- true
@@ -551,9 +623,9 @@ let prec_rewrite gr =
   (* Print [left] and [right]. *)
   let string_of_bool_array name a =
     let b = Buffer.create 11 in
-    Printf.bprintf b "\nlet %s = [" name;
+    Printf.bprintf b "\nlet %s = [|" name;
     Array.iter (Printf.bprintf b "%B;") a;
-    Printf.bprintf b "]\n";
+    Printf.bprintf b "|]\n";
     Buffer.contents b in
 
   add_to_prologue gr (string_of_bool_array left_pos left); 
@@ -563,7 +635,27 @@ let prec_rewrite gr =
   gr.precs <- [||]
 
 
-  
+(******
+
+Simpler version:
+
+   1) infer left-right correctly
+   2) for middle, always supply precedence 0. this will guarantee not to prune things.
+
+Simple version of precedence transformation.
+
+       1) secondary = set of nonterminals called *directly* from primary
+       production.  
+
+       2) for every secondary, add attributes.
+
+       3) for every primary production, fill in attributes, where right is
+       for rightmost and left is for leftmost. this is a conservative
+       approach, because nullable nonterminals can hide left/right-ness.
+
+
+
+*)  
 
 
 (***************

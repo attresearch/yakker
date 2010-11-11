@@ -101,19 +101,17 @@ let _dret x p =
   (function
     | (Yk_more(_,t),h) ->
         (fun (r,_) ->
-          (match t x p with
+          match t x p with
           | Yk_bind(f) -> (f r,h)
-          | _ -> failwith \"_dret1\"))
+          | _ -> failwith \"_dret1\")
     | _ -> failwith \"_dret2\")
 let _dmerge x p =
   (function
     | (Yk_more(_,t),h1) ->
-        (function
-          | (Yk_done(r),h2) ->
-              (match t x p with
-              | Yk_bind(f) -> (f r,h1#merge(%s(x),p) h2)
-              | _ -> failwith \"_dmerge1\")
-          | _ -> failwith \"_dmerge2\")
+        (fun (r,h2) ->
+	  match t x p with
+	  | Yk_bind(f) -> (f r,h1#merge(%s(x),p) h2)
+	  | _ -> failwith \"_dmerge1\")
     | _ -> failwith \"_dmerge3\")
 let _d_and_push x p = function
     (Yk_more(_,t),h) -> (t x p,h#push(%s(x),p))

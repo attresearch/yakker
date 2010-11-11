@@ -53,8 +53,6 @@ let process_alt r_left = function
 
 let process_pdopt r x = r.a.precedence <- x; r
 
-let implicit_parameters = ref None
-
 let partition_map f l =
   let xs, ys =
     List.fold_left
@@ -274,8 +272,7 @@ typestuff =
     input_attributes =  (match x with None -> []   | Some(_,attributes) -> attributes);
     early_rettype =     (match y with None -> None | Some(typ,_) -> typ);
     output_attributes = (match y with None -> []   | Some(_,attributes) -> attributes);
-    late_params=z;
-    copy= !implicit_parameters;}}
+    late_params=z;}}
 .
 early-inputs =
   "@("  inside-text$t ")"        ;;; example: >@(a:int,b:bool;x:string;y:bool*int list)
@@ -356,7 +353,5 @@ not-line-end = ((CHAR - LF) - CR) .
 shebang-line = "#!" *not-line-end !not-line-end.
 
 directive =
-  "@implicit-parameters(" inside-text$x ")(" inside-text$y ")" *WSP
-    { if x="" && y="" then implicit_parameters := None else implicit_parameters := Some(x,y)}
-| "@counter(" 1*DIGIT$x ")" *WSP
+  "@counter(" 1*DIGIT$x ")" *WSP
     { Util.cnt := (int_of_string x)}.

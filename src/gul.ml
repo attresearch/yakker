@@ -106,7 +106,7 @@ module Attr = struct
             mutable late_params: string option;
             mutable input_attributes: (var * string) list;  (* attribute name x type *)
             mutable output_attributes: (var * string) list; (* attribute name x type *)
-            copy: (string * string) option}
+           }
 end
 
 let mkAttr() = {Attr.
@@ -114,7 +114,7 @@ let mkAttr() = {Attr.
                 late_params=None;
                 input_attributes=[];
                 output_attributes=[];
-                copy=None}
+               }
 
 type text =
   Ocaml of string

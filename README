@@ -1,1 +1,6 @@
 Yakker is a tool for parsing.
+
+PREREQUISITES
+
+You'll need to install ocaml (http://caml.inria.fr/) and openfst
+(http://openfst.org/) before you can use yakker.

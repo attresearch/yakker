@@ -282,9 +282,6 @@ let process_ds gr =
 
   if doit Wrap_cmd then
     do_phase "wrapping" (fun () ->
-      Attributes.eliminate gr;
-      Analyze.producers gr;
-      Analyze.relevance gr;
       if gr.grammar_early_relevant then begin
         Wrap.wrap gr; Analyze.relevance gr;
         Wrap.force_alt_relevance gr; Analyze.relevance gr

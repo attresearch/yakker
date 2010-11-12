@@ -105,7 +105,8 @@ let wrap gr =
     gr.ds;
   (* At every call wrap the arguments and unwrap the results*)
   let rec loop r = match r.r with
-  | Symb(n,eopt,_,lopt) -> (* TODO: attributes *)
+  | Symb(n,eopt,attrs,lopt) ->
+      if attrs<>[] then Printf.eprintf "Warning: %s with attributes in Wrap\n%!" n;
       let args =
         match eopt with None ->
           begin
@@ -124,7 +125,11 @@ let wrap gr =
           let act =
             Printf.sprintf "(match %s with %s(y) -> y | _ -> failwith \"projection\")"
               x project in
-          r.r <- (mkSEQ2(dupRule r,Some x,None,mkACTION act)).r)
+          if PSet.mem n gr.late_producers then
+            let latev = fresh() in
+            r.r <- (mkSEQ2(dupRule r,Some x,Some latev,mkACTION2(Some act,Some latev))).r;
+          else
+            r.r <- (mkSEQ2(dupRule r,Some x,None,mkACTION act)).r)
   | Position _ | Lit(_,_) | CharRange(_,_) | Prose _
   | Action _ | When _ | Box _ | Delay _ -> ()
   | Seq(r2,_,_,r3) | Alt(r2,r3) | Minus(r2,r3) -> loop r2; loop r3
@@ -229,7 +234,7 @@ let transform_history gr =
       (fun t ->
         if t<>"int" then begin
           let x = "Ykd"^(fresh()) in
-          Printf.bprintf b "| %s of %s\n" x t;
+          Printf.bprintf b "| %s of (%s)\n" x t;    (* NB parens force a reference if t is a tuple type *)
           Hashtbl.add tbl_type_constructor t x
         end)
       !types;

@@ -368,16 +368,62 @@ let get_prec ptbl tokmap r =
 	loop r2; loop r1 in
   try loop r; None with Found_prec p -> Some p
 
-type gpos = Right_of | Left_of
+type gpos = Left_of | Right_of | Middle_of
 
 let left_pos = "__yk__left"
+let middle_pos = "__yk__middle"
 let right_pos = "__yk__right"
 
 let string_of_gpos = function
   | Right_of -> right_pos
+  | Middle_of -> middle_pos
   | Left_of -> left_pos
 
-let iter_with_prec f ptbl prec r =
+(* We are assuming an ocamlyacc grammar as input. We are iterating
+   over productions. The top-level form of each production must be an
+   action or a sequence, because an action is included.
+
+   First, check for the case of a lone action.
+
+   Second, check for case of a sequence of single rule and
+   action. Since we're importing from ocamlyacc, that single rule must
+   be a symbol.
+
+   If we don't match the singleton pattern, then we must have at least
+   two leaves in our rule.  However, we still have the action at the
+   end. So, we filter for that case in [loop].
+*)
+let iter_with_pos f r =
+  let rec loop pos r = match r.r with
+    | Symb (n, e1, attrs, e2) -> f (Some pos) r n e1 attrs e2; Middle_of
+
+    | Box _ | Lit _ | Rcount _ | Star _ | Hash _
+    | Alt _ | Minus _ | CharRange _ | Opt _ -> Middle_of 
+
+    | Assign _ | Action _ | Position _ | Prose _
+    | When _ | Delay _ | Lookahead _ -> pos
+
+    | Seq(r1,_,_,r2) ->	
+	match pos with
+	  | Left_of | Middle_of -> 
+	      ignore (loop pos r1);
+	      loop Middle_of r2
+	  | Right_of ->
+	      let p = loop pos r2 in
+	      loop p r1 in
+  match r.r with
+    | Action _ -> ()
+    | Seq ({r = Symb (n, e1, attrs, e2)}, _, _, {r=Action _}) -> f None r n e1 attrs e2
+    | Seq (_, _, _, {r=Action _}) -> ()
+    | Seq(r1, _, _, r2) ->
+	ignore (loop Left_of r1);
+	ignore (loop Right_of r2)
+    | _ -> invalid_arg "Expected rule adhering to ocamlyacc format."
+
+
+(** A "smarter" version of iter_with_pos, where position and precedence is inferred
+    from contents of rule. However, I don't know that this is sound. *)
+let iter_with_prec_smart f ptbl prec r =
   let rec loop v r = 
     match r.a.precedence with
       | None -> loop0 v r
@@ -540,20 +586,39 @@ let prec_rewrite gr =
      might not be able to take advantage of these analyses without duplicating the symbol.
   *) 
 
-  let instantiate_attrs =
-    iter_with_prec (fun (prec, pos) r -> match r.r with
-		      | Symb (n, e1, attrs, e2) -> 
-			  if Stringset.mem n secondary then
-			    r.r <- Symb(n, e1, (prec_var, string_of_int prec)
-					  ::(pos_var, string_of_gpos pos)
-					  :: attrs, e2)
-		      | _ -> ()) in
+  let compare_pos p = Printf.sprintf "(if %s == %s then %s else %s)" pos_var p p middle_pos in
+
+  let instantiate_attrs prec =
+    iter_with_pos (fun pos_opt r n e1 attrs e2 -> 
+		     if Stringset.mem n secondary then
+		       let cprec, pos = match pos_opt with
+			 | Some Middle_of -> 0, Middle_of
+			 | Some p -> prec, p 
+			 | None -> prec, Middle_of in
+		       r.r <- Symb(n, e1, (prec_var, string_of_int cprec)
+				     ::(pos_var, string_of_gpos pos)
+				     :: attrs, e2)) in
+
+  (** instantiate attributes for the case when the branch has no precedence. *)
+  let instantiate_attrs_copy =
+    iter_with_pos (fun pos_opt r n e1 attrs e2 -> 
+		     if Stringset.mem n secondary then
+		       match pos_opt with None -> () (* leave it to copy rule. *)
+			 | Some pos ->
+			     let cprec = match pos with Middle_of -> "0" | _ -> prec_var in
+			     let cpos = match pos with
+			       | Left_of -> compare_pos left_pos
+			       | Middle_of -> middle_pos
+			       | Right_of -> compare_pos right_pos in
+			     r.r <- Symb(n, e1, (prec_var, cprec)
+					   ::(pos_var, cpos)
+					   :: attrs, e2)) in
 
   let instantiate_attrs_irrel =
     iter_rule_postorder (fun r -> match r.r with
 			   | Symb (n, e1, attrs, e2) -> 
 			       if Stringset.mem n relevant then
-				 r.r <- Symb(n, e1, (prec_var, "0")::(pos_var, left_pos)::attrs, e2)
+				 r.r <- Symb(n, e1, (prec_var, "0")::(pos_var, middle_pos)::attrs, e2)
 			   | _ -> ()) in
 
   (** Rewrite a rule to include handle precedence. 
@@ -572,27 +637,18 @@ let prec_rewrite gr =
   *)
   let add_prec_attrs tokmap = function
     | RuleDef (n, r, a) ->
-	if Stringset.mem n primary then begin
+	if Stringset.mem n relevant then begin
 	  a.Attr.input_attributes <- (prec_var, prec_type)::(pos_var, pos_type)::a.Attr.input_attributes;
-
+	  	  
 	  let rs = alt2rules r in
 	  List.iter (fun r_b ->
 		       match get_prec ptbl tokmap r_b with
-			 | None -> () (* leave it to copyrule. *)
+			 | None -> instantiate_attrs_copy r_b
 			 | Some 0 -> instantiate_attrs_irrel r_b
 			 | Some p ->
-			     instantiate_attrs ptbl p r_b;
+			     instantiate_attrs p r_b;
 			     let guard = mkWHEN (mk_pguard p) in
 			     r_b.r <- Seq(guard, None, None, mkRHS r_b.r)) rs
-	end else if Stringset.mem n secondary then begin
-	  (* "Cap" attributes in 0-precedence branches of secondary nodes. *)
-	  let rs = alt2rules r in
-	  List.iter (fun r_b ->
-		       match get_prec ptbl tokmap r_b with
-			 | Some 0 -> instantiate_attrs_irrel r_b
-			 | Some _ -> 
-			     Util.impossible ("branch with non-zero precedence found in secondary symbol " ^ n)
-			 | None -> ()) rs
 	end else (* not relevant *) begin
 	  instantiate_attrs_irrel r
 	end;
@@ -619,6 +675,7 @@ let prec_rewrite gr =
   (* Generate [left] and [right] from l_a, n_a and r_a. *)
   let left = mk_assoc_array r_a n_a in
   let right = mk_assoc_array l_a n_a in
+  let middle = Array.make sz true in
 
   (* Print [left] and [right]. *)
   let string_of_bool_array name a =
@@ -629,6 +686,7 @@ let prec_rewrite gr =
     Buffer.contents b in
 
   add_to_prologue gr (string_of_bool_array left_pos left); 
+  add_to_prologue gr (string_of_bool_array middle_pos middle);
   add_to_prologue gr (string_of_bool_array right_pos right);
 
   (* Clear the precedence attributes, now that they've been folded in. *)
@@ -641,6 +699,7 @@ Simpler version:
 
    1) infer left-right correctly
    2) for middle, always supply precedence 0. this will guarantee not to prune things.
+   3) leave chain rules to copyrule?
 
 Simple version of precedence transformation.
 

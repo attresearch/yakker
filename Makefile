@@ -16,13 +16,11 @@ endif
 endif
 
 VPATH=$(TOPDIR)/src:$(TOPDIR)/batteries:$(TOPDIR)
-CYCLONE_YAKKER=$(TOPDIR)/../yakker
 
 SRCDIR=$(TOPDIR)/src
 DOCDIR=$(TOPDIR)/doc
 
 # $(info VPATH = $(VPATH))
-# $(info CYCLONE_YAKKER = $(CYCLONE_YAKKER))
 
 BATTERIES_SOURCES = enum.ml enum.mli dynArray.ml pMap.ml pMap.mli return.ml return.mli pSet.ml pSet.mli bitSet.ml bitSet.mli
 YAKKER_SOURCES := logging.ml util.mli util.ml ykBuf.ml \
@@ -601,23 +599,6 @@ aurochs-tx: yakker.cma tgraph.cmo bnf.cmo cs.cmo pr.cmo aurochs.cmo aurochs_tx.c
 aurochs_tx.cmo : examples/aurochs/aurochs_tx.ml aurochs.cmo
 	@echo "-x-> " $@
 	@$(OCAMLC) $(OCAML_FLAGS) -g -c $< -o $@
-
-# Aurochs2 is the yakker aurochs grammar generated from the PEG aurochs grammar. We use it
-# as a way to test the aurochs grammar.
-aurochs2-parser: tgraph.cmx bnf.cmx cs.cmx pr.cmx yakker.cmxa aurochs2.cmx aurochs2_parser.cmx
-	$(OCAMLOPT) $^ -o $@
-
-examples/aurochs/aurochs2.bnf : examples/aurochs/inputs/grammar.peg aurochs-tx
-	./aurochs-tx $< > $@
-	echo "CHAR8 = %d0-255." >> $@
-	echo "EOF = \"\" !CHAR8." >> $@
-
-aurochs2.ml: examples/aurochs/aurochs2.bnf
-	$(CYCLONE_YAKKER) -p-bison -earley-gen-grm-pam -case-sensitive \
-        -flatten-full -backend ocaml -o $@ $<
-
-aurochs2_parser.ml: examples/aurochs/aurochs2_parser.ml
-	cp $< $@
 
 .PHONY: aurochs-depend
 aurochs-depend: aurochs.ml aurochs_tx.ml

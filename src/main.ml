@@ -121,7 +121,7 @@ let add_boilerplate2 backend gr =
       let _o = (new History.postfix h) in
       let _n() = (let (x,_) = _o#next() in x) in
       _r_%s(_n,ykinput)
-    )" (Util.bnf2ocaml gr.start_symbol)
+    )" (Variables.bnf2ocaml gr.start_symbol)
     | (false,true) ->
         Printf.sprintf "
     (fun ykinput h ->
@@ -129,7 +129,7 @@ let add_boilerplate2 backend gr =
       let _n() = (let (x,_) = _o#next() in x) in
       _r_%s(_n,ykinput)
     )
-" (Util.bnf2ocaml gr.start_symbol)
+" (Variables.bnf2ocaml gr.start_symbol)
     | _ -> "(fun ykinput x -> ())" in
   let boilerplate =
     (match backend with
@@ -282,9 +282,6 @@ let process_ds gr =
 
   if doit Wrap_cmd then
     do_phase "wrapping" (fun () ->
-      Attributes.eliminate gr;
-      Analyze.producers gr;
-      Analyze.relevance gr;
       if gr.grammar_early_relevant then begin
         Wrap.wrap gr; Analyze.relevance gr;
         Wrap.force_alt_relevance gr; Analyze.relevance gr

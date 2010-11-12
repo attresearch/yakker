@@ -17,10 +17,10 @@ let use_arrays = ref true
 
 let bprintf = Printf.bprintf
 
-let symb_fun_name x = Util.bnf2ocaml ("s_" ^ x)
-let symb_ref_name x = Util.bnf2ocaml ("s_" ^ x ^ "_ref")
+let symb_fun_name x = Variables.bnf2ocaml ("s_" ^ x)
+let symb_ref_name x = Variables.bnf2ocaml ("s_" ^ x ^ "_ref")
 
-let lookahead_name = Util.fresh ()
+let lookahead_name = Variables.fresh ()
 
 exception Myexcept of string
 
@@ -276,7 +276,7 @@ let pr_gil_lex f use_refs r0 first_map follow_map n tokmap =
                 if flag then begin
                   let (tokenizer,ntl) = List.nth fsts 0 in
                   let tokendefs = try List.assoc tokenizer tokmap with Not_found -> (Printf.eprintf "Warning: Unable to find %s" tokenizer;[]) in
-                  let fn = Util.fresh () in
+                  let fn = Variables.fresh () in
                     bprintf f "\n(let rec star_w_lookahead_lex_%s %s " fn (star_w_lookahead_lex_str ntl tokendefs fn);
                     bprintf f "(star_w_lookahead_lex_%s %s " fn tokenizer;
 	                loop r2 cur_fls;
@@ -375,7 +375,7 @@ let pr_gil_lex f use_refs r0 first_map follow_map n tokmap =
                 let is,flag = fssdstct fsl in
                   if is then
                     if flag then begin
-                      let fn = Util.fresh () in
+                      let fn = Variables.fresh () in
                       let (tokenizer, _) = List.nth (let cs,ts = List.nth fsl 0 in ts) 0 in
                       let tokendefs = try List.assoc tokenizer tokmap with Not_found -> (Printf.eprintf "Warning: Unable to find %s" tokenizer; []) in
                       let ntll = List.map (fun (cs,ntli) -> let (tknz,ntl) = List.nth ntli 0 in ntl) fsl in
@@ -390,7 +390,7 @@ let pr_gil_lex f use_refs r0 first_map follow_map n tokmap =
                     end
                     else begin
 (*
-                      let fn = Util.fresh () in
+                      let fn = Variables.fresh () in
                         bprintf f "\n(let nalt_w_lookahead_%s " fn;
                         nalt_w_lookahead_str0 fsl f;
                         bprintf f "(nalt_w_lookahead_%s [|" fn;
@@ -403,7 +403,7 @@ let pr_gil_lex f use_refs r0 first_map follow_map n tokmap =
 (* The following code uses n if-then-else statements while the above uses a single ocaml match statement *)
                       let fs2code (fscs,fsts) =
                         let fsstr = Cs.to_code fscs in
-                        let fsname = Util.fresh() in
+                        let fsname = Variables.fresh() in
                           bprintf f "(let %s = (%s) in " fsname fsstr;
                           fsname
                       in
@@ -431,7 +431,7 @@ let pr_gil_lex f use_refs r0 first_map follow_map n tokmap =
                         (i+1), List.fold_left doone list ntl
                     in
                     let (_,bktable) = List.fold_left union_ntl (0,[]) fsl in
-                    let fn = Util.fresh () in
+                    let fn = Variables.fresh () in
                     let (tokenizer, _) = List.nth (let cs,ts = List.nth fsl 0 in ts) 0 in
                     let tokendefs = try List.assoc tokenizer tokmap with Not_found -> (Printf.eprintf "Warning: Unable to find %s" tokenizer; []) in
                       bprintf f "\n(let nalt_w_lookahead_lex_bkt_%s " fn;
@@ -473,7 +473,7 @@ let pr_gil_lex f use_refs r0 first_map follow_map n tokmap =
                     in
                     let (cs0,ts0) = List.hd fsl in
                     let _,cstable,_ = List.fold_left construct_cslist (1,[((Cs.dup cs0),[0])],fsl) (List.tl fsl) in
-                    let fn = Util.fresh () in
+                    let fn = Variables.fresh () in
                       bprintf f "\n(let nalt_w_lookahead_bkt_%s " fn;
                       nalt_w_lookahead_bkt_str cstable f;
                       bprintf f "(nalt_w_lookahead_bkt_%s [|" fn;
@@ -517,7 +517,7 @@ let pr_gil_lex f use_refs r0 first_map follow_map n tokmap =
             bprintf f ")"
           in
           let alt_wlookahead fsstr2 fsstr3 =
-            let fsname2,fsname3 = Util.fresh(), Util.fresh() in
+            let fsname2,fsname3 = Variables.fresh(), Variables.fresh() in
               bprintf f "(let %s = (%s) in " fsname2 fsstr2;
               bprintf f "let %s = (%s) in " fsname3 fsstr3;
               bprintf f "(alt_w_lookahead %s %s " fsname2 fsname3;
@@ -527,7 +527,7 @@ let pr_gil_lex f use_refs r0 first_map follow_map n tokmap =
               bprintf f "))"
           in
           let alt_wlookahead_lex ntl2 ntl3 tokendefs tokenizer =
-            let fn = Util.fresh () in
+            let fn = Variables.fresh () in
               bprintf f "\n(let alt_w_lookahead_lex_%s %s" fn (alt_w_lookahead_lex_str ntl2 ntl3 tokendefs);
               bprintf f "(alt_w_lookahead_lex_%s %s " fn tokenizer;
 	          loop r2 cur_fls;
@@ -549,7 +549,7 @@ let pr_gil_lex f use_refs r0 first_map follow_map n tokmap =
                           if flag then begin
                             let (tokenizer,ntl2) = List.nth fs2ts 0 in
                             let (tokenizer,ntl3) = List.nth fs3ts 0 in
-                            let fn = Util.fresh () in
+                            let fn = Variables.fresh () in
                             let tokendefs = try List.assoc tokenizer tokmap with Not_found -> (Printf.eprintf "Warning: Unable to find %s" tokenizer; []) in
                               bprintf f "\n(let alt_w_lookahead_lex_%s %s" fn (alt_w_lookahead_lex_str0 ntl2 ntl3 tokendefs);
                               bprintf f "(alt_w_lookahead_lex_%s %s " fn tokenizer;
@@ -560,7 +560,7 @@ let pr_gil_lex f use_refs r0 first_map follow_map n tokmap =
                           end
                           else begin
                             let fsstr2,fsstr3 = Cs.to_code fs2cs,Cs.to_code fs3cs in
-                            let fsname2,fsname3 = Util.fresh(), Util.fresh() in
+                            let fsname2,fsname3 = Variables.fresh(), Variables.fresh() in
                               bprintf f "(let %s = (%s) in " fsname2 fsstr2;
                               bprintf f "let %s = (%s) in " fsname3 fsstr3;
                               bprintf f "(alt_w_lookahead0 %s %s " fsname2 fsname3;
@@ -583,7 +583,7 @@ let pr_gil_lex f use_refs r0 first_map follow_map n tokmap =
                             if flag then begin
                                 let (tokenizer,ntl3) = List.nth fs3ts 0 in
                                 let tokendefs = try List.assoc tokenizer tokmap with Not_found -> (Printf.eprintf "Warning: Unable to find %s" tokenizer; []) in
-                                let fsname3 = Util.fresh () in
+                                let fsname3 = Variables.fresh () in
                                   bprintf f "\n(let alt_w_lookahead_lex2_%s %s" fsname3 (alt_w_lookahead_lex_str2 ntl3 tokendefs);
                                   bprintf f "(alt_w_lookahead_lex2_%s %s " fsname3 tokenizer;
 	                              loop r3 cur_fls;
@@ -593,7 +593,7 @@ let pr_gil_lex f use_refs r0 first_map follow_map n tokmap =
                             end
                             else begin
                                 let fsstr3 = Cs.to_code fs3cs in
-                                let fsname3 = Util.fresh () in
+                                let fsname3 = Variables.fresh () in
                                   bprintf f "(let %s = (%s) in " fsname3 fsstr3;
                                   bprintf f "(alt_w_lookahead2 %s " fsname3;
                                   loop r3 cur_fls;
@@ -617,7 +617,7 @@ let pr_gil_lex f use_refs r0 first_map follow_map n tokmap =
                             if flag then begin
                                 let (tokenizer,ntl2) = List.nth fs2ts 0 in
                                 let tokendefs = try List.assoc tokenizer tokmap with Not_found -> (Printf.eprintf "Warning: Unable to find %s" tokenizer; []) in
-                                let fsname2 = Util.fresh () in
+                                let fsname2 = Variables.fresh () in
                                   bprintf f "\n(let alt_w_lookahead_lex3_%s %s" fsname2 (alt_w_lookahead_lex_str2 ntl2 tokendefs);
                                   bprintf f "(alt_w_lookahead_lex3_%s %s " fsname2 tokenizer;
 	                              loop r2 cur_fls;
@@ -627,7 +627,7 @@ let pr_gil_lex f use_refs r0 first_map follow_map n tokmap =
                             end
                             else begin
                                 let fsstr2 = Cs.to_code fs2cs in
-                                let fsname2 = Util.fresh () in
+                                let fsname2 = Variables.fresh () in
                                   bprintf f "(let %s = (%s) in " fsname2 fsstr2;
                                   bprintf f "(alt_w_lookahead2 %s " fsname2;
                                   loop r2 cur_fls;

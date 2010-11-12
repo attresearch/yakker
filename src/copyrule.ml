@@ -38,6 +38,19 @@ Here we have modified the LHS of B to add the missing needed
 attribute, i, and we have modified the RHS of B to add the missing
 needed attribute i to the inputs of the occurrence of A.
 
+We also add missing input-output attributes.  We say an attribute is
+an input-output attribute if it is explicitly declared as an input and
+output attribute by a single nonterminal, at the same type.
+
+If by the input attribute copyrule analysis above we add an input
+attribute to a nonterminal, and that attribute is also an input-output
+attribute, we ensure that the attribute is also declared as an output
+attribute of the nonterminal.
+
+Our analysis throughout compares types by string value for now.  This
+is error prone, but it is much easier to implement than a complete
+ocaml type analysis.
+
 *)
 
 open Gul
@@ -50,15 +63,26 @@ let list_of_set set = PSet.fold (fun x l -> x::l) set []
 let set_of_list l = List.fold_right PSet.add l PSet.empty
 let sort = List.sort (fun (x,_) (y,_) -> compare x y)
 
-(* Try 3 *)
 let mk_needs gr =
-  let attributes_and_types =
+  let input_attributes_and_types =
     list_of_set       (* remove duplicates *)
       (set_of_list
          (List.concat (* all attributes and types in a list with duplicates *)
             (List.map
                (function
                    RuleDef(_,_,a) -> a.input_attributes
+                 | _ -> [])
+               gr.ds))) in
+  let input_output_attributes_and_types =
+    list_of_set       (* remove duplicates *)
+      (set_of_list
+         (List.concat (* all attributes and types in a list with duplicates *)
+            (List.map
+               (function
+                   RuleDef(_,_,a) ->
+                     List.filter
+                       (fun x -> List.exists (fun y -> x=y) a.input_attributes)
+                       a.output_attributes
                  | _ -> [])
                gr.ds))) in
   let all_nonterminals =
@@ -69,13 +93,13 @@ let mk_needs gr =
            | _ -> [])
          gr.ds) in
   let all_attributes = (* actually, all input attributes *)
-    set_of_list(List.map fst attributes_and_types) in
-  (if List.length attributes_and_types > PSet.cardinal all_attributes then
+    set_of_list(List.map fst input_attributes_and_types) in
+  (if List.length input_attributes_and_types > PSet.cardinal all_attributes then
     Printf.eprintf "Warning: Copyrule says that some attribute has multiple types\n%!");
 
   (* build a graph, if a (nonterminal,attribute) reaches (attr_target,attribute)
-     then the attribute should be a parameter of the nonterminal *)
-  let attr_target = "**needs_parameters**" in
+     then the attribute should be an input of the nonterminal *)
+  let attr_target = "**needs_attribute**" in
   let rec get_depend (g:(string*string) Tgraph.graph) n r =
     match r.r with
     | Symb(x,_,input_attributes,_) ->
@@ -137,10 +161,16 @@ let mk_needs gr =
       (fun a -> PSet.mem (attr_target,a) (Tgraph.get_targets g3 (n,a)))
       all_attributes in
   let needs_attributes_and_types n =
-    sort(list_of_set
-           (PSet.map
-              (fun a -> (a,List.assoc a attributes_and_types))
-              (needs_attributes n))) in
+    let inputs_and_types =
+      sort(list_of_set
+             (PSet.map
+                (fun a -> (a,List.assoc a input_attributes_and_types))
+                (needs_attributes n))) in
+    let input_outputs_and_types =
+      List.filter
+        (fun x -> List.exists (fun y -> x=y) input_output_attributes_and_types)
+        inputs_and_types in
+    (inputs_and_types,input_outputs_and_types) in
   needs_attributes_and_types
 
 let add_actuals needs =
@@ -181,11 +211,19 @@ let add_actuals needs =
 let transform gr =
   let needs_attributes_and_types = mk_needs gr in
   let tbl = Hashtbl.create 11 in
+  (* Add missing declarations of input attributes and output attributes to their nonterminals *)
   List.iter
     (function
         RuleDef(n,_,a) ->
-          let attributes_and_types = needs_attributes_and_types n in
+          let (attributes_and_types,input_outputs_attributes_and_types) = needs_attributes_and_types n in
+          if n=gr.start_symbol && List.length(a.input_attributes)<>List.length(attributes_and_types)
+          then Printf.eprintf "Error: the start symbol, %s, uses some nonterminal without supplying all attributes\n%!" n;
           a.input_attributes <- attributes_and_types;
+          let missing_input_outputs_attributes_and_types =
+            List.filter
+              (fun x -> not(List.exists (fun y -> x=y) a.output_attributes))
+              input_outputs_attributes_and_types in
+          a.output_attributes <- sort(List.append missing_input_outputs_attributes_and_types a.output_attributes);
           Hashtbl.add tbl n (set_of_list (List.map fst attributes_and_types))
       | _ -> ())
     gr.ds;
@@ -195,6 +233,7 @@ let transform gr =
     with Not_found ->
       (Printf.eprintf "Warning: Copyrule can't find %s\n%!" n; PSet.empty)
   in
+  (* Add missing actual input attributes *)
   List.iter
     (function
         RuleDef(_,r,_) ->

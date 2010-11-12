@@ -73,7 +73,7 @@ let eliminate gr =
         RuleDef(n,r,a) ->
           if a.input_attributes=[] then () else begin
             a.input_attributes <- sort a.input_attributes; (*TEMPORARY*)
-            let source = Util.fresh() in (* parameter of nonterminal *)
+            let source = Variables.fresh() in (* parameter of nonterminal *)
 
             let pattern =                (* structure of parameter *)
               let inputs =
@@ -114,7 +114,7 @@ let eliminate gr =
             let early =
               match a.early_rettype with
                 None -> None
-              | Some _ -> Some(Util.fresh()) in
+              | Some _ -> Some(Variables.fresh()) in
             let act =
               let outputs =
                 match early with
@@ -124,7 +124,7 @@ let eliminate gr =
             let late =
               match PSet.mem n gr.late_producers with
                 false -> None
-              | true -> Some(Util.fresh()) in
+              | true -> Some(Variables.fresh()) in
             r.r <- (mkSEQ2(dupRule r,early,late,mkACTION2(act,late))).r;
             let o_type = output_type a in
             a.output_attributes <- [];
@@ -162,16 +162,16 @@ let eliminate gr =
         let late =
           match PSet.mem n gr.late_producers with
             false -> None
-          | true -> Some(Util.fresh()) in
+          | true -> Some(Variables.fresh()) in
 
         let early =
           match PSet.mem n gr.early_producers with
             false -> None
-          | true -> Some(Util.fresh()) in
+          | true -> Some(Variables.fresh()) in
 
         let r_body = mkACTION2(early,late) in
 
-        let source = Util.fresh() in (* output of nonterminal *)
+        let source = Variables.fresh() in (* output of nonterminal *)
         let pattern =                (* structure of output *)
           let outputs =
             (match early with

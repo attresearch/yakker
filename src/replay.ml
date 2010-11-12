@@ -11,7 +11,7 @@
 
 (* The replay transform *)
 open Gul
-open Util
+open Variables
 
 let replay_prologue = "
 (*REPLAY PROLOGUE*)
@@ -23,7 +23,7 @@ let transform gr =
       "(match _n() with Ykd_int x -> x | _ -> failwith \"Replay.transform.n_int\")"
     else "_n()" in
   let match_cases e = function
-    | [] -> impossible "Replay.transform.match_cases([])"
+    | [] -> Util.impossible "Replay.transform.match_cases([])"
     | [(label,body)] ->
         (* Could just use next case, but this prints a bit more nicely *)
         if !Compileopt.check_labels then
@@ -33,7 +33,7 @@ let transform gr =
     | cases ->
         let b = Buffer.create 11 in
         Printf.bprintf b "\n (match %s with\n " e;
-        let rec loop = function [] -> impossible "Replay.transform.match_cases"
+        let rec loop = function [] -> Util.impossible "Replay.transform.match_cases"
           | (label,body)::[] ->
               if !Compileopt.check_labels then
                 Printf.bprintf b "| %s(%d) -> (%s)\n " hproj label body
@@ -53,16 +53,16 @@ let transform gr =
       | Action (_,Some e) ->
           [(pre,e)]
       | Symb(n,_,_,Some e) -> (* TODO: attributes *)
-          [(pre,Printf.sprintf "_r_%s(_n,ykinput,%s)" (Util.bnf2ocaml n) e)]
+          [(pre,Printf.sprintf "_r_%s(_n,ykinput,%s)" (Variables.bnf2ocaml n) e)]
       | Symb(n,_,_,None) -> (* TODO: attributes *)
-          [(pre,Printf.sprintf "_r_%s(_n,ykinput)" (Util.bnf2ocaml n))]
+          [(pre,Printf.sprintf "_r_%s(_n,ykinput)" (Variables.bnf2ocaml n))]
       | When _
       | Box _ ->
           (* Impossible: not late relevant *)
           []
       | Delay _ ->
           [(pre,"_n()")]
-      | Position false -> impossible "Replay.rp.Position false" (*TJIM: TODO*)
+      | Position false -> Util.impossible "Replay.rp.Position false" (*TJIM: TODO*)
       | Opt r1 ->
           rp r1
       | Alt(r1,r2) ->
@@ -71,13 +71,13 @@ let transform gr =
           else if not(r2.a.late_relevant) then rp r1
           else (rp r1)@(rp r2)
       | Assign(r1,_,late) ->
-          impossible "TODO late attributes"
+          Util.impossible "TODO late attributes"
       | Seq(r1,_,late,r2) ->
           (match r1.a.late_relevant, r2.a.late_relevant with
           | true,true ->
               let y =
                 (match late with Some y -> y
-                | None -> Util.fresh()) in (* this case handled by normalization in writeup *)
+                | None -> Variables.fresh()) in (* this case handled by normalization in writeup *)
               [(pre,
                 Printf.sprintf
                   "\n (let %s = %s in %s)"
@@ -91,7 +91,7 @@ let transform gr =
               (* NB unlike coroutine, we DO need to dispatch on pre to accomplish this *)
               let y =
                 (match late with Some y -> y
-                | None -> Util.fresh()) in (* this case handled by normalization in writeup *)
+                | None -> Variables.fresh()) in (* this case handled by normalization in writeup *)
               [(pre,
                 Printf.sprintf
                   "\n (let %s = %s in ())"
@@ -121,7 +121,7 @@ let transform gr =
       | Star(Bounds _,r1) ->
           (* like the last case, using a fresh variable for x and () for e *)
           let e = "()" in
-          let x = Util.fresh() in
+          let x = Variables.fresh() in
           (* from here on, identical --- refactor *)
           let g,y = fresh(),fresh() in
           [(pre,
@@ -129,16 +129,16 @@ let transform gr =
               "\n (let rec %s %s = (match %s with %d -> %s | %s -> %s(%s)) in %s(%s))"
               g x n_int post x y g (match_cases y (rp r1)) g e)]
       (* cases below are not late relevant *)
-      | Position true     -> impossible "Replay.rp.Position true"
-      | Action(_,None)    -> impossible "Replay.rp.Action(_,None)"
-      | CharRange _       -> impossible "Replay.rp.CharRange"
-      | Prose _           -> impossible "Replay.rp.Prose"
-      | Lookahead _       -> impossible "Replay.rp.Lookahead"
-      | Lit _             -> impossible "Replay.rp.Lit"
+      | Position true     -> Util.impossible "Replay.rp.Position true"
+      | Action(_,None)    -> Util.impossible "Replay.rp.Action(_,None)"
+      | CharRange _       -> Util.impossible "Replay.rp.CharRange"
+      | Prose _           -> Util.impossible "Replay.rp.Prose"
+      | Lookahead _       -> Util.impossible "Replay.rp.Lookahead"
+      | Lit _             -> Util.impossible "Replay.rp.Lit"
       (* cases below should have been desugared *)
-      | Rcount _          -> impossible "Replay.rp.Rcount"
-      | Hash _            -> impossible "Replay.rp.Hash"
-      | Minus _           -> impossible "Replay.rp.Minus"
+      | Rcount _          -> Util.impossible "Replay.rp.Rcount"
+      | Hash _            -> Util.impossible "Replay.rp.Hash"
+      | Minus _           -> Util.impossible "Replay.rp.Minus"
   in
   add_to_prologue gr replay_prologue;
   let first = ref true in
@@ -149,7 +149,7 @@ let transform gr =
         add_to_prologue gr
           (Printf.sprintf "%s_r_%s(_n,ykinput%s) = %s\n "
              (if !first then "let rec\n" else "and\n")
-             (Util.bnf2ocaml n)
+             (Variables.bnf2ocaml n)
              (match a.Attr.late_params with None -> "" | Some x -> ","^x)
              replay_body);
         first := false

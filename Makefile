@@ -23,7 +23,7 @@ DOCDIR=$(TOPDIR)/doc
 # $(info VPATH = $(VPATH))
 
 BATTERIES_SOURCES = enum.ml enum.mli dynArray.ml pMap.ml pMap.mli return.ml return.mli pSet.ml pSet.mli bitSet.ml bitSet.mli
-YAKKER_SOURCES := logging.ml util.mli util.ml ykBuf.ml \
+YAKKER_SOURCES := logging.ml util.ml ykBuf.ml \
            wf_set.ml cs.ml pam_internal.mli pam_internal.ml pamJIT.mli pamJIT.ml \
 	   yakker.mli yakker.ml history.mli history.ml \
            allp.ml pami.ml viz.ml engine.ml
@@ -40,7 +40,7 @@ CMIS:=$(ML_SOURCES:.ml=.cmi)
 CMOS:=$(ML_SOURCES:.ml=.cmo)
 CMXS:=$(ML_SOURCES:.ml=.cmx)
 
-FRONT_END_SOURCES := compileopt.ml tgraph.ml gil.ml gul.ml desugar.ml pr.ml nullable_pred.ml minus.ml hash.ml copyrule.ml \
+FRONT_END_SOURCES := compileopt.ml variables.ml tgraph.ml gil.ml gul.ml desugar.ml pr.ml nullable_pred.ml minus.ml hash.ml copyrule.ml \
                      analyze.ml fusion.ml attributes.ml wrap.ml coroutine.ml replay.ml dispatch.ml label.ml lift.ml fsm.ml \
 		     extract_grammar.ml rfc.ml yakker_grammar.ml cmdline.ml gil_gen.ml version.ml lexutil.ml main.ml
 FRONT_END_ML_SOURCES := $(filter %.ml, $(FRONT_END_SOURCES))

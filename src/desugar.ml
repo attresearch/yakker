@@ -33,7 +33,7 @@ let desugar g =
 	   | _ ->
                r2.r <- define r2)
     | Position false ->
-        let x = Util.fresh() in
+        let x = Variables.fresh() in
         r.r <- (mkSEQ2(mkPOSITION true,Some x,None,mkDELAY(x,None))).r
     | Symb _ | Position _ | Prose _
     | When _ | Action _ | Box _ | Delay _

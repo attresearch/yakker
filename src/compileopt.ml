@@ -15,6 +15,5 @@ let inline_regular = ref false
 let unroll_star_n = ref 0
 let lookahead = ref false
 let case_sensitive = ref true
-let counter = ref 1
 let coalesce = ref true
 let check_labels = ref false

@@ -12,7 +12,7 @@
 (* The lifting transform *)
 
 open Gul
-open Util
+open Variables
 
 let transform gr =
   (* identify nonterminal producers *)

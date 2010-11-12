@@ -11,11 +11,10 @@
 
 (* The coroutine transform *)
 open Gul
-open Util
 
 let yk_done e = Printf.sprintf "Yk_done(%s)" e
 let yk_box e k =
-  let i,j,ykb,v = fresh(),fresh(),fresh(),fresh() in
+  let i,j,ykb,v = Variables.fresh(),Variables.fresh(),Variables.fresh(),Variables.fresh() in
   Printf.sprintf "Yk_box(fun %s %s -> match (%s) %s %s with None -> None | Some (%s,%s) -> Some(%s,%s))" i ykb e i ykb j v j (k v)
 
 let yk_when e = Printf.sprintf "Yk_when(%s)" e
@@ -26,7 +25,7 @@ let string_of_varset s =
 
 let transform r0 =
   let ulam = function
-    | [] -> impossible "Coroutine.transform.ulam([])"
+    | [] -> Util.impossible "Coroutine.transform.ulam([])"
     | [(label,body)] ->
         if !Compileopt.check_labels then
           Printf.sprintf "(fun %d pos_ -> %s)" label body
@@ -36,7 +35,7 @@ let transform r0 =
     | cases ->
         let b = Buffer.create 11 in
         Printf.bprintf b "(function\n ";
-        let rec loop = function [] -> impossible "Coroutine.transform.ulam"
+        let rec loop = function [] -> Util.impossible "Coroutine.transform.ulam"
           | (label,body)::[] ->
               if !Compileopt.check_labels then
                 Printf.bprintf b "| %d ->\n (fun pos_ -> %s)" label body
@@ -67,13 +66,13 @@ let transform r0 =
       | Symb(n,Some e,_,_) -> (* TODO: attributes *)
           let e = yk_done e in
           let eta k =
-            let x = Util.fresh() in
+            let x = Variables.fresh() in
             Printf.sprintf "Yk_bind(function Yk_done(%s) -> %s | _ -> failwith \"bind-%d\")" x (k(x)) post in
           [(pre, e);
            (post, eta k)]
       | Symb(n,None,_,_) -> (* nonterminal takes no arguments but returns an early result *) (* TODO: attributes *)
           let eta k =
-            let x = Util.fresh() in
+            let x = Variables.fresh() in
             Printf.sprintf "Yk_bind(function Yk_done(%s) -> %s | _ -> failwith \"bind=%d\")" x (k(x)) post in
           [(post, eta k)]
       | Delay(e,_) ->
@@ -89,12 +88,12 @@ let transform r0 =
           (* NB both r1 and r2 are early_relevant b/c of force_early_alts *)
           (c r1 k)@(c r2 k)
       | Opt r1 ->
-          impossible "Coroutine.coroutine.Opt"
+          Util.impossible "Coroutine.coroutine.Opt"
       | Assign(r1,None,_) -> c r1 k
       | Assign(r1,Some x,_) ->
           (match r1.a.early_relevant with
             true ->
-              let g = Util.fresh() in
+              let g = Variables.fresh() in
               [(pre,
                 Printf.sprintf
                   "let %s %s = %s in %s"
@@ -109,8 +108,8 @@ let transform r0 =
           | true,true ->
               let x =
                 (match early with Some x -> x
-                | None -> Util.fresh()) in (* this case handled by normalization in writeup *)
-              let g = Util.fresh() in
+                | None -> Variables.fresh()) in (* this case handled by normalization in writeup *)
+              let g = Variables.fresh() in
               let assignments = string_of_varset r1.a.early_assignments in
               [(pre,
                 Printf.sprintf
@@ -142,8 +141,8 @@ let transform r0 =
             (match loop_condition with
             | Accumulate(Some(x,e),_) -> x,e
             | Accumulate(None,_) (* in this case r1 must be early relevant so we need to track pre and post anyway *)
-            | Bounds _ -> Util.fresh(),"_wv0") in
-          let g = Util.fresh() in
+            | Bounds _ -> Variables.fresh(),"_wv0") in
+          let g = Variables.fresh() in
           let assignments = string_of_varset r1.a.early_assignments in
           [(pre,
             Printf.sprintf

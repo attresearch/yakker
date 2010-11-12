@@ -239,8 +239,8 @@ let pr_grammar f gr =
     fprintf f "\n.\n";
   end;
 
-  if (!Util.cnt > 1) then
-    fprintf f "@counter(%d)\n" !Util.cnt;
+  if (!Variables.counter > 1) then
+    fprintf f "@counter(%d)\n" !Variables.counter;
 
   let b = Buffer.create 11 in
   List.iter (pr_definition b) gr.ds;
@@ -405,13 +405,13 @@ let _appp dyp f = f %s dyp.Dyp.last_local_data
     let app_ld_p f = "_appp dyp (" ^ f ^ ")"
 
     let dyp_symb is_scannerless = if is_scannerless then
-      Util.bnf2ocaml_lident "tk" (* assume that any uppercase id
-                                    represents a token *)
+      Variables.bnf2ocaml_lident "tk" (* assume that any uppercase id
+                                         represents a token *)
     else
-      Util.bnf2ocaml  (* If it is not scannerless, than assume uppercase ids are
-                         actual token names. *)
+      Variables.bnf2ocaml  (* If it is not scannerless, than assume uppercase ids are
+                              actual token names. *)
 
-    let gensym () = Util.freshn "dyp"
+    let gensym () = Variables.freshn "dyp"
 
     let lift lifted e =
       let x = gensym () in
@@ -463,7 +463,7 @@ let _appp dyp f = f %s dyp.Dyp.last_local_data
               (* bind the nonterminal and then merge the previous
                  local value and [x]'s result and update the local value with the result
                  of the merge. *)
-              let z = Util.fresh () in
+              let z = Variables.fresh () in
               bprintf f "<%s>" z;
               bprintf f " @{ (), [Dyp.Local_data (%s %s dyp.Dyp.local_data %s)]}" binder getpos_code z;
               bprintf f " ]"
@@ -489,7 +489,7 @@ let _appp dyp f = f %s dyp.Dyp.last_local_data
                      (* bind the nonterminal and then apply the binder to the previous
                         local value and the result and update the local value with the result
                         of the merge. *)
-                     let z = Util.fresh () in
+                     let z = Variables.fresh () in
                      bprintf f "<%s>" z;
                      (* Assume is_seq_right because previous match case
                         catches binders when not is_seq_right. *)

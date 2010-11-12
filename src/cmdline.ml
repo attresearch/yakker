@@ -234,7 +234,7 @@ _r_args(_n,ykinput) = (ignore (*1235*) (_n());
  (let _x31 = (ignore (*1311*) (_n()); _n())
   in (ignore (*1312*) (_n()); 
  (let n = (ignore (*1313*) (_n()); Yakker.get_string _x32 _x31 ykinput)
-  in (ignore (*1315*) (_n());  Util.cnt := (int_of_string n) (*TODO: move counter to Compileopt *))
+  in (ignore (*1315*) (_n());  Variables.counter := (int_of_string n) )
  ))
  ))
  ))

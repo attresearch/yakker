@@ -337,10 +337,11 @@ let invalid_prec_dir n = invalid_arg ("get_prec: precedence annotation \'" ^ n ^
 let get_prec ptbl tokmap r = 
   let rec loop r = 
       match r.a.precedence with 
-	| Some n -> 
+	| Some_prec n -> 
 	    let p = try Hashtbl.find ptbl n with Not_found -> invalid_prec_dir n in
 	    raise (Found_prec p)
-	| None -> loop0 r.r
+	| No_prec -> raise (Found_prec 0)
+	| Default_prec -> loop0 r.r
   and loop0 = function      
     | Symb (x, _, _, _) -> 
 	if is_token tokmap x then
@@ -426,8 +427,9 @@ let iter_with_pos f r =
 let iter_with_prec_smart f ptbl prec r =
   let rec loop v r = 
     match r.a.precedence with
-      | None -> loop0 v r
-      | Some x ->
+      | Default_prec -> loop0 v r
+      | No_prec -> loop0 (0, Left_of) r
+      | Some_prec x ->
 	  (* We update pos to Left_of, regardless of current pos
 	     because either way we're not to the left of a relevant
 	     terminal. *)
@@ -653,7 +655,7 @@ let prec_rewrite gr =
 	  instantiate_attrs_irrel r
 	end;
 	(* Clear any precedence annotations, now that they've been processed. *)
-	iter_rule_postorder (fun r -> r.a.precedence <- None) r
+	iter_rule_postorder (fun r -> r.a.precedence <- Default_prec) r
     | LexerDef _ | LexerDecl _ -> () in
   List.iter (add_prec_attrs gr.tokmap) gr.ds;
 

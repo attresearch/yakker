@@ -17,6 +17,8 @@ type var = string
 type repeat = Infinity | Num of int
 type looper = Bounds of int * repeat | Accumulate of (var * expr) option * (var * expr) option
 
+type prec_annotation = Default_prec | No_prec | Some_prec of string
+
 type annot = { mutable css: Cs.t option;
                mutable early_relevant: bool;
                mutable late_relevant: bool;
@@ -25,7 +27,7 @@ type annot = { mutable css: Cs.t option;
                mutable is_regular:bool;
                mutable early_assignments: var PSet.t;
                mutable late_assignments: var PSet.t;
-               mutable precedence : string option;
+               mutable precedence : prec_annotation;
              }
 
 type boxnull = Gil.boxnull =
@@ -71,7 +73,7 @@ let dupAnnot a =
 
 let rec mkAnnot = function
   | None -> {css = None; early_relevant = false; late_relevant = false;
-           pre = 0; post = 0; is_regular = false; precedence = None;
+           pre = 0; post = 0; is_regular = false; precedence = Default_prec;
            early_assignments=PSet.empty;late_assignments=PSet.empty}
   | Some r -> let a = dupAnnot r.a in a.css <- None; a
 

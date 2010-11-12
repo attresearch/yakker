@@ -179,11 +179,14 @@ num-val = "%" (bin-val$x {x} | dec-val$x {x} | hex-val$x {x}).
 defined-as = "=" | "=/".
 
 alternation =
-  concatenation$x [o prec-dir]$pdopt [o infix-op-stuff$z {z}]$y
+  concatenation$x prec-dir-opt$pdopt [o infix-op-stuff$z {z}]$y
   {process_alt (process_pdopt x pdopt) y}
 .
 
-prec-dir = "@prec" u rulename$n {n}.
+prec-dir-opt = o "@prec" u rulename$n {Some_prec n} 
+             | o "@no-prec"           {No_prec}
+             |                        {Default_prec}
+.
 
 concatenation
   = lookahead$x {x}

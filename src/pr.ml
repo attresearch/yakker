@@ -176,8 +176,9 @@ and pr_rule f r =
   | Minus(r2,r3) ->
       pr_maybe_group f r2 r left; bprintf f " - "; pr_maybe_group f r3 r right);
   match r.a.precedence with 
-      None -> ()
-    | Some p -> bprintf f " @prec %s" p
+    | Default_prec -> ()
+    | No_prec -> bprintf f " @no-prec"
+    | Some_prec p -> bprintf f " @prec %s" p
 
 let pr_definition f = function
   | RuleDef(n,r,a) -> begin

@@ -185,6 +185,8 @@ let transform gr =
     (function
         RuleDef(n,_,a) ->
           let attributes_and_types = needs_attributes_and_types n in
+          if n=gr.start_symbol && List.length(a.input_attributes)<>List.length(attributes_and_types)
+          then Printf.eprintf "Error: the start symbol, %s, uses some nonterminal without supplying all attributes\n%!" n;
           a.input_attributes <- attributes_and_types;
           Hashtbl.add tbl n (set_of_list (List.map fst attributes_and_types))
       | _ -> ())

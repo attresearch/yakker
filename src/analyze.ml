@@ -334,7 +334,7 @@ let invalid_prec_dir n = invalid_arg ("get_prec: precedence annotation \'" ^ n ^
     rightmost terminal. If the rightmost terminal has no precedence,
     then 0 is returned. If there is no terminal and no
     prec. annotation, then None is returned. *)
-let get_prec ptbl tokmap r = 
+let infer_prec ptbl tokmap r = 
   let rec loop r = 
       match r.a.precedence with 
 	| Some_prec n -> 
@@ -368,6 +368,22 @@ let get_prec ptbl tokmap r =
     | Seq(r1,_,_,r2) ->
 	loop r2; loop r1 in
   try loop r; None with Found_prec p -> Some p
+
+(** Find the precedence of the rule [r], relying only on
+    explicit annotations. If the annotation is @no-prec,
+    then 0 is returned. If there is no
+    prec. annotation, then None is returned. *)
+let get_prec_explicit ptbl r = 
+  match r.a.precedence with 
+    | Some_prec n ->
+	let p = try Hashtbl.find ptbl n with Not_found -> invalid_prec_dir n in
+	Some p
+    | No_prec -> Some 0
+    | Default_prec -> None
+
+
+(* TODO: add flag to control which function is called by [get_prec]. *)
+let get_prec ptbl _ r = get_prec_explicit ptbl r
 
 type gpos = Left_of | Right_of | Middle_of
 
@@ -420,51 +436,6 @@ let iter_with_pos f r =
 	ignore (loop Left_of r1);
 	ignore (loop Right_of r2)
     | _ -> invalid_arg "Expected rule adhering to ocamlyacc format."
-
-
-(** A "smarter" version of iter_with_pos, where position and precedence is inferred
-    from contents of rule. However, I don't know that this is sound. *)
-let iter_with_prec_smart f ptbl prec r =
-  let rec loop v r = 
-    match r.a.precedence with
-      | Default_prec -> loop0 v r
-      | No_prec -> loop0 (0, Left_of) r
-      | Some_prec x ->
-	  (* We update pos to Left_of, regardless of current pos
-	     because either way we're not to the left of a relevant
-	     terminal. *)
-	  let p = try Hashtbl.find ptbl x with Not_found -> invalid_prec_dir x in 
-	  loop0 (p, Left_of) r
-  and loop0 v r = match r.r with
-    | Symb (x, _, _, _) ->
-	(* Check to see whether this is the rightmost terminal. 
-	   If it is, change pos. *)
-	(try 
-	   let p = Hashtbl.find ptbl x in 
-	   let v2 = (p, Left_of) in
-	   f v2 r; v2
-	 with Not_found -> f v r; v)
-    | Assign _
-    | Action _
-    | Position _
-    | Box _
-    | Prose _
-    | When _
-    | Delay _
-    | Lit _
-    | Rcount _
-    | Star _
-    | Hash _
-    | Alt _ | Lookahead _
-    | Opt _
-    | Minus _ (* TODO, we should desugar this *)
-    | CharRange _ ->  f v r; v
-
-    | Seq(r1,_,_,r2) ->
-	let v2 = loop v r2 in
-	let v1 = loop v2 r1 in
-	f v r; v1 in
-  ignore (loop (prec, Right_of) r)
 
 let prec_dependency_graph ptbl tokmap ds =
   let rec get_depend g n r = match r.r with

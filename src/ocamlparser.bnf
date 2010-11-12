@@ -311,6 +311,9 @@ let __ocaml_lex_ypeek = YkBuf.peek_ocamllex The_lexer_mod.lexer
 ; necessary).
 ; Since THEN and ELSE are not at reduction points, should be an issue.
 ; need to think about implications for us... can/should we incorporate notion of reduction?
+; 
+; Also, can we add notion of "safe" productions? if a production has token on the left
+; and appears in the `right` position, then can infer something? e.g. ignore precedence?
 
 @precedence : ;@non IN 
   < @right below_SEMI
@@ -331,13 +334,13 @@ let __ocaml_lex_ypeek = YkBuf.peek_ocamllex The_lexer_mod.lexer
 ;   < @right OR BARBAR
 ;   < @right AMPERSAND AMPERAMPER
 ;  < @non below_EQUAL
-   < @left cmp_EQUAL
-;   < @left INFIXOP0 cmp_EQUAL LESS GREATER
-;   < @right INFIXOP1
+;   < @left cmp_EQUAL
+   < @left INFIXOP0 cmp_EQUAL LESS GREATER
+   < @right INFIXOP1
 ;   < @right COLONCOLON
-;   < @left INFIXOP2 PLUS MINUS MINUSDOT
-;   < @left INFIXOP3 STAR
-;   < @right INFIXOP4
+   < @left INFIXOP2 PLUS MINUS MINUSDOT
+   < @left INFIXOP3 STAR
+   < @right INFIXOP4
   < @non prec_unary_minus
 ;  < @non prec_constant_constructor
 ;  < @non prec_constr_appl
@@ -875,6 +878,7 @@ let-pattern=
   | pattern$v1 COLON core-type$v3
       { mkpat(Ppat_constraint(v1, v3)) }
 .
+np-expr= expr$x {x} @no-prec.
 expr=
     simple-expr$v1 ;!labeled-simple-expr
       { v1 } 
@@ -898,7 +902,7 @@ expr=
       { mkexp(Pexp_construct(v1, Some v2, false)) }  
   | name-tag$v1 simple-expr$v2 !SHARP
       { mkexp(Pexp_variant(v1, Some v2)) }  
-  | IF seq-expr$v2 THEN expr$v4 ELSE expr$v6
+  | IF seq-expr$v2 THEN expr$v4 ELSE np-expr$v6
       { mkexp(Pexp_ifthenelse(v2, v4, Some v6)) }
   | IF seq-expr$v2 THEN expr$v4
       { mkexp(Pexp_ifthenelse(v2, v4, None)) }

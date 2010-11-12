@@ -92,7 +92,7 @@ module Simple = struct
   (** quiet test. only reports failure. *)
   let qtest parse visualize = _test false parse visualize
 
-  let run parse = _test false parse (fun _ -> failwith "Visualization not available.")
+  let run parse = _test true parse (fun _ -> failwith "Visualization not available.")
 
   (* deprecated *)
   let test_recognize f_r = test (fun file -> f_r file; ()) (fun _ -> ())

@@ -1,0 +1,1627 @@
+;/***********************************************************************/
+;/*                                                                     */
+;/*                           Objective Caml                            */
+;/*                                                                     */
+;/*            Xavier Leroy, projet Cristal, INRIA Rocquencourt         */
+;/*                                                                     */
+;/*  Copyright 1996 Institut National de Recherche en Informatique et   */
+;/*  en Automatique.  All rights reserved.  This file is distributed    */
+;/*  under the terms of the Q Public License version 1.0.               */
+;/*                                                                     */
+;/***********************************************************************/
+
+;/* $Id: parser.mly 9412 2009-11-09 11:42:39Z weis $ */
+
+;/* The parser definition */
+
+@begin{
+open Location
+open Asttypes
+open Longident
+open Parsetree
+
+let mktyp d =
+  { ptyp_desc = d; ptyp_loc = symbol_rloc() }
+let mkpat d =
+  { ppat_desc = d; ppat_loc = symbol_rloc() }
+let mkexp d =
+  { pexp_desc = d; pexp_loc = symbol_rloc() }
+let mkmty d =
+  { pmty_desc = d; pmty_loc = symbol_rloc() }
+let mksig d =
+  { psig_desc = d; psig_loc = symbol_rloc() }
+let mkmod d =
+  { pmod_desc = d; pmod_loc = symbol_rloc() }
+let mkstr d =
+  { pstr_desc = d; pstr_loc = symbol_rloc() }
+let mkfield d =
+  { pfield_desc = d; pfield_loc = symbol_rloc() }
+let mkclass d =
+  { pcl_desc = d; pcl_loc = symbol_rloc() }
+let mkcty d =
+  { pcty_desc = d; pcty_loc = symbol_rloc() }
+
+let reloc_pat x = { x with ppat_loc = symbol_rloc () };;
+let reloc_exp x = { x with pexp_loc = symbol_rloc () };;
+
+let mkoperator name pos =
+  { pexp_desc = Pexp_ident(Lident name); pexp_loc = rhs_loc pos }
+
+(*
+  Ghost expressions and patterns:
+  expressions and patterns that do not appear explicitely in the
+  source file they have the loc_ghost flag set to true.
+  Then the profiler will not try to instrument them and the
+  -stypes option will not try to display their type.
+
+  Every grammar rule that generates an element with a location must
+  make at most one non-ghost element, the topmost one.
+
+  How to tell whether your location must be ghost:
+  A location corresponds to a range of characters in the source file.
+  If the location contains a piece of code that is syntactically
+  valid (according to the documentation), and corresponds to the
+  AST node, then the location must be real; in all other cases,
+  it must be ghost.
+*)
+let ghexp d = { pexp_desc = d; pexp_loc = symbol_gloc () };;
+let ghpat d = { ppat_desc = d; ppat_loc = symbol_gloc () };;
+let ghtyp d = { ptyp_desc = d; ptyp_loc = symbol_gloc () };;
+
+let mkassert e =
+  match e with
+  | {pexp_desc = Pexp_construct (Lident "false", None, false) } ->
+         mkexp (Pexp_assertfalse)
+  | _ -> mkexp (Pexp_assert (e))
+;;
+
+let mkinfix arg1 name arg2 =
+  mkexp(Pexp_apply(mkoperator name 2, ["", arg1; "", arg2]))
+
+let neg_float_string f =
+  if String.length f > 0 && f.[0] = '-'
+  then String.sub f 1 (String.length f - 1)
+  else "-" ^ f
+
+let mkuminus name arg =
+  match name, arg.pexp_desc with
+  | "-", Pexp_constant(Const_int n) ->
+      mkexp(Pexp_constant(Const_int(-n)))
+  | "-", Pexp_constant(Const_int32 n) ->
+      mkexp(Pexp_constant(Const_int32(Int32.neg n)))
+  | "-", Pexp_constant(Const_int64 n) ->
+      mkexp(Pexp_constant(Const_int64(Int64.neg n)))
+  | "-", Pexp_constant(Const_nativeint n) ->
+      mkexp(Pexp_constant(Const_nativeint(Nativeint.neg n)))
+  | _, Pexp_constant(Const_float f) ->
+      mkexp(Pexp_constant(Const_float(neg_float_string f)))
+  | _ ->
+      mkexp(Pexp_apply(mkoperator ("~" ^ name) 1, ["", arg]))
+
+let rec mktailexp = function
+    [] ->
+      ghexp(Pexp_construct(Lident "[]", None, false))
+  | e1 :: el ->
+      let exp_el = mktailexp el in
+      let l = {loc_start = e1.pexp_loc.loc_start;
+               loc_end = exp_el.pexp_loc.loc_end;
+               loc_ghost = true}
+      in
+      let arg = {pexp_desc = Pexp_tuple [e1; exp_el]; pexp_loc = l} in
+      {pexp_desc = Pexp_construct(Lident "::", Some arg, false); pexp_loc = l}
+
+let rec mktailpat = function
+    [] ->
+      ghpat(Ppat_construct(Lident "[]", None, false))
+  | p1 :: pl ->
+      let pat_pl = mktailpat pl in
+      let l = {loc_start = p1.ppat_loc.loc_start;
+               loc_end = pat_pl.ppat_loc.loc_end;
+               loc_ghost = true}
+      in
+      let arg = {ppat_desc = Ppat_tuple [p1; pat_pl]; ppat_loc = l} in
+      {ppat_desc = Ppat_construct(Lident "::", Some arg, false); ppat_loc = l}
+
+let ghstrexp e =
+  { pstr_desc = Pstr_eval e; pstr_loc = {e.pexp_loc with loc_ghost = true} }
+
+let array_function str name =
+  Ldot(Lident str, (if !Clflags.fast then "unsafe_" ^ name else name))
+
+let rec deep_mkrangepat c1 c2 =
+  if c1 = c2 then ghpat(Ppat_constant(Const_char c1)) else
+  ghpat(Ppat_or(ghpat(Ppat_constant(Const_char c1)),
+                deep_mkrangepat (Char.chr(Char.code c1 + 1)) c2))
+
+let rec mkrangepat c1 c2 =
+  if c1 > c2 then mkrangepat c2 c1 else
+  if c1 = c2 then mkpat(Ppat_constant(Const_char c1)) else
+  reloc_pat (deep_mkrangepat c1 c2)
+
+let syntax_error () =
+  raise Syntaxerr.Escape_error
+
+let unclosed opening_name opening_num closing_name closing_num =
+  raise(Syntaxerr.Error(Syntaxerr.Unclosed(rhs_loc opening_num, opening_name,
+                                           rhs_loc closing_num, closing_name)))
+
+let bigarray_function str name =
+  Ldot(Ldot(Lident "Bigarray", str), name)
+
+let bigarray_untuplify = function
+    { pexp_desc = Pexp_tuple explist} -> explist
+  | exp -> [exp]
+
+let bigarray_get arr arg =
+  let get = if !Clflags.fast then "unsafe_get" else "get" in
+  match bigarray_untuplify arg with
+    [c1] ->
+      mkexp(Pexp_apply(ghexp(Pexp_ident(bigarray_function "Array1" get)),
+                       ["", arr; "", c1]))
+  | [c1;c2] ->
+      mkexp(Pexp_apply(ghexp(Pexp_ident(bigarray_function "Array2" get)),
+                       ["", arr; "", c1; "", c2]))
+  | [c1;c2;c3] ->
+      mkexp(Pexp_apply(ghexp(Pexp_ident(bigarray_function "Array3" get)),
+                       ["", arr; "", c1; "", c2; "", c3]))
+  | coords ->
+      mkexp(Pexp_apply(ghexp(Pexp_ident(bigarray_function "Genarray" "get")),
+                       ["", arr; "", ghexp(Pexp_array coords)]))
+
+let bigarray_set arr arg newval =
+  let set = if !Clflags.fast then "unsafe_set" else "set" in 
+  match bigarray_untuplify arg with
+    [c1] ->
+      mkexp(Pexp_apply(ghexp(Pexp_ident(bigarray_function "Array1" set)),
+                       ["", arr; "", c1; "", newval]))
+  | [c1;c2] ->
+      mkexp(Pexp_apply(ghexp(Pexp_ident(bigarray_function "Array2" set)),
+                       ["", arr; "", c1; "", c2; "", newval]))
+  | [c1;c2;c3] ->
+      mkexp(Pexp_apply(ghexp(Pexp_ident(bigarray_function "Array3" set)),
+                       ["", arr; "", c1; "", c2; "", c3; "", newval]))
+  | coords ->
+      mkexp(Pexp_apply(ghexp(Pexp_ident(bigarray_function "Genarray" "set")),
+                       ["", arr;
+                        "", ghexp(Pexp_array coords);
+                        "", newval]))
+
+exception Parse_error
+
+type token =
+| WITH
+| WHILE
+| WHEN
+| VIRTUAL
+| VAL
+| UNDERSCORE
+| UIDENT of string
+| TYPE
+| TRY
+| TRUE
+| TO
+| TILDE
+| THEN
+| STRUCT
+| STRING of string
+| STAR
+| SIG
+| SHARP
+| SEMISEMI
+| SEMI
+| RPAREN
+| REC
+| RBRACKET
+| RBRACE
+| QUOTE
+| QUESTIONQUESTION
+| QUESTION
+| PRIVATE
+| PREFIXOP of string
+| PLUS
+| OR
+| OPTLABEL of string
+| OPEN
+| OF
+| OBJECT
+| NEW
+| NATIVEINT of nativeint
+| MUTABLE
+| MODULE
+| MINUSGREATER
+| MINUSDOT
+| MINUS
+| METHOD
+| MATCH
+| LPAREN
+| LIDENT of string
+| LET
+| LESSMINUS
+| LESS
+| LBRACKETGREATER
+| LBRACKETLESS
+| LBRACKETBAR
+| LBRACKET
+| LBRACELESS
+| LBRACE
+| LAZY
+| LABEL of string
+| INT64 of int64
+| INT32 of int32
+| INT of int
+| INITIALIZER
+| INHERIT
+| INFIXOP4 of string
+| INFIXOP3 of string
+| INFIXOP2 of string
+| INFIXOP1 of string
+| INFIXOP0 of string
+| INCLUDE
+| IN
+| IF
+| GREATERRBRACKET
+| GREATERRBRACE
+| GREATER
+| FUNCTOR
+| FUNCTION
+| FUN
+| FOR
+| FLOAT of string
+| FALSE
+| EXTERNAL
+| EXCEPTION
+| EQUAL
+| EOF
+| END
+| ELSE
+| DOWNTO
+| DOTDOT
+| DOT
+| DONE
+| DO
+| CONSTRAINT
+| COMMA
+| COLONGREATER
+| COLONEQUAL
+| COLONCOLON
+| COLON
+| CLASS
+| CHAR of char
+| BEGIN
+| BARRBRACKET
+| BARBAR
+| BAR
+| BACKQUOTE
+| ASSERT
+| AS
+| AND
+| AMPERSAND
+| AMPERAMPER
+
+
+module The_parser(The_lexer_mod : sig val lexer : Lexing.lexbuf -> token end) = struct
+let __ocaml_lex_ylex = YkBuf.wrap_ocamllex The_lexer_mod.lexer
+let __ocaml_lex_ypeek = YkBuf.peek_ocamllex The_lexer_mod.lexer
+}
+
+; TODO
+; Shouldn't need to drop IN precedence. problem is that it conflicts with then and else.
+; it is preventing `let` right after `then` or `else`. Fact is, its not actually necessary. 
+; even in ocamlyacc grammar (i think it is probably left over from some time when it was 
+; necessary).
+; Since THEN and ELSE are not at reduction points, should be an issue.
+; need to think about implications for us... can/should we incorporate notion of reduction?
+
+@precedence : ;@non IN 
+  < @right below_SEMI
+  < @non SEMI
+  < @non LET
+  < @right below_WITH
+;   < @non FUNCTION WITH
+;   < @non AND
+   < @right THEN
+   < @right ELSE
+;   < @non LESSMINUS
+;   < @right COLONEQUAL
+;   < @non AS
+   < @left BAR
+  < @non below_COMMA
+   < @left COMMA
+;   < @right MINUSGREATER
+;   < @right OR BARBAR
+;   < @right AMPERSAND AMPERAMPER
+;  < @non below_EQUAL
+   < @left cmp_EQUAL
+;   < @left INFIXOP0 cmp_EQUAL LESS GREATER
+;   < @right INFIXOP1
+;   < @right COLONCOLON
+;   < @left INFIXOP2 PLUS MINUS MINUSDOT
+;   < @left INFIXOP3 STAR
+;   < @right INFIXOP4
+  < @non prec_unary_minus
+;  < @non prec_constant_constructor
+;  < @non prec_constr_appl
+;  < @non below_SHARP
+;  < @non SHARP
+;  < @non below_DOT
+;  < @non DOT
+;  < @non BACKQUOTE BEGIN CHAR FALSE FLOAT INT INT32 INT64 LBRACE LBRACELESS LBRACKET LBRACKETBAR LIDENT LPAREN NEW NATIVEINT PREFIXOP STRING TRUE UIDENT
+.
+
+@declare-lexer __ocaml_lex_ylex@({token}) __ocaml_lex_ypeek =
+| WITH
+| WHILE
+| WHEN
+| VIRTUAL
+| VAL
+| UNDERSCORE
+| UIDENT@({string})
+| TYPE
+| TRY
+| TRUE
+| TO
+| TILDE
+| THEN
+| STRUCT
+| STRING@({string})
+| STAR
+| SIG
+| SHARP
+| SEMISEMI
+| SEMI
+| RPAREN
+| REC
+| RBRACKET
+| RBRACE
+| QUOTE
+| QUESTIONQUESTION
+| QUESTION
+| PRIVATE
+| PREFIXOP@({string})
+| PLUS
+| OR
+| OPTLABEL@({string})
+| OPEN
+| OF
+| OBJECT
+| NEW
+| NATIVEINT@({nativeint})
+| MUTABLE
+| MODULE
+| MINUSGREATER
+| MINUSDOT
+| MINUS
+| METHOD
+| MATCH
+| LPAREN
+| LIDENT@({string})
+| LET
+| LESSMINUS
+| LESS
+| LBRACKETGREATER
+| LBRACKETLESS
+| LBRACKETBAR
+| LBRACKET
+| LBRACELESS
+| LBRACE
+| LAZY
+| LABEL@({string})
+| INT64@({int64})
+| INT32@({int32})
+| INT@({int})
+| INITIALIZER
+| INHERIT
+| INFIXOP4@({string})
+| INFIXOP3@({string})
+| INFIXOP2@({string})
+| INFIXOP1@({string})
+| INFIXOP0@({string})
+| INCLUDE
+| IN
+| IF
+| GREATERRBRACKET
+| GREATERRBRACE
+| GREATER
+| FUNCTOR
+| FUNCTION
+| FUN
+| FOR
+| FLOAT@({string})
+| FALSE
+| EXTERNAL
+| EXCEPTION
+| EQUAL
+| EOF
+| END
+| ELSE
+| DOWNTO
+| DOTDOT
+| DOT
+| DONE
+| DO
+| CONSTRAINT
+| COMMA
+| COLONGREATER
+| COLONEQUAL
+| COLONCOLON
+| COLON
+| CLASS
+| CHAR@({char})
+| BEGIN
+| BARRBRACKET
+| BARBAR
+| BAR
+| BACKQUOTE
+| ASSERT
+| AS
+| AND
+| AMPERSAND
+| AMPERAMPER
+.
+
+;/* Entry points */
+
+implementation=
+    structure$v1 EOF                        { v1 }
+.
+interface=
+    signature$v1 EOF                        { List.rev v1 }
+.
+toplevel-phrase=
+    top-structure$v1 SEMISEMI               { Ptop_def v1 }
+  | seq-expr$v1 SEMISEMI                    { Ptop_def[ghstrexp v1] }
+  | toplevel-directive$v1 SEMISEMI          { v1 }
+  | EOF                                  { raise End_of_file }
+.
+top-structure=
+    structure-item$v1                       { [v1] }
+  | structure-item$v1 top-structure$v2         { v1 :: v2 }
+.
+use-file=
+    use-file-tail$v1                        { v1 }
+  | seq-expr$v1 use-file-tail$v2               { Ptop_def[ghstrexp v1] :: v2 }
+.
+use-file-tail=
+    EOF                                         { [] }
+  | SEMISEMI EOF                                { [] }
+  | SEMISEMI seq-expr$v2 use-file-tail$v3             { Ptop_def[ghstrexp v2] :: v3 }
+  | SEMISEMI structure-item$v2 use-file-tail$v3       { Ptop_def[v2] :: v3 }
+  | SEMISEMI toplevel-directive$v2 use-file-tail$v3   { v2 :: v3 }
+  | structure-item$v1 use-file-tail$v2                { Ptop_def[v1] :: v2 }
+  | toplevel-directive$v1 use-file-tail$v2            { v1 :: v2 }
+.
+
+;/* Module expressions */
+
+module-expr=
+    mod-longident$v1
+      { mkmod(Pmod_ident v1) }
+  | STRUCT structure$v2 END
+      { mkmod(Pmod_structure(v2)) }
+  | FUNCTOR LPAREN UIDENT$v3 COLON module-type$v5 RPAREN MINUSGREATER module-expr$v8
+      { mkmod(Pmod_functor(v3, v5, v8)) }
+  | module-expr$v1 LPAREN module-expr$v3 RPAREN
+      { mkmod(Pmod_apply(v1, v3)) }
+  | LPAREN module-expr$v2 COLON module-type$v4 RPAREN
+      { mkmod(Pmod_constraint(v2, v4)) }
+  | LPAREN module-expr$v2 RPAREN
+      { v2 }
+.
+structure=
+    structure-tail$v1                              { v1 }
+  | seq-expr$v1 structure-tail$v2                     { ghstrexp v1 :: v2 }
+.
+structure-tail=
+;    /* empty */                                 
+                                                { [] }
+  | SEMISEMI                                    { [] }
+  | SEMISEMI seq-expr$v2 structure-tail$v3            { ghstrexp v2 :: v3 }
+  | SEMISEMI structure-item$v2 structure-tail$v3      { v2 :: v3 }
+  | structure-item$v1 structure-tail$v2               { v1 :: v2 }
+.
+structure-item=
+    LET rec-flag$v2 let-bindings$v3
+      { match v3 with
+          [{ppat_desc = Ppat_any}, exp] -> mkstr(Pstr_eval exp)
+        | _ -> mkstr(Pstr_value(v2, List.rev v3)) }
+  | EXTERNAL val-ident$v2 COLON core-type$v4 EQUAL primitive-declaration$v6
+      { mkstr(Pstr_primitive(v2, {pval_type = v4; pval_prim = v6})) }
+  | TYPE type-declarations$v2
+      { mkstr(Pstr_type(List.rev v2)) }
+  | EXCEPTION UIDENT$v2 constructor-arguments$v3
+      { mkstr(Pstr_exception(v2, v3)) }
+  | EXCEPTION UIDENT$v2 EQUAL constr-longident$v4
+      { mkstr(Pstr_exn_rebind(v2, v4)) }
+  | MODULE UIDENT$v2 module-binding$v3
+      { mkstr(Pstr_module(v2, v3)) }
+  | MODULE REC module-rec-bindings$v3
+      { mkstr(Pstr_recmodule(List.rev v3)) }
+  | MODULE TYPE ident$v3 EQUAL module-type$v5
+      { mkstr(Pstr_modtype(v3, v5)) }
+  | OPEN mod-longident$v2
+      { mkstr(Pstr_open v2) }
+  | CLASS class-declarations$v2
+      { mkstr(Pstr_class (List.rev v2)) }
+  | CLASS TYPE class-type-declarations$v3
+      { mkstr(Pstr_class_type (List.rev v3)) }
+  | INCLUDE module-expr$v2
+      { mkstr(Pstr_include v2) }
+.
+module-binding=
+    EQUAL module-expr$v2
+      { v2 }
+  | COLON module-type$v2 EQUAL module-expr$v4
+      { mkmod(Pmod_constraint(v4, v2)) }
+  | LPAREN UIDENT$v2 COLON module-type$v4 RPAREN module-binding$v6
+      { mkmod(Pmod_functor(v2, v4, v6)) }
+.
+module-rec-bindings=
+    module-rec-binding$v1                            { [v1] }
+  | module-rec-bindings$v1 AND module-rec-binding$v3    { v3 :: v1 }
+.
+module-rec-binding=
+    UIDENT$v1 COLON module-type$v3 EQUAL module-expr$v5    { (v1, v3, v5) }
+.
+
+;/* Module types */
+
+module-type=
+    mty-longident$v1
+      { mkmty(Pmty_ident v1) }
+  | SIG signature$v2 END
+      { mkmty(Pmty_signature(List.rev v2)) }
+  | FUNCTOR LPAREN UIDENT$v3 COLON module-type$v5 RPAREN (MINUSGREATER @prec below_WITH) module-type$v8
+      { mkmty(Pmty_functor(v3, v5, v8)) }  
+  | module-type$v1 WITH with-constraints$v3
+      { mkmty(Pmty_with(v1, List.rev v3)) }
+  | LPAREN module-type$v2 RPAREN
+      { v2 }
+.
+signature=
+;    /* empty */                                 
+                                                { [] }
+  | signature$v1 signature-item$v2                    { v2 :: v1 }
+  | signature$v1 signature-item$v2 SEMISEMI           { v2 :: v1 }
+.
+signature-item=
+    VAL val-ident$v2 COLON core-type$v4
+      { mksig(Psig_value(v2, {pval_type = v4; pval_prim = []})) }
+  | EXTERNAL val-ident$v2 COLON core-type$v4 EQUAL primitive-declaration$v6
+      { mksig(Psig_value(v2, {pval_type = v4; pval_prim = v6})) }
+  | TYPE type-declarations$v2
+      { mksig(Psig_type(List.rev v2)) }
+  | EXCEPTION UIDENT$v2 constructor-arguments$v3
+      { mksig(Psig_exception(v2, v3)) }
+  | MODULE UIDENT$v2 module-declaration$v3
+      { mksig(Psig_module(v2, v3)) }
+  | MODULE REC module-rec-declarations$v3
+      { mksig(Psig_recmodule(List.rev v3)) }
+  | MODULE TYPE ident$v3
+      { mksig(Psig_modtype(v3, Pmodtype_abstract)) }
+  | MODULE TYPE ident$v3 EQUAL module-type$v5
+      { mksig(Psig_modtype(v3, Pmodtype_manifest v5)) }
+  | OPEN mod-longident$v2
+      { mksig(Psig_open v2) }
+  | INCLUDE module-type$v2
+      { mksig(Psig_include v2) }
+  | CLASS class-descriptions$v2
+      { mksig(Psig_class (List.rev v2)) }
+  | CLASS TYPE class-type-declarations$v3
+      { mksig(Psig_class_type (List.rev v3)) }
+.
+
+module-declaration=
+    COLON module-type$v2
+      { v2 }
+  | LPAREN UIDENT$v2 COLON module-type$v4 RPAREN module-declaration$v6
+      { mkmty(Pmty_functor(v2, v4, v6)) }
+.
+module-rec-declarations=
+    module-rec-declaration$v1                              { [v1] }
+  | module-rec-declarations$v1 AND module-rec-declaration$v3  { v3 :: v1 }
+.
+module-rec-declaration=
+    UIDENT$v1 COLON module-type$v3                            { (v1, v3) }
+.
+
+;/* Class expressions */
+
+class-declarations=
+    class-declarations$v1 AND class-declaration$v3    { v3 :: v1 }
+  | class-declaration$v1                           { [v1] }
+.
+class-declaration=
+    virtual-flag$v1 class-type-parameters$v2 LIDENT$v3 class-fun-binding$v4
+      { let params, variance = List.split (fst v2) in
+        {pci_virt = v1; pci_params = params, snd v2;
+         pci_name = v3; pci_expr = v4; pci_variance = variance;
+         pci_loc = symbol_rloc ()} }
+.
+class-fun-binding=
+    EQUAL class-expr$v2
+      { v2 }
+  | COLON class-type$v2 EQUAL class-expr$v4
+      { mkclass(Pcl_constraint(v4, v2)) }
+  | labeled-simple-pattern$v1 class-fun-binding$v2
+      { let (l,o,p) = v1 in mkclass(Pcl_fun(l, o, p, v2)) }
+.
+class-type-parameters=
+;    /*empty*/                                   
+                                                { [], symbol_gloc () }
+  | LBRACKET type-parameter-list$v2 RBRACKET       { List.rev v2, symbol_rloc () }
+.
+class-fun-def=
+    labeled-simple-pattern$v1 MINUSGREATER class-expr$v3
+      { let (l,o,p) = v1 in mkclass(Pcl_fun(l, o, p, v3)) }
+  | labeled-simple-pattern$v1 class-fun-def$v2
+      { let (l,o,p) = v1 in mkclass(Pcl_fun(l, o, p, v2)) }
+.
+class-expr=
+    class-simple-expr$v1
+      { v1 }
+  | FUN class-fun-def$v2
+      { v2 }
+  | class-simple-expr$v1 simple-labeled-expr-list$v2
+      { mkclass(Pcl_apply(v1, List.rev v2)) }
+  | LET rec-flag$v2 let-bindings$v3 IN class-expr$v5
+      { mkclass(Pcl_let (v2, List.rev v3, v5)) }
+.
+class-simple-expr=
+    LBRACKET core-type-comma-list$v2 RBRACKET class-longident$v4
+      { mkclass(Pcl_constr(v4, List.rev v2)) }
+  | class-longident$v1
+      { mkclass(Pcl_constr(v1, [])) }
+  | OBJECT class-structure$v2 END
+      { mkclass(Pcl_structure(v2)) }
+  | LPAREN class-expr$v2 COLON class-type$v4 RPAREN
+      { mkclass(Pcl_constraint(v2, v4)) }
+  | LPAREN class-expr$v2 RPAREN
+      { v2 }
+.
+class-structure=
+    class-self-pattern$v1 class-fields$v2
+      { v1, List.rev v2 }
+.
+class-self-pattern=
+    LPAREN pattern$v2 RPAREN
+      { reloc_pat v2 }
+  | LPAREN pattern$v2 COLON core-type$v4 RPAREN
+      { mkpat(Ppat_constraint(v2, v4)) }
+  |; /* empty */
+      { ghpat(Ppat_any) }
+.
+class-fields=
+;    /* empty */
+      { [] }
+  | class-fields$v1 INHERIT class-expr$v3 parent-binder$v4
+      { Pcf_inher (v3, v4) :: v1 }
+  | class-fields$v1 VAL virtual-value$v3
+      { Pcf_valvirt v3 :: v1 }
+  | class-fields$v1 VAL value$v3
+      { Pcf_val v3 :: v1 }
+  | class-fields$v1 virtual-method$v2
+      { Pcf_virt v2 :: v1 }
+  | class-fields$v1 concrete-method$v2
+      { Pcf_meth v2 :: v1 }
+  | class-fields$v1 CONSTRAINT constrain$v3
+      { Pcf_cstr v3 :: v1 }
+  | class-fields$v1 INITIALIZER seq-expr$v3
+      { Pcf_init v3 :: v1 }
+.
+parent-binder=
+    AS LIDENT$v2
+          { Some v2 }
+  |; /* empty */
+          { None }
+.
+virtual-value=
+    MUTABLE VIRTUAL label$v3 COLON core-type$v5
+      { v3, Mutable, v5, symbol_rloc () }
+  | VIRTUAL mutable-flag$v2 label$v3 COLON core-type$v5
+      { v3, v2, v5, symbol_rloc () }
+.
+value=
+    mutable-flag$v1 label$v2 EQUAL seq-expr$v4
+      { v2, v1, v4, symbol_rloc () }
+  | mutable-flag$v1 label$v2 type-constraint$v3 EQUAL seq-expr$v5
+      { v2, v1, (let (t, t') = v3 in ghexp(Pexp_constraint(v5, t, t'))),
+        symbol_rloc () }
+.
+virtual-method=
+    METHOD PRIVATE VIRTUAL label$v4 COLON poly-type$v6
+      { v4, Private, v6, symbol_rloc () }
+  | METHOD VIRTUAL private-flag$v3 label$v4 COLON poly-type$v6
+      { v4, v3, v6, symbol_rloc () }
+.
+concrete-method =
+    METHOD private-flag$v2 label$v3 strict-binding$v4
+      { v3, v2, ghexp(Pexp_poly (v4, None)), symbol_rloc () }
+  | METHOD private-flag$v2 label$v3 COLON poly-type$v5 EQUAL seq-expr$v7
+      { v3, v2, ghexp(Pexp_poly(v7,Some v5)), symbol_rloc () }
+.
+
+;/* Class types */
+
+class-type=
+    class-signature$v1
+      { v1 }
+  | QUESTION LIDENT$v2 COLON simple-core-type-or-tuple$v4 MINUSGREATER class-type$v6
+      { mkcty(Pcty_fun("?" ^ v2 ,
+                       {ptyp_desc = Ptyp_constr(Ldot (Lident "*predef*", "option"), [v4]);
+                        ptyp_loc = v4.ptyp_loc},
+                       v6)) }
+  | OPTLABEL$v1 simple-core-type-or-tuple$v2 MINUSGREATER class-type$v4
+      { mkcty(Pcty_fun("?" ^ v1 ,
+                       {ptyp_desc = Ptyp_constr(Ldot (Lident "*predef*", "option"), [v2]);
+                        ptyp_loc = v2.ptyp_loc},
+                       v4)) }
+  | LIDENT$v1 COLON simple-core-type-or-tuple$v3 MINUSGREATER class-type$v5
+      { mkcty(Pcty_fun(v1, v3, v5)) }
+  | simple-core-type-or-tuple$v1 MINUSGREATER class-type$v3
+      { mkcty(Pcty_fun("", v1, v3)) }
+.
+class-signature=
+    LBRACKET core-type-comma-list$v2 RBRACKET clty-longident$v4
+      { mkcty(Pcty_constr (v4, List.rev v2)) }
+  | clty-longident$v1
+      { mkcty(Pcty_constr (v1, [])) }
+  | OBJECT class-sig-body$v2 END
+      { mkcty(Pcty_signature v2) }
+.
+class-sig-body=
+    class-self-type$v1 class-sig-fields$v2
+      { v1, List.rev v2 }
+.
+class-self-type=
+    LPAREN core-type$v2 RPAREN
+      { v2 }
+  |; /* empty */
+      { mktyp(Ptyp_any) }
+.
+class-sig-fields=
+;    /* empty */                                 
+                                                { [] }
+  | class-sig-fields$v1 INHERIT class-signature$v3    { Pctf_inher v3 :: v1 }
+  | class-sig-fields$v1 VAL value-type$v3             { Pctf_val   v3 :: v1 }
+  | class-sig-fields$v1 virtual-method$v2             { Pctf_virt  v2 :: v1 }
+  | class-sig-fields$v1 method-type$v2                { Pctf_meth  v2 :: v1 }
+  | class-sig-fields$v1 CONSTRAINT constrain$v3       { Pctf_cstr  v3 :: v1 }
+.
+value-type=
+    VIRTUAL mutable-flag$v2 label$v3 COLON core-type$v5
+      { v3, v2, Virtual, v5, symbol_rloc () }
+  | MUTABLE virtual-flag$v2 label$v3 COLON core-type$v5
+      { v3, Mutable, v2, v5, symbol_rloc () }
+  | label$v1 COLON core-type$v3
+      { v1, Immutable, Concrete, v3, symbol_rloc () }
+.
+method-type=
+    METHOD private-flag$v2 label$v3 COLON poly-type$v5
+      { v3, v2, v5, symbol_rloc () }
+.
+constrain=
+        core-type$v1 EQUAL core-type$v3          { v1, v3, symbol_rloc () }  @prec cmp_EQUAL
+.
+class-descriptions=
+    class-descriptions$v1 AND class-description$v3    { v3 :: v1 }
+  | class-description$v1                           { [v1] }
+.
+class-description=
+    virtual-flag$v1 class-type-parameters$v2 LIDENT$v3 COLON class-type$v5
+      { let params, variance = List.split (fst v2) in
+        {pci_virt = v1; pci_params = params, snd v2;
+         pci_name = v3; pci_expr = v5; pci_variance = variance;
+         pci_loc = symbol_rloc ()} }
+.
+class-type-declarations=
+    class-type-declarations$v1 AND class-type-declaration$v3  { v3 :: v1 }
+  | class-type-declaration$v1                              { [v1] }
+.
+class-type-declaration=
+    virtual-flag$v1 class-type-parameters$v2 LIDENT$v3 EQUAL class-signature$v5
+      { let params, variance = List.split (fst v2) in
+        {pci_virt = v1; pci_params = params, snd v2;
+         pci_name = v3; pci_expr = v5; pci_variance = variance;
+         pci_loc = symbol_rloc ()} }
+.
+
+;/* Core expressions */
+
+seq-expr=
+    expr$v1 !SEMI                 { v1 }
+  | expr$v1 SEMI                  { reloc_exp v1 }                   @no-prec
+  | expr$v1 SEMI seq-expr$v3      { mkexp(Pexp_sequence(v1, v3)) }   @no-prec
+.
+
+labeled-simple-pattern=
+    QUESTION LPAREN label-let-pattern$v3 opt-default$v4 RPAREN
+      { ("?" ^ fst v3, v4, snd v3) }
+  | QUESTION label-var$v2
+      { ("?" ^ fst v2, None, snd v2) }
+  | OPTLABEL$v1 LPAREN let-pattern$v3 opt-default$v4 RPAREN
+      { ("?" ^ v1, v4, v3) }
+  | OPTLABEL$v1 pattern-var$v2
+      { ("?" ^ v1, None, v2) }
+  | TILDE LPAREN label-let-pattern$v3 RPAREN
+      { (fst v3, None, snd v3) }
+  | TILDE label-var$v2
+      { (fst v2, None, snd v2) }
+  | LABEL$v1 simple-pattern$v2
+      { (v1, None, v2) }
+  | simple-pattern$v1
+      { ("", None, v1) }
+.
+pattern-var=
+    LIDENT$v1            { mkpat(Ppat_var v1) }
+  | UNDERSCORE        { mkpat Ppat_any }
+.
+opt-default=
+;    /* empty */                         
+                                        { None }
+  | EQUAL seq-expr$v2                      { Some v2 }
+.
+label-let-pattern=
+    label-var$v1
+      { v1 }
+  | label-var$v1 COLON core-type$v3
+      { let (lab, pat) = v1 in (lab, mkpat(Ppat_constraint(pat, v3))) }
+.
+label-var=
+    LIDENT$v1    { (v1, mkpat(Ppat_var v1)) }
+.
+let-pattern=
+    pattern$v1
+      { v1 }
+  | pattern$v1 COLON core-type$v3
+      { mkpat(Ppat_constraint(v1, v3)) }
+.
+expr=
+    simple-expr$v1 ;!labeled-simple-expr
+      { v1 } 
+  | simple-expr$v1 simple-labeled-expr-list$v2
+      { mkexp(Pexp_apply(v1, List.rev v2)) }
+  | LET rec-flag$v2 let-bindings$v3 IN seq-expr$v5
+      { mkexp(Pexp_let(v2, List.rev v3, v5)) }
+  | LET MODULE UIDENT$v3 module-binding$v4 IN seq-expr$v6
+      { mkexp(Pexp_letmodule(v3, v4, v6)) }
+  | FUNCTION opt-bar match-cases$v3
+      { mkexp(Pexp_function("", None, List.rev v3)) }
+  | FUN labeled-simple-pattern$v2 fun-def$v3
+      { let (l,o,p) = v2 in mkexp(Pexp_function(l, o, [p, v3])) }
+  | MATCH seq-expr$v2 WITH opt-bar match-cases$v5
+      { mkexp(Pexp_match(v2, List.rev v5)) }
+  | TRY seq-expr$v2 WITH opt-bar match-cases$v5
+      { mkexp(Pexp_try(v2, List.rev v5)) }
+  | expr-comma-list$v1 !COMMA
+      { mkexp(Pexp_tuple(List.rev v1)) }
+  | constr-longident$v1 simple-expr$v2 !SHARP
+      { mkexp(Pexp_construct(v1, Some v2, false)) }  
+  | name-tag$v1 simple-expr$v2 !SHARP
+      { mkexp(Pexp_variant(v1, Some v2)) }  
+  | IF seq-expr$v2 THEN expr$v4 ELSE expr$v6
+      { mkexp(Pexp_ifthenelse(v2, v4, Some v6)) }
+  | IF seq-expr$v2 THEN expr$v4
+      { mkexp(Pexp_ifthenelse(v2, v4, None)) }
+  | WHILE seq-expr$v2 DO seq-expr$v4 DONE
+      { mkexp(Pexp_while(v2, v4)) }
+  | FOR val-ident$v2 EQUAL seq-expr$v4 direction-flag$v5 seq-expr$v6 DO seq-expr$v8 DONE
+      { mkexp(Pexp_for(v2, v4, v6, v5, v8)) }
+  | expr$v1 COLONCOLON expr$v3
+      { mkexp(Pexp_construct(Lident "::",
+                             Some(ghexp(Pexp_tuple[v1;v3])),
+                             false)) }
+  | LPAREN COLONCOLON RPAREN LPAREN expr$v5 COMMA expr$v7 RPAREN
+      { mkexp(Pexp_construct(Lident "::",
+                             Some(ghexp(Pexp_tuple[v5;v7])),
+                             false)) }
+  | expr$v1 INFIXOP0$v2 expr$v3
+      { mkinfix v1 v2 v3 }
+  | expr$v1 INFIXOP1$v2 expr$v3
+      { mkinfix v1 v2 v3 }
+  | expr$v1 INFIXOP2$v2 expr$v3
+      { mkinfix v1 v2 v3 }
+  | expr$v1 INFIXOP3$v2 expr$v3
+      { mkinfix v1 v2 v3 }
+  | expr$v1 INFIXOP4$v2 expr$v3
+      { mkinfix v1 v2 v3 }
+  | expr$v1 PLUS expr$v3
+      { mkinfix v1 "+" v3 }
+  | expr$v1 MINUS expr$v3
+      { mkinfix v1 "-" v3 }
+  | expr$v1 MINUSDOT expr$v3
+      { mkinfix v1 "-." v3 }
+  | expr$v1 STAR expr$v3
+      { mkinfix v1 "*" v3 }
+  | expr$v1 EQUAL expr$v3
+      { mkinfix v1 "=" v3 }       @prec cmp_EQUAL
+  | expr$v1 LESS expr$v3
+      { mkinfix v1 "<" v3 }
+  | expr$v1 GREATER expr$v3
+      { mkinfix v1 ">" v3 }
+  | expr$v1 OR expr$v3
+      { mkinfix v1 "or" v3 }
+  | expr$v1 BARBAR expr$v3
+      { mkinfix v1 "||" v3 }
+  | expr$v1 AMPERSAND expr$v3
+      { mkinfix v1 "&" v3 }
+  | expr$v1 AMPERAMPER expr$v3
+      { mkinfix v1 "&&" v3 }
+  | expr$v1 COLONEQUAL expr$v3
+      { mkinfix v1 ":=" v3 }
+  | subtractive$v1 expr$v2 
+      { mkuminus v1 v2 }  @prec prec_unary_minus
+  | simple-expr$v1 DOT label-longident$v3 LESSMINUS expr$v5
+      { mkexp(Pexp_setfield(v1, v3, v5)) }
+  | simple-expr$v1 DOT LPAREN seq-expr$v4 RPAREN LESSMINUS expr$v7
+      { mkexp(Pexp_apply(ghexp(Pexp_ident(array_function "Array" "set")),
+                         ["",v1; "",v4; "",v7])) }
+  | simple-expr$v1 DOT LBRACKET seq-expr$v4 RBRACKET LESSMINUS expr$v7
+      { mkexp(Pexp_apply(ghexp(Pexp_ident(array_function "String" "set")),
+                         ["",v1; "",v4; "",v7])) }
+  | simple-expr$v1 DOT LBRACE expr$v4 RBRACE LESSMINUS expr$v7
+      { bigarray_set v1 v4 v7 }
+  | label$v1 LESSMINUS expr$v3
+      { mkexp(Pexp_setinstvar(v1, v3)) }
+  | ASSERT simple-expr$v2 !SHARP
+      { mkassert v2 }
+  | LAZY simple-expr$v2 !SHARP
+      { mkexp (Pexp_lazy (v2)) }
+  | OBJECT class-structure$v2 END
+      { mkexp (Pexp_object(v2)) }
+.
+simple-expr=
+    val-longident$v1
+      { mkexp(Pexp_ident v1) }
+  | constant$v1
+      { mkexp(Pexp_constant v1) }
+  | constr-longident$v1 
+      { mkexp(Pexp_construct(v1, None, false)) }  ; @prec prec_constant_constructor
+  | name-tag$v1 
+      { mkexp(Pexp_variant(v1, None)) }  ; @prec prec_constant_constructor
+  | LPAREN seq-expr$v2 RPAREN
+      { reloc_exp v2 }
+  | BEGIN seq-expr$v2 END
+      { reloc_exp v2 }
+  | BEGIN END
+      { mkexp (Pexp_construct (Lident "()", None, false)) }
+  | LPAREN seq-expr$v2 type-constraint$v3 RPAREN
+      { let (t, t') = v3 in mkexp(Pexp_constraint(v2, t, t')) }
+  | simple-expr$v1 DOT label-longident$v3
+      { mkexp(Pexp_field(v1, v3)) }
+  | simple-expr$v1 DOT LPAREN seq-expr$v4 RPAREN
+      { mkexp(Pexp_apply(ghexp(Pexp_ident(array_function "Array" "get")),
+                         ["",v1; "",v4])) }
+  | simple-expr$v1 DOT LBRACKET seq-expr$v4 RBRACKET
+      { mkexp(Pexp_apply(ghexp(Pexp_ident(array_function "String" "get")),
+                         ["",v1; "",v4])) }
+  | simple-expr$v1 DOT LBRACE expr$v4 RBRACE
+      { bigarray_get v1 v4 }
+  | LBRACE record-expr$v2 RBRACE
+      { let (exten, fields) = v2 in mkexp(Pexp_record(fields, exten)) }
+  | LBRACKETBAR expr-semi-list$v2 opt-semi BARRBRACKET
+      { mkexp(Pexp_array(List.rev v2)) }
+  | LBRACKETBAR BARRBRACKET
+      { mkexp(Pexp_array []) }
+  | LBRACKET expr-semi-list$v2 opt-semi RBRACKET
+      { reloc_exp (mktailexp (List.rev v2)) }
+  | PREFIXOP$v1 simple-expr$v2
+      { mkexp(Pexp_apply(mkoperator v1 1, ["",v2])) }
+  | NEW class-longident$v2
+      { mkexp(Pexp_new(v2)) }
+  | LBRACELESS field-expr-list$v2 opt-semi GREATERRBRACE
+      { mkexp(Pexp_override(List.rev v2)) }
+  | LBRACELESS GREATERRBRACE
+      { mkexp(Pexp_override []) }
+  | simple-expr$v1 SHARP label$v3
+      { mkexp(Pexp_send(v1, v3)) }
+.
+simple-labeled-expr-list=
+    labeled-simple-expr$v1
+      { [v1] }
+  | simple-labeled-expr-list$v1 labeled-simple-expr$v2
+      { v2 :: v1 }
+.
+labeled-simple-expr=
+    simple-expr$v1 !SHARP
+      { ("", v1) }
+  | label-expr$v1
+      { v1 }
+.
+label-expr=
+    LABEL$v1 simple-expr$v2  !SHARP
+      { (v1, v2) }
+  | TILDE label-ident$v2
+      { v2 }
+  | QUESTION label-ident$v2
+      { ("?" ^ fst v2, snd v2) }
+  | OPTLABEL$v1 simple-expr$v2  !SHARP
+      { ("?" ^ v1, v2) }
+.
+label-ident=
+    LIDENT$v1   { (v1, mkexp(Pexp_ident(Lident v1))) }
+.
+
+let-bindings=
+    let-binding$v1                                 { [v1] }
+  | let-bindings$v1 AND let-binding$v3                { v3 :: v1 }
+.
+
+; interesting factoring here. Notice that they've pulled the case of 
+; a simple variable out and then excluded it from nonterminal `pattern`.
+; Also, they are relying on precedence of EQUAL to override the below_EQUAL in pattern
+; problem with lowest_prec is that it doesn't interact as desired with below_EQUAL.
+let-binding=
+    val-ident$v1 fun-binding$v2
+      { ({ppat_desc = Ppat_var v1; ppat_loc = rhs_loc 1}, v2) }
+  | pattern$v1 EQUAL seq-expr$v3
+      { (v1, v3) }
+.
+fun-binding=
+    strict-binding$v1
+      { v1 }
+  | type-constraint$v1 EQUAL seq-expr$v3
+      { let (t, t') = v1 in ghexp(Pexp_constraint(v3, t, t')) }
+.
+strict-binding=
+    EQUAL seq-expr$v2
+      { v2 }
+  | labeled-simple-pattern$v1 fun-binding$v2
+      { let (l, o, p) = v1 in ghexp(Pexp_function(l, o, [p, v2])) }
+.
+match-cases=
+    pattern$v1 match-action$v2                        { [v1, v2] }
+  | match-cases$v1 BAR pattern$v3 match-action$v4        { (v3, v4) :: v1 }
+.
+fun-def=
+    match-action$v1                                { v1 }
+  | labeled-simple-pattern$v1 fun-def$v2
+      { let (l,o,p) = v1 in ghexp(Pexp_function(l, o, [p, v2])) }
+.
+match-action=
+    MINUSGREATER seq-expr$v2                       { v2 }
+  | WHEN seq-expr$v2 MINUSGREATER seq-expr$v4         { mkexp(Pexp_when(v2, v4)) }
+.
+expr-comma-list=
+    expr-comma-list$v1 COMMA expr$v3                  { v3 :: v1 }
+  | expr$v1 COMMA expr$v3                             { [v3; v1] }
+.
+record-expr=
+    simple-expr$v1 WITH lbl-expr-list$v3 opt-semi     { (Some v1, List.rev v3) }
+  | lbl-expr-list$v1 opt-semi                      { (None, List.rev v1) }
+.
+lbl-expr-list=
+    label-longident$v1 EQUAL expr$v3
+      { [v1,v3] }
+  | lbl-expr-list$v1 SEMI label-longident$v3 EQUAL expr$v5
+      { (v3, v5) :: v1 }
+.
+field-expr-list=
+    label$v1 EQUAL expr$v3
+      { [v1,v3] }
+  | field-expr-list$v1 SEMI label$v3 EQUAL expr$v5
+      { (v3, v5) :: v1 }
+.
+expr-semi-list=
+    expr$v1                                        { [v1] }
+  | expr-semi-list$v1 SEMI expr$v3                    { v3 :: v1 } @no-prec
+.
+type-constraint=
+    COLON core-type$v2                             { (Some v2, None) }
+  | COLON core-type$v2 COLONGREATER core-type$v4      { (Some v2, Some v4) }
+  | COLONGREATER core-type$v2                      { (None, Some v2) }
+.
+
+;/* Patterns */
+
+pattern=
+    simple-pattern$v1
+      { v1 }
+  | pattern$v1 AS val-ident$v3
+      { mkpat(Ppat_alias(v1, v3)) }
+  | pattern-comma-list$v1  !COMMA
+      { mkpat(Ppat_tuple(List.rev v1)) }  @prec below_COMMA
+  | constr-longident$v1 pattern$v2 
+      { mkpat(Ppat_construct(v1, Some v2, false)) }  ; @prec prec_constr_appl
+  | name-tag$v1 pattern$v2 
+      { mkpat(Ppat_variant(v1, Some v2)) }  ; @prec prec_constr_appl
+  | pattern$v1 COLONCOLON pattern$v3
+      { mkpat(Ppat_construct(Lident "::", Some(ghpat(Ppat_tuple[v1;v3])),
+                             false)) }
+  | LPAREN COLONCOLON RPAREN LPAREN pattern$v5 COMMA pattern$v7 RPAREN
+      { mkpat(Ppat_construct(Lident "::", Some(ghpat(Ppat_tuple[v5;v7])),
+                             false)) }
+  | pattern$v1 BAR pattern$v3
+      { mkpat(Ppat_or(v1, v3)) }
+  | LAZY simple-pattern$v2
+      { mkpat(Ppat_lazy v2) }
+.
+
+; see `let-binding` for explanantion for precedence annotation.
+simple-pattern=
+    val-ident$v1
+      { mkpat(Ppat_var v1) } ;@prec below_EQUAL
+  | UNDERSCORE
+      { mkpat(Ppat_any) }
+  | signed-constant$v1
+      { mkpat(Ppat_constant v1) }
+  | CHAR$v1 DOTDOT CHAR$v3
+      { mkrangepat v1 v3 }
+  | constr-longident$v1
+      { mkpat(Ppat_construct(v1, None, false)) }
+  | name-tag$v1
+      { mkpat(Ppat_variant(v1, None)) }
+  | SHARP type-longident$v2
+      { mkpat(Ppat_type v2) }
+  | LBRACE lbl-pattern-list$v2 opt-semi RBRACE
+      { mkpat(Ppat_record(List.rev v2)) }
+  | LBRACKET pattern-semi-list$v2 opt-semi RBRACKET
+      { reloc_pat (mktailpat (List.rev v2)) }
+  | LBRACKETBAR pattern-semi-list$v2 opt-semi BARRBRACKET
+      { mkpat(Ppat_array(List.rev v2)) }
+  | LBRACKETBAR BARRBRACKET
+      { mkpat(Ppat_array []) }
+  | LPAREN pattern$v2 RPAREN
+      { reloc_pat v2 }
+  | LPAREN pattern$v2 COLON core-type$v4 RPAREN
+      { mkpat(Ppat_constraint(v2, v4)) }
+.
+
+pattern-comma-list=
+    pattern-comma-list$v1 COMMA pattern$v3            { v3 :: v1 }
+  | pattern$v1 COMMA pattern$v3                       { [v3; v1] }
+.
+pattern-semi-list=
+    pattern$v1                                     { [v1] }
+  | pattern-semi-list$v1 SEMI pattern$v3              { v3 :: v1 }
+.
+lbl-pattern-list=
+    label-longident$v1 EQUAL pattern$v3               { [(v1, v3)] }
+  | lbl-pattern-list$v1 SEMI label-longident$v3 EQUAL pattern$v5 { (v3, v5) :: v1 }
+.
+
+;/* Primitive declarations */
+
+primitive-declaration=
+    STRING$v1                                      { [v1] }
+  | STRING$v1 primitive-declaration$v2                { v1 :: v2 }
+.
+
+;/* Type declarations */
+
+type-declarations=
+    type-declaration$v1                            { [v1] }
+  | type-declarations$v1 AND type-declaration$v3      { v3 :: v1 }
+.
+
+type-declaration=
+    type-parameters$v1 LIDENT$v2 type-kind$v3 constraints$v4
+      { let (params, variance) = List.split v1 in
+        let (kind, private_flag, manifest) = v3 in
+        (v2, {ptype_params = params;
+              ptype_cstrs = List.rev v4;
+              ptype_kind = kind;
+              ptype_private = private_flag;
+              ptype_manifest = manifest;
+              ptype_variance = variance;
+              ptype_loc = symbol_rloc()}) }
+.
+constraints=
+        constraints$v1 CONSTRAINT constrain$v3        { v3 :: v1 }
+      |; /* empty */                             
+                                         { [] }
+.
+type-kind=
+;    /*empty*/
+      { (Ptype_abstract, Public, None) }
+  | EQUAL core-type$v2
+      { (Ptype_abstract, Public, Some v2) }
+  | EQUAL constructor-declarations$v2
+      { (Ptype_variant(List.rev v2), Public, None) }
+  | EQUAL PRIVATE constructor-declarations$v3
+      { (Ptype_variant(List.rev v3), Private, None) }
+  | EQUAL private-flag$v2 BAR constructor-declarations$v4
+      { (Ptype_variant(List.rev v4), v2, None) }
+  | EQUAL private-flag$v2 LBRACE label-declarations$v4 opt-semi RBRACE
+      { (Ptype_record(List.rev v4), v2, None) }
+  | EQUAL core-type$v2 EQUAL private-flag$v4 opt-bar constructor-declarations$v6
+      { (Ptype_variant(List.rev v6), v4, Some v2) }    @no-prec
+  | EQUAL core-type$v2 EQUAL private-flag$v4 LBRACE label-declarations$v6 opt-semi RBRACE
+      { (Ptype_record(List.rev v6), v4, Some v2) }
+  | EQUAL PRIVATE core-type$v3
+      { (Ptype_abstract, Private, Some v3) }
+.
+type-parameters=
+;    /*empty*/                                   
+                                                { [] }
+  | type-parameter$v1                              { [v1] }
+  | LPAREN type-parameter-list$v2 RPAREN           { List.rev v2 }
+.
+type-parameter=
+    type-variance$v1 QUOTE ident$v3                   { v3, v1 }
+.
+type-variance=
+;    /* empty */                                 
+                                                { false, false }
+  | PLUS                                        { true, false }
+  | MINUS                                       { false, true }
+.
+type-parameter-list=
+    type-parameter$v1                              { [v1] }
+  | type-parameter-list$v1 COMMA type-parameter$v3    { v3 :: v1 }
+.
+constructor-declarations=
+    constructor-declaration$v1                     { [v1] }
+  | constructor-declarations$v1 BAR constructor-declaration$v3 { v3 :: v1 }
+.
+constructor-declaration=
+    constr-ident$v1 constructor-arguments$v2          { (v1, v2, symbol_rloc()) }
+.
+constructor-arguments=
+;    /*empty*/                                   
+                                                { [] }
+  | OF core-type-list$v2                           { List.rev v2 }
+.
+label-declarations=
+    label-declaration$v1                           { [v1] }
+  | label-declarations$v1 SEMI label-declaration$v3   { v3 :: v1 }
+.
+label-declaration=
+    mutable-flag$v1 label$v2 COLON poly-type$v4          { (v2, v1, v4, symbol_rloc()) }
+.
+
+;/* "with" constraints (additional type equations over signature components) */
+
+with-constraints=
+    with-constraint$v1                             { [v1] }
+  | with-constraints$v1 AND with-constraint$v3        { v3 :: v1 }
+.
+with-constraint=
+    TYPE type-parameters$v2 label-longident$v3 with-type-binder$v4 core-type$v5 constraints$v6
+      { let params, variance = List.split v2 in
+        (v3, Pwith_type {ptype_params = params;
+                         ptype_cstrs = List.rev v6;
+                         ptype_kind = Ptype_abstract;
+                         ptype_manifest = Some v5;
+                         ptype_private = v4;
+                         ptype_variance = variance;
+                         ptype_loc = symbol_rloc()}) }
+;    /* used label_longident instead of type_longident to disallow
+;      functor applications in type path */
+  | MODULE mod-longident$v2 EQUAL mod-ext-longident$v4
+      { (v2, Pwith_module v4) }
+.
+with-type-binder=
+    EQUAL          { Public }
+  | EQUAL PRIVATE  { Private }
+.
+
+;/* Polymorphic types */
+
+typevar-list=
+        QUOTE ident$v2                             { [v2] }
+      | typevar-list$v1 QUOTE ident$v3                { v3 :: v1 }
+.
+poly-type=
+        core-type$v1
+          { mktyp(Ptyp_poly([], v1)) }
+      | typevar-list$v1 DOT core-type$v3
+          { mktyp(Ptyp_poly(List.rev v1, v3)) }
+.
+
+;/* Core types */
+
+core-type=
+    core-type2$v1
+      { v1 }
+  | core-type2$v1 AS QUOTE ident$v4
+      { mktyp(Ptyp_alias(v1, v4)) }
+.
+core-type2=
+    simple-core-type-or-tuple$v1
+      { v1 }
+  | QUESTION LIDENT$v2 COLON core-type2$v4 MINUSGREATER core-type2$v6
+      { mktyp(Ptyp_arrow("?" ^ v2 ,
+               {ptyp_desc = Ptyp_constr(Ldot (Lident "*predef*", "option"), [v4]);
+                ptyp_loc = v4.ptyp_loc}, v6)) }
+  | OPTLABEL$v1 core-type2$v2 MINUSGREATER core-type2$v4
+      { mktyp(Ptyp_arrow("?" ^ v1 ,
+               {ptyp_desc = Ptyp_constr(Ldot (Lident "*predef*", "option"), [v2]);
+                ptyp_loc = v2.ptyp_loc}, v4)) }
+  | LIDENT$v1 COLON core-type2$v3 MINUSGREATER core-type2$v5
+      { mktyp(Ptyp_arrow(v1, v3, v5)) }
+  | core-type2$v1 MINUSGREATER core-type2$v3
+      { mktyp(Ptyp_arrow("", v1, v3)) }
+.
+
+simple-core-type=
+    simple-core-type2$v1  !SHARP
+      { v1 }
+  | LPAREN core-type-comma-list$v2 RPAREN !SHARP
+      { match v2 with [sty] -> sty | _ -> raise Parse_error }
+.
+simple-core-type2=
+    QUOTE ident$v2
+      { mktyp(Ptyp_var v2) }
+  | UNDERSCORE
+      { mktyp(Ptyp_any) }
+  | type-longident$v1
+      { mktyp(Ptyp_constr(v1, [])) }
+  | simple-core-type2$v1 type-longident$v2
+      { mktyp(Ptyp_constr(v2, [v1])) }
+  | LPAREN core-type-comma-list$v2 RPAREN type-longident$v4
+      { mktyp(Ptyp_constr(v4, List.rev v2)) }
+  | LESS meth-list$v2 GREATER
+      { mktyp(Ptyp_object v2) }
+  | LESS GREATER
+      { mktyp(Ptyp_object []) }
+  | SHARP class-longident$v2 opt-present$v3
+      { mktyp(Ptyp_class(v2, [], v3)) }
+  | simple-core-type2$v1 SHARP class-longident$v3 opt-present$v4
+      { mktyp(Ptyp_class(v3, [v1], v4)) }
+  | LPAREN core-type-comma-list$v2 RPAREN SHARP class-longident$v5 opt-present$v6
+      { mktyp(Ptyp_class(v5, List.rev v2, v6)) }
+  | LBRACKET tag-field$v2 RBRACKET
+      { mktyp(Ptyp_variant([v2], true, None)) }
+;/* PR#3835: this is not LR(1), would need lookahead=2
+; | LBRACKET simple_core_type2 RBRACKET
+;     { mktyp(Ptyp_variant([$2], true, None)) } */
+  | LBRACKET BAR row-field-list$v3 RBRACKET
+      { mktyp(Ptyp_variant(List.rev v3, true, None)) }
+  | LBRACKET row-field$v2 BAR row-field-list$v4 RBRACKET
+      { mktyp(Ptyp_variant(v2 :: List.rev v4, true, None)) }
+  | LBRACKETGREATER opt-bar row-field-list$v3 RBRACKET
+      { mktyp(Ptyp_variant(List.rev v3, false, None)) }
+  | LBRACKETGREATER RBRACKET
+      { mktyp(Ptyp_variant([], false, None)) }
+  | LBRACKETLESS opt-bar row-field-list$v3 RBRACKET
+      { mktyp(Ptyp_variant(List.rev v3, true, Some [])) }
+  | LBRACKETLESS opt-bar row-field-list$v3 GREATER name-tag-list$v5 RBRACKET
+      { mktyp(Ptyp_variant(List.rev v3, true, Some (List.rev v5))) }
+.
+row-field-list=
+    row-field$v1                                   { [v1] }
+  | row-field-list$v1 BAR row-field$v3                { v3 :: v1 }
+.
+row-field=
+    tag-field$v1                                   { v1 }
+  | simple-core-type2$v1                           { Rinherit v1 }
+.
+tag-field=
+    name-tag$v1 OF opt-ampersand$v3 amper-type-list$v4
+      { Rtag (v1, v3, List.rev v4) }
+  | name-tag$v1
+      { Rtag (v1, true, []) }
+.
+opt-ampersand=
+    AMPERSAND                                   { true }
+  |; /* empty */                                 
+                                             { false }
+.
+amper-type-list=
+    core-type$v1                                   { [v1] }
+  | amper-type-list$v1 AMPERSAND core-type$v3         { v3 :: v1 }
+.
+opt-present=
+    LBRACKETGREATER name-tag-list$v2 RBRACKET      { List.rev v2 }
+  |; /* empty */                                 
+                                             { [] }
+.
+name-tag-list=
+    name-tag$v1                                    { [v1] }
+  | name-tag-list$v1 name-tag$v2                      { v2 :: v1 }
+.
+simple-core-type-or-tuple=
+    simple-core-type$v1                            { v1 }
+  | simple-core-type$v1 STAR core-type-list$v3
+      { mktyp(Ptyp_tuple(v1 :: List.rev v3)) }
+.
+core-type-comma-list=
+    core-type$v1                                   { [v1] }
+  | core-type-comma-list$v1 COMMA core-type$v3        { v3 :: v1 }
+.
+core-type-list=
+    simple-core-type$v1                            { [v1] }
+  | core-type-list$v1 STAR simple-core-type$v3        { v3 :: v1 }
+.
+meth-list=
+    field$v1 SEMI meth-list$v3                        { v1 :: v3 }
+  | field$v1 opt-semi                              { [v1] }
+  | DOTDOT                                      { [mkfield Pfield_var] }
+.
+field=
+    label$v1 COLON poly-type$v3                       { mkfield(Pfield(v1, v3)) }
+.
+label=
+    LIDENT$v1                                      { v1 }
+.
+
+;/* Constants */
+
+constant=
+    INT$v1                                         { Const_int v1 }
+  | CHAR$v1                                        { Const_char v1 }
+  | STRING$v1                                      { Const_string v1 }
+  | FLOAT$v1                                       { Const_float v1 }
+  | INT32$v1                                       { Const_int32 v1 }
+  | INT64$v1                                       { Const_int64 v1 }
+  | NATIVEINT$v1                                   { Const_nativeint v1 }
+.
+signed-constant=
+    constant$v1                                    { v1 }
+  | MINUS INT$v2                                   { Const_int(- v2) }
+  | MINUS FLOAT$v2                                 { Const_float("-" ^ v2) }
+  | MINUS INT32$v2                                 { Const_int32(Int32.neg v2) }
+  | MINUS INT64$v2                                 { Const_int64(Int64.neg v2) }
+  | MINUS NATIVEINT$v2                             { Const_nativeint(Nativeint.neg v2) }
+  | PLUS INT$v2                                    { Const_int v2 }
+  | PLUS FLOAT$v2                                  { Const_float v2 }
+  | PLUS INT32$v2                                  { Const_int32 v2 }
+  | PLUS INT64$v2                                  { Const_int64 v2 }
+  | PLUS NATIVEINT$v2                              { Const_nativeint v2 }
+.
+
+;/* Identifiers and long identifiers */
+
+ident=
+    UIDENT$v1                                      { v1 }
+  | LIDENT$v1                                      { v1 }
+.
+val-ident=
+    LIDENT$v1                                      { v1 }
+  | LPAREN operator$v2 RPAREN                      { v2 }
+.
+operator=
+    PREFIXOP$v1                                    { v1 }
+  | INFIXOP0$v1                                    { v1 }
+  | INFIXOP1$v1                                    { v1 }
+  | INFIXOP2$v1                                    { v1 }
+  | INFIXOP3$v1                                    { v1 }
+  | INFIXOP4$v1                                    { v1 }
+  | PLUS                                        { "+" }
+  | MINUS                                       { "-" }
+  | MINUSDOT                                    { "-." }
+  | STAR                                        { "*" }
+  | EQUAL                                       { "=" }
+  | LESS                                        { "<" }
+  | GREATER                                     { ">" }
+  | OR                                          { "or" }
+  | BARBAR                                      { "||" }
+  | AMPERSAND                                   { "&" }
+  | AMPERAMPER                                  { "&&" }
+  | COLONEQUAL                                  { ":=" }
+.
+constr-ident=
+    UIDENT$v1                                      { v1 }
+;/*  | LBRACKET RBRACKET                           { "[]" } */
+  | LPAREN RPAREN                               { "()" }
+  | COLONCOLON                                  { "::" }
+;/*  | LPAREN COLONCOLON RPAREN                    { "::" } */
+  | FALSE                                       { "false" }
+  | TRUE                                        { "true" }
+.
+
+val-longident=
+    val-ident$v1                                   { Lident v1 }
+  | mod-longident$v1 DOT val-ident$v3                 { Ldot(v1, v3) }
+.
+constr-longident=
+    mod-longident$v1    !DOT                    { v1 }
+  | LBRACKET RBRACKET                           { Lident "[]" }
+  | LPAREN RPAREN                               { Lident "()" }
+  | FALSE                                       { Lident "false" }
+  | TRUE                                        { Lident "true" }
+.
+label-longident=
+    LIDENT$v1                                      { Lident v1 }
+  | mod-longident$v1 DOT LIDENT$v3                    { Ldot(v1, v3) }
+.
+type-longident=
+    LIDENT$v1                                      { Lident v1 }
+  | mod-ext-longident$v1 DOT LIDENT$v3                { Ldot(v1, v3) }
+.
+mod-longident=
+    UIDENT$v1                                      { Lident v1 }
+  | mod-longident$v1 DOT UIDENT$v3                    { Ldot(v1, v3) }
+.
+mod-ext-longident=
+    UIDENT$v1                                      { Lident v1 }
+  | mod-ext-longident$v1 DOT UIDENT$v3                { Ldot(v1, v3) }
+  | mod-ext-longident$v1 LPAREN mod-ext-longident$v3 RPAREN { Lapply(v1, v3) }
+.
+mty-longident=
+    ident$v1                                       { Lident v1 }
+  | mod-ext-longident$v1 DOT ident$v3                 { Ldot(v1, v3) }
+.
+clty-longident=
+    LIDENT$v1                                      { Lident v1 }
+  | mod-ext-longident$v1 DOT LIDENT$v3                { Ldot(v1, v3) }
+.
+class-longident=
+    LIDENT$v1                                      { Lident v1 }
+  | mod-longident$v1 DOT LIDENT$v3                    { Ldot(v1, v3) }
+.
+
+;/* Toplevel directives */
+
+toplevel-directive=
+    SHARP ident$v2                 { Ptop_dir(v2, Pdir_none) }
+  | SHARP ident$v2 STRING$v3          { Ptop_dir(v2, Pdir_string v3) }
+  | SHARP ident$v2 INT$v3             { Ptop_dir(v2, Pdir_int v3) }
+  | SHARP ident$v2 val-longident$v3   { Ptop_dir(v2, Pdir_ident v3) }
+  | SHARP ident$v2 FALSE           { Ptop_dir(v2, Pdir_bool false) }
+  | SHARP ident$v2 TRUE            { Ptop_dir(v2, Pdir_bool true) }
+.
+
+;/* Miscellaneous */
+
+name-tag=
+    BACKQUOTE ident$v2                             { v2 }
+.
+rec-flag=
+;    /* empty */                                 
+                                                { Nonrecursive }
+  | REC                                         { Recursive }
+.
+direction-flag=
+    TO                                          { Upto }
+  | DOWNTO                                      { Downto }
+.
+private-flag=
+;    /* empty */                                 
+                                                { Public }
+  | PRIVATE                                     { Private }
+.
+mutable-flag=
+;    /* empty */                                 
+                                                { Immutable }
+  | MUTABLE                                     { Mutable }
+.
+virtual-flag=
+;    /* empty */                                 
+                                                { Concrete }
+  | VIRTUAL                                     { Virtual }
+.
+opt-bar=
+;    /* empty */                                 
+                                                { () }
+  | BAR                                         { () }
+.
+opt-semi=
+   ; /* empty */                                 
+                                             { () }
+  | SEMI                                        { () }
+.
+subtractive=
+    MINUS                                       { "-" }
+  | MINUSDOT                                    { "-." }
+.
+dummystart = {()}.
+@end{
+let mk_parse symb crawlfun = 
+  let a = get_symb_action symb in
+  let _wfe_data_ = PamJIT.DNELR.to_table 
+    (Pam_internal.load_internal_program program)
+    a (get_symb_start a) 264 num_symbols
+    __default_call __default_ret in
+  Pami.Wfe.mk_parse_single P2__.parse _wfe_data_ sv0 
+    (fun ykinput (_,h) ->
+      let _o = (new History.postfix h) in
+      let _n() = (let (x,_) = _o#next() in x) in
+      crawlfun(_n,ykinput)
+    )
+end
+
+let use_file lexer = 
+  let module M = The_parser(struct let lexer = lexer end) in
+  M.mk_parse "use_file" M._r_use_file
+let toplevel_phrase lexer = 
+  let module M = The_parser(struct let lexer = lexer end) in
+  M.mk_parse "toplevel_phrase" M._r_toplevel_phrase
+let interface lexer = 
+  let module M = The_parser(struct let lexer = lexer end) in
+  M.mk_parse "interface" M._r_interface
+let implementation lexer = 
+  let module M = The_parser(struct let lexer = lexer end) in
+  M.mk_parse "implementation" M._r_implementation
+
+}

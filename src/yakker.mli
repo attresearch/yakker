@@ -11,13 +11,6 @@
 
 (* Parse-time functions. *)
 
-(** get the current input position. *)
-val get_position : unit -> int
-val set_position : int -> unit
-
-val get_max_position : unit -> int
-  (** get the maximum input position. *)
-
 (** begin and end positions, (end is non inclusive) *)
 val get_substring : int -> int -> string
 

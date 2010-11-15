@@ -13,26 +13,6 @@
     Parse-time functions.
 *)
 
-let current_position = ref 0
-
-(** Maximum position encountered during parsing. *)
-let max_position = ref 0
-
-let upd_max i = if i > !max_position then max_position := i else ()
-
-let set_position i =
-  if Logging.activated then
-    begin
-      upd_max i;
-      Logging.log Logging.Features.position "CP=%d\n" i;
-    end;
-  current_position := i
-let get_position () =
-  if Logging.activated then
-    Logging.log Logging.Features.position "get_position: %d\n" !current_position;
-  !current_position
-let get_max_position () = !max_position
-
 let _internal_get_substring =
   ref (fun o n ->
 	 failwith "Yakker.get_substring function not initialized.")

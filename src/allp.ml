@@ -20,6 +20,20 @@
 
 open YkBuf
 
+(* Position tracking is obsolete now that we pass position as a parameter to all actions.  Rewrite. *)
+let current_position = ref 0
+(** Maximum position encountered during parsing. *)
+let max_position = ref 0
+let upd_max i = if i > !max_position then max_position := i else ()
+let set_position i =
+  if Logging.activated then
+    begin
+      upd_max i;
+      Logging.log Logging.Features.position "CP=%d\n" i;
+    end;
+  current_position := i
+
+
 let mem c cs =
   Cs.member cs (Char.code c)
 
@@ -131,12 +145,12 @@ let char_range lb ub k_s ykb v =
 let pred f_p f_r
     k_s ykb v =
   let i = get_offset ykb in
-  Yakker.set_position i;
+  set_position i;
   if (f_p i v) then k_s ykb (f_r i v)
 
 let box f_box k_s ykb v =
   let i = get_offset ykb in
-  Yakker.set_position i;
+  set_position i;
   match f_box v i ykb with
     | Some (j, v') ->
 	upd_max (get_offset ykb - 1);
@@ -145,7 +159,7 @@ let box f_box k_s ykb v =
 
 let action f k_s ykb v =
   let i = get_offset ykb in
-  Yakker.set_position i;
+  set_position i;
   k_s ykb (f i v)
 
 (* If lookahead succeeds, we discard its progress and value
@@ -467,12 +481,12 @@ committed to, even if it later meets its premature end. *)
   let pred f_p f_r
       k_f k_s ykb v =
     let i = get_offset ykb in
-    Yakker.set_position i;
+    set_position i;
     if (f_p i v) then k_s ykb (f_r i v) else k_f ykb v
 
   let box f_box k_f k_s ykb v =
     let i = get_offset ykb in
-    Yakker.set_position i;
+    set_position i;
     match f_box v i ykb with
       | Some (j, v') ->
 	  upd_max (get_offset ykb - 1);
@@ -481,7 +495,7 @@ committed to, even if it later meets its premature end. *)
 
   let action f k_f k_s ykb v =
     let i = get_offset ykb in
-    Yakker.set_position i;
+    set_position i;
     k_s ykb (f i v)
 
   (* If lookahead succeeds, we discard its progress and value

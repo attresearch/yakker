@@ -11,6 +11,7 @@
 
 (* The labeling transform *)
 
+open Yak
 open Gul
 open Variables
 

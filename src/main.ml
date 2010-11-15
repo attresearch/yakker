@@ -9,6 +9,7 @@
  *    Trevor Jim and Yitzhak Mandelbaum
  *******************************************************************************)
 
+open Yak
 open Gul
 open Cmdline
 
@@ -118,14 +119,14 @@ let add_boilerplate2 backend gr =
     | (true,true) ->
         Printf.sprintf "
     (fun ykinput (_,h) ->
-      let _o = (new History.postfix h) in
+      let _o = (new Yak.History.postfix h) in
       let _n() = (let (x,_) = _o#next() in x) in
       _r_%s(_n,ykinput)
     )" (Variables.bnf2ocaml gr.start_symbol)
     | (false,true) ->
         Printf.sprintf "
     (fun ykinput h ->
-      let _o = (new History.postfix h) in
+      let _o = (new Yak.History.postfix h) in
       let _n() = (let (x,_) = _o#next() in x) in
       _r_%s(_n,ykinput)
     )
@@ -137,30 +138,30 @@ let add_boilerplate2 backend gr =
            Printf.sprintf "
 let start_symb = get_symb_action \"%s\"
 
-module P2__ = Engine.Full_yakker(struct type t = sv let cmp = sv_compare end)
+module P2__ = Yak.Engine.Full_yakker(struct type t = sv let cmp = sv_compare end)
 
-let _wfe_data_ = PamJIT.DNELR.to_table (Pam_internal.load_internal_program program)
+let _wfe_data_ = Yak.PamJIT.DNELR.to_table (Yak.Pam_internal.load_internal_program program)
   start_symb (get_symb_start start_symb) %d num_symbols
   %s %s
 
-let parse = Pami.Wfe.mk_parse P2__.parse _wfe_data_ sv0 %s
+let parse = Yak.Pami.Wfe.mk_parse P2__.parse _wfe_data_ sv0 %s
 let visualize = parse
-let visualize_file = Pami.Simple.parse_file visualize
-let visualize_string = Pami.Simple.parse_string visualize
+let visualize_file = Yak.Pami.Simple.parse_file visualize
+let visualize_string = Yak.Pami.Simple.parse_string visualize
 \n"
     gr.start_symbol Fsm.min_symbol Fsm.default_call_tx Fsm.default_binder_tx post_parse_function
        | Fun_BE | Peg_BE _ ->
-      Printf.sprintf "\nlet visualize = Pami.mk_parse_fun __parse
+      Printf.sprintf "\nlet visualize = Yak.Pami.mk_parse_fun __parse
    (fun input state_node ->
       Printf.printf \"Visualization not supported by Gil interpreter.\n\")
-let visualize_file = Pami.Simple.parse_file visualize
-let visualize_string = Pami.Simple.parse_string visualize
+let visualize_file = Yak.Pami.Simple.parse_file visualize
+let visualize_string = Yak.Pami.Simple.parse_string visualize
 
-let parse = Pami.mk_parse_fun __parse %s
+let parse = Yak.Pami.mk_parse_fun __parse %s
 "       post_parse_function)
     ^
-      "let parse_file = Pami.Simple.parse_file parse
-let parse_string = Pami.Simple.parse_string parse
+      "let parse_file = Yak.Pami.Simple.parse_file parse
+let parse_string = Yak.Pami.Simple.parse_string parse
 ;;\n" in
   add_to_epilogue gr boilerplate
 ;;

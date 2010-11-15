@@ -9,6 +9,7 @@
  *    Trevor Jim and Yitzhak Mandelbaum
  *******************************************************************************)
 
+open Yak
 let get n =
   if n < 0 then raise(Invalid_argument "get_rfc");
   let rfcname = Filename.temp_file (Printf.sprintf "rfc%d.txt." n) "" in

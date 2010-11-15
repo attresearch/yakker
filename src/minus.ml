@@ -9,6 +9,7 @@
  *    Trevor Jim and Yitzhak Mandelbaum
  *******************************************************************************)
 
+open Yak
 open Gul
 
 let cs_CHARRANGE(min,max) =

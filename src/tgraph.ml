@@ -9,6 +9,8 @@
  *    Trevor Jim and Yitzhak Mandelbaum
  *******************************************************************************)
 
+open Yak
+
 type 'a graph = ('a, 'a PSet.t) PMap.t
 
 let empty = PMap.empty

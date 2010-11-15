@@ -10,6 +10,7 @@
  *******************************************************************************)
 
 (* The coroutine transform *)
+open Yak
 open Gul
 
 let yk_done e = Printf.sprintf "Yk_done(%s)" e

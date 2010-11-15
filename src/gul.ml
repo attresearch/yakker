@@ -9,6 +9,8 @@
  *    Trevor Jim and Yitzhak Mandelbaum
  *******************************************************************************)
 
+open Yak
+
 (* Gul abstract syntax *)
 type nonterminal = Gil.nonterminal
 type expr = Gil.expr

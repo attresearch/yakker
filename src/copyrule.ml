@@ -53,6 +53,7 @@ ocaml type analysis.
 
 *)
 
+open Yak
 open Gul
 open Attr
 

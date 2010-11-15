@@ -11,6 +11,7 @@
 
 (* The dispatch transform *)
 
+open Yak
 open Gul
 open Variables
 
@@ -25,7 +26,7 @@ type _pos = int (* input positions *)
 type _lab = int (* dispatch labels *)
 type 'a ev = (* early values, aka coroutines.  'a is the type of values eventually computed by the coroutines *)
   | Yk_more of _uid * (_lab -> _pos -> 'a ev)
-  | Yk_box of (_pos -> YkBuf.t -> (int * 'a ev) option)
+  | Yk_box of (_pos -> Yak.YkBuf.t -> (int * 'a ev) option)
   | Yk_when of bool
   | Yk_delay of 'a ev * hv
   | Yk_bind of ('a ev -> 'a ev)
@@ -44,7 +45,7 @@ let _fresh_t_id () =
   incr _t_count;
   count
 let _t f = Yk_more(_fresh_t_id(),f)
-type sv = _wv ev * (hv*_pos) History.history
+type sv = _wv ev * (hv*_pos) Yak.History.history
 let sv0 = (Yk_done _wv0, Yk_History.new_history())
 let sv_compare (x1,x2) (y1,y2) =
   (match ev_compare x1 y1 with
@@ -132,7 +133,7 @@ type _pos = int (* input positions *)
 type _lab = int (* dispatch labels *)
 type 'a ev = (* early values, aka coroutines.  'a is the type of values eventually computed by the coroutines *)
   | Yk_more of _uid * (_lab -> _pos -> 'a ev)
-  | Yk_box of (_pos -> YkBuf.t -> (int * 'a ev) option)
+  | Yk_box of (_pos -> Yak.YkBuf.t -> (int * 'a ev) option)
   | Yk_when of bool
   | Yk_bind of ('a ev -> 'a ev)
   | Yk_done of 'a
@@ -190,7 +191,7 @@ let add_late_prologue gr =
 (*LATE PROLOGUE*)
 type _pos = int (* input positions *)
 let hv_compare = Yk_History.compare
-type sv = (hv*_pos) History.history
+type sv = (hv*_pos) Yak.History.history
 let sv0 = Yk_History.new_history()
 let sv_compare = hv_compare
 let sv_hash = Yk_History.hash

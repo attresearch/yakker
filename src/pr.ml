@@ -9,9 +9,10 @@
  *    Trevor Jim and Yitzhak Mandelbaum
  *******************************************************************************)
 
-open Printf
+open Yak
 open Gul
 open Attr
+open Printf
 
 let binder_prec = 30
 

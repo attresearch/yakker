@@ -196,8 +196,11 @@ buildinfo.ml:
 	@echo "x--> " $@
 	@echo "let build_dir = \"$(CURDIR)\"" > $@
 
+# Generate a dependency graph, requires (nonstandard) ocamldot
 DEPEND.pdf: $(SOURCES) $(FRONT_END_SOURCES)
-	ocamldep -I $(TOPDIR)/src -I $(TOPDIR)/batteries $^ | ocamldot | dot -Tpdf > $@
+	touch yak.ml
+	(echo yak.cmo: $(CMOS); ocamldep -I $(TOPDIR)/src -I $(TOPDIR)/batteries yak.ml $^) | ocamldot | dot -Tpdf > $@
+	$(RM) yak.ml
 
 # Qian's debugging stuff
 yakker-pcomb-parser.opt: tgraph.cmx bnf.cmx yak.cmxa

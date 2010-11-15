@@ -40,7 +40,7 @@ _r_rfc(_n,ykinput) = (ignore (*1000*) (_n());
   in (ignore (*1013*) (_n()); 
  (let _x5 = (ignore (*1014*) (_n()); _n())
   in (ignore (*1015*) (_n()); 
- (let x = (ignore (*1016*) (_n()); Yak.Yakker.get_string _x6 _x5 ykinput)
+ (let x = (ignore (*1016*) (_n()); Yak.YkBuf.get_string _x6 _x5 ykinput)
   in (ignore (*1017*) (_n()); 
  (let _x36 = (ignore (*1018*) (_n());  output_string !outch x; output_string !outch "\n";  )
   in ()))

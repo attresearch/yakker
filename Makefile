@@ -25,7 +25,7 @@ DOCDIR=$(TOPDIR)/doc
 BATTERIES_SOURCES = enum.ml enum.mli dynArray.ml pMap.ml pMap.mli return.ml return.mli pSet.ml pSet.mli bitSet.ml bitSet.mli
 YAKKER_SOURCES := logging.ml util.ml ykBuf.ml cs.ml \
            wf_set.ml pam_internal.mli pam_internal.ml pamJIT.mli pamJIT.ml \
-	   yakker.mli yakker.ml history.mli history.ml viz.ml\
+	   history.mli history.ml viz.ml\
            allp.ml pami.ml engine.ml
 
 SOURCES := $(BATTERIES_SOURCES) $(YAKKER_SOURCES)

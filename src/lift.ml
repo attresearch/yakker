@@ -116,8 +116,8 @@ let transform gr =
         let need_early_extent = not e1 && early<>None in
         let need_late_extent = not l1 && late<>None in
         if need_early_extent || need_late_extent then begin
-          let extent before after = Printf.sprintf "Yak.Yakker.get_substring %s %s" before after in
-          let extent_l before after = Printf.sprintf "Yak.Yakker.get_string %s %s ykinput" before after in
+          let extent before after = Printf.sprintf "Yak.Pami.get_substring %s %s" before after in
+          let extent_l before after = Printf.sprintf "Yak.YkBuf.get_string %s %s ykinput" before after in
           let before,after = fresh(),fresh() in
           r.r <-
             (mkSEQ2(mkPOSITION true,Some before,None,

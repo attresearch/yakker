@@ -1364,3 +1364,5 @@ idempotency of newline call.
 end
 
 include Newversion
+
+let get_string i j acc = Snapshot.sub acc i (j-i)

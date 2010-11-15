@@ -12,6 +12,13 @@
 exception Parse_error of string * int * int * int
   (** message, position, line number, column number (all 1-indexed) *)
   
+let _internal_get_substring =
+  ref (fun o n ->
+	 failwith "get_substring function not initialized.")
+let default_get_substring ykb cp off len = YkBuf.extract_string ykb cp off len
+let get_substring i j = !_internal_get_substring i (j-i)
+let set_get_substring_fun f = _internal_get_substring := f
+
 let new_engine_flag = ref true
 
 let mk_parse_fun _pf pp ykb = 
@@ -122,7 +129,7 @@ module Basic = struct
   (** [c] : parsing combinator *)
   let mk_parse c v_init ykb =
     let cp = YkBuf.save ykb in
-    Yakker.set_get_substring_fun (Yakker.default_get_substring ykb cp);
+    set_get_substring_fun (default_get_substring ykb cp);
     let results, max_offset = Allp.parse c ykb v_init in
     if results = [] then
       let n = YkBuf.get_input_size ykb in
@@ -153,7 +160,7 @@ module Peg = struct
   (** [c] : peg parsing combinator *)
   let mk_parse c v_init ykb =
     let cp = YkBuf.save ykb in
-    Yakker.set_get_substring_fun (Yakker.default_get_substring ykb cp);
+    set_get_substring_fun (default_get_substring ykb cp);
     match Allp.Peg.parse c ykb v_init with
       | (Some res), max_offset ->
 	  let b = YkBuf.snapshot ykb cp in
@@ -181,7 +188,7 @@ end
 module Wfe = struct
   let mk_parse pf data sv0 pp ykb =
     let cp = YkBuf.save ykb in
-    Yakker.set_get_substring_fun (Yakker.default_get_substring ykb cp);
+    set_get_substring_fun (default_get_substring ykb cp);
     let parse_result = pf data sv0 ykb in
     if parse_result = [] then
       let read_all = YkBuf.is_eof ykb in
@@ -197,7 +204,7 @@ module Wfe = struct
 (** Only run the post-parse function on the first (if any) result from parsing. *)
   let mk_parse_single pf data sv0 pp ykb =
     let cp = YkBuf.save ykb in
-    Yakker.set_get_substring_fun (Yakker.default_get_substring ykb cp);
+    set_get_substring_fun (default_get_substring ykb cp);
     let parse_result = pf data sv0 ykb in
     match parse_result with
       | [] ->

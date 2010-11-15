@@ -536,7 +536,7 @@ llexer.cmo: ocamlparser.cmi
 llexer.cmx: ocamlparser.cmi
 
 ocamlparser.ml: ocamlparser.bnf
-	./yakker compile $< > $@
+	./yakker compile $< > $(TOPDIR)/src/ocamlparser.ml
 
 llexer.ml: llexer.mll
 	ocamllex $<

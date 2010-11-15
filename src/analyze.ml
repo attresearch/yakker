@@ -330,6 +330,9 @@ exception Found_prec of int
 let invalid_prec_dir n = invalid_arg ("get_prec: precedence annotation \'" ^ n ^ "\' encountered, \
                                      but not found in precedence table.")
 
+let warn_invalid_prec_dir n = 
+  Util.warn Util.User_warn ("get_prec: precedence annotation \'" ^ n ^ "\' not found in precedence table.")
+
 (** Find the precedence of the rule [r]. Default is precedence of
     rightmost terminal. If the rightmost terminal has no precedence,
     then 0 is returned. If there is no terminal and no
@@ -376,8 +379,8 @@ let infer_prec ptbl tokmap r =
 let get_prec_explicit ptbl r = 
   match r.a.precedence with 
     | Some_prec n ->
-	let p = try Hashtbl.find ptbl n with Not_found -> invalid_prec_dir n in
-	Some p
+	(try Some (Hashtbl.find ptbl n)
+	with Not_found -> warn_invalid_prec_dir n; None)
     | No_prec -> Some 0
     | Default_prec -> None
 
@@ -521,6 +524,7 @@ let print_prec_sets (_, primary, secondary, relevant, both, primary_only, second
   pr "Secondary-only:\n";
   prset secondary_only
 
+
 (** Compute whether a given associativity is permitted (not necessary).
     It is a conservative estimate of the desired associativity. As long as
     [x] is not other-assoc. (where other should be either left or right)
@@ -534,7 +538,7 @@ let mk_assoc_array other_a n_a =
   Array.init len (fun p -> not ( other_a.(p) or n_a.(p) ))
 
 (** Rewrite the grammar based on the precedence annotations. *)
-let prec_rewrite gr =
+let prec_rewrite_complex gr =
   if gr.precs = [||] then () else
   let (ptbl, primary, secondary, relevant, both, primary_only, secondary_only) = 
     build_prec_sets gr in
@@ -676,18 +680,169 @@ Simpler version:
 
 Simple version of precedence transformation.
 
-       1) secondary = set of nonterminals called *directly* from primary
-       production.  
+       1) Only primary matter.
 
-       2) for every secondary, add attributes.
+       2) Primary nonterminals *return* their precedence upon completion.
 
-       3) for every primary production, fill in attributes, where right is
-       for rightmost and left is for leftmost. this is a conservative
-       approach, because nullable nonterminals can hide left/right-ness.
-
-
-
+       3) When called from other primaries, returned precedence is checked.
 *)  
+
+let iter_with_pos2 f r =
+  let rec loop pos r = match r.r with
+    | Symb (n, _, _, _) -> f (Some pos) r n; Middle_of
+
+    | Box _ | Lit _ | Rcount _ | Star _ | Hash _
+    | Alt _ | Minus _ | CharRange _ | Opt _ -> Middle_of 
+
+    | Assign _ | Action _ | Position _ | Prose _
+    | When _ | Delay _ | Lookahead _ -> pos
+
+    | Seq({r=Symb (n, _, _, _)}, _, _, r2) ->
+	(match pos with
+	   | Left_of | Middle_of -> 
+	       let p = loop Middle_of r2 in
+	       f (Some pos) r n; p   (* Since [f] will modify r, we loop over [r2] first. 
+					But, still need to return result of [r2].*)
+	   | Right_of ->
+	       let p = loop pos r2 in
+	       f (Some p) r n; Middle_of)	
+    | Seq(r1,_,_,r2) ->	
+	match pos with
+	  | Left_of | Middle_of -> 
+	      ignore (loop pos r1);
+	      loop Middle_of r2
+	  | Right_of ->
+	      let p = loop pos r2 in
+	      loop p r1 in
+  match r.r with
+    | Action _ -> ()
+    | Seq ({r = Symb (n, _, _, _)}, _, _, {r=Action _}) -> f None r n
+    | Seq (_, _, _, {r=Action _}) -> ()
+    | Seq({r=Symb (n, _, _, _)}, _, _, r2) ->
+	f (Some Left_of) r n;
+	ignore (loop Right_of r2)
+    | Seq(r1, _, _, r2) ->
+	ignore (loop Left_of r1);
+	ignore (loop Right_of r2)
+    | _ -> invalid_arg "Expected rule adhering to ocamlyacc format."
+
+(** A simpler version of the precedence set calculation. Only
+    nonterminals which directly contain productions with precedence are
+    considered. No notion of secondary is built. *)
+let build_prec_sets_simple gr =
+  let ptbl = create_prec_table gr in
+  let has_prec r = match get_prec ptbl gr.tokmap r with 
+      None | Some 0 -> false 
+    | _ -> true in
+  let is_primary = function 
+    | RuleDef (n, r, _) -> 
+	let rules = alt2rules r in
+	if List.exists has_prec rules then Some n else None
+    | _ -> None in	       
+  let primary = List.fold_left (fun s x -> Stringset.add x s) 
+    Stringset.empty (filter_map is_primary gr.ds) in
+  ptbl, primary
+
+(** Rewrite the grammar based on the precedence annotations. *)
+let prec_rewrite_simple gr =
+  if gr.precs = [||] then () else
+  let ptbl, primary = build_prec_sets_simple gr in
+
+  (* Compute associativity predicates (as arrays l_a, n_a,
+     r_a). Element 0 is reserved for "everything else".  *)
+  let n = Array.length gr.precs in
+  let sz = n + 1 in
+  let l_a = Array.make sz false in
+  let r_a = Array.make sz false in
+  let n_a = Array.make sz false in
+  l_a.(0) <- true;
+  for i = 1 to n do 
+    match gr.precs.(i-1) with 
+      | (Left_assoc, _) -> l_a.(i) <- true
+      | (Right_assoc, _) -> r_a.(i) <- true
+      | (Non_assoc, _) -> n_a.(i) <- true
+  done;
+
+  (* Generate [left] and [right] from l_a, n_a and r_a. *)
+  let left = mk_assoc_array r_a n_a in
+  let right = mk_assoc_array l_a n_a in
+  
+  let prec_var = "prec" in
+  let prec_type = "Pami.prec" in
+
+  let mk_pguard x prec pos = 
+    if pos then
+      Printf.sprintf "%d <= %s" prec x
+    else
+      Printf.sprintf "%d < %s" prec x in
+
+  let rewrite_symb prec pos r =
+    let x = Variables.fresh () in
+    let guard = mkWHEN (mk_pguard x prec pos) in
+    r.r <- Seq(mkRHS r.r, Some x, None, guard) in
+
+  let rewrite_symb_seq prec pos xopt late r r1 r2 =
+    let x = match xopt with None -> Variables.fresh () | Some x -> x in
+    let guard = mkWHEN (mk_pguard x prec pos) in
+    let r2_new = mkSEQ2 (guard, None, None, r2) in
+    r.r <- Seq(r1, Some x, late, r2_new) in
+
+  (* TODO: switch to output attribute rather than binder. *)
+  let instantiate_attrs prec =
+    iter_with_pos2 (fun pos_opt r n -> 
+		     if Stringset.mem n primary then
+		       match r.r with
+			 | Symb _ -> 
+			     (match pos_opt with
+				| Some Middle_of -> ()
+				| None -> rewrite_symb prec true r
+				| Some Left_of -> rewrite_symb prec left.(prec) r
+				| Some Right_of -> rewrite_symb prec right.(prec) r)
+			 | Seq({r=Symb _} as r1, xopt, late, r2) ->
+			     (match pos_opt with
+				| Some Middle_of -> ()
+				| None -> rewrite_symb_seq prec true xopt late r r1 r2
+				| Some Left_of -> rewrite_symb_seq prec left.(prec) xopt late r r1 r2
+				| Some Right_of -> rewrite_symb_seq prec right.(prec) xopt late r r1 r2)
+			 | _ -> ()) in
+
+  let add_early_action a_e r =
+    let change r = match r.r with
+      | Action (None, a_l_opt) ->
+	  r.r <- Action(Some a_e, a_l_opt)
+      | Action (Some _, _) ->
+	  invalid_arg "add_early_action: expected rule adhering to ocamlyacc format (found early action at end)." 
+      | _ -> 
+	  invalid_arg "add_early_action: expected rule adhering to ocamlyacc format (did not find action at end)." in
+    let rec loop r = match r.r with
+      | Seq(_, _, _, r2) -> loop r2
+      | _ -> change r in
+    loop r in
+
+  let add_prec_attrs tokmap = function
+    | RuleDef (n, r, a) ->
+	if Stringset.mem n primary then begin
+(* 	  a.Attr.output_attributes <- (prec_var, prec_type)::a.Attr.output_attributes; *)
+	  a.Attr.early_rettype <- Some prec_type;
+	  let rs = alt2rules r in
+	  List.iter (fun r_b ->
+		       match get_prec ptbl tokmap r_b with
+			 | None
+			 | Some 0 -> add_early_action (string_of_int sz) r_b
+			 | Some p ->
+			     instantiate_attrs p r_b;
+			     add_early_action (string_of_int p) r_b) rs
+	end;
+	(* Clear any precedence annotations, now that they've been processed. *)
+	iter_rule_postorder (fun r -> r.a.precedence <- Default_prec) r
+    | LexerDef _ | LexerDecl _ -> () in
+  List.iter (add_prec_attrs gr.tokmap) gr.ds;
+
+  (* Clear the precedence attributes, now that they've been folded in. *)
+  gr.precs <- [||]
+
+(* TODO: add flag to control which function is called by [prec_rewrite]. *)
+let prec_rewrite = prec_rewrite_simple
 
 
 (***************

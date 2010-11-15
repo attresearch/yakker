@@ -315,41 +315,42 @@ let __ocaml_lex_ypeek = YkBuf.peek_ocamllex The_lexer_mod.lexer
 ; Also, can we add notion of "safe" productions? if a production has token on the left
 ; and appears in the `right` position, then can infer something? e.g. ignore precedence?
 
-@precedence : ;@non IN 
-  < @right below_SEMI
-  < @non SEMI
-  < @non LET
-  < @right below_WITH
+; @precedence : 
+;     @non IN 
+;   < @right below_SEMI
+;   < @non SEMI
+;   < @non LET
+;   < @right below_WITH
 ;   < @non FUNCTION WITH
 ;   < @non AND
-   < @right THEN
-   < @right ELSE
+;   < @right THEN
+;   < @right ELSE
 ;   < @non LESSMINUS
 ;   < @right COLONEQUAL
 ;   < @non AS
-   < @left BAR
-  < @non below_COMMA
-   < @left COMMA
+;   < @left BAR
+;   < @non below_COMMA
+;   < @left COMMA
 ;   < @right MINUSGREATER
 ;   < @right OR BARBAR
 ;   < @right AMPERSAND AMPERAMPER
-;  < @non below_EQUAL
-;   < @left cmp_EQUAL
-   < @left INFIXOP0 cmp_EQUAL LESS GREATER
-   < @right INFIXOP1
+;   < @non below_EQUAL
+;   < @left INFIXOP0 cmp_EQUAL LESS GREATER
+;   < @right INFIXOP1
 ;   < @right COLONCOLON
-   < @left INFIXOP2 PLUS MINUS MINUSDOT
-   < @left INFIXOP3 STAR
-   < @right INFIXOP4
-  < @non prec_unary_minus
-;  < @non prec_constant_constructor
-;  < @non prec_constr_appl
-;  < @non below_SHARP
-;  < @non SHARP
-;  < @non below_DOT
-;  < @non DOT
-;  < @non BACKQUOTE BEGIN CHAR FALSE FLOAT INT INT32 INT64 LBRACE LBRACELESS LBRACKET LBRACKETBAR LIDENT LPAREN NEW NATIVEINT PREFIXOP STRING TRUE UIDENT
-.
+;   < @left INFIXOP2 PLUS MINUS MINUSDOT
+;   < @left INFIXOP3 STAR
+;   < @right INFIXOP4
+;   < @non prec_unary_minus
+;   < @non prec_constant_constructor
+;   < @non prec_constr_appl
+;   < @non below_SHARP
+;   < @non SHARP
+;   < @non below_DOT
+;   < @non DOT
+;   < @non BACKQUOTE BEGIN CHAR FALSE FLOAT INT INT32 INT64 LBRACE LBRACELESS LBRACKET 
+;          LBRACKETBAR LIDENT LPAREN NEW NATIVEINT PREFIXOP STRING TRUE UIDENT
+; .
 
 @declare-lexer __ocaml_lex_ylex@({token}) __ocaml_lex_ypeek =
 | WITH
@@ -803,7 +804,7 @@ method-type=
       { v3, v2, v5, symbol_rloc () }
 .
 constrain=
-        core-type$v1 EQUAL core-type$v3          { v1, v3, symbol_rloc () }  @prec cmp_EQUAL
+        core-type$v1 EQUAL core-type$v3          { v1, v3, symbol_rloc () }
 .
 class-descriptions=
     class-descriptions$v1 AND class-description$v3    { v3 :: v1 }
@@ -919,53 +920,53 @@ expr=
                              Some(ghexp(Pexp_tuple[v5;v7])),
                              false)) }
   | expr$v1 INFIXOP0$v2 expr$v3
-      { mkinfix v1 v2 v3 }
+      { mkinfix v1 v2 v3 }          @prec INFIXOP0     
   | expr$v1 INFIXOP1$v2 expr$v3
-      { mkinfix v1 v2 v3 }
+      { mkinfix v1 v2 v3 }          @prec INFIXOP1     
   | expr$v1 INFIXOP2$v2 expr$v3
-      { mkinfix v1 v2 v3 }
+      { mkinfix v1 v2 v3 }          @prec INFIXOP2     
   | expr$v1 INFIXOP3$v2 expr$v3
-      { mkinfix v1 v2 v3 }
+      { mkinfix v1 v2 v3 }          @prec INFIXOP3     
   | expr$v1 INFIXOP4$v2 expr$v3
-      { mkinfix v1 v2 v3 }
+      { mkinfix v1 v2 v3 }          @prec INFIXOP4     
   | expr$v1 PLUS expr$v3
-      { mkinfix v1 "+" v3 }
+      { mkinfix v1 "+" v3 }          @prec PLUS
   | expr$v1 MINUS expr$v3
-      { mkinfix v1 "-" v3 }
+      { mkinfix v1 "-" v3 }          @prec MINUS
   | expr$v1 MINUSDOT expr$v3
-      { mkinfix v1 "-." v3 }
+      { mkinfix v1 "-." v3 }          @prec MINUSDOT
   | expr$v1 STAR expr$v3
-      { mkinfix v1 "*" v3 }
+      { mkinfix v1 "*" v3 }          @prec STAR
   | expr$v1 EQUAL expr$v3
-      { mkinfix v1 "=" v3 }       @prec cmp_EQUAL
+      { mkinfix v1 "=" v3 }          @prec cmp_EQUAL
   | expr$v1 LESS expr$v3
-      { mkinfix v1 "<" v3 }
+      { mkinfix v1 "<" v3 }          @prec LESS
   | expr$v1 GREATER expr$v3
-      { mkinfix v1 ">" v3 }
+      { mkinfix v1 ">" v3 }          @prec GREATER
   | expr$v1 OR expr$v3
-      { mkinfix v1 "or" v3 }
+      { mkinfix v1 "or" v3 }          @prec OR
   | expr$v1 BARBAR expr$v3
-      { mkinfix v1 "||" v3 }
+      { mkinfix v1 "||" v3 }          @prec BARBAR
   | expr$v1 AMPERSAND expr$v3
-      { mkinfix v1 "&" v3 }
+      { mkinfix v1 "&" v3 }          @prec AMPERSAND
   | expr$v1 AMPERAMPER expr$v3
-      { mkinfix v1 "&&" v3 }
+      { mkinfix v1 "&&" v3 }          @prec AMPERAMPER
   | expr$v1 COLONEQUAL expr$v3
-      { mkinfix v1 ":=" v3 }
+      { mkinfix v1 ":=" v3 }          @prec COLONEQUAL   
   | subtractive$v1 expr$v2 
-      { mkuminus v1 v2 }  @prec prec_unary_minus
+      { mkuminus v1 v2 }              @prec prec_unary_minus
   | simple-expr$v1 DOT label-longident$v3 LESSMINUS expr$v5
-      { mkexp(Pexp_setfield(v1, v3, v5)) }
+      { mkexp(Pexp_setfield(v1, v3, v5)) }              @prec LESSMINUS
   | simple-expr$v1 DOT LPAREN seq-expr$v4 RPAREN LESSMINUS expr$v7
       { mkexp(Pexp_apply(ghexp(Pexp_ident(array_function "Array" "set")),
-                         ["",v1; "",v4; "",v7])) }
+                         ["",v1; "",v4; "",v7])) }      @prec LESSMINUS
   | simple-expr$v1 DOT LBRACKET seq-expr$v4 RBRACKET LESSMINUS expr$v7
       { mkexp(Pexp_apply(ghexp(Pexp_ident(array_function "String" "set")),
-                         ["",v1; "",v4; "",v7])) }
+                         ["",v1; "",v4; "",v7])) }      @prec LESSMINUS
   | simple-expr$v1 DOT LBRACE expr$v4 RBRACE LESSMINUS expr$v7
-      { bigarray_set v1 v4 v7 }
+      { bigarray_set v1 v4 v7 }        @prec LESSMINUS
   | label$v1 LESSMINUS expr$v3
-      { mkexp(Pexp_setinstvar(v1, v3)) }
+      { mkexp(Pexp_setinstvar(v1, v3)) } @prec LESSMINUS
   | ASSERT simple-expr$v2 !SHARP
       { mkassert v2 }
   | LAZY simple-expr$v2 !SHARP
@@ -1130,12 +1131,12 @@ pattern=
       { mkpat(Ppat_variant(v1, Some v2)) }  ; @prec prec_constr_appl
   | pattern$v1 COLONCOLON pattern$v3
       { mkpat(Ppat_construct(Lident "::", Some(ghpat(Ppat_tuple[v1;v3])),
-                             false)) }
+                             false)) }  @prec COLONCOLON
   | LPAREN COLONCOLON RPAREN LPAREN pattern$v5 COMMA pattern$v7 RPAREN
       { mkpat(Ppat_construct(Lident "::", Some(ghpat(Ppat_tuple[v5;v7])),
                              false)) }
   | pattern$v1 BAR pattern$v3
-      { mkpat(Ppat_or(v1, v3)) }
+      { mkpat(Ppat_or(v1, v3)) } @prec BAR
   | LAZY simple-pattern$v2
       { mkpat(Ppat_lazy v2) }
 .
@@ -1384,7 +1385,7 @@ simple-core-type2=
 .
 row-field-list=
     row-field$v1                                   { [v1] }
-  | row-field-list$v1 BAR row-field$v3                { v3 :: v1 }
+  | row-field-list$v1 BAR row-field$v3                { v3 :: v1 }  @prec BAR
 .
 row-field=
     tag-field$v1                                   { v1 }

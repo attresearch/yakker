@@ -139,14 +139,6 @@ doc: $(OCAMLDOC_SOURCES)
 -include $(FRONT_END_ML_SOURCES:.ml=.d) $(ML_SOURCES:.ml=.d)
 -include $(MLI_SOURCES:.mli=.di)
 
-yakker.cma: $(CMOS)
-	@echo "--x> " $@
-	@$(OCAMLC) -g -a -o $@ -package unix $^
-
-yakker.cmxa: $(CMXS)
-	@echo "--x> " $@
-	@$(OCAMLOPT) $(OCAMLOPT_FLAGS) -a -o $@ -package unix $^
-
 yak.cmo: $(CMOS)
 	@echo "--x> " $@
 	@$(OCAMLC) -g -pack -o $@ $^
@@ -533,7 +525,7 @@ ocamlparser: yak.cma ocamlparser.cmo llexer.cmo opdriver.cmo
            $^ -package unix -linkpkg -o $@
 
 
-ocamlparser.opt: yakker.cmxa ocamlparser.cmx llexer.cmx opdriver.cmx
+ocamlparser.opt: yak.cmxa ocamlparser.cmx llexer.cmx opdriver.cmx
 	$(OCAMLOPT) $(OCAML_COMP_DIR)/config.cmx \
            $(OCAML_COMP_DIR)/misc.cmx \
            $(OCAML_COMP_DIR)/clflags.cmx $(OCAML_COMP_DIR)/linenum.cmx \
@@ -608,7 +600,7 @@ dyptest.cmx: dyptest.ml
 	@echo "-x-> " $@
 	@$(OCAMLOPT) $(OCAML_FLAGS) -I $(DYPHOME)/dyplib -c $< -o $@
 
-#wfe : yakker.cmxa ocaml_woc.cmx python2.cmx engine.ml test_wfe.ml
+#wfe : yak.cmxa ocaml_woc.cmx python2.cmx engine.ml test_wfe.ml
 wfe : yak.cmxa ocaml_woc.cmx
 	$(OCAMLOPT) -package unix -linkpkg -inline 30 $^ -o $@
 

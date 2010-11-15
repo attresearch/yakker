@@ -10,6 +10,7 @@
  *    Trevor Jim and Yitzhak Mandelbaum
  *******************************************************************************)
 
+open Yak
 type plugin =
   | Dypgen_PI of bool (** flag indicating whether the generated grammar should be faux-scannerless. *)
 
@@ -78,7 +79,7 @@ module Yk_Hashed = struct
   let compare i j = compare i j
   let hash i = Hashtbl.hash i
 end
-module Yk_History = History.Make(Yk_Hashed)
+module Yk_History = Yak.History.Make(Yk_Hashed)
 
 (*REPLAY PROLOGUE*)
 let rec
@@ -140,7 +141,7 @@ _r_command(_n,ykinput) = (ignore (*1030*) (_n());
   in (ignore (*1145*) (_n()); 
  (let _x9 = (ignore (*1146*) (_n()); _n())
   in (ignore (*1147*) (_n()); 
- (let n = (ignore (*1148*) (_n()); Yakker.get_string _x10 _x9 ykinput)
+ (let n = (ignore (*1148*) (_n()); Yak.Yakker.get_string _x10 _x9 ykinput)
   in (ignore (*1150*) (_n());  try Rfc_cmd(int_of_string n) with _ -> raise(Failure "Invalid RFC number") )
  ))
  ))
@@ -151,7 +152,7 @@ _r_command(_n,ykinput) = (ignore (*1030*) (_n());
   in (ignore (*1167*) (_n()); 
  (let _x13 = (ignore (*1168*) (_n()); _n())
   in (ignore (*1169*) (_n()); 
- (let f = (ignore (*1170*) (_n()); Yakker.get_string _x14 _x13 ykinput)
+ (let f = (ignore (*1170*) (_n()); Yak.Yakker.get_string _x14 _x13 ykinput)
   in (ignore (*1171*) (_n()); 
  (let l = (ignore (*1172*) (_n()); 
  (let _x20 = (ignore (*1173*) (_n()); 
@@ -161,7 +162,7 @@ _r_command(_n,ykinput) = (ignore (*1030*) (_n());
   in (ignore (*1186*) (_n()); 
  (let _x17 = (ignore (*1187*) (_n()); _n())
   in (ignore (*1188*) (_n()); 
- (let x = (ignore (*1189*) (_n()); Yakker.get_string _x18 _x17 ykinput)
+ (let x = (ignore (*1189*) (_n()); Yak.Yakker.get_string _x18 _x17 ykinput)
   in (ignore (*1190*) (_n()); x)
  ))
  ))
@@ -223,7 +224,7 @@ _r_args(_n,ykinput) = (ignore (*1235*) (_n());
   in (ignore (*1285*) (_n()); 
  (let _x26 = (ignore (*1286*) (_n()); _n())
   in (ignore (*1287*) (_n()); 
- (let n = (ignore (*1288*) (_n()); Yakker.get_string _x27 _x26 ykinput)
+ (let n = (ignore (*1288*) (_n()); Yak.Yakker.get_string _x27 _x26 ykinput)
   in (ignore (*1290*) (_n());  Compileopt.unroll_star_n := (int_of_string n) )
  ))
  ))
@@ -233,22 +234,22 @@ _r_args(_n,ykinput) = (ignore (*1235*) (_n());
   in (ignore (*1310*) (_n()); 
  (let _x31 = (ignore (*1311*) (_n()); _n())
   in (ignore (*1312*) (_n()); 
- (let n = (ignore (*1313*) (_n()); Yakker.get_string _x32 _x31 ykinput)
+ (let n = (ignore (*1313*) (_n()); Yak.Yakker.get_string _x32 _x31 ykinput)
   in (ignore (*1315*) (_n());  Variables.counter := (int_of_string n) )
  ))
  ))
  ))
  | (1320) -> ( Compileopt.lookahead := true )
  | (1325) -> ( Compileopt.coalesce := false )
- | (1330) -> ( Pami.new_engine_flag := true )
+ | (1330) -> ( Yak.Pami.new_engine_flag := true )
  | (1335) -> ( Compileopt.check_labels := true )
- | (1340) -> ( Logging.add_features Logging.Features.verbose )
+ | (1340) -> ( Yak.Logging.add_features Yak.Logging.Features.verbose )
  | (1350) -> (
  (let _x36 = (ignore (*1351*) (_n()); _n())
   in (ignore (*1352*) (_n()); 
  (let _x35 = (ignore (*1353*) (_n()); _n())
   in (ignore (*1354*) (_n()); 
- (let x = (ignore (*1355*) (_n()); Yakker.get_string _x36 _x35 ykinput)
+ (let x = (ignore (*1355*) (_n()); Yak.Yakker.get_string _x36 _x35 ykinput)
   in (ignore (*1357*) (_n());  roots := x::!roots )
  ))
  ))
@@ -258,7 +259,7 @@ _r_args(_n,ykinput) = (ignore (*1235*) (_n());
   in (ignore (*1367*) (_n()); 
  (let _x39 = (ignore (*1368*) (_n()); _n())
   in (ignore (*1369*) (_n()); 
- (let f = (ignore (*1370*) (_n()); Yakker.get_string _x40 _x39 ykinput)
+ (let f = (ignore (*1370*) (_n()); Yak.Yakker.get_string _x40 _x39 ykinput)
   in (ignore (*1372*) (_n());  files := f::!files )
  ))
  ))
@@ -274,7 +275,7 @@ type _pos = int (* input positions *)
 type _lab = int (* dispatch labels *)
 type 'a ev = (* early values, aka coroutines.  'a is the type of values eventually computed by the coroutines *)
   | Yk_more of _uid * (_lab -> _pos -> 'a ev)
-  | Yk_box of (_pos -> YkBuf.t -> (int * 'a ev) option)
+  | Yk_box of (_pos -> Yak.YkBuf.t -> (int * 'a ev) option)
   | Yk_when of bool
   | Yk_delay of 'a ev * hv
   | Yk_bind of ('a ev -> 'a ev)
@@ -293,7 +294,7 @@ let _fresh_t_id () =
   incr _t_count;
   count
 let _t f = Yk_more(_fresh_t_id(),f)
-type sv = _wv ev * (hv*_pos) History.history
+type sv = _wv ev * (hv*_pos) Yak.History.history
 let sv0 = (Yk_done _wv0, Yk_History.new_history())
 let sv_compare (x1,x2) (y1,y2) =
   (match ev_compare x1 y1 with
@@ -654,7 +655,7 @@ let symbol_table = function
   | 275 -> "eof"
   | 269 -> "arg"
   | 266 -> "OCTET"
-  | x -> if x < 256 then Pam_internal.default_symbol_table x else "?unknown?"
+  | x -> if x < 256 then Yak.Pam_internal.default_symbol_table x else "?unknown?"
 
 let get_symb_action = function
   | "cmd-line-args" -> 267
@@ -686,7 +687,7 @@ let get_symb_start = function
   | 264 -> 1
   | _ -> raise Not_found
 
-open Pam_internal
+open Yak.Pam_internal
 module SV_hashtbl = Hashtbl.Make(struct 
 			  type t = sv 
 			  let equal a b = sv_compare a b = 0
@@ -710,7 +711,7 @@ and nullable_DIGIT __lookahead _p0_ _x0_ = None
 
 and nullable_args __lookahead _p0_ _x0_ = None
 
-and nullable_arg __lookahead _p0_ _x0_ = ((((Pred.andc (let p = _dwhen 1022 and n = _dnext 1023 in fun _ ykb v -> let pos = YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None) (fun _x1_ _x2_ _x3_ -> ((((Pred.andc (Pred.full_lookaheadc false 264 1) (fun _x4_ _x5_ _x6_ -> (Some _x6_))) _x1_) _x2_) _x3_))) __lookahead) _p0_) (((_d 1018) ((YkBuf.get_offset) _p0_)) (((fun p v -> _d 1017 p (_d 1016 p (_x53 p (v)))) ((YkBuf.get_offset) _p0_)) _x0_)))
+and nullable_arg __lookahead _p0_ _x0_ = ((((Pred.andc (let p = _dwhen 1022 and n = _dnext 1023 in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None) (fun _x1_ _x2_ _x3_ -> ((((Pred.andc (Pred.full_lookaheadc false 264 1) (fun _x4_ _x5_ _x6_ -> (Some _x6_))) _x1_) _x2_) _x3_))) __lookahead) _p0_) (((_d 1018) ((Yak.YkBuf.get_offset) _p0_)) (((fun p v -> _d 1017 p (_d 1016 p (_x53 p (v)))) ((Yak.YkBuf.get_offset) _p0_)) _x0_)))
 
 and nullable_eof __lookahead _p0_ _x0_ = ((((Pred.full_lookaheadc false 266 3) __lookahead) _p0_) _x0_)
 
@@ -1276,34 +1277,34 @@ let program : (int * sv instruction list) list = [
 
 let start_symb = get_symb_action "cmd-line-args"
 
-module P2__ = Engine.Full_yakker(struct type t = sv let cmp = sv_compare end)
+module P2__ = Yak.Engine.Full_yakker(struct type t = sv let cmp = sv_compare end)
 
-let _wfe_data_ = PamJIT.DNELR.to_table (Pam_internal.load_internal_program program)
+let _wfe_data_ = Yak.PamJIT.DNELR.to_table (Yak.Pam_internal.load_internal_program program)
   start_symb (get_symb_start start_symb) 264 num_symbols
   __default_call __default_ret
 
-let parse = Pami.Wfe.mk_parse P2__.parse _wfe_data_ sv0 
+let parse = Yak.Pami.Wfe.mk_parse P2__.parse _wfe_data_ sv0 
     (fun ykinput (_,h) ->
-      let _o = (new History.postfix h) in
+      let _o = (new Yak.History.postfix h) in
       let _n() = (let (x,_) = _o#next() in x) in
       _r_cmd_line_args(_n,ykinput)
     )
 let visualize = parse
-let visualize_file = Pami.Simple.parse_file visualize
-let visualize_string = Pami.Simple.parse_string visualize
+let visualize_file = Yak.Pami.Simple.parse_file visualize
+let visualize_string = Yak.Pami.Simple.parse_string visualize
 
-let parse_file = Pami.Simple.parse_file parse
-let parse_string = Pami.Simple.parse_string parse
+let parse_file = Yak.Pami.Simple.parse_file parse
+let parse_string = Yak.Pami.Simple.parse_string parse
 ;;
 
 
-let args_ykbuf = YkBuf.strings2buf Sys.argv 1
-let what_arg = YkBuf.stringsposn2string Sys.argv 1
+let args_ykbuf = Yak.YkBuf.strings2buf Sys.argv 1
+let what_arg = Yak.YkBuf.stringsposn2string Sys.argv 1
 let process() =
     (try
       ignore(parse args_ykbuf); (!cmd, List.rev !files, List.rev !roots, !backend)
     with
-      Pami.Parse_error("Error at byte.", i, _, _) ->
+      Yak.Pami.Parse_error("Error at byte.", i, _, _) ->
         let bad_arg = what_arg i in
         let bad = Sys.argv.(bad_arg) in
         if bad_arg = 1 then

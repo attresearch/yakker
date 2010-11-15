@@ -14,6 +14,7 @@
 (* Note attribute elimination can change "producerness", so that
    analysis needs to be run after this phase *)
 
+open Yak
 open Gul
 open Attr
 

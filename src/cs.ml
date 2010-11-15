@@ -197,13 +197,13 @@ let to_string cs =
 
 let to_code cs =
   let rs = cs2ranges cs in
-  if rs = [] then "Cs.empty()" else
-    "let cs = Cs.empty() in " ^
+  if rs = [] then "Yak.Cs.empty()" else
+    "let cs = Yak.Cs.empty() in " ^
       (String.concat "; "
 	 (List.map
 	    (fun (lb,ub) ->
-               if lb = (ub-1)  then Printf.sprintf "Cs.insert cs %d" lb
-               else Printf.sprintf "Cs.insert_range cs %d %d" lb ub)
+               if lb = (ub-1)  then Printf.sprintf "Yak.Cs.insert cs %d" lb
+               else Printf.sprintf "Yak.Cs.insert_range cs %d %d" lb ub)
 	    rs)) ^
       "; cs"
 

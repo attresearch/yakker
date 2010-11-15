@@ -21,8 +21,9 @@ Retooled for Gil.
    described in the man page fsm(5).
 *)
 
+open Yak
 open Gil
-open Util
+
 type expr = Gul.expr
 type nonterminal = Gul.nonterminal
 
@@ -147,7 +148,7 @@ let nfa_number_of_states = ref 1             (* next FSM state number.  nb we re
                                                 this is not an FSM requirement *)
 
 (* obtain fresh states *)
-let fresh1() = postincr nfa_number_of_states
+let fresh1() = Util.postincr nfa_number_of_states
 let fresh2() = (fresh1(),fresh1())
 let fresh3() = (fresh1(),fresh1(),fresh1())
 
@@ -157,7 +158,7 @@ let earley2fsm e_arc =
       (match e_arc with Tm n when (n < 0 || 255 < n) ->
         Printf.eprintf "Internal error: terminal out of range (%d)\n%!" n
       | _ -> ());
-      let fsm_arc = postincr arc_num in
+      let fsm_arc = Util.postincr arc_num in
       Hashtbl.add tbl_earley_fsm e_arc fsm_arc;
       Hashtbl.add tbl_fsm_earley fsm_arc e_arc;
       fsm_arc
@@ -608,7 +609,7 @@ let varname prefix =
     | None ->
         let v =
           if already_var str then str else
-          let num = postincr varnum in
+          let num = Util.postincr varnum in
           Printf.sprintf "%s%d" prefix num in
         Hashtbl.add tbl_varnames str v;
         v))
@@ -622,7 +623,7 @@ let fsm_transducer gr inch outch =
       match Util.find_option tbl_ntnames nt with
       | Some x -> x
       | None ->
-          let num = postincr ntnum in
+          let num = Util.postincr ntnum in
           Hashtbl.add tbl_ntnames nt num;
           num
     end in
@@ -645,7 +646,7 @@ let fsm_transducer gr inch outch =
 	let num = match Util.find_option tbl_binders str with
 	  | Some num -> num
           | None ->
-              let num = postincr bindernum in
+              let num = Util.postincr bindernum in
               Hashtbl.add tbl_binders str num;
               DynArray.add binders str;
 	      num in
@@ -741,7 +742,7 @@ let fsm_transducer gr inch outch =
     (fun nt n ->
       Printf.fprintf outch "  | %d -> %s\n" n (quote nt))
     tbl_ntnames;
-  Printf.fprintf outch "  | x -> if x < 256 then Pam_internal.default_symbol_table x else \"?unknown?\"\n\n";
+  Printf.fprintf outch "  | x -> if x < 256 then Yak.Pam_internal.default_symbol_table x else \"?unknown?\"\n\n";
 
   Printf.fprintf outch "let get_symb_action = function\n";
   Hashtbl.iter
@@ -754,7 +755,7 @@ let fsm_transducer gr inch outch =
   List.iter (fun (nt,b) -> Printf.fprintf outch "  | %d -> %d\n" nt b) !starts;
   Printf.fprintf outch "  | _ -> raise Not_found\n\n";
 
-  Printf.fprintf outch "open Pam_internal\n";
+  Printf.fprintf outch "open Yak.Pam_internal\n";
 
   Nullable_pred.Gil.process_grammar outch (Hashtbl.find tbl_ntnames) (fun nt -> List.assoc nt !starts) gr;
 

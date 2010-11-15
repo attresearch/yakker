@@ -9,6 +9,7 @@
  *    Trevor Jim and Yitzhak Mandelbaum
  *******************************************************************************)
 
+open Yak
 open Analyze.First_set_gil_lex
 
 let remove_memo = ref true

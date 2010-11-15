@@ -25,10 +25,10 @@ DOCDIR=$(TOPDIR)/doc
 # $(info CYCLONE_YAKKER = $(CYCLONE_YAKKER))
 
 BATTERIES_SOURCES = enum.ml enum.mli dynArray.ml pMap.ml pMap.mli return.ml return.mli pSet.ml pSet.mli bitSet.ml bitSet.mli
-YAKKER_SOURCES := logging.ml util.ml ykBuf.ml \
-           wf_set.ml cs.ml pam_internal.mli pam_internal.ml pamJIT.mli pamJIT.ml \
-	   yakker.mli yakker.ml history.mli history.ml \
-           allp.ml pami.ml viz.ml engine.ml
+YAKKER_SOURCES := logging.ml util.ml ykBuf.ml cs.ml \
+           wf_set.ml pam_internal.mli pam_internal.ml pamJIT.mli pamJIT.ml \
+	   yakker.mli yakker.ml history.mli history.ml viz.ml\
+           allp.ml pami.ml engine.ml
 
 SOURCES := $(BATTERIES_SOURCES) $(YAKKER_SOURCES)
 
@@ -105,7 +105,7 @@ TIME_EXECUTION = time -p
 
 ######################################################################
 
-all: yakker.cma yakker.cmxa yakker
+all: yak.cma yak.cmxa yakker
 
 .PHONY: install
 install:
@@ -147,7 +147,27 @@ yakker.cma: $(CMOS)
 
 yakker.cmxa: $(CMXS)
 	@echo "--x> " $@
-	@$(OCAMLOPT) $(OCAMLOPT_FLAGS) -a -o $@  -package unix $^
+	@$(OCAMLOPT) $(OCAMLOPT_FLAGS) -a -o $@ -package unix $^
+
+yak.cmo: $(CMOS)
+	@echo "--x> " $@
+	@$(OCAMLC) -g -pack -o $@ $^
+
+yak.cmx: $(CMXS)
+	@echo "--x> " $@
+	@$(OCAMLOPT) $(OCAMLOPT_FLAGS) -pack -o $@ $^
+
+$(CMXS): %.cmx: %.ml
+	@echo "-x-> " $@
+	@$(OCAMLOPT) $(OCAMLOPT_FLAGS) -for-pack Yak -c $< -o $@
+
+yak.cma: yak.cmo
+	@echo "--x> " $@
+	@$(OCAMLC) -g -a -o $@ -package unix $^
+
+yak.cmxa: yak.cmx
+	@echo "--x> " $@
+	@$(OCAMLOPT) $(OCAMLOPT_FLAGS) -a -o $@ -package unix $^
 
 yakkertest.cma: $(CMOS)
 	@echo "--x> " $@
@@ -157,7 +177,7 @@ yakkertest.cmxa: $(CMXS)
 	@echo "--x> " $@
 	@$(OCAMLOPT) $(OCAMLOPT_FLAGS) -a -o $@ -package unix $^
 
-universal-parser: yakker.cma universal_parser.cmo
+universal-parser: yak.cma universal_parser.cmo
 	$(OCAMLC) $(PMLRUNTIME) $^ -o $@
 
 stringify: stringify.cmo
@@ -180,21 +200,21 @@ DEPEND.pdf: $(SOURCES) $(FRONT_END_SOURCES)
 	ocamldep -I $(TOPDIR)/src -I $(TOPDIR)/batteries $^ | ocamldot | dot -Tpdf > $@
 
 # Qian's debugging stuff
-yakker-pcomb-parser.opt: tgraph.cmx bnf.cmx yakker.cmxa
+yakker-pcomb-parser.opt: tgraph.cmx bnf.cmx yak.cmxa
 	@echo "x--> yakker_pcomb.ml"
 	@./yakker compile -backend fun ../examples/lex/yakker_grammar.bnf > yakker_pcomb.ml
 	@echo "-x-> yakker_pcomb.cmx"
 	@$(OCAMLOPT) -c yakker_pcomb.ml -o yakker_pcomb.cmx
 	@echo "--x> yakker-pcomb-parser.opt"
-	@$(OCAMLOPT) yakker.cmxa tgraph.cmx bnf.cmx yakker_pcomb.cmx -package unix -linkpkg -o yakker-pcomb-parser.opt
+	@$(OCAMLOPT) yak.cmxa tgraph.cmx bnf.cmx yakker_pcomb.cmx -package unix -linkpkg -o yakker-pcomb-parser.opt
 
-yakker-lex-pcomb-parser.opt: tgraph.cmx bnf.cmx yakker.cmxa
+yakker-lex-pcomb-parser.opt: tgraph.cmx bnf.cmx yak.cmxa
 	@echo "x--> lex_pcomb.ml"
 	@./yakker compile -backend fun ../examples/lex/lex_debug.bnf > lex_pcomb.ml
 	@echo "-x-> lex_pcomb.cmx"
 	@$(OCAMLOPT) -c lex_pcomb.ml -o lex_pcomb.cmx
 	@echo "--x> lex-pcomb-parser.opt"
-	@$(OCAMLOPT) yakker.cmxa tgraph.cmx bnf.cmx lex_pcomb.cmx -package unix -linkpkg -o lex-pcomb-parser.opt
+	@$(OCAMLOPT) yak.cmxa tgraph.cmx bnf.cmx lex_pcomb.cmx -package unix -linkpkg -o lex-pcomb-parser.opt
 
 ######################### REGRESSION TESTING #########################
 # Quick guide:
@@ -417,11 +437,11 @@ restore-yakker: restore-yakker_grammar restore-cmdline restore-extract_grammar r
 ########################################
 
 ifndef NO_YR
-yakker-byte: yakker.cma strings.cmo rfcs.cmo buildinfo.cmo $(FRONT_END_CMOS)
+yakker-byte: yak.cma strings.cmo rfcs.cmo buildinfo.cmo $(FRONT_END_CMOS)
 	@echo "--x> " $@
 	@$(OCAMLC) $^ -g -package unix -linkpkg -o $@
 
-yakker: yakker.cmxa strings.cmx rfcs.cmx buildinfo.cmx $(FRONT_END_CMXS)
+yakker: yak.cmxa strings.cmx rfcs.cmx buildinfo.cmx $(FRONT_END_CMXS)
 	@echo "--x> " $@
 	@$(OCAMLOPT) $^ -package unix -linkpkg -o $@
 endif
@@ -430,7 +450,7 @@ endif
 ##   Tests
 ########################################################################
 
-$(ETESTS_EXE) : %-parser : yakker.cma %.cmo
+$(ETESTS_EXE) : %-parser : yak.cma %.cmo
 	@echo "--x> " $@
 	@$(OCAMLC) $^ -g -package unix -linkpkg -o $@
 
@@ -441,19 +461,19 @@ $(ETESTS_ML) : %.ml : tests/$$*/$$*.bnf yakker
 
 ########################################################################
 
-$(TESTS_OPT_EXE): %-parser.opt: yakker.cmxa %.cmx
+$(TESTS_OPT_EXE): %-parser.opt: yak.cmxa %.cmx
 	@echo "--x> " $@
 	@$(OCAMLOPT) $^ -package unix -linkpkg -o $@
 
-$(TESTS_PCOMB_OPT_EXE): %-pcomb-parser.opt: yakker.cmxa %_pcomb.cmx
+$(TESTS_PCOMB_OPT_EXE): %-pcomb-parser.opt: yak.cmxa %_pcomb.cmx
 	@echo "--x> " $@
 	@$(OCAMLOPT) $^ -package unix -linkpkg -o $@
 
-$(TESTS_EXE): %-parser: yakker.cma %.cmo
+$(TESTS_EXE): %-parser: yak.cma %.cmo
 	@echo "--x> " $@
 	@$(OCAMLC) $^ -g -package unix -linkpkg -o $@
 
-$(TESTS_PCOMB_EXE): %-pcomb-parser: yakker.cma %_pcomb.cmo
+$(TESTS_PCOMB_EXE): %-pcomb-parser: yak.cma %_pcomb.cmo
 	@echo "--x> " $@
 	@$(OCAMLC) $^ -g -package unix -linkpkg -o $@
 
@@ -469,19 +489,19 @@ $(TESTS_PCOMB_ML): %_pcomb.ml : tests/$$*/$$*.bnf yakker
 ##   Standardized examples
 ########################################################################
 
-$(EXAMPLES_OPT_EXE): %-parser.opt: yakker.cmxa %.cmx
+$(EXAMPLES_OPT_EXE): %-parser.opt: yak.cmxa %.cmx
 	@echo "--x> " $@
 	@$(OCAMLOPT) $^ -package unix -linkpkg -o $@
 
-$(EXAMPLES_PCOMB_OPT_EXE): %-pcomb-parser.opt: yakker.cmxa %_pcomb.cmx
+$(EXAMPLES_PCOMB_OPT_EXE): %-pcomb-parser.opt: yak.cmxa %_pcomb.cmx
 	@echo "--x> " $@
 	@$(OCAMLOPT) $^ -package unix -linkpkg -o $@
 
-$(EXAMPLES_EXE): %-parser: yakker.cma %.cmo
+$(EXAMPLES_EXE): %-parser: yak.cma %.cmo
 	@echo "--x> " $@
 	@$(OCAMLC) $^ -g -package unix -linkpkg -o $@
 
-$(EXAMPLES_PCOMB_EXE): %-pcomb-parser: yakker.cma %_pcomb.cmo
+$(EXAMPLES_PCOMB_EXE): %-pcomb-parser: yak.cma %_pcomb.cmo
 	@echo "--x> " $@
 	@$(OCAMLC) $^ -g -package unix -linkpkg -o $@
 
@@ -502,7 +522,7 @@ $(EXAMPLES_PCOMB_ML): %_pcomb.ml : examples/$$*/$$*.bnf yakker
 OCAML_COMP_DIR=/Users/yitzhakm/sw/godi/lib/ocaml/compiler-lib
 OCAML_COMP_INCLUDES = -I $(OCAML_COMP_DIR)
 
-ocamlparser: yakker.cma ocamlparser.cmo llexer.cmo opdriver.cmo
+ocamlparser: yak.cma ocamlparser.cmo llexer.cmo opdriver.cmo
 	$(OCAMLC) $(OCAML_COMP_DIR)/config.cmo \
            $(OCAML_COMP_DIR)/misc.cmo \
            $(OCAML_COMP_DIR)/clflags.cmo $(OCAML_COMP_DIR)/linenum.cmo \
@@ -535,14 +555,14 @@ llexer.ml: llexer.mll
 
 ###############################
 
-ocamlp-w-c: yakker.cmxa ocamlpwc.cmx
+ocamlp-w-c: yak.cmxa ocamlpwc.cmx
 	$(OCAMLOPT) $^ -package unix -linkpkg -o $@
 
 ocamlpwc.ml: examples/ocaml/ocaml-with-coroutines.bnf yakker
 	@echo "x--> " $@
 	@./yakker compile $< > $@
 
-ocamlp-wo-c: yakker.cmxa ocamlpwoc.cmx
+ocamlp-wo-c: yak.cmxa ocamlpwoc.cmx
 	$(OCAMLOPT) $^ -package unix -linkpkg -o $@
 
 ocamlpwoc.ml: examples/ocaml/ocaml-without-coroutines.bnf yakker
@@ -550,7 +570,7 @@ ocamlpwoc.ml: examples/ocaml/ocaml-without-coroutines.bnf yakker
 	@./yakker compile $< > $@
 
 
-aurochswoc-parser aurochswc-parser: %-parser: yakker.cmxa %.cmx
+aurochswoc-parser aurochswc-parser: %-parser: yak.cmxa %.cmx
 	$(OCAMLOPT) $^ -package unix -linkpkg -o $@
 
 aurochswoc.ml aurochswc.ml: %.ml : %.bnf yakker
@@ -578,10 +598,10 @@ dyptest.cmx: dyptest.ml
 	@$(OCAMLOPT) $(OCAML_FLAGS) -I $(DYPHOME)/dyplib -c $< -o $@
 
 #wfe : yakker.cmxa ocaml_woc.cmx python2.cmx engine.ml test_wfe.ml
-wfe : yakker.cmxa ocaml_woc.cmx
+wfe : yak.cmxa ocaml_woc.cmx
 	$(OCAMLOPT) -package unix -linkpkg -inline 30 $^ -o $@
 
-wfe_g : yakker.cma ocaml_woc.cmo python2.cmo engine.ml test_wfe.ml
+wfe_g : yak.cma ocaml_woc.cmo python2.cmo engine.ml test_wfe.ml
 	$(OCAMLC) -g -package unix -linkpkg $^ -o $@
 
 
@@ -589,12 +609,12 @@ wfe_g : yakker.cma ocaml_woc.cmo python2.cmo engine.ml test_wfe.ml
 ##  yakker component tests
 ########################################################################
 
-test_ykBuf test_cs : test_% : yakker.cmxa test_%.cmx
+test_ykBuf test_cs : test_% : yak.cmxa test_%.cmx
 	$(OCAMLOPT) -package unix -linkpkg $^ -o $@
 
 ########################################################################
 
-aurochs-tx: yakker.cma tgraph.cmo bnf.cmo cs.cmo pr.cmo aurochs.cmo aurochs_tx.cmo
+aurochs-tx: yak.cma tgraph.cmo bnf.cmo cs.cmo pr.cmo aurochs.cmo aurochs_tx.cmo
 	@echo "--x> " $@
 	@$(OCAMLC) $^ -g -package unix -linkpkg -o $@
 
@@ -604,7 +624,7 @@ aurochs_tx.cmo : examples/aurochs/aurochs_tx.ml aurochs.cmo
 
 # Aurochs2 is the yakker aurochs grammar generated from the PEG aurochs grammar. We use it
 # as a way to test the aurochs grammar.
-aurochs2-parser: tgraph.cmx bnf.cmx cs.cmx pr.cmx yakker.cmxa aurochs2.cmx aurochs2_parser.cmx
+aurochs2-parser: tgraph.cmx bnf.cmx cs.cmx pr.cmx yak.cmxa aurochs2.cmx aurochs2_parser.cmx
 	$(OCAMLOPT) $^ -o $@
 
 examples/aurochs/aurochs2.bnf : examples/aurochs/inputs/grammar.peg aurochs-tx

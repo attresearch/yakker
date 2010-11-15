@@ -45,6 +45,7 @@ Notes on RFC4234:
   succeeds.
 *)
 
+open Yak
 open Gul
 let process_alt r_left = function
     None -> r_left

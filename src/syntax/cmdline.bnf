@@ -17,6 +17,7 @@
  *    Trevor Jim and Yitzhak Mandelbaum
  *******************************************************************************)
 
+open Yak
 type plugin =
   | Dypgen_PI of bool (** flag indicating whether the generated grammar should be faux-scannerless. *)
 
@@ -123,22 +124,22 @@ args =
       | "-counter" o (1*DIGIT)$n o         { Variables.counter := (int_of_string n) }
       | "-lookahead" o                     { Compileopt.lookahead := true }
       | "-no-coalesce" o                   { Compileopt.coalesce := false }
-      | "-new-engine" o                    { Pami.new_engine_flag := true }
+      | "-new-engine" o                    { Yak.Pami.new_engine_flag := true }
       | "-check-labels" o                  { Compileopt.check_labels := true }
-      | "-v" o                             { Logging.add_features Logging.Features.verbose }
+      | "-v" o                             { Yak.Logging.add_features Yak.Logging.Features.verbose }
       | "-root" o arg$x o                  { roots := x::!roots }
       | file$f o                           { files := f::!files }
 .
 eof = "" !OCTET .
 @end {
 
-let args_ykbuf = YkBuf.strings2buf Sys.argv 1
-let what_arg = YkBuf.stringsposn2string Sys.argv 1
+let args_ykbuf = Yak.YkBuf.strings2buf Sys.argv 1
+let what_arg = Yak.YkBuf.stringsposn2string Sys.argv 1
 let process() =
     (try
       ignore(parse args_ykbuf); (!cmd, List.rev !files, List.rev !roots, !backend)
     with
-      Pami.Parse_error("Error at byte.", i, _, _) ->
+      Yak.Pami.Parse_error("Error at byte.", i, _, _) ->
         let bad_arg = what_arg i in
         let bad = Sys.argv.(bad_arg) in
         if bad_arg = 1 then

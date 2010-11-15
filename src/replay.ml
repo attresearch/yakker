@@ -10,6 +10,7 @@
  *******************************************************************************)
 
 (* The replay transform *)
+open Yak
 open Gul
 open Variables
 

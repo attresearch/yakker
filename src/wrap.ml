@@ -14,6 +14,8 @@
  * Early arguments and return values need a uniform type because they
  * end up in homogeneous data structures (like a semantic value stack).
  *)
+
+open Yak
 open Gul
 open Attr
 open Variables
@@ -275,7 +277,7 @@ module Yk_Hashed = struct
   let compare i j = compare i j
   let hash i = Hashtbl.hash i
 end
-module Yk_History = History.Make(Yk_Hashed)
+module Yk_History = Yak.History.Make(Yk_Hashed)
 "
 
 let alt2rules = (* differs from bnf.ml b/c need to desugar Opt *) (*TODO: make default in Gul*)

@@ -45,6 +45,7 @@ Notes on RFC4234:
   succeeds.
 *)
 
+open Yak
 open Gul
 let process_alt r_left = function
     None -> r_left
@@ -105,7 +106,7 @@ module Yk_Hashed = struct
   let compare i j = compare i j
   let hash i = Hashtbl.hash i
 end
-module Yk_History = History.Make(Yk_Hashed)
+module Yk_History = Yak.History.Make(Yk_Hashed)
 
 (*REPLAY PROLOGUE*)
 let rec
@@ -156,7 +157,7 @@ _r_braces_text(_n,ykinput) = (ignore (*1037*) (_n());
   in (ignore (*1048*) (_n()); 
  (let _x8 = (ignore (*1049*) (_n()); _n())
   in (ignore (*1050*) (_n()); 
- (let x = (ignore (*1051*) (_n()); Yakker.get_string _x9 _x8 ykinput)
+ (let x = (ignore (*1051*) (_n()); Yak.Yakker.get_string _x9 _x8 ykinput)
   in (ignore (*1053*) (_n()); x)
  ))
  ))
@@ -171,7 +172,7 @@ _r_bitstring(_n,ykinput) = (ignore (*1065*) (_n());
   in (ignore (*1083*) (_n()); 
  (let _x14 = (ignore (*1084*) (_n()); _n())
   in (ignore (*1085*) (_n()); 
- (let x = (ignore (*1086*) (_n()); Yakker.get_string _x15 _x14 ykinput)
+ (let x = (ignore (*1086*) (_n()); Yak.Yakker.get_string _x15 _x14 ykinput)
   in (ignore (*1088*) (_n()); int_of_string x)
  ))
  ))
@@ -186,7 +187,7 @@ _r_DIGITS(_n,ykinput) = (ignore (*1090*) (_n());
   in (ignore (*1108*) (_n()); 
  (let _x19 = (ignore (*1109*) (_n()); _n())
   in (ignore (*1110*) (_n()); 
- (let x = (ignore (*1111*) (_n()); Yakker.get_string _x20 _x19 ykinput)
+ (let x = (ignore (*1111*) (_n()); Yak.Yakker.get_string _x20 _x19 ykinput)
   in (ignore (*1113*) (_n()); int_of_string x)
  ))
  ))
@@ -201,7 +202,7 @@ _r_HEXDIGS(_n,ykinput) = (ignore (*1115*) (_n());
   in (ignore (*1133*) (_n()); 
  (let _x24 = (ignore (*1134*) (_n()); _n())
   in (ignore (*1135*) (_n()); 
- (let x = (ignore (*1136*) (_n()); Yakker.get_string _x25 _x24 ykinput)
+ (let x = (ignore (*1136*) (_n()); Yak.Yakker.get_string _x25 _x24 ykinput)
   in (ignore (*1138*) (_n()); int_of_string ("0x" ^ x))
  ))
  ))
@@ -256,7 +257,7 @@ _r_char_val(_n,ykinput) = (ignore (*1175*) (_n());
   in (ignore (*1186*) (_n()); 
  (let _x30 = (ignore (*1187*) (_n()); _n())
   in (ignore (*1188*) (_n()); 
- (let x = (ignore (*1189*) (_n()); Yakker.get_string _x31 _x30 ykinput)
+ (let x = (ignore (*1189*) (_n()); Yak.Yakker.get_string _x31 _x30 ykinput)
   in (ignore (*1191*) (_n()); mkLIT x)
  ))
  ))
@@ -367,7 +368,7 @@ _r_prec_dir(_n,ykinput) = (ignore (*1278*) (_n());
   in (ignore (*1290*) (_n()); 
  (let _x42 = (ignore (*1291*) (_n()); _n())
   in (ignore (*1292*) (_n()); 
- (let n = (ignore (*1293*) (_n()); Yakker.get_string _x43 _x42 ykinput)
+ (let n = (ignore (*1293*) (_n()); Yak.Yakker.get_string _x43 _x42 ykinput)
   in (ignore (*1294*) (_n()); n)
  ))
  ))
@@ -390,7 +391,7 @@ _r_concatenation(_n,ykinput) = (ignore (*1296*) (_n());
   in (ignore (*1316*) (_n()); 
  (let _x46 = (ignore (*1317*) (_n()); _n())
   in (ignore (*1318*) (_n()); 
- (let e = (ignore (*1319*) (_n()); Yakker.get_string _x47 _x46 ykinput)
+ (let e = (ignore (*1319*) (_n()); Yak.Yakker.get_string _x47 _x46 ykinput)
   in (ignore (*1320*) (_n());  mkASSIGN(x,Some e,None) )
  ))
  ))
@@ -407,7 +408,7 @@ _r_concatenation(_n,ykinput) = (ignore (*1296*) (_n());
   in (ignore (*1336*) (_n()); 
  (let _x50 = (ignore (*1337*) (_n()); _n())
   in (ignore (*1338*) (_n()); 
- (let i = (ignore (*1339*) (_n()); Yakker.get_string _x51 _x50 ykinput)
+ (let i = (ignore (*1339*) (_n()); Yak.Yakker.get_string _x51 _x50 ykinput)
   in (ignore (*1340*) (_n()); i)
  ))
  ))
@@ -424,7 +425,7 @@ _r_concatenation(_n,ykinput) = (ignore (*1296*) (_n());
   in (ignore (*1358*) (_n()); 
  (let _x56 = (ignore (*1359*) (_n()); _n())
   in (ignore (*1360*) (_n()); 
- (let i = (ignore (*1361*) (_n()); Yakker.get_string _x57 _x56 ykinput)
+ (let i = (ignore (*1361*) (_n()); Yak.Yakker.get_string _x57 _x56 ykinput)
   in (ignore (*1362*) (_n()); i)
  ))
  ))
@@ -451,7 +452,7 @@ _r_element(_n,ykinput) = (ignore (*1382*) (_n());
   in (ignore (*1392*) (_n()); 
  (let _x63 = (ignore (*1393*) (_n()); _n())
   in (ignore (*1394*) (_n()); 
- (let x = (ignore (*1395*) (_n()); Yakker.get_string _x64 _x63 ykinput)
+ (let x = (ignore (*1395*) (_n()); Yak.Yakker.get_string _x64 _x63 ykinput)
   in (ignore (*1396*) (_n()); 
  (let p = (ignore (*1397*) (_n()); _r_params(_n,ykinput))
   in (ignore (*1399*) (_n()); 
@@ -463,7 +464,7 @@ _r_element(_n,ykinput) = (ignore (*1382*) (_n());
   in (ignore (*1411*) (_n()); 
  (let _x67 = (ignore (*1412*) (_n()); _n())
   in (ignore (*1413*) (_n()); 
- (let b = (ignore (*1414*) (_n()); Yakker.get_string _x68 _x67 ykinput)
+ (let b = (ignore (*1414*) (_n()); Yak.Yakker.get_string _x68 _x67 ykinput)
   in (ignore (*1416*) (_n()); b)
  ))
  ))
@@ -502,7 +503,7 @@ _r_element(_n,ykinput) = (ignore (*1382*) (_n());
   in (ignore (*1463*) (_n()); 
  (let _x73 = (ignore (*1464*) (_n()); _n())
   in (ignore (*1465*) (_n()); 
- (let x = (ignore (*1466*) (_n()); Yakker.get_string _x74 _x73 ykinput)
+ (let x = (ignore (*1466*) (_n()); Yak.Yakker.get_string _x74 _x73 ykinput)
   in (ignore (*1468*) (_n());  mkWHEN x )
  ))
  ))
@@ -512,7 +513,7 @@ _r_element(_n,ykinput) = (ignore (*1382*) (_n());
   in (ignore (*1479*) (_n()); 
  (let _x77 = (ignore (*1480*) (_n()); _n())
   in (ignore (*1481*) (_n()); 
- (let x = (ignore (*1482*) (_n()); Yakker.get_string _x78 _x77 ykinput)
+ (let x = (ignore (*1482*) (_n()); Yak.Yakker.get_string _x78 _x77 ykinput)
   in (ignore (*1483*) (_n()); 
  (let y = 
  (match _n() with
@@ -531,7 +532,7 @@ _r_element(_n,ykinput) = (ignore (*1382*) (_n());
   in (ignore (*1502*) (_n()); 
  (let _x83 = (ignore (*1503*) (_n()); _n())
   in (ignore (*1504*) (_n()); 
- (let x = (ignore (*1505*) (_n()); Yakker.get_string _x84 _x83 ykinput)
+ (let x = (ignore (*1505*) (_n()); Yak.Yakker.get_string _x84 _x83 ykinput)
   in (ignore (*1506*) (_n()); 
  (let y = 
  (match _n() with
@@ -562,7 +563,7 @@ _r_element(_n,ykinput) = (ignore (*1382*) (_n());
   in (ignore (*1538*) (_n()); 
  (let _x91 = (ignore (*1539*) (_n()); _n())
   in (ignore (*1540*) (_n()); 
- (let x = (ignore (*1541*) (_n()); Yakker.get_string _x92 _x91 ykinput)
+ (let x = (ignore (*1541*) (_n()); Yak.Yakker.get_string _x92 _x91 ykinput)
   in (ignore (*1543*) (_n());  mkACTION2(None,Some x) )
  ))
  ))
@@ -572,7 +573,7 @@ _r_element(_n,ykinput) = (ignore (*1382*) (_n());
   in (ignore (*1554*) (_n()); 
  (let _x95 = (ignore (*1555*) (_n()); _n())
   in (ignore (*1556*) (_n()); 
- (let x = (ignore (*1557*) (_n()); Yakker.get_string _x96 _x95 ykinput)
+ (let x = (ignore (*1557*) (_n()); Yak.Yakker.get_string _x96 _x95 ykinput)
   in (ignore (*1559*) (_n());  mkACTION2(None, Some x) )
  ))
  ))
@@ -582,7 +583,7 @@ _r_element(_n,ykinput) = (ignore (*1382*) (_n());
   in (ignore (*1570*) (_n()); 
  (let _x99 = (ignore (*1571*) (_n()); _n())
   in (ignore (*1572*) (_n()); 
- (let x = (ignore (*1573*) (_n()); Yakker.get_string _x100 _x99 ykinput)
+ (let x = (ignore (*1573*) (_n()); Yak.Yakker.get_string _x100 _x99 ykinput)
   in (ignore (*1575*) (_n());  mkACTION2(Some x,None) )
  ))
  ))
@@ -618,7 +619,7 @@ _r_params(_n,ykinput) = (ignore (*1606*) (_n());
   in (ignore (*1617*) (_n()); 
  (let _x105 = (ignore (*1618*) (_n()); _n())
   in (ignore (*1619*) (_n()); 
- (let t = (ignore (*1620*) (_n()); Yakker.get_string _x106 _x105 ykinput)
+ (let t = (ignore (*1620*) (_n()); Yak.Yakker.get_string _x106 _x105 ykinput)
   in (ignore (*1622*) (_n());  match split t ';' with  (* This isn't robust because ; can be used inside of expressions*)
         [] -> (Some t,[])
       | ""::tl -> (None,List.map var_exp tl)
@@ -655,7 +656,7 @@ _r_prose_val(_n,ykinput) = (ignore (*1648*) (_n());
   in (ignore (*1659*) (_n()); 
  (let _x109 = (ignore (*1660*) (_n()); _n())
   in (ignore (*1661*) (_n()); 
- (let x = (ignore (*1662*) (_n()); Yakker.get_string _x110 _x109 ykinput)
+ (let x = (ignore (*1662*) (_n()); Yak.Yakker.get_string _x110 _x109 ykinput)
   in (ignore (*1664*) (_n()); mkPROSE x)
  ))
  ))
@@ -684,7 +685,7 @@ _r_lookahead(_n,ykinput) = (ignore (*1666*) (_n());
   in (ignore (*1699*) (_n()); 
  (let _x113 = (ignore (*1700*) (_n()); _n())
   in (ignore (*1701*) (_n()); 
- (let x = (ignore (*1702*) (_n()); Yakker.get_string _x114 _x113 ykinput)
+ (let x = (ignore (*1702*) (_n()); Yak.Yakker.get_string _x114 _x113 ykinput)
   in (ignore (*1705*) (_n()); 
  (let y = (ignore (*1706*) (_n()); _r_lookahead(_n,ykinput))
   in (ignore (*1708*) (_n()); mkRCOUNT(x,y))
@@ -697,13 +698,13 @@ _r_lookahead(_n,ykinput) = (ignore (*1666*) (_n());
   in (ignore (*1721*) (_n()); 
  (let _x117 = (ignore (*1722*) (_n()); _n())
   in (ignore (*1723*) (_n()); 
- (let v1 = (ignore (*1724*) (_n()); Yakker.get_string _x118 _x117 ykinput)
+ (let v1 = (ignore (*1724*) (_n()); Yak.Yakker.get_string _x118 _x117 ykinput)
   in (ignore (*1734*) (_n()); 
  (let _x122 = (ignore (*1735*) (_n()); _n())
   in (ignore (*1736*) (_n()); 
  (let _x121 = (ignore (*1737*) (_n()); _n())
   in (ignore (*1738*) (_n()); 
- (let i1 = (ignore (*1739*) (_n()); Yakker.get_string _x122 _x121 ykinput)
+ (let i1 = (ignore (*1739*) (_n()); Yak.Yakker.get_string _x122 _x121 ykinput)
   in (ignore (*1742*) (_n()); 
  (let z = (ignore (*1743*) (_n()); _r_lookahead(_n,ykinput))
   in (ignore (*1745*) (_n());  {r=Star(Accumulate(Some(v1,i1),None),z);a=mkAnnot(Some z);} )
@@ -719,13 +720,13 @@ _r_lookahead(_n,ykinput) = (ignore (*1666*) (_n());
   in (ignore (*1758*) (_n()); 
  (let _x125 = (ignore (*1759*) (_n()); _n())
   in (ignore (*1760*) (_n()); 
- (let v2 = (ignore (*1761*) (_n()); Yakker.get_string _x126 _x125 ykinput)
+ (let v2 = (ignore (*1761*) (_n()); Yak.Yakker.get_string _x126 _x125 ykinput)
   in (ignore (*1771*) (_n()); 
  (let _x130 = (ignore (*1772*) (_n()); _n())
   in (ignore (*1773*) (_n()); 
  (let _x129 = (ignore (*1774*) (_n()); _n())
   in (ignore (*1775*) (_n()); 
- (let i2 = (ignore (*1776*) (_n()); Yakker.get_string _x130 _x129 ykinput)
+ (let i2 = (ignore (*1776*) (_n()); Yak.Yakker.get_string _x130 _x129 ykinput)
   in (ignore (*1779*) (_n()); 
  (let z = (ignore (*1780*) (_n()); _r_lookahead(_n,ykinput))
   in (ignore (*1782*) (_n());  {r=Star(Accumulate(None,Some(v2,i2)),z);a=mkAnnot(Some z);} )
@@ -741,25 +742,25 @@ _r_lookahead(_n,ykinput) = (ignore (*1666*) (_n());
   in (ignore (*1795*) (_n()); 
  (let _x133 = (ignore (*1796*) (_n()); _n())
   in (ignore (*1797*) (_n()); 
- (let v1 = (ignore (*1798*) (_n()); Yakker.get_string _x134 _x133 ykinput)
+ (let v1 = (ignore (*1798*) (_n()); Yak.Yakker.get_string _x134 _x133 ykinput)
   in (ignore (*1808*) (_n()); 
  (let _x138 = (ignore (*1809*) (_n()); _n())
   in (ignore (*1810*) (_n()); 
  (let _x137 = (ignore (*1811*) (_n()); _n())
   in (ignore (*1812*) (_n()); 
- (let i1 = (ignore (*1813*) (_n()); Yakker.get_string _x138 _x137 ykinput)
+ (let i1 = (ignore (*1813*) (_n()); Yak.Yakker.get_string _x138 _x137 ykinput)
   in (ignore (*1824*) (_n()); 
  (let _x142 = (ignore (*1825*) (_n()); _n())
   in (ignore (*1826*) (_n()); 
  (let _x141 = (ignore (*1827*) (_n()); _n())
   in (ignore (*1828*) (_n()); 
- (let v2 = (ignore (*1829*) (_n()); Yakker.get_string _x142 _x141 ykinput)
+ (let v2 = (ignore (*1829*) (_n()); Yak.Yakker.get_string _x142 _x141 ykinput)
   in (ignore (*1839*) (_n()); 
  (let _x146 = (ignore (*1840*) (_n()); _n())
   in (ignore (*1841*) (_n()); 
  (let _x145 = (ignore (*1842*) (_n()); _n())
   in (ignore (*1843*) (_n()); 
- (let i2 = (ignore (*1844*) (_n()); Yakker.get_string _x146 _x145 ykinput)
+ (let i2 = (ignore (*1844*) (_n()); Yak.Yakker.get_string _x146 _x145 ykinput)
   in (ignore (*1847*) (_n()); 
  (let z = (ignore (*1848*) (_n()); _r_lookahead(_n,ykinput))
   in (ignore (*1850*) (_n());  {r=Star(Accumulate(Some(v1,i1),Some(v2,i2)),z);a=mkAnnot(Some z);} )
@@ -781,13 +782,13 @@ _r_lookahead(_n,ykinput) = (ignore (*1666*) (_n());
   in (ignore (*1863*) (_n()); 
  (let _x149 = (ignore (*1864*) (_n()); _n())
   in (ignore (*1865*) (_n()); 
- (let v1 = (ignore (*1866*) (_n()); Yakker.get_string _x150 _x149 ykinput)
+ (let v1 = (ignore (*1866*) (_n()); Yak.Yakker.get_string _x150 _x149 ykinput)
   in (ignore (*1876*) (_n()); 
  (let _x154 = (ignore (*1877*) (_n()); _n())
   in (ignore (*1878*) (_n()); 
  (let _x153 = (ignore (*1879*) (_n()); _n())
   in (ignore (*1880*) (_n()); 
- (let i1 = (ignore (*1881*) (_n()); Yakker.get_string _x154 _x153 ykinput)
+ (let i1 = (ignore (*1881*) (_n()); Yak.Yakker.get_string _x154 _x153 ykinput)
   in (ignore (*1884*) (_n()); 
  (let z = (ignore (*1885*) (_n()); _r_lookahead(_n,ykinput))
   in (ignore (*1887*) (_n());  {r=Hash(Accumulate(Some(v1,i1),None),z);a=mkAnnot(Some z);} )
@@ -803,13 +804,13 @@ _r_lookahead(_n,ykinput) = (ignore (*1666*) (_n());
   in (ignore (*1900*) (_n()); 
  (let _x157 = (ignore (*1901*) (_n()); _n())
   in (ignore (*1902*) (_n()); 
- (let v2 = (ignore (*1903*) (_n()); Yakker.get_string _x158 _x157 ykinput)
+ (let v2 = (ignore (*1903*) (_n()); Yak.Yakker.get_string _x158 _x157 ykinput)
   in (ignore (*1913*) (_n()); 
  (let _x162 = (ignore (*1914*) (_n()); _n())
   in (ignore (*1915*) (_n()); 
  (let _x161 = (ignore (*1916*) (_n()); _n())
   in (ignore (*1917*) (_n()); 
- (let i2 = (ignore (*1918*) (_n()); Yakker.get_string _x162 _x161 ykinput)
+ (let i2 = (ignore (*1918*) (_n()); Yak.Yakker.get_string _x162 _x161 ykinput)
   in (ignore (*1921*) (_n()); 
  (let z = (ignore (*1922*) (_n()); _r_lookahead(_n,ykinput))
   in (ignore (*1924*) (_n());  {r=Hash(Accumulate(None,Some(v2,i2)),z);a=mkAnnot(Some z);} )
@@ -825,25 +826,25 @@ _r_lookahead(_n,ykinput) = (ignore (*1666*) (_n());
   in (ignore (*1937*) (_n()); 
  (let _x165 = (ignore (*1938*) (_n()); _n())
   in (ignore (*1939*) (_n()); 
- (let v1 = (ignore (*1940*) (_n()); Yakker.get_string _x166 _x165 ykinput)
+ (let v1 = (ignore (*1940*) (_n()); Yak.Yakker.get_string _x166 _x165 ykinput)
   in (ignore (*1950*) (_n()); 
  (let _x170 = (ignore (*1951*) (_n()); _n())
   in (ignore (*1952*) (_n()); 
  (let _x169 = (ignore (*1953*) (_n()); _n())
   in (ignore (*1954*) (_n()); 
- (let i1 = (ignore (*1955*) (_n()); Yakker.get_string _x170 _x169 ykinput)
+ (let i1 = (ignore (*1955*) (_n()); Yak.Yakker.get_string _x170 _x169 ykinput)
   in (ignore (*1966*) (_n()); 
  (let _x174 = (ignore (*1967*) (_n()); _n())
   in (ignore (*1968*) (_n()); 
  (let _x173 = (ignore (*1969*) (_n()); _n())
   in (ignore (*1970*) (_n()); 
- (let v2 = (ignore (*1971*) (_n()); Yakker.get_string _x174 _x173 ykinput)
+ (let v2 = (ignore (*1971*) (_n()); Yak.Yakker.get_string _x174 _x173 ykinput)
   in (ignore (*1981*) (_n()); 
  (let _x178 = (ignore (*1982*) (_n()); _n())
   in (ignore (*1983*) (_n()); 
  (let _x177 = (ignore (*1984*) (_n()); _n())
   in (ignore (*1985*) (_n()); 
- (let i2 = (ignore (*1986*) (_n()); Yakker.get_string _x178 _x177 ykinput)
+ (let i2 = (ignore (*1986*) (_n()); Yak.Yakker.get_string _x178 _x177 ykinput)
   in (ignore (*1989*) (_n()); 
  (let z = (ignore (*1990*) (_n()); _r_lookahead(_n,ykinput))
   in (ignore (*1992*) (_n());  {r=Hash(Accumulate(Some(v1,i1),Some(v2,i2)),z);a=mkAnnot(Some z);} )
@@ -975,7 +976,7 @@ _r_early_inputs(_n,ykinput) = (ignore (*2110*) (_n());
   in (ignore (*2121*) (_n()); 
  (let _x187 = (ignore (*2122*) (_n()); _n())
   in (ignore (*2123*) (_n()); 
- (let t = (ignore (*2124*) (_n()); Yakker.get_string _x188 _x187 ykinput)
+ (let t = (ignore (*2124*) (_n()); Yak.Yakker.get_string _x188 _x187 ykinput)
   in (ignore (*2126*) (_n());  match split t ';' with
       [] -> (Some t,[])
 (*    | ""::tl -> (None,List.map var_typ tl)  *)
@@ -993,7 +994,7 @@ _r_early_outputs(_n,ykinput) = (ignore (*2128*) (_n());
   in (ignore (*2139*) (_n()); 
  (let _x191 = (ignore (*2140*) (_n()); _n())
   in (ignore (*2141*) (_n()); 
- (let t = (ignore (*2142*) (_n()); Yakker.get_string _x192 _x191 ykinput)
+ (let t = (ignore (*2142*) (_n()); Yak.Yakker.get_string _x192 _x191 ykinput)
   in (ignore (*2144*) (_n());  match split t ';' with
       [] -> (Some t,[])
     | ""::tl -> (None,List.map var_typ tl)
@@ -1011,7 +1012,7 @@ _r_late_inputs(_n,ykinput) = (ignore (*2146*) (_n());
   in (ignore (*2157*) (_n()); 
  (let _x195 = (ignore (*2158*) (_n()); _n())
   in (ignore (*2159*) (_n()); 
- (let t = (ignore (*2160*) (_n()); Yakker.get_string _x196 _x195 ykinput)
+ (let t = (ignore (*2160*) (_n()); Yak.Yakker.get_string _x196 _x195 ykinput)
   in (ignore (*2162*) (_n()); t)
  ))
  ))
@@ -1026,7 +1027,7 @@ _r_return_type(_n,ykinput) = (ignore (*2164*) (_n());
   in (ignore (*2175*) (_n()); 
  (let _x199 = (ignore (*2176*) (_n()); _n())
   in (ignore (*2177*) (_n()); 
- (let y = (ignore (*2178*) (_n()); Yakker.get_string _x200 _x199 ykinput)
+ (let y = (ignore (*2178*) (_n()); Yak.Yakker.get_string _x200 _x199 ykinput)
   in (ignore (*2180*) (_n()); y)
  ))
  ))
@@ -1041,7 +1042,7 @@ _r_rettype(_n,ykinput) = (ignore (*2182*) (_n());
   in (ignore (*2198*) (_n()); 
  (let _x203 = (ignore (*2199*) (_n()); _n())
   in (ignore (*2200*) (_n()); 
- (let t = (ignore (*2201*) (_n()); Yakker.get_string _x204 _x203 ykinput)
+ (let t = (ignore (*2201*) (_n()); Yak.Yakker.get_string _x204 _x203 ykinput)
   in (ignore (*2205*) (_n()); t)
  ))
  ))
@@ -1058,7 +1059,7 @@ _r_lexer_case(_n,ykinput) = (ignore (*2207*) (_n());
   in (ignore (*2217*) (_n()); 
  (let _x207 = (ignore (*2218*) (_n()); _n())
   in (ignore (*2219*) (_n()); 
- (let n = (ignore (*2220*) (_n()); Yakker.get_string _x208 _x207 ykinput)
+ (let n = (ignore (*2220*) (_n()); Yak.Yakker.get_string _x208 _x207 ykinput)
   in (ignore (*2222*) (_n()); 
  (let t_opt = 
  (match _n() with
@@ -1072,7 +1073,7 @@ _r_lexer_case(_n,ykinput) = (ignore (*2207*) (_n());
   in (ignore (*2241*) (_n()); 
  (let _x213 = (ignore (*2242*) (_n()); _n())
   in (ignore (*2243*) (_n()); 
- (let n2 = (ignore (*2244*) (_n()); Yakker.get_string _x214 _x213 ykinput)
+ (let n2 = (ignore (*2244*) (_n()); Yak.Yakker.get_string _x214 _x213 ykinput)
   in (ignore (*2245*) (_n());  TokenSymb(n,t_opt,Some n2) )
  ))
  ))
@@ -1086,7 +1087,7 @@ _r_lexer_case(_n,ykinput) = (ignore (*2207*) (_n());
   in (ignore (*2255*) (_n()); 
  (let _x217 = (ignore (*2256*) (_n()); _n())
   in (ignore (*2257*) (_n()); 
- (let n = (ignore (*2258*) (_n()); Yakker.get_string _x218 _x217 ykinput)
+ (let n = (ignore (*2258*) (_n()); Yak.Yakker.get_string _x218 _x217 ykinput)
   in (ignore (*2260*) (_n()); 
  (let t_opt = 
  (match _n() with
@@ -1105,7 +1106,7 @@ _r_lexer_case(_n,ykinput) = (ignore (*2207*) (_n());
   in (ignore (*2277*) (_n()); 
  (let _x223 = (ignore (*2278*) (_n()); _n())
   in (ignore (*2279*) (_n()); 
- (let n = (ignore (*2280*) (_n()); Yakker.get_string _x224 _x223 ykinput)
+ (let n = (ignore (*2280*) (_n()); Yak.Yakker.get_string _x224 _x223 ykinput)
   in (ignore (*2282*) (_n()); 
  (let t_opt = 
  (match _n() with
@@ -1119,7 +1120,7 @@ _r_lexer_case(_n,ykinput) = (ignore (*2207*) (_n());
   in (ignore (*2302*) (_n()); 
  (let _x229 = (ignore (*2303*) (_n()); _n())
   in (ignore (*2304*) (_n()); 
- (let s = (ignore (*2305*) (_n()); Yakker.get_string _x230 _x229 ykinput)
+ (let s = (ignore (*2305*) (_n()); Yak.Yakker.get_string _x230 _x229 ykinput)
   in (ignore (*2307*) (_n());  TokenLit(n,t_opt,s) )
  ))
  ))
@@ -1155,7 +1156,7 @@ _r_lexer_declaration(_n,ykinput) = (ignore (*2327*) (_n());
   in (ignore (*2339*) (_n()); 
  (let _x235 = (ignore (*2340*) (_n()); _n())
   in (ignore (*2341*) (_n()); 
- (let n = (ignore (*2342*) (_n()); Yakker.get_string _x236 _x235 ykinput)
+ (let n = (ignore (*2342*) (_n()); Yak.Yakker.get_string _x236 _x235 ykinput)
   in (ignore (*2344*) (_n()); 
  (let t = (ignore (*2345*) (_n()); _r_rettype(_n,ykinput))
   in (ignore (*2355*) (_n()); 
@@ -1163,7 +1164,7 @@ _r_lexer_declaration(_n,ykinput) = (ignore (*2327*) (_n());
   in (ignore (*2357*) (_n()); 
  (let _x239 = (ignore (*2358*) (_n()); _n())
   in (ignore (*2359*) (_n()); 
- (let np = (ignore (*2360*) (_n()); Yakker.get_string _x240 _x239 ykinput)
+ (let np = (ignore (*2360*) (_n()); Yak.Yakker.get_string _x240 _x239 ykinput)
   in (ignore (*2364*) (_n()); 
  (let l = (ignore (*2365*) (_n()); _r_lexer_cases(_n,ykinput))
   in (ignore (*2369*) (_n());  LexerDecl(n,np,t,l) )
@@ -1194,7 +1195,7 @@ _r_prec_declaration(_n,ykinput) = (ignore (*2378*) (_n());
   in (ignore (*2397*) (_n()); 
  (let _x243 = (ignore (*2398*) (_n()); _n())
   in (ignore (*2399*) (_n()); 
- (let id = (ignore (*2400*) (_n()); Yakker.get_string _x244 _x243 ykinput)
+ (let id = (ignore (*2400*) (_n()); Yak.Yakker.get_string _x244 _x243 ykinput)
   in (ignore (*2401*) (_n()); 
  (let ids = (ignore (*2402*) (_n()); 
  (let _x250 = (ignore (*2403*) (_n()); 
@@ -1204,7 +1205,7 @@ _r_prec_declaration(_n,ykinput) = (ignore (*2378*) (_n());
   in (ignore (*2416*) (_n()); 
  (let _x247 = (ignore (*2417*) (_n()); _n())
   in (ignore (*2418*) (_n()); 
- (let x = (ignore (*2419*) (_n()); Yakker.get_string _x248 _x247 ykinput)
+ (let x = (ignore (*2419*) (_n()); Yak.Yakker.get_string _x248 _x247 ykinput)
   in (ignore (*2420*) (_n()); x)
  ))
  ))
@@ -1231,7 +1232,7 @@ _r_prec_declaration(_n,ykinput) = (ignore (*2378*) (_n());
   in (ignore (*2447*) (_n()); 
  (let _x253 = (ignore (*2448*) (_n()); _n())
   in (ignore (*2449*) (_n()); 
- (let id = (ignore (*2450*) (_n()); Yakker.get_string _x254 _x253 ykinput)
+ (let id = (ignore (*2450*) (_n()); Yak.Yakker.get_string _x254 _x253 ykinput)
   in (ignore (*2451*) (_n()); 
  (let ids = (ignore (*2452*) (_n()); 
  (let _x260 = (ignore (*2453*) (_n()); 
@@ -1241,7 +1242,7 @@ _r_prec_declaration(_n,ykinput) = (ignore (*2378*) (_n());
   in (ignore (*2466*) (_n()); 
  (let _x257 = (ignore (*2467*) (_n()); _n())
   in (ignore (*2468*) (_n()); 
- (let x = (ignore (*2469*) (_n()); Yakker.get_string _x258 _x257 ykinput)
+ (let x = (ignore (*2469*) (_n()); Yak.Yakker.get_string _x258 _x257 ykinput)
   in (ignore (*2470*) (_n()); x)
  ))
  ))
@@ -1276,7 +1277,7 @@ _r_rule(_n,ykinput) = (ignore (*2479*) (_n());
   in (ignore (*2489*) (_n()); 
  (let _x263 = (ignore (*2490*) (_n()); _n())
   in (ignore (*2491*) (_n()); 
- (let n = (ignore (*2492*) (_n()); Yakker.get_string _x264 _x263 ykinput)
+ (let n = (ignore (*2492*) (_n()); Yak.Yakker.get_string _x264 _x263 ykinput)
   in (ignore (*2493*) (_n()); 
  (let y = (ignore (*2494*) (_n()); _r_typestuff(_n,ykinput))
   in (ignore (*2499*) (_n()); 
@@ -1302,7 +1303,7 @@ _r_prologue(_n,ykinput) = (ignore (*2507*) (_n());
   in (ignore (*2524*) (_n()); 
  (let _x267 = (ignore (*2525*) (_n()); _n())
   in (ignore (*2526*) (_n()); 
- (let x = (ignore (*2527*) (_n()); Yakker.get_string _x268 _x267 ykinput)
+ (let x = (ignore (*2527*) (_n()); Yak.Yakker.get_string _x268 _x267 ykinput)
   in (ignore (*2530*) (_n()); Text_directive (Ocaml x))
  ))
  ))
@@ -1312,7 +1313,7 @@ _r_prologue(_n,ykinput) = (ignore (*2507*) (_n());
   in (ignore (*2543*) (_n()); 
  (let _x271 = (ignore (*2544*) (_n()); _n())
   in (ignore (*2545*) (_n()); 
- (let x = (ignore (*2546*) (_n()); Yakker.get_string _x272 _x271 ykinput)
+ (let x = (ignore (*2546*) (_n()); Yak.Yakker.get_string _x272 _x271 ykinput)
   in (ignore (*2549*) (_n()); Text_directive (Ocaml x))
  ))
  ))
@@ -1326,7 +1327,7 @@ _r_prologue(_n,ykinput) = (ignore (*2507*) (_n());
   in (ignore (*2568*) (_n()); 
  (let _x275 = (ignore (*2569*) (_n()); _n())
   in (ignore (*2570*) (_n()); 
- (let x = (ignore (*2571*) (_n()); Yakker.get_string _x276 _x275 ykinput)
+ (let x = (ignore (*2571*) (_n()); Yak.Yakker.get_string _x276 _x275 ykinput)
   in (ignore (*2574*) (_n()); Text_directive (Ocamllex x))
  ))
  ))
@@ -1336,7 +1337,7 @@ _r_prologue(_n,ykinput) = (ignore (*2507*) (_n());
   in (ignore (*2587*) (_n()); 
  (let _x279 = (ignore (*2588*) (_n()); _n())
   in (ignore (*2589*) (_n()); 
- (let x = (ignore (*2590*) (_n()); Yakker.get_string _x280 _x279 ykinput)
+ (let x = (ignore (*2590*) (_n()); Yak.Yakker.get_string _x280 _x279 ykinput)
   in (ignore (*2593*) (_n()); Text_directive (Dypgenlex x))
  ))
  ))
@@ -1361,7 +1362,7 @@ _r_epilogue(_n,ykinput) = (ignore (*2597*) (_n());
   in (ignore (*2614*) (_n()); 
  (let _x285 = (ignore (*2615*) (_n()); _n())
   in (ignore (*2616*) (_n()); 
- (let x = (ignore (*2617*) (_n()); Yakker.get_string _x286 _x285 ykinput)
+ (let x = (ignore (*2617*) (_n()); Yak.Yakker.get_string _x286 _x285 ykinput)
   in (ignore (*2620*) (_n()); Ocaml x)
  ))
  ))
@@ -1371,7 +1372,7 @@ _r_epilogue(_n,ykinput) = (ignore (*2597*) (_n());
   in (ignore (*2633*) (_n()); 
  (let _x289 = (ignore (*2634*) (_n()); _n())
   in (ignore (*2635*) (_n()); 
- (let x = (ignore (*2636*) (_n()); Yakker.get_string _x290 _x289 ykinput)
+ (let x = (ignore (*2636*) (_n()); Yak.Yakker.get_string _x290 _x289 ykinput)
   in (ignore (*2639*) (_n()); Ocaml x)
  ))
  ))
@@ -1381,7 +1382,7 @@ _r_epilogue(_n,ykinput) = (ignore (*2597*) (_n());
   in (ignore (*2652*) (_n()); 
  (let _x293 = (ignore (*2653*) (_n()); _n())
   in (ignore (*2654*) (_n()); 
- (let x = (ignore (*2655*) (_n()); Yakker.get_string _x294 _x293 ykinput)
+ (let x = (ignore (*2655*) (_n()); Yak.Yakker.get_string _x294 _x293 ykinput)
   in (ignore (*2658*) (_n()); Ocamllex x)
  ))
  ))
@@ -1401,7 +1402,7 @@ _r_directive(_n,ykinput) = (ignore (*2662*) (_n());
   in (ignore (*2681*) (_n()); 
  (let _x300 = (ignore (*2682*) (_n()); _n())
   in (ignore (*2683*) (_n()); 
- (let x = (ignore (*2684*) (_n()); Yakker.get_string _x301 _x300 ykinput)
+ (let x = (ignore (*2684*) (_n()); Yak.Yakker.get_string _x301 _x300 ykinput)
   in (ignore (*2687*) (_n());  Variables.counter := (int_of_string x))
  ))
  ))
@@ -1417,7 +1418,7 @@ type _pos = int (* input positions *)
 type _lab = int (* dispatch labels *)
 type 'a ev = (* early values, aka coroutines.  'a is the type of values eventually computed by the coroutines *)
   | Yk_more of _uid * (_lab -> _pos -> 'a ev)
-  | Yk_box of (_pos -> YkBuf.t -> (int * 'a ev) option)
+  | Yk_box of (_pos -> Yak.YkBuf.t -> (int * 'a ev) option)
   | Yk_when of bool
   | Yk_delay of 'a ev * hv
   | Yk_bind of ('a ev -> 'a ev)
@@ -1436,7 +1437,7 @@ let _fresh_t_id () =
   incr _t_count;
   count
 let _t f = Yk_more(_fresh_t_id(),f)
-type sv = _wv ev * (hv*_pos) History.history
+type sv = _wv ev * (hv*_pos) Yak.History.history
 let sv0 = (Yk_done _wv0, Yk_History.new_history())
 let sv_compare (x1,x2) (y1,y2) =
   (match ev_compare x1 y1 with
@@ -2353,7 +2354,7 @@ let symbol_table = function
   | 322 -> "typestuff"
   | 303 -> "bin-val"
   | 301 -> "rulename"
-  | x -> if x < 256 then Pam_internal.default_symbol_table x else "?unknown?"
+  | x -> if x < 256 then Yak.Pam_internal.default_symbol_table x else "?unknown?"
 
 let get_symb_action = function
   | "lexer-declaration" -> 330
@@ -2511,7 +2512,7 @@ let get_symb_start = function
   | 264 -> 1
   | _ -> raise Not_found
 
-open Pam_internal
+open Yak.Pam_internal
 module SV_hashtbl = Hashtbl.Make(struct 
 			  type t = sv 
 			  let equal a b = sv_compare a b = 0
@@ -2549,7 +2550,7 @@ and nullable_hex_val __lookahead _p0_ _x0_ = None
 
 and nullable_rule __lookahead _p0_ _x0_ = None
 
-and nullable_bitstring __lookahead _p0_ _x0_ = ((((Pred.andc (let p = _dwhen 1076 and n = _dnext 1077 in fun _ ykb v -> let pos = YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None) (fun _x1_ _x2_ _x3_ -> ((((Pred.andc (Pred.full_lookaheadc false 265 2) (fun _x4_ _x5_ _x6_ -> (Some (((fun p v -> _p 1089 p (_p 1088 p (v))) ((YkBuf.get_offset) _x5_)) _x6_)))) _x1_) _x2_) (((fun p v -> _p 1086 p (_p 1085 p (_ddelay 1084 p (_p 1083 p (_ddelay 1082 p (_d_and_push 1081 p (_d 1079 p (_d 1078 p (v))))))))) ((YkBuf.get_offset) _x2_)) _x3_)))) __lookahead) _p0_) (((_d 1072) ((YkBuf.get_offset) _p0_)) (((fun p v -> _d 1071 p (_d 1070 p (_d 1069 p (_d 1067 p (_d 1066 p (_p 1065 p (_x370 p (v)))))))) ((YkBuf.get_offset) _p0_)) _x0_)))
+and nullable_bitstring __lookahead _p0_ _x0_ = ((((Pred.andc (let p = _dwhen 1076 and n = _dnext 1077 in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None) (fun _x1_ _x2_ _x3_ -> ((((Pred.andc (Pred.full_lookaheadc false 265 2) (fun _x4_ _x5_ _x6_ -> (Some (((fun p v -> _p 1089 p (_p 1088 p (v))) ((Yak.YkBuf.get_offset) _x5_)) _x6_)))) _x1_) _x2_) (((fun p v -> _p 1086 p (_p 1085 p (_ddelay 1084 p (_p 1083 p (_ddelay 1082 p (_d_and_push 1081 p (_d 1079 p (_d 1078 p (v))))))))) ((Yak.YkBuf.get_offset) _x2_)) _x3_)))) __lookahead) _p0_) (((_d 1072) ((Yak.YkBuf.get_offset) _p0_)) (((fun p v -> _d 1071 p (_d 1070 p (_d 1069 p (_d 1067 p (_d 1066 p (_p 1065 p (_x370 p (v)))))))) ((Yak.YkBuf.get_offset) _p0_)) _x0_)))
 
 and nullable_boxnull __lookahead _p0_ _x0_ = None
 
@@ -2557,7 +2558,7 @@ and nullable_LF __lookahead _p0_ _x0_ = None
 
 and nullable_directive __lookahead _p0_ _x0_ = None
 
-and nullable_prologue __lookahead _p0_ _x0_ = (Some (((fun p v -> _p 2596 p (_p 2595 p (_d_and_push 2510 p (v)))) ((YkBuf.get_offset) _p0_)) (((fun p v -> _d_and_push 2509 p (_p 2508 p (_p 2507 p (_x688 p (v))))) ((YkBuf.get_offset) _p0_)) _x0_)))
+and nullable_prologue __lookahead _p0_ _x0_ = (Some (((fun p v -> _p 2596 p (_p 2595 p (_d_and_push 2510 p (v)))) ((Yak.YkBuf.get_offset) _p0_)) (((fun p v -> _d_and_push 2509 p (_p 2508 p (_p 2507 p (_x688 p (v))))) ((Yak.YkBuf.get_offset) _p0_)) _x0_)))
 
 and nullable_BIT __lookahead _p0_ _x0_ = None
 
@@ -2580,7 +2581,7 @@ and nullable_rulelist __lookahead _p0_ _x0_ = ((((Pred.andc (let symb_pred = nul
        and f_ret = (fun _x1_ _x2_ _x3_ -> _x2_)
     in
     fun la ykb v ->
-     let p = YkBuf.get_offset ykb in
+     let p = Yak.YkBuf.get_offset ykb in
      match symb_pred la ykb (f_call p v) with
 	None -> None
       | Some v2 -> Some (f_ret p v v2)) (fun _x1_ _x2_ _x3_ -> ((((Pred.andc (let symb_pred = nullable_o
@@ -2588,24 +2589,24 @@ and nullable_rulelist __lookahead _p0_ _x0_ = ((((Pred.andc (let symb_pred = nul
        and f_ret = (fun _x4_ _x5_ _x6_ -> _x5_)
     in
     fun la ykb v ->
-     let p = YkBuf.get_offset ykb in
+     let p = Yak.YkBuf.get_offset ykb in
      match symb_pred la ykb (f_call p v) with
 	None -> None
-      | Some v2 -> Some (f_ret p v v2)) (fun _x4_ _x5_ _x6_ -> ((((Pred.andc (let p = _dwhen 1028 and n = _dnext 1029 in fun _ ykb v -> let pos = YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None) (fun _x7_ _x8_ _x9_ -> ((((Pred.andc (let symb_pred = nullable_o
+      | Some v2 -> Some (f_ret p v v2)) (fun _x4_ _x5_ _x6_ -> ((((Pred.andc (let p = _dwhen 1028 and n = _dnext 1029 in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None) (fun _x7_ _x8_ _x9_ -> ((((Pred.andc (let symb_pred = nullable_o
        and f_call = (fun _x10_ _x11_ -> (sv0))
        and f_ret = (fun _x10_ _x11_ _x12_ -> _x11_)
     in
     fun la ykb v ->
-     let p = YkBuf.get_offset ykb in
+     let p = Yak.YkBuf.get_offset ykb in
      match symb_pred la ykb (f_call p v) with
 	None -> None
-      | Some v2 -> Some (f_ret p v v2)) (fun _x10_ _x11_ _x12_ -> (Some (((fun p v -> _p 1036 p (_p 1035 p (v))) ((YkBuf.get_offset) _x11_)) _x12_)))) _x7_) _x8_) ((((_m 1033) ((YkBuf.get_offset) _x8_)) (((fun p v -> _p 1032 p (_p 1031 p (_p 1030 p (v)))) ((YkBuf.get_offset) _x8_)) _x9_)) (((fun p v -> _p 2661 p (_p 2660 p (_d_and_push 2600 p (v)))) ((YkBuf.get_offset) _x8_)) (((fun p v -> _d_and_push 2599 p (_p 2598 p (_p 2597 p (_x704 p (v))))) ((YkBuf.get_offset) _x8_)) (sv0))))))) _x4_) _x5_) (((_d_and_push 1010) ((YkBuf.get_offset) _x5_)) (((fun p v -> _d_and_push 1009 p (_d_and_push 1008 p (_p 1007 p (v)))) ((YkBuf.get_offset) _x5_)) _x6_))))) _x1_) _x2_) ((((_m 1005) ((YkBuf.get_offset) _x2_)) (((fun p v -> _p 1004 p (_p 1003 p (v))) ((YkBuf.get_offset) _x2_)) _x3_)) (((fun p v -> _p 2596 p (_p 2595 p (_d_and_push 2510 p (v)))) ((YkBuf.get_offset) _x2_)) (((fun p v -> _d_and_push 2509 p (_p 2508 p (_p 2507 p (_x688 p (v))))) ((YkBuf.get_offset) _x2_)) (sv0))))))) __lookahead) _p0_) (((fun p v -> _p 1000 p (_x350 p (v))) ((YkBuf.get_offset) _p0_)) _x0_))
+      | Some v2 -> Some (f_ret p v v2)) (fun _x10_ _x11_ _x12_ -> (Some (((fun p v -> _p 1036 p (_p 1035 p (v))) ((Yak.YkBuf.get_offset) _x11_)) _x12_)))) _x7_) _x8_) ((((_m 1033) ((Yak.YkBuf.get_offset) _x8_)) (((fun p v -> _p 1032 p (_p 1031 p (_p 1030 p (v)))) ((Yak.YkBuf.get_offset) _x8_)) _x9_)) (((fun p v -> _p 2661 p (_p 2660 p (_d_and_push 2600 p (v)))) ((Yak.YkBuf.get_offset) _x8_)) (((fun p v -> _d_and_push 2599 p (_p 2598 p (_p 2597 p (_x704 p (v))))) ((Yak.YkBuf.get_offset) _x8_)) (sv0))))))) _x4_) _x5_) (((_d_and_push 1010) ((Yak.YkBuf.get_offset) _x5_)) (((fun p v -> _d_and_push 1009 p (_d_and_push 1008 p (_p 1007 p (v)))) ((Yak.YkBuf.get_offset) _x5_)) _x6_))))) _x1_) _x2_) ((((_m 1005) ((Yak.YkBuf.get_offset) _x2_)) (((fun p v -> _p 1004 p (_p 1003 p (v))) ((Yak.YkBuf.get_offset) _x2_)) _x3_)) (((fun p v -> _p 2596 p (_p 2595 p (_d_and_push 2510 p (v)))) ((Yak.YkBuf.get_offset) _x2_)) (((fun p v -> _d_and_push 2509 p (_p 2508 p (_p 2507 p (_x688 p (v))))) ((Yak.YkBuf.get_offset) _x2_)) (sv0))))))) __lookahead) _p0_) (((fun p v -> _p 1000 p (_x350 p (v))) ((Yak.YkBuf.get_offset) _p0_)) _x0_))
 
 and nullable_string __lookahead _p0_ _x0_ = None
 
 and nullable_o = let __tbl = SV_hashtbl.create 11 in
 fun __lookahead _p0_ _x0_ -> 
-let __p1 = YkBuf.get_offset _p0_ in
+let __p1 = Yak.YkBuf.get_offset _p0_ in
 try
 let (r, __p2)  = SV_hashtbl.find __tbl _x0_ in
 if __p1 = __p2 then r else
@@ -2619,19 +2620,19 @@ and nullable_lookahead __lookahead _p0_ _x0_ = None
 
 and nullable_prose_val __lookahead _p0_ _x0_ = None
 
-and nullable_DIGITS __lookahead _p0_ _x0_ = ((((Pred.andc (let p = _dwhen 1101 and n = _dnext 1102 in fun _ ykb v -> let pos = YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None) (fun _x1_ _x2_ _x3_ -> ((((Pred.andc (Pred.full_lookaheadc false 268 5) (fun _x4_ _x5_ _x6_ -> (Some (((fun p v -> _p 1114 p (_p 1113 p (v))) ((YkBuf.get_offset) _x5_)) _x6_)))) _x1_) _x2_) (((fun p v -> _p 1111 p (_p 1110 p (_ddelay 1109 p (_p 1108 p (_ddelay 1107 p (_d_and_push 1106 p (_d 1104 p (_d 1103 p (v))))))))) ((YkBuf.get_offset) _x2_)) _x3_)))) __lookahead) _p0_) (((_d 1097) ((YkBuf.get_offset) _p0_)) (((fun p v -> _d 1096 p (_d 1095 p (_d 1094 p (_d 1092 p (_d 1091 p (_p 1090 p (_x380 p (v)))))))) ((YkBuf.get_offset) _p0_)) _x0_)))
+and nullable_DIGITS __lookahead _p0_ _x0_ = ((((Pred.andc (let p = _dwhen 1101 and n = _dnext 1102 in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None) (fun _x1_ _x2_ _x3_ -> ((((Pred.andc (Pred.full_lookaheadc false 268 5) (fun _x4_ _x5_ _x6_ -> (Some (((fun p v -> _p 1114 p (_p 1113 p (v))) ((Yak.YkBuf.get_offset) _x5_)) _x6_)))) _x1_) _x2_) (((fun p v -> _p 1111 p (_p 1110 p (_ddelay 1109 p (_p 1108 p (_ddelay 1107 p (_d_and_push 1106 p (_d 1104 p (_d 1103 p (v))))))))) ((Yak.YkBuf.get_offset) _x2_)) _x3_)))) __lookahead) _p0_) (((_d 1097) ((Yak.YkBuf.get_offset) _p0_)) (((fun p v -> _d 1096 p (_d 1095 p (_d 1094 p (_d 1092 p (_d 1091 p (_p 1090 p (_x380 p (v)))))))) ((Yak.YkBuf.get_offset) _p0_)) _x0_)))
 
 and nullable_VCHAR __lookahead _p0_ _x0_ = None
 
 and nullable_WSP __lookahead _p0_ _x0_ = None
 
-and nullable_u __lookahead _p0_ _x0_ = ((((Pred.andc (let p = _dwhen 1063 and n = _dnext 1064 in fun _ ykb v -> let pos = YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None) (fun _x1_ _x2_ _x3_ -> ((((Pred.andc (Pred.full_lookaheadc false 290 27) (fun _x4_ _x5_ _x6_ -> (Some _x6_))) _x1_) _x2_) _x3_))) __lookahead) _p0_) (((_d 1059) ((YkBuf.get_offset) _p0_)) (((fun p v -> _d 1058 p (_d 1057 p (_x360 p (v)))) ((YkBuf.get_offset) _p0_)) _x0_)))
+and nullable_u __lookahead _p0_ _x0_ = ((((Pred.andc (let p = _dwhen 1063 and n = _dnext 1064 in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None) (fun _x1_ _x2_ _x3_ -> ((((Pred.andc (Pred.full_lookaheadc false 290 27) (fun _x4_ _x5_ _x6_ -> (Some _x6_))) _x1_) _x2_) _x3_))) __lookahead) _p0_) (((_d 1059) ((Yak.YkBuf.get_offset) _p0_)) (((fun p v -> _d 1058 p (_d 1057 p (_x360 p (v)))) ((Yak.YkBuf.get_offset) _p0_)) _x0_)))
 
 and nullable_not_line_end __lookahead _p0_ _x0_ = None
 
 and nullable_DIGIT __lookahead _p0_ _x0_ = None
 
-and nullable_epilogue __lookahead _p0_ _x0_ = (Some (((fun p v -> _p 2661 p (_p 2660 p (_d_and_push 2600 p (v)))) ((YkBuf.get_offset) _p0_)) (((fun p v -> _d_and_push 2599 p (_p 2598 p (_p 2597 p (_x704 p (v))))) ((YkBuf.get_offset) _p0_)) _x0_)))
+and nullable_epilogue __lookahead _p0_ _x0_ = (Some (((fun p v -> _p 2661 p (_p 2660 p (_d_and_push 2600 p (v)))) ((Yak.YkBuf.get_offset) _p0_)) (((fun p v -> _d_and_push 2599 p (_p 2598 p (_p 2597 p (_x704 p (v))))) ((Yak.YkBuf.get_offset) _p0_)) _x0_)))
 
 and nullable_braces_text __lookahead _p0_ _x0_ = None
 
@@ -2665,7 +2666,7 @@ and nullable_shebang_line __lookahead _p0_ _x0_ = None
 
 and nullable_OCTET __lookahead _p0_ _x0_ = None
 
-and nullable_HEXDIGS __lookahead _p0_ _x0_ = ((((Pred.andc (let p = _dwhen 1126 and n = _dnext 1127 in fun _ ykb v -> let pos = YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None) (fun _x1_ _x2_ _x3_ -> ((((Pred.andc (Pred.full_lookaheadc false 270 7) (fun _x4_ _x5_ _x6_ -> (Some (((fun p v -> _p 1139 p (_p 1138 p (v))) ((YkBuf.get_offset) _x5_)) _x6_)))) _x1_) _x2_) (((fun p v -> _p 1136 p (_p 1135 p (_ddelay 1134 p (_p 1133 p (_ddelay 1132 p (_d_and_push 1131 p (_d 1129 p (_d 1128 p (v))))))))) ((YkBuf.get_offset) _x2_)) _x3_)))) __lookahead) _p0_) (((_d 1122) ((YkBuf.get_offset) _p0_)) (((fun p v -> _d 1121 p (_d 1120 p (_d 1119 p (_d 1117 p (_d 1116 p (_p 1115 p (_x390 p (v)))))))) ((YkBuf.get_offset) _p0_)) _x0_)))
+and nullable_HEXDIGS __lookahead _p0_ _x0_ = ((((Pred.andc (let p = _dwhen 1126 and n = _dnext 1127 in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None) (fun _x1_ _x2_ _x3_ -> ((((Pred.andc (Pred.full_lookaheadc false 270 7) (fun _x4_ _x5_ _x6_ -> (Some (((fun p v -> _p 1139 p (_p 1138 p (v))) ((Yak.YkBuf.get_offset) _x5_)) _x6_)))) _x1_) _x2_) (((fun p v -> _p 1136 p (_p 1135 p (_ddelay 1134 p (_p 1133 p (_ddelay 1132 p (_d_and_push 1131 p (_d 1129 p (_d 1128 p (v))))))))) ((Yak.YkBuf.get_offset) _x2_)) _x3_)))) __lookahead) _p0_) (((_d 1122) ((Yak.YkBuf.get_offset) _p0_)) (((fun p v -> _d 1121 p (_d 1120 p (_d 1119 p (_d 1117 p (_d 1116 p (_p 1115 p (_x390 p (v)))))))) ((Yak.YkBuf.get_offset) _p0_)) _x0_)))
 
 and nullable_late_inputs __lookahead _p0_ _x0_ = None
 
@@ -2675,7 +2676,7 @@ and nullable_CR __lookahead _p0_ _x0_ = None
 
 and nullable_inside __lookahead _p0_ _x0_ = None
 
-and nullable_params __lookahead _p0_ _x0_ = ((((Pred.andc (fun _x1_ _x2_ _x3_ -> (Some (((_p 1626) ((YkBuf.get_offset) _x2_)) (((_d 1624) ((YkBuf.get_offset) _x2_)) _x3_)))) (fun _x1_ _x2_ _x3_ -> (Some (((_p 1627) ((YkBuf.get_offset) _x2_)) _x3_)))) __lookahead) _p0_) (((fun p v -> _p 1606 p (_x468 p (v))) ((YkBuf.get_offset) _p0_)) _x0_))
+and nullable_params __lookahead _p0_ _x0_ = ((((Pred.andc (fun _x1_ _x2_ _x3_ -> (Some (((_p 1626) ((Yak.YkBuf.get_offset) _x2_)) (((_d 1624) ((Yak.YkBuf.get_offset) _x2_)) _x3_)))) (fun _x1_ _x2_ _x3_ -> (Some (((_p 1627) ((Yak.YkBuf.get_offset) _x2_)) _x3_)))) __lookahead) _p0_) (((fun p v -> _p 1606 p (_x468 p (v))) ((Yak.YkBuf.get_offset) _p0_)) _x0_))
 
 and nullable_dec_val __lookahead _p0_ _x0_ = None
 
@@ -2693,7 +2694,7 @@ and nullable_ID __lookahead _p0_ _x0_ = None
 
 and nullable_bin_val __lookahead _p0_ _x0_ = None
 
-and nullable_typestuff __lookahead _p0_ _x0_ = ((((Pred.andc (fun _x1_ _x2_ _x3_ -> (Some (((_p 2092) ((YkBuf.get_offset) _x2_)) _x3_))) (fun _x1_ _x2_ _x3_ -> ((((Pred.andc (fun _x4_ _x5_ _x6_ -> (Some (((_p 2100) ((YkBuf.get_offset) _x5_)) _x6_))) (fun _x4_ _x5_ _x6_ -> ((((Pred.andc (fun _x7_ _x8_ _x9_ -> (Some (((_p 2108) ((YkBuf.get_offset) _x8_)) _x9_))) (fun _x7_ _x8_ _x9_ -> (Some (((_p 2109) ((YkBuf.get_offset) _x8_)) _x9_)))) _x4_) _x5_) (((_p 2101) ((YkBuf.get_offset) _x5_)) _x6_)))) _x1_) _x2_) (((_p 2093) ((YkBuf.get_offset) _x2_)) _x3_)))) __lookahead) _p0_) (((_p 2086) ((YkBuf.get_offset) _p0_)) _x0_))
+and nullable_typestuff __lookahead _p0_ _x0_ = ((((Pred.andc (fun _x1_ _x2_ _x3_ -> (Some (((_p 2092) ((Yak.YkBuf.get_offset) _x2_)) _x3_))) (fun _x1_ _x2_ _x3_ -> ((((Pred.andc (fun _x4_ _x5_ _x6_ -> (Some (((_p 2100) ((Yak.YkBuf.get_offset) _x5_)) _x6_))) (fun _x4_ _x5_ _x6_ -> ((((Pred.andc (fun _x7_ _x8_ _x9_ -> (Some (((_p 2108) ((Yak.YkBuf.get_offset) _x8_)) _x9_))) (fun _x7_ _x8_ _x9_ -> (Some (((_p 2109) ((Yak.YkBuf.get_offset) _x8_)) _x9_)))) _x4_) _x5_) (((_p 2101) ((Yak.YkBuf.get_offset) _x5_)) _x6_)))) _x1_) _x2_) (((_p 2093) ((Yak.YkBuf.get_offset) _x2_)) _x3_)))) __lookahead) _p0_) (((_p 2086) ((Yak.YkBuf.get_offset) _p0_)) _x0_))
 
 and nullable_rulename __lookahead _p0_ _x0_ = None
 
@@ -3684,22 +3685,22 @@ let program : (int * sv instruction list) list = [
 
 let start_symb = get_symb_action "rulelist"
 
-module P2__ = Engine.Full_yakker(struct type t = sv let cmp = sv_compare end)
+module P2__ = Yak.Engine.Full_yakker(struct type t = sv let cmp = sv_compare end)
 
-let _wfe_data_ = PamJIT.DNELR.to_table (Pam_internal.load_internal_program program)
+let _wfe_data_ = Yak.PamJIT.DNELR.to_table (Yak.Pam_internal.load_internal_program program)
   start_symb (get_symb_start start_symb) 264 num_symbols
   __default_call __default_ret
 
-let parse = Pami.Wfe.mk_parse P2__.parse _wfe_data_ sv0 
+let parse = Yak.Pami.Wfe.mk_parse P2__.parse _wfe_data_ sv0 
     (fun ykinput (_,h) ->
-      let _o = (new History.postfix h) in
+      let _o = (new Yak.History.postfix h) in
       let _n() = (let (x,_) = _o#next() in x) in
       _r_rulelist(_n,ykinput)
     )
 let visualize = parse
-let visualize_file = Pami.Simple.parse_file visualize
-let visualize_string = Pami.Simple.parse_string visualize
+let visualize_file = Yak.Pami.Simple.parse_file visualize
+let visualize_string = Yak.Pami.Simple.parse_string visualize
 
-let parse_file = Pami.Simple.parse_file parse
-let parse_string = Pami.Simple.parse_string parse
+let parse_file = Yak.Pami.Simple.parse_file parse
+let parse_string = Yak.Pami.Simple.parse_string parse
 ;;

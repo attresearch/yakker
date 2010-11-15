@@ -32,6 +32,7 @@
    constructors.
 *)
 
+open Yak
 let postincr = Util.postincr
 let counter = ref 1
 

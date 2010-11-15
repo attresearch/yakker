@@ -9,6 +9,7 @@
  *    Trevor Jim and Yitzhak Mandelbaum
  *******************************************************************************)
 
+open Yak
 let lookahead_name = "__lookahead"
 let nullable_pred_prefix = "nullable_"
 
@@ -38,7 +39,7 @@ let gil_callc symb_pred action binder =
        and f_ret = %s
     in
     fun la ykb v ->
-     let p = YkBuf.get_offset ykb in
+     let p = Yak.YkBuf.get_offset ykb in
      match symb_pred la ykb (f_call p v) with
 	None -> None
       | Some v2 -> Some (f_ret p v v2))" symb_pred action binder
@@ -605,7 +606,7 @@ module Expr_gil = struct
 (*                                P.vsub2' (e2 (P.vsub2 ntpred_apply pos v1)) pos v1} in *)
 
 (* 		 let result_ph = {P.e = fun () -> P.Lam (fun la -> P.Lam (fun ykb -> P.Lam (fun v1 -> *)
-(*                    P.SomeE (P.let_e (P.App (P.InjectE "YkBuf.get_offset", ykb))  *)
+(*                    P.SomeE (P.let_e (P.App (P.InjectE "Yak.YkBuf.get_offset", ykb))  *)
 (* 		     (P.Lam (fun pos -> body.P.e_open2 pos v1))))))} in *)
 
 (* 		 P.to_dB result_ph 0 *)
@@ -631,7 +632,7 @@ module Expr_gil = struct
 		 (* TODO: why not rewrite the app3 in the SomeE? *)
 		 Lam (Lam (Lam
 			     (SomeE (App (Lam (app3 e2_s p_var v_var v_nt),
-					  App (InjectE "YkBuf.get_offset", ykb_var))
+					  App (InjectE "Yak.YkBuf.get_offset", ykb_var))
 				    ))))
 	     | _ -> e_orig)
       | Lam f -> Lam (rewrite' (c+1) f)
@@ -863,7 +864,7 @@ module Gil = struct
   (* For reasons of type-var generalization, we use Lam constructors directly,
      rather than using lam3. *)
   let ignore_binder_e = Lam (fun p -> Lam (fun x -> Lam (fun y -> Var x)))
-  let app_iv f ykb v = app2 (InjectE f) (App (InjectE "YkBuf.get_offset", Var ykb)) (Var v)
+  let app_iv f ykb v = app2 (InjectE f) (App (InjectE "Yak.YkBuf.get_offset", Var ykb)) (Var v)
 
   (* invariant: branches return an npred, which now includes lookahead arg. *)
   let rec trans' = function
@@ -886,7 +887,7 @@ module Gil = struct
   | Gil.Box (_, Gil.Runpred_null e) -> InjectE ("let p = " ^ e ^ " in fun _ _ -> p")
   | Gil.When (f_pred, f_next) -> 
       InjectE ("let p = " ^ f_pred ^ " and n = " ^ f_next ^ " in " ^ 
-	       "fun _ ykb v -> let pos = YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None")
+	       "fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None")
   | Gil.Seq (r1,r2) -> AndE (trans' r1, trans' r2)
   | Gil.Alt (r1,r2) -> OrE (trans' r1, trans' r2)
   | Gil.Star _ -> true_e ()
@@ -984,7 +985,7 @@ module Gil = struct
 	  (mk_npname nt) lookahead_name ykb v;
 	let body_code = to_string' gil_callc get_action get_start 1 body in
 	Printf.fprintf ch 
-	  "let __p1 = YkBuf.get_offset %s in\n\
+	  "let __p1 = Yak.YkBuf.get_offset %s in\n\
           try\n\
 	    let (r, __p2)  = SV_hashtbl.find __tbl %s in\n\
 	    if __p1 = __p2 then r else\n\

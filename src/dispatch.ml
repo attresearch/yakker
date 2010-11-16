@@ -79,7 +79,7 @@ let _d x p = function
     (Yk_more(_,t),h) -> (t x p,h)
   | (ev,_) -> failwith (Printf.sprintf \"_d(%%s)\" (_ev_to_string ev))
 let _darg x p = function (*TJIM: same as _d without p*)
-    (Yk_more(_,t),h) -> (t x p,h#empty)
+    (Yk_more(_,t),h) -> (t x p,h#empty p)
   | _ -> failwith \"_darg\"
 let _dbox x = function
     (Yk_more(_,t),h) ->
@@ -96,7 +96,7 @@ let _dwhen x p = function
   | _ -> failwith \"_dwhen\"
 let _ddelay x p =
   (function
-    | (Yk_more(_,t),h) -> (match t x p with Yk_delay(v,hv) -> (v,(h#push(%s(x),p))#push(hv,p)) | _ -> failwith \"_ddelay1\")
+    | (Yk_more(_,t),h) -> (match t x p with Yk_delay(v,hv) -> (v,(h#push p (%s(x),p))#push p (hv,p)) | _ -> failwith \"_ddelay1\")
     | _ -> failwith \"_ddelay2\")
 let _dret x p =
   (function
@@ -111,18 +111,18 @@ let _dmerge x p =
     | (Yk_more(_,t),h1) ->
         (fun (r,h2) ->
 	  match t x p with
-	  | Yk_bind(f) -> (f r,h1#merge(%s(x),p) h2)
+	  | Yk_bind(f) -> (f r,h1#merge p (%s(x),p) h2)
 	  | _ -> failwith \"_dmerge1\")
     | _ -> failwith \"_dmerge3\")
 let _d_and_push x p = function
-    (Yk_more(_,t),h) -> (t x p,h#push(%s(x),p))
+    (Yk_more(_,t),h) -> (t x p,h#push p (%s(x),p))
   | _ -> failwith \"_d_and_push\"
 let _dnext x p = function (*TJIM: same as _d without p *)
     (Yk_more(_,t),h) -> (t x p,h)
   | _ -> failwith \"_dnext\"
 (* History transformers *)
-let _p x p = (fun(v,h)->(v,h#push(%s(x),p)))
-let _m x p = (fun(v1,h1)->fun(_,h2)-> (v1,h1#merge(%s(x),p) h2))
+let _p x p = (fun(v,h)->(v,h#push p (%s(x),p)))
+let _m x p = (fun(v1,h1)->fun(_,h2)-> (v1,h1#merge p (%s(x),p) h2))
 
 " hproj hproj hproj hproj hproj)
 
@@ -197,8 +197,8 @@ let sv_compare = hv_compare
 let sv_hash = Yk_History.hash
 
 (* History transformers *)
-let _p x p = fun h -> h#push(%s(x),p)
-let _m x p = fun h -> h#merge(%s(x),p)
+let _p x p = fun h -> h#push p (%s(x),p)
+let _m x p = fun h -> h#merge p (%s(x),p)
 
 " hproj hproj)
 

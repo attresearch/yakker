@@ -12,12 +12,13 @@
 (* History data structure *)
 
 type 'a root
+type 'a info  (* would prefer to hide this but cannot *)
 class ['a] history :
-    ('a root -> 'a root) ->
+    ('a info -> 'a info) ->   (* would prefer to hide this but cannot *)
       object ('b)
-        method empty : 'b
-        method merge : 'a -> 'b -> 'b
-        method push : 'a -> 'b
+        method empty : int -> 'b
+        method merge : int -> 'a -> 'b -> 'b
+        method push : int -> 'a -> 'b
         method get_root : 'a root (* would prefer to hide this but cannot *)
       end
 

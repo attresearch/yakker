@@ -17,43 +17,47 @@
    "memoize" flag.
 *)
 
+(** (pseudo) parameterize the root type by the key type. Then, different history mechanisms can choose different keys. *)
+type key = int
+let key_compare = (-)
+
 type 'a root =
-  | Empty
+  | Empty of key
   | Root of 'a info
-and 'a info = {v:'a; mutable branchings:'a branching list}
+and 'a info = {key : key; v:'a; 
+	       mutable branchings:'a branching list; (* NB we aren't compacting 
+							(eliminating duplicates) 
+							the branchings *)
+	      }
 and 'a branching =
   | One of 'a root
   | Two of 'a root * 'a root
 
+let get_key p = function Empty _ -> p | Root {key=k} -> k
+
 let impossible() = failwith "History.impossible"
 
 (* The base history class.  uniq should be a memoizing function, use id for no memoization *)
-class ['a] history (uniq:'a root -> 'a root) =
-  let mk_root (v:'a) = (* memoized *)
-    uniq (Root{v=v;branchings=[]}) in
+class ['a] history (uniq:'a info -> 'a info) =
+  let mk_info k (v:'a) = (* memoized *)
+    uniq ({key=k; v=v; branchings=[]}) in
   object (self:'b)
-    val root = Empty
+    val root = Empty 0
 
     method get_root = root
 
-    method empty =
-      {< root = Empty >}
+    method empty p =
+      {< root = Empty p >}
 
-    method push v =
-      let r = mk_root v in
-      match r with
-      | Empty -> impossible()
-      | Root({v=v;branchings=b} as inf)-> (* NB we aren't memoizing the branchings *)
-          inf.branchings <- (One root)::b;
-          {< root = r >} (* copy of self with new root *)
+    method push p v =
+      let ({branchings=b;} as inf) = mk_info (get_key p root) v in
+      inf.branchings <- (One root)::b;
+      {< root = Root inf >} (* copy of self with new root *)
 
-    method merge v (h2:'b) =
-      let r = mk_root v in
-      match r with
-      | Empty -> impossible()
-      | Root({v=v;branchings=b} as inf) -> (* NB we aren't memoizing the branchings *)
-          inf.branchings <- (Two(root,h2#get_root))::b;
-          {< root = r >} (* copy of self with new root *)
+    method merge p v (h2:'b) =
+      let ({branchings=b;} as inf) = mk_info (get_key p root) v in
+      inf.branchings <- (Two(root,h2#get_root))::b;
+      {< root = Root inf >} (* copy of self with new root *)
   end
 
 (* class for lazy postfix traversals of histories *)
@@ -66,7 +70,7 @@ class ['a] postfix (h_init:'a history) =
       | (Forced v)::tl -> current <- tl; v
       | (Delayed r)::tl ->
           (match r with
-          | Empty -> current <- tl; self#next()
+          | Empty _ -> current <- tl; self#next()
           | Root{v=v;branchings=(One r2)::_} -> (* silently throw away ambiguities with _ *)
               current <- (Delayed r2)::(Forced v)::tl;
               self#next()
@@ -86,33 +90,34 @@ module type HV = sig
   val hash : t -> int
 end
 module Make (Hv : HV) = struct
+
   let compare h1 h2 =
     (match h1#get_root, h2#get_root with
-      Empty,Empty -> 0
-    | Empty,_ -> -1
-    | _,Empty -> 1
-    | Root{v=v1},Root{v=v2} -> Hv.compare v1 v2)
-  module Root =
-    struct
-      type t = Hv.t root
-      let equal r1 r2 =
-        match r1,r2 with
-          Empty,Empty -> true
-        | Root{v=v1},Root{v=v2} -> 0 = Hv.compare v1 v2
-        | _ -> false
-      let hash r =
-        match r with
-        | Root{v=v} -> Hv.hash v
-        | Empty -> 0 (* NB we never expect to enter Empty into the hash set, so this shouldn't matter;
-                        in any case, the usual Hashtbl.hash returns a positive integer, so this does not collide *)
-    end
-  module WeakRoot = Weak.Make(Root)
-  let hash h = Root.hash (h#get_root)
+      Empty k1, Empty k2 -> key_compare k1 k2
+    | Empty _, _ -> -1
+    | _, Empty _ -> 1
+    | Root ({key=k1; v=v1}), Root ({key=k2; v=v2}) -> 
+	let c = key_compare k1 k2 in
+	if c <> 0 then c else Hv.compare v1 v2)
+
+  module Info = struct
+    type t = Hv.t info
+
+    let equal {key=k1; v=v1} {key=k2; v=v2} =
+      k1 = k2 && 0 = Hv.compare v1 v2
+
+    let hash {key=k; v=v} = k lxor Hv.hash v
+  end
+
+  module WeakInfo = Weak.Make(Info)
+
+  let hash h = match (h#get_root) with Empty k -> k | Root inf -> Info.hash inf
   let memoize = ref false
+
   let new_history () =
     if !memoize then
-      let memo_tbl = WeakRoot.create 11 in
-      new history (WeakRoot.merge memo_tbl)
+      let memo_tbl = WeakInfo.create 11 in
+      new history (WeakInfo.merge memo_tbl)
     else
       new history (fun x -> x)
 
@@ -120,17 +125,22 @@ end
 
 module Make_show (Hv : HV) = struct
   module Atom = struct
-    type t = Hv.t
-    let equal v1 v2 = Hv.compare v1 v2 = 0
-    let hash = Hv.hash
+    type t = Hv.t info
+
+    let equal {key=k1; v=v1} {key=k2; v=v2} =
+      k1 = k2 && 0 = Hv.compare v1 v2
+
+    let hash {key=k; v=v} = k lxor Hv.hash v
   end
 
   let compare_root r1 r2 =
     match r1, r2 with
-	Empty,Empty -> 0
-      | Empty,_ -> -1
-      | _,Empty -> 1
-      | Root{v=v1},Root{v=v2} -> Hv.compare v1 v2
+	Empty _, Empty _ -> 0
+      | Empty _, _ -> -1
+      | _, Empty _ -> 1
+      | Root ({key=k1; v=v1}), Root ({key=k2; v=v2}) -> 
+	  let c = key_compare k1 k2 in
+	  if c <> 0 then c else Hv.compare v1 v2
 
   module Edge = struct
     type t = Hv.t branching
@@ -155,7 +165,7 @@ module Make_show (Hv : HV) = struct
   (** returns r and its left siblings. *)
   let get_left_siblings r = 
     let rec loop rs r = match r with
-    | Empty -> rs
+    | Empty _ -> rs
     | Root {branchings = [One r2]}  
     | Root {branchings = [Two(r2,_)]} -> 
 	loop (r::rs) r2
@@ -167,17 +177,17 @@ module Make_show (Hv : HV) = struct
     loop [] r
 
   let get_children = function
-    | Empty | Root {branchings = [One _]} ->
+    | {branchings = [One _]} ->
 	[]
-    | Root {branchings = (One _) :: _} ->
+    | {branchings = (One _) :: _} ->
 	Printf.eprintf "get_children: Ambiguity encountered.\n";
 	[]
-    | Root {branchings = [Two (_, r3)]} ->
+    | {branchings = [Two (_, r3)]} ->
 	get_left_siblings r3
-    | Root {branchings = (Two(_, r3)) :: _} ->
+    | {branchings = (Two(_, r3)) :: _} ->
 	Printf.eprintf "get_children: Ambiguity encountered.\n";
 	get_left_siblings r3	
-    | Root {branchings=[]} -> impossible()
+    | {branchings=[]} -> impossible()
 
   let dot_show_pretty string_of_atom h =
     let tbl = Hash_atom.create 11 in
@@ -190,14 +200,14 @@ module Make_show (Hv : HV) = struct
 
     (** returns: last used n *)
     and dot_show_tree n_last = function
-      | Empty -> 0, n_last
-      | (Root {v = v}) as t ->
-	  let n_opt = try Some (Hash_atom.find tbl v) with Not_found -> None in
+      | Empty _ -> 0, n_last
+      | Root ({v = v} as t) ->
+	  let n_opt = try Some (Hash_atom.find tbl t) with Not_found -> None in
 	  match n_opt with
             | Some n -> (n,n_last)
             | None ->
 		let n = n_last + 1 in
-		Hash_atom.add tbl v n;
+		Hash_atom.add tbl t n;
 		Printf.printf "%i [ label = %S shape = box, style = rounded];\n" n
 		  (string_of_atom v);
 		let children = get_children t in
@@ -249,16 +259,16 @@ module Make_show (Hv : HV) = struct
 	dot_show_edge n e
       in
       match root with
-      | Empty -> 0, n_last
+      | Empty _ -> 0, n_last
       | Root ({v = v} as t) ->
-	  let n_opt = try Some (Hash_atom.find tbl v) with Not_found -> None in
+	  let n_opt = try Some (Hash_atom.find tbl t) with Not_found -> None in
 	  match n_opt with
             | Some n -> (n,n_last)
             | None ->
 		let n = n_last + 1 in
-		Hash_atom.add tbl v n;
+		Hash_atom.add tbl t n;
 		Printf.printf "%i [ label = %S shape = box, style = rounded];\n" n
-		  (string_of_atom v);
+		  ((string_of_atom v) ^ "(" ^ string_of_int t.key ^ ")");
 		let n_final = match t.branchings with
                     [] -> impossible()
 		  | [e] -> dot_show_edge n e

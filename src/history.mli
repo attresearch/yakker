@@ -41,3 +41,9 @@ module Make :
       val memoize : bool ref
       val new_history : unit -> Hv.t history
     end
+
+module Make_show :
+  functor (Hv : HV) ->
+    sig
+      val dot_show : (Hv.t -> string) -> Hv.t history -> unit
+    end

@@ -210,7 +210,12 @@ module Wfe = struct
 	  let pos = YkBuf.get_offset ykb + 1 in
 	  YkBuf.restore ykb cp;
 	  raise (Parse_error (msg, pos, line, cnum))
+      | [x] ->
+	  let b = YkBuf.snapshot ykb cp in
+	  YkBuf.commit ykb;
+	  pp b x
       | x::_ ->
+	  Printf.eprintf "mk_parse_single: ambiguity in parse.\n";
 	  let b = YkBuf.snapshot ykb cp in
 	  YkBuf.commit ykb;
 	  pp b x

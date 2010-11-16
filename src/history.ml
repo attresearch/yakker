@@ -124,6 +124,32 @@ module Make_show (Hv : HV) = struct
     let equal v1 v2 = Hv.compare v1 v2 = 0
     let hash = Hv.hash
   end
+
+  let compare_root r1 r2 =
+    match r1, r2 with
+	Empty,Empty -> 0
+      | Empty,_ -> -1
+      | _,Empty -> 1
+      | Root{v=v1},Root{v=v2} -> Hv.compare v1 v2
+
+  module Edge = struct
+    type t = Hv.t branching
+    let compare b1 b2 = 
+      match b1 , b2 with
+	  One r1, One r2 -> compare_root r1 r2
+	| One _, Two _ -> -1
+	| Two _, One _ -> 1
+	| Two (r2, r3), Two (r2', r3') -> 
+	    let c = compare_root r2 r2' in
+	    if c <> 0 then c else
+	      compare r3 r3'
+  end
+  module Edge_set = struct
+    module Edge_set = Set.Make(Edge)
+    include Edge_set
+
+    let from_list xs = List.fold_left (fun s e -> add e s) empty xs
+  end
   module Hash_atom = Hashtbl.Make(Atom)
 
   (** returns r and its left siblings. *)
@@ -196,8 +222,8 @@ module Make_show (Hv : HV) = struct
     let edge x y = edges := (x,y)::!edges in
     let child_edge x y = cedges := (x,y)::!cedges in
     let pr_edges() =
-      List.iter (fun (x,y) -> Printf.printf "%i -> %i;\n" x y) !edges;
-      List.iter (fun (x,y) -> Printf.printf "%i -> %i [arrowhead = diamond];\n" x y) !cedges in
+      List.iter (fun (x,y) -> if y <> 0 then Printf.printf "%i -> %i;\n" x y) !edges;
+      List.iter (fun (x,y) -> if y <> 0 then Printf.printf "%i -> %i [arrowhead = diamond];\n" x y) !cedges in
 
     (** returns: last used n *)
     let rec dot_show_tree n_last root =
@@ -216,7 +242,7 @@ module Make_show (Hv : HV) = struct
 	    n_final
       in
       (** returns: last used n *)
-      let dot_show_packed n_parent n_last e =
+      let dot_show_packed n_parent e n_last =
 	let n = n_last + 1 in
 	Printf.printf "%i [label=\"\" shape = circle width = 0.15];\n" n;
 	edge n_parent n;
@@ -240,7 +266,10 @@ module Make_show (Hv : HV) = struct
 	              if Logging.activated then
 			Logging.log Logging.Features.sppf
                           "Encountered node with non-singular edge set. (%s)." (string_of_atom v);
-                      List.fold_left (dot_show_packed n) n edges in
+		      let edgeset = Edge_set.from_list edges in
+                      if Edge_set.cardinal edgeset > 1 then
+			Edge_set.fold (dot_show_packed n) edgeset n 
+		      else dot_show_edge n (Edge_set.choose edgeset) in
 		(n,n_final) in
     Printf.printf "digraph g {\nordering=out\n";
     ignore(dot_show_tree 0 h#get_root);

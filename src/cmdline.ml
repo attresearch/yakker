@@ -141,7 +141,7 @@ _r_command(_n,ykinput) = (ignore (*1030*) (_n());
   in (ignore (*1145*) (_n()); 
  (let _x9 = (ignore (*1146*) (_n()); _n())
   in (ignore (*1147*) (_n()); 
- (let n = (ignore (*1148*) (_n()); Yak.Yakker.get_string _x10 _x9 ykinput)
+ (let n = (ignore (*1148*) (_n()); Yak.YkBuf.get_string _x10 _x9 ykinput)
   in (ignore (*1150*) (_n());  try Rfc_cmd(int_of_string n) with _ -> raise(Failure "Invalid RFC number") )
  ))
  ))
@@ -152,7 +152,7 @@ _r_command(_n,ykinput) = (ignore (*1030*) (_n());
   in (ignore (*1167*) (_n()); 
  (let _x13 = (ignore (*1168*) (_n()); _n())
   in (ignore (*1169*) (_n()); 
- (let f = (ignore (*1170*) (_n()); Yak.Yakker.get_string _x14 _x13 ykinput)
+ (let f = (ignore (*1170*) (_n()); Yak.YkBuf.get_string _x14 _x13 ykinput)
   in (ignore (*1171*) (_n()); 
  (let l = (ignore (*1172*) (_n()); 
  (let _x20 = (ignore (*1173*) (_n()); 
@@ -162,7 +162,7 @@ _r_command(_n,ykinput) = (ignore (*1030*) (_n());
   in (ignore (*1186*) (_n()); 
  (let _x17 = (ignore (*1187*) (_n()); _n())
   in (ignore (*1188*) (_n()); 
- (let x = (ignore (*1189*) (_n()); Yak.Yakker.get_string _x18 _x17 ykinput)
+ (let x = (ignore (*1189*) (_n()); Yak.YkBuf.get_string _x18 _x17 ykinput)
   in (ignore (*1190*) (_n()); x)
  ))
  ))
@@ -224,7 +224,7 @@ _r_args(_n,ykinput) = (ignore (*1235*) (_n());
   in (ignore (*1285*) (_n()); 
  (let _x26 = (ignore (*1286*) (_n()); _n())
   in (ignore (*1287*) (_n()); 
- (let n = (ignore (*1288*) (_n()); Yak.Yakker.get_string _x27 _x26 ykinput)
+ (let n = (ignore (*1288*) (_n()); Yak.YkBuf.get_string _x27 _x26 ykinput)
   in (ignore (*1290*) (_n());  Compileopt.unroll_star_n := (int_of_string n) )
  ))
  ))
@@ -234,7 +234,7 @@ _r_args(_n,ykinput) = (ignore (*1235*) (_n());
   in (ignore (*1310*) (_n()); 
  (let _x31 = (ignore (*1311*) (_n()); _n())
   in (ignore (*1312*) (_n()); 
- (let n = (ignore (*1313*) (_n()); Yak.Yakker.get_string _x32 _x31 ykinput)
+ (let n = (ignore (*1313*) (_n()); Yak.YkBuf.get_string _x32 _x31 ykinput)
   in (ignore (*1315*) (_n());  Variables.counter := (int_of_string n) )
  ))
  ))
@@ -249,7 +249,7 @@ _r_args(_n,ykinput) = (ignore (*1235*) (_n());
   in (ignore (*1352*) (_n()); 
  (let _x35 = (ignore (*1353*) (_n()); _n())
   in (ignore (*1354*) (_n()); 
- (let x = (ignore (*1355*) (_n()); Yak.Yakker.get_string _x36 _x35 ykinput)
+ (let x = (ignore (*1355*) (_n()); Yak.YkBuf.get_string _x36 _x35 ykinput)
   in (ignore (*1357*) (_n());  roots := x::!roots )
  ))
  ))
@@ -259,7 +259,7 @@ _r_args(_n,ykinput) = (ignore (*1235*) (_n());
   in (ignore (*1367*) (_n()); 
  (let _x39 = (ignore (*1368*) (_n()); _n())
   in (ignore (*1369*) (_n()); 
- (let f = (ignore (*1370*) (_n()); Yak.Yakker.get_string _x40 _x39 ykinput)
+ (let f = (ignore (*1370*) (_n()); Yak.YkBuf.get_string _x40 _x39 ykinput)
   in (ignore (*1372*) (_n());  files := f::!files )
  ))
  ))

@@ -319,7 +319,7 @@ let process_ds gr =
   if doit (Exec_cmd("",[])) then begin
     (* If the commands come with no epilogue, default to parsing the start symbol. *)
     if gr.epilogue=[] then
-      add_to_epilogue gr "Pami.Simple.run parse_file";
+      add_to_epilogue gr "Yak.Pami.Simple.run parse_file";
     (* redirect output to a temporary file *)
     let (temp_file_name,temp_chan) = Filename.open_temp_file "yakker" ".ml" in
     exec_context := Some(temp_file_name,temp_chan);
@@ -348,7 +348,7 @@ let process_ds gr =
           match cmd with Exec_cmd(_,args) ->
             String.concat " " (List.map (fun s -> "\""^s^"\"") args)
           | _ -> "" in
-        let command = Printf.sprintf "ocaml -I \"%s\" unix.cma yakker.cma %s %s" Buildinfo.build_dir temp_file_name args in
+        let command = Printf.sprintf "ocaml -I \"%s\" unix.cma yak.cma %s %s" Buildinfo.build_dir temp_file_name args in
         (match Unix.system command with
           Unix.WEXITED x ->   () (* Printf.eprintf "ocaml exited with %d\n%!" x        *)
         | Unix.WSIGNALED x -> () (* Printf.eprintf "ocaml exited with signal %d\n%!" x *)

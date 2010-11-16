@@ -300,8 +300,8 @@ type token =
 
 
 module The_parser(The_lexer_mod : sig val lexer : Lexing.lexbuf -> token end) = struct
-let __ocaml_lex_ylex = YkBuf.wrap_ocamllex The_lexer_mod.lexer
-let __ocaml_lex_ypeek = YkBuf.peek_ocamllex The_lexer_mod.lexer
+let __ocaml_lex_ylex = Yak.YkBuf.wrap_ocamllex The_lexer_mod.lexer
+let __ocaml_lex_ypeek = Yak.YkBuf.peek_ocamllex The_lexer_mod.lexer
 }
 
 ; TODO
@@ -1605,14 +1605,37 @@ dummystart = {()}.
 let mk_parse symb crawlfun = 
   let a = get_symb_action symb in
   let _wfe_data_ = PamJIT.DNELR.to_table 
-    (Pam_internal.load_internal_program program)
+    (Yak.Pam_internal.load_internal_program program)
     a (get_symb_start a) 264 num_symbols
     __default_call __default_ret in
-  Pami.Wfe.mk_parse_single P2__.parse _wfe_data_ sv0 
+  Yak.Pami.Wfe.mk_parse_single P2__.parse _wfe_data_ sv0 
     (fun ykinput (_,h) ->
       let _o = (new History.postfix h) in
       let _n() = (let (x,_) = _o#next() in x) in
       crawlfun(_n,ykinput)
+    )
+
+module Yk_History_show = Yak.History.Make_show(Yk_Hashed)
+
+let hv_to_string = function
+  | Ykd_int i -> string_of_int i
+  | Ykd_x133 (c) -> String.make 1 c
+  | Ykd_x134 (i) -> Int32.to_string i
+  | Ykd_x135 (i) -> Int64.to_string i
+  | Ykd_x136 (i) -> Nativeint.to_string i
+  | Ykd_x137 (s) -> s
+
+let history_to_string (v, p) = Printf.sprintf "%s@%d" (hv_to_string v) p
+
+let mk_parse_show symb crawlfun = 
+  let a = get_symb_action symb in
+  let _wfe_data_ = Yak.PamJIT.DNELR.to_table 
+    (Yak.Pam_internal.load_internal_program program)
+    a (get_symb_start a) 264 num_symbols
+    __default_call __default_ret in
+  Yak.Pami.Wfe.mk_parse_single P2__.parse _wfe_data_ sv0 
+    (fun ykinput (_,h) ->
+       Yk_History_show.dot_show history_to_string h
     )
 end
 
@@ -1627,6 +1650,6 @@ let interface lexer =
   M.mk_parse "interface" M._r_interface
 let implementation lexer = 
   let module M = The_parser(struct let lexer = lexer end) in
-  M.mk_parse "implementation" M._r_implementation
+  M.mk_parse_show "implementation" M._r_implementation
 
 }

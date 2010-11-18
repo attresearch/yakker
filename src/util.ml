@@ -33,6 +33,12 @@ let postincr m =
   m := res+1;
   res
 
+(* memory statistics *)
+let memcount = ref 0
+let memstat () =
+  (Gc.full_major(); Printf.eprintf "%d %d\n%!" (postincr memcount) ((Gc.stat()).Gc.live_words))
+
+(* piped processes *)
 let pipe_in_out command send_in get_out =
   let r,w = Unix.open_process command in
 

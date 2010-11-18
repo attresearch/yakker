@@ -17,14 +17,26 @@
    "memoize" flag.
 *)
 
-(** (pseudo) parameterize the root type by the key type. Then, different history mechanisms can choose different keys. *)
-type key = int
-let key_compare = (-)
+(** (pseudo) parameterize the root type by the key type. Then,
+    different history mechanisms can choose different keys. *)
+module Label = struct
+  type t = int
+
+  let empty = 0
+
+  let compare = (-)
+  let equal = ((=) : int -> int -> bool)
+  let hash a = a
+
+  let to_string a = Printf.sprintf "%d" a
+end
+
+type label = Label.t
 
 type 'a root =
-  | Empty of key
+  | Empty of label
   | Root of 'a info
-and 'a info = {key : key; v:'a; 
+and 'a info = {label : label; v:'a; 
 	       mutable branchings:'a branching list; (* NB we aren't compacting 
 							(eliminating duplicates) 
 							the branchings *)
@@ -33,38 +45,32 @@ and 'a branching =
   | One of 'a root
   | Two of 'a root * 'a root
 
-let get_key p = function Empty _ -> p | Root {key=k} -> k
+let get_label p = function Empty _ -> p | Root {label=p1} -> p1
 
 let impossible() = failwith "History.impossible"
 
-(* The base history class.  uniq should be a memoizing function, use id for no memoization *)
-class ['a] history (uniq:'a info -> 'a info) =
-  let mk_info k (v:'a) = (* memoized *)
-    uniq ({key=k; v=v; branchings=[]}) in
-  object (self:'b)
-    val root = Empty 0
+class type ['a] postfix =
+      object
+        method next : unit -> 'a
+      end
 
-    method get_root = root
+class type ['a] history =
+      object ('b)
+        method empty : int -> 'b
+        method merge : int -> 'a -> 'b -> 'b
+        method push : int -> 'a -> 'b
+        method get_root : 'a root 
 
-    method empty p =
-      {< root = Empty p >}
+	method traverse_postfix : 'a postfix
+      end
 
-    method push p v =
-      let ({branchings=b;} as inf) = mk_info (get_key p root) v in
-      inf.branchings <- (One root)::b;
-      {< root = Root inf >} (* copy of self with new root *)
 
-    method merge p v (h2:'b) =
-      let ({branchings=b;} as inf) = mk_info (get_key p root) v in
-      inf.branchings <- (Two(root,h2#get_root))::b;
-      {< root = Root inf >} (* copy of self with new root *)
-  end
+type 'a lazyness = Forced of 'a | Delayed of 'a root
 
 (* class for lazy postfix traversals of histories *)
-type 'a lazyness = Forced of 'a | Delayed of 'a root
-class ['a] postfix (h_init:'a history) =
+class ['a] postfix_impl (r_init:'a root) =
   object (self)
-    val mutable current = [Delayed (h_init#get_root)] (* imperative state *)
+    val mutable current = [Delayed (r_init)] (* imperative state *)
     method next() =                        (* enumerator *)
       match current with [] -> raise Not_found
       | (Forced v)::tl -> current <- tl; v
@@ -83,67 +89,91 @@ class ['a] postfix (h_init:'a history) =
           | Root{v=v;branchings=[]} -> impossible())
   end
 
+
+(* The base history class.  uniq should be a memoizing function, use id for no memoization *)
+class ['a] history_impl (uniq:'a info -> 'a info) =
+  let mk_info k (v:'a) = (* memoized *)
+    uniq ({label=k; v=v; branchings=[]}) in
+  object (self:'b)
+    val root = Empty (Label.empty)
+
+    method get_root = root
+
+    method empty p =
+      {< root = Empty p >}
+
+    method push p v =
+      let ({branchings=b;} as inf) = mk_info (get_label p root) v in
+      inf.branchings <- (One root)::b;
+      {< root = Root inf >} (* copy of self with new root *)
+
+    method merge p v (h2:'b) =
+      let ({branchings=b;} as inf) = mk_info (get_label p root) v in
+      inf.branchings <- (Two(root,h2#get_root))::b;
+      {< root = Root inf >} (* copy of self with new root *)
+
+    method traverse_postfix = new postfix_impl root
+  end
+
 (* General memoization support for histories *)
 module type HV = sig
   type t
   val compare : t -> t -> int
   val hash : t -> int
 end
-module Make (Hv : HV) = struct
 
-  let compare h1 h2 =
-    (match h1#get_root, h2#get_root with
-      Empty k1, Empty k2 -> key_compare k1 k2
-    | Empty _, _ -> -1
-    | _, Empty _ -> 1
-    | Root ({key=k1; v=v1}), Root ({key=k2; v=v2}) -> 
-	let c = key_compare k1 k2 in
-	if c <> 0 then c else Hv.compare v1 v2)
+module Make (Hv : HV) = struct
 
   module Info = struct
     type t = Hv.t info
 
-    let equal {key=k1; v=v1} {key=k2; v=v2} =
-      k1 = k2 && 0 = Hv.compare v1 v2
+    let equal {label=k1; v=v1} {label=k2; v=v2} =
+      Label.equal k1 k2 && 0 = Hv.compare v1 v2
 
-    let hash {key=k; v=v} = k lxor Hv.hash v
+    let compare {label=k1; v=v1} {label=k2; v=v2} =
+      let c = Label.compare k1 k2 in
+      if c <> 0 then c else Hv.compare v1 v2
+
+    let hash {label=k; v=v} = (Label.hash k) lxor (Hv.hash v)
   end
+
+  let compare h1 h2 =
+    match h1#get_root, h2#get_root with
+	Empty k1, Empty k2 -> Label.compare k1 k2
+      | Empty _, _ -> -1
+      | _, Empty _ -> 1
+      | Root inf1, Root inf2 -> Info.compare inf1 inf2
 
   module WeakInfo = Weak.Make(Info)
 
-  let hash h = match (h#get_root) with Empty k -> k | Root inf -> Info.hash inf
+  let hash h = match (h#get_root) with Empty k -> Label.hash k | Root inf -> Info.hash inf
   let memoize = ref false
 
   let new_history () =
     if !memoize then
       let memo_tbl = WeakInfo.create 11 in
-      new history (WeakInfo.merge memo_tbl)
+      new history_impl (WeakInfo.merge memo_tbl)
     else
-      new history (fun x -> x)
+      new history_impl (fun x -> x)
 
-end
+(******************************************************************************)
 
-module Make_show (Hv : HV) = struct
-  module Atom = struct
-    type t = Hv.t info
-
-    let equal {key=k1; v=v1} {key=k2; v=v2} =
-      k1 = k2 && 0 = Hv.compare v1 v2
-
-    let hash {key=k; v=v} = k lxor Hv.hash v
-  end
-
-  let compare_root r1 r2 =
-    match r1, r2 with
-	Empty _, Empty _ -> 0
-      | Empty _, _ -> -1
-      | _, Empty _ -> 1
-      | Root ({key=k1; v=v1}), Root ({key=k2; v=v2}) -> 
-	  let c = key_compare k1 k2 in
-	  if c <> 0 then c else Hv.compare v1 v2
+  (** 
+      Visualization functions.
+  *)
 
   module Edge = struct
     type t = Hv.t branching
+
+    let compare_root r1 r2 =
+      match r1, r2 with
+	  Empty _, Empty _ -> 0
+	| Empty _, _ -> -1
+	| _, Empty _ -> 1
+	| Root ({label=k1; v=v1}), Root ({label=k2; v=v2}) -> 
+	    let c = Label.compare k1 k2 in
+	    if c <> 0 then c else Hv.compare v1 v2
+
     let compare b1 b2 = 
       match b1 , b2 with
 	  One r1, One r2 -> compare_root r1 r2
@@ -152,7 +182,7 @@ module Make_show (Hv : HV) = struct
 	| Two (r2, r3), Two (r2', r3') -> 
 	    let c = compare_root r2 r2' in
 	    if c <> 0 then c else
-	      compare r3 r3'
+	      compare_root r3 r3'
   end
   module Edge_set = struct
     module Edge_set = Set.Make(Edge)
@@ -160,7 +190,8 @@ module Make_show (Hv : HV) = struct
 
     let from_list xs = List.fold_left (fun s e -> add e s) empty xs
   end
-  module Hash_atom = Hashtbl.Make(Atom)
+
+  module Hash_info = Hashtbl.Make(Info)
 
   (** returns r and its left siblings. *)
   let get_left_siblings r = 
@@ -190,7 +221,7 @@ module Make_show (Hv : HV) = struct
     | {branchings=[]} -> impossible()
 
   let dot_show_pretty string_of_atom h =
-    let tbl = Hash_atom.create 11 in
+    let tbl = Hash_info.create 11 in
 
     (** returns: last used n *)
     let rec dot_show_child n_parent n_last c =
@@ -202,12 +233,12 @@ module Make_show (Hv : HV) = struct
     and dot_show_tree n_last = function
       | Empty _ -> 0, n_last
       | Root ({v = v} as t) ->
-	  let n_opt = try Some (Hash_atom.find tbl t) with Not_found -> None in
+	  let n_opt = try Some (Hash_info.find tbl t) with Not_found -> None in
 	  match n_opt with
             | Some n -> (n,n_last)
             | None ->
 		let n = n_last + 1 in
-		Hash_atom.add tbl t n;
+		Hash_info.add tbl t n;
 		Printf.printf "%i [ label = %S shape = box, style = rounded];\n" n
 		  (string_of_atom v);
 		let children = get_children t in
@@ -223,7 +254,7 @@ module Make_show (Hv : HV) = struct
     Printf.printf "}\n"
 
   let dot_show string_of_atom h =
-    let tbl = Hash_atom.create 11 in
+    let tbl = Hash_info.create 11 in
 
     (* Printf.print edges in the reverse order in which we encounter them,
        so that dot displays them in left-to-right order wrt the input *)
@@ -261,14 +292,14 @@ module Make_show (Hv : HV) = struct
       match root with
       | Empty _ -> 0, n_last
       | Root ({v = v} as t) ->
-	  let n_opt = try Some (Hash_atom.find tbl t) with Not_found -> None in
+	  let n_opt = try Some (Hash_info.find tbl t) with Not_found -> None in
 	  match n_opt with
             | Some n -> (n,n_last)
             | None ->
 		let n = n_last + 1 in
-		Hash_atom.add tbl t n;
+		Hash_info.add tbl t n;
 		Printf.printf "%i [ label = %S shape = box, style = rounded];\n" n
-		  ((string_of_atom v) ^ "(" ^ string_of_int t.key ^ ")");
+		  ((string_of_atom v) ^ "(" ^ Label.to_string t.label ^ ")");
 		let n_final = match t.branchings with
                     [] -> impossible()
 		  | [e] -> dot_show_edge n e

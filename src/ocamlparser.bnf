@@ -315,42 +315,42 @@ let __ocaml_lex_ypeek = Yak.YkBuf.peek_ocamllex The_lexer_mod.lexer
 ; Also, can we add notion of "safe" productions? if a production has token on the left
 ; and appears in the `right` position, then can infer something? e.g. ignore precedence?
 
-; @precedence : 
-;     @non IN 
-;   < @right below_SEMI
-;   < @non SEMI
-;   < @non LET
-;   < @right below_WITH
-;   < @non FUNCTION WITH
-;   < @non AND
-;   < @right THEN
-;   < @right ELSE
-;   < @non LESSMINUS
-;   < @right COLONEQUAL
-;   < @non AS
-;   < @left BAR
-;   < @non below_COMMA
-;   < @left COMMA
-;   < @right MINUSGREATER
-;   < @right OR BARBAR
-;   < @right AMPERSAND AMPERAMPER
-;   < @non below_EQUAL
-;   < @left INFIXOP0 cmp_EQUAL LESS GREATER
-;   < @right INFIXOP1
-;   < @right COLONCOLON
-;   < @left INFIXOP2 PLUS MINUS MINUSDOT
-;   < @left INFIXOP3 STAR
-;   < @right INFIXOP4
-;   < @non prec_unary_minus
-;   < @non prec_constant_constructor
-;   < @non prec_constr_appl
-;   < @non below_SHARP
-;   < @non SHARP
-;   < @non below_DOT
-;   < @non DOT
-;   < @non BACKQUOTE BEGIN CHAR FALSE FLOAT INT INT32 INT64 LBRACE LBRACELESS LBRACKET 
-;          LBRACKETBAR LIDENT LPAREN NEW NATIVEINT PREFIXOP STRING TRUE UIDENT
-; .
+@precedence : 
+    @non IN 
+  < @right below_SEMI
+  < @non SEMI
+  < @non LET
+  < @right below_WITH
+  < @non FUNCTION WITH
+  < @non AND
+  < @right THEN
+  < @right ELSE
+  < @non LESSMINUS
+  < @right COLONEQUAL
+  < @non AS
+  < @left BAR
+  < @non below_COMMA
+  < @left COMMA
+  < @right MINUSGREATER
+  < @right OR BARBAR
+  < @right AMPERSAND AMPERAMPER
+  < @non below_EQUAL
+  < @left INFIXOP0 cmp_EQUAL LESS GREATER
+  < @right INFIXOP1
+  < @right COLONCOLON
+  < @left INFIXOP2 PLUS MINUS MINUSDOT
+  < @left INFIXOP3 STAR
+  < @right INFIXOP4
+  < @non prec_unary_minus
+  < @non prec_constant_constructor
+  < @non prec_constr_appl
+  < @non below_SHARP
+  < @non SHARP
+  < @non below_DOT
+  < @non DOT
+  < @non BACKQUOTE BEGIN CHAR FALSE FLOAT INT INT32 INT64 LBRACE LBRACELESS LBRACKET 
+         LBRACKETBAR LIDENT LPAREN NEW NATIVEINT PREFIXOP STRING TRUE UIDENT
+.
 
 @declare-lexer __ocaml_lex_ylex@({token}) __ocaml_lex_ypeek =
 | WITH
@@ -1604,13 +1604,13 @@ dummystart = {()}.
 @end{
 let mk_parse symb crawlfun = 
   let a = get_symb_action symb in
-  let _wfe_data_ = PamJIT.DNELR.to_table 
+  let _wfe_data_ = Yak.PamJIT.DNELR.to_table 
     (Yak.Pam_internal.load_internal_program program)
     a (get_symb_start a) 264 num_symbols
     __default_call __default_ret in
   Yak.Pami.Wfe.mk_parse_single P2__.parse _wfe_data_ sv0 
     (fun ykinput (_,h) ->
-      let _o = (new History.postfix h) in
+      let _o = (new Yak.History.postfix h) in
       let _n() = (let (x,_) = _o#next() in x) in
       crawlfun(_n,ykinput)
     )
@@ -1635,8 +1635,12 @@ let mk_parse_show symb crawlfun =
     __default_call __default_ret in
   Yak.Pami.Wfe.mk_parse_single P2__.parse _wfe_data_ sv0 
     (fun ykinput (_,h) ->
-       Yk_History_show.dot_show history_to_string h
+       Yk_History.dot_show history_to_string h
     )
+;;
+
+Yk_History.memoize := true
+
 end
 
 let use_file lexer = 

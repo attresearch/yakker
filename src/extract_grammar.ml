@@ -971,7 +971,7 @@ let _wfe_data_ = Yak.PamJIT.DNELR.to_table (Yak.Pam_internal.load_internal_progr
 
 let parse = Yak.Pami.Wfe.mk_parse P2__.parse _wfe_data_ sv0 
     (fun ykinput (_,h) ->
-      let _o = (new Yak.History.postfix h) in
+      let _o = (h#traverse_postfix) in
       let _n() = (let (x,_) = _o#next() in x) in
       _r_rfc(_n,ykinput)
     )

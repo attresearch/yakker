@@ -3702,8 +3702,6 @@ let program : (int * sv instruction list) list = [
 (766, [AAction2Instr(__a335,859)]);
 ]
 
-module Yk_History_show = Yak.History.Make_show(Yk_Hashed)
-
 let history_to_string (v, p) = Printf.sprintf "%d@%d" v p
 
 let start_symb = get_symb_action "rulelist"
@@ -3716,9 +3714,9 @@ let _wfe_data_ = Yak.PamJIT.DNELR.to_table (Yak.Pam_internal.load_internal_progr
 
 let parse = Yak.Pami.Wfe.mk_parse P2__.parse _wfe_data_ sv0 
     (fun ykinput (_,h) ->
-(*        Yk_History_show.dot_show history_to_string h; *)
+(*        Yk_History.dot_show history_to_string h; *)
 (*        flush stdout; *)
-      let _o = (new Yak.History.postfix h) in
+      let _o = (h#traverse_postfix) in
       let _n() = (let (x,_) = _o#next() in x) in
       _r_rulelist(_n,ykinput)
     )

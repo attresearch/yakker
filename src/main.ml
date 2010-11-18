@@ -119,14 +119,14 @@ let add_boilerplate2 backend gr =
     | (true,true) ->
         Printf.sprintf "
     (fun ykinput (_,h) ->
-      let _o = (new Yak.History.postfix h) in
+      let _o = (h#traverse_postfix) in
       let _n() = (let (x,_) = _o#next() in x) in
       _r_%s(_n,ykinput)
     )" (Variables.bnf2ocaml gr.start_symbol)
     | (false,true) ->
         Printf.sprintf "
     (fun ykinput h ->
-      let _o = (new Yak.History.postfix h) in
+      let _o = (h#traverse_postfix) in
       let _n() = (let (x,_) = _o#next() in x) in
       _r_%s(_n,ykinput)
     )

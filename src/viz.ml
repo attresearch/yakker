@@ -80,7 +80,7 @@ let mk_t input pf =
       leaves := (leaf i)::!leaves
     done;
     !leaves in
-  let traverse = new History.postfix pf in (* Postfix traversal, gives sequence of extents *)
+  let traverse = pf#traverse_postfix pf in (* Postfix traversal, gives sequence of extents *)
   let rec symbols left children =          (* Convert traversal to layout tree *)
     match traverse#next() with
     | Start left' ->

@@ -12,39 +12,40 @@
 (* History data structure *)
 
 type 'a root
-type 'a info  (* would prefer to hide this but cannot *)
-class ['a] history :
-    ('a info -> 'a info) ->   (* would prefer to hide this but cannot *)
+
+(* for postfix traversals of a history *)
+class type ['a] postfix =
+      object
+        method next : unit -> 'a
+      end
+
+class type ['a] history =
       object ('b)
         method empty : int -> 'b
         method merge : int -> 'a -> 'b -> 'b
         method push : int -> 'a -> 'b
-        method get_root : 'a root (* would prefer to hide this but cannot *)
+
+	method traverse_postfix : 'a postfix
+        method get_root : 'a root 
+	  (** would prefer to hide this method, but we can't. instead,
+	  we simply make it nearly useless by hiding the root
+	  type. this is the "friend" pattern. *)
       end
 
-(* for postfix traversals of a history *)
-class ['a] postfix :
-    'a history ->
-      object
-        method next : unit -> 'a
-      end
 
 module type HV = sig
   type t
   val compare : t -> t -> int
   val hash : t -> int
 end
-module Make :
-  functor (Hv : HV) ->
+
+module Make (Hv : HV) :
     sig
       val compare : Hv.t history -> Hv.t history -> int
       val hash : Hv.t history -> int
       val memoize : bool ref
       val new_history : unit -> Hv.t history
-    end
 
-module Make_show :
-  functor (Hv : HV) ->
-    sig
       val dot_show : (Hv.t -> string) -> Hv.t history -> unit
+      val dot_show_pretty : (Hv.t -> string) -> Hv.t history -> unit
     end

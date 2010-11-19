@@ -107,9 +107,6 @@ module Yk_Hashed = struct
   let hash i = Hashtbl.hash i
 end
 module Yk_History = Yak.History.Make(Yk_Hashed)
-;;
-
-(* Yk_History.memoize := true;; *)
 
 (*REPLAY PROLOGUE*)
 let rec
@@ -1438,7 +1435,7 @@ let _fresh_t_id () =
   incr _t_count;
   count
 let _t f = Yk_more(_fresh_t_id(),f)
-type sv = _wv ev * (hv*_pos) Yak.History.history
+type sv = _wv ev * (hv*_pos, Yak.History.label) Yak.History.history
 let sv0 = (Yk_done _wv0, Yk_History.new_history())
 let sv_compare (x1,x2) (y1,y2) =
   (match ev_compare x1 y1 with
@@ -3702,8 +3699,6 @@ let program : (int * sv instruction list) list = [
 (766, [AAction2Instr(__a335,859)]);
 ]
 
-let history_to_string (v, p) = Printf.sprintf "%d@%d" v p
-
 let start_symb = get_symb_action "rulelist"
 
 module P2__ = Yak.Engine.Full_yakker(struct type t = sv let cmp = sv_compare end)
@@ -3714,8 +3709,6 @@ let _wfe_data_ = Yak.PamJIT.DNELR.to_table (Yak.Pam_internal.load_internal_progr
 
 let parse = Yak.Pami.Wfe.mk_parse P2__.parse _wfe_data_ sv0 
     (fun ykinput (_,h) ->
-(*        Yk_History.dot_show history_to_string h; *)
-(*        flush stdout; *)
       let _o = (h#traverse_postfix) in
       let _n() = (let (x,_) = _o#next() in x) in
       _r_rulelist(_n,ykinput)

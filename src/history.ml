@@ -17,33 +17,19 @@
    "memoize" flag.
 *)
 
-(** (pseudo) parameterize the root type by the key type. Then,
+(** parameterize the root type by the label type. Then,
     different history mechanisms can choose different keys. *)
-module Label = struct
-  type t = int
-
-  let empty = 0
-
-  let compare = (-)
-  let equal = ((=) : int -> int -> bool)
-  let hash a = a
-
-  let to_string a = Printf.sprintf "%d" a
-end
-
-type label = Label.t
-
-type 'a root =
-  | Empty of label
-  | Root of 'a info
-and 'a info = {label : label; v:'a; 
-	       mutable branchings:'a branching list; (* NB we aren't compacting 
+type ('a,'lbl) root =
+  | Empty
+  | Root of ('a,'lbl) info
+and ('a,'lbl) info = {label : 'lbl; v:'a; 
+	       mutable branchings:('a,'lbl) branching list; (* NB we aren't compacting 
 							(eliminating duplicates) 
 							the branchings *)
 	      }
-and 'a branching =
-  | One of 'a root
-  | Two of 'a root * 'a root
+and ('a,'lbl) branching =
+  | One of ('a,'lbl) root
+  | Two of ('a,'lbl) root * ('a,'lbl) root
 
 let get_label p = function Empty _ -> p | Root {label=p1} -> p1
 
@@ -54,21 +40,21 @@ class type ['a] postfix =
         method next : unit -> 'a
       end
 
-class type ['a] history =
+class type ['a,'lbl] history =
       object ('b)
         method empty : int -> 'b
         method merge : int -> 'a -> 'b -> 'b
         method push : int -> 'a -> 'b
-        method get_root : 'a root 
+        method get_root : ('a,'lbl) root 
 
 	method traverse_postfix : 'a postfix
       end
 
 
-type 'a lazyness = Forced of 'a | Delayed of 'a root
+type ('a,'lbl) lazyness = Forced of 'a | Delayed of ('a,'lbl) root
 
 (* class for lazy postfix traversals of histories *)
-class ['a] postfix_impl (r_init:'a root) =
+class ['a] postfix_impl (r_init: ('a,'lbl) root) =
   object (self)
     val mutable current = [Delayed (r_init)] (* imperative state *)
     method next() =                        (* enumerator *)
@@ -91,16 +77,16 @@ class ['a] postfix_impl (r_init:'a root) =
 
 
 (* The base history class.  uniq should be a memoizing function, use id for no memoization *)
-class ['a] history_impl (uniq:'a info -> 'a info) =
+class ['a, 'lbl] history_impl (uniq: ('a,'lbl) info -> ('a,'lbl) info) =
   let mk_info k (v:'a) = (* memoized *)
     uniq ({label=k; v=v; branchings=[]}) in
   object (self:'b)
-    val root = Empty (Label.empty)
+    val root = Empty
 
     method get_root = root
 
-    method empty p =
-      {< root = Empty p >}
+    method empty (p:int) =
+      {< root = Empty >}
 
     method push p v =
       let ({branchings=b;} as inf) = mk_info (get_label p root) v in
@@ -115,6 +101,20 @@ class ['a] history_impl (uniq:'a info -> 'a info) =
     method traverse_postfix = new postfix_impl root
   end
 
+module Label = struct
+  type t = int
+
+  let empty = 0
+
+  let compare = (-)
+  let equal = ((=) : int -> int -> bool)
+  let hash a = a
+
+  let to_string a = Printf.sprintf "%d" a
+end
+
+type label = Label.t
+
 (* General memoization support for histories *)
 module type HV = sig
   type t
@@ -125,7 +125,7 @@ end
 module Make (Hv : HV) = struct
 
   module Info = struct
-    type t = Hv.t info
+    type t = (Hv.t,label) info
 
     let equal {label=k1; v=v1} {label=k2; v=v2} =
       Label.equal k1 k2 && 0 = Hv.compare v1 v2
@@ -137,16 +137,18 @@ module Make (Hv : HV) = struct
     let hash {label=k; v=v} = (Label.hash k) lxor (Hv.hash v)
   end
 
-  let compare h1 h2 =
-    match h1#get_root, h2#get_root with
-	Empty k1, Empty k2 -> Label.compare k1 k2
-      | Empty _, _ -> -1
-      | _, Empty _ -> 1
+  let compare_root r1 r2 =
+    match r1, r2 with
+	Empty, Empty -> 0
+      | Empty, _ -> -1
+      | _, Empty -> 1
       | Root inf1, Root inf2 -> Info.compare inf1 inf2
+
+  let compare h1 h2 = compare_root h1#get_root h2#get_root
 
   module WeakInfo = Weak.Make(Info)
 
-  let hash h = match (h#get_root) with Empty k -> Label.hash k | Root inf -> Info.hash inf
+  let hash h = match (h#get_root) with Empty -> 0 | Root inf -> Info.hash inf
   let memoize = ref false
 
   let new_history () =
@@ -163,16 +165,7 @@ module Make (Hv : HV) = struct
   *)
 
   module Edge = struct
-    type t = Hv.t branching
-
-    let compare_root r1 r2 =
-      match r1, r2 with
-	  Empty _, Empty _ -> 0
-	| Empty _, _ -> -1
-	| _, Empty _ -> 1
-	| Root ({label=k1; v=v1}), Root ({label=k2; v=v2}) -> 
-	    let c = Label.compare k1 k2 in
-	    if c <> 0 then c else Hv.compare v1 v2
+    type t = (Hv.t,label) branching
 
     let compare b1 b2 = 
       match b1 , b2 with
@@ -196,7 +189,7 @@ module Make (Hv : HV) = struct
   (** returns r and its left siblings. *)
   let get_left_siblings r = 
     let rec loop rs r = match r with
-    | Empty _ -> rs
+    | Empty -> rs
     | Root {branchings = [One r2]}  
     | Root {branchings = [Two(r2,_)]} -> 
 	loop (r::rs) r2
@@ -231,7 +224,7 @@ module Make (Hv : HV) = struct
 
     (** returns: last used n *)
     and dot_show_tree n_last = function
-      | Empty _ -> 0, n_last
+      | Empty -> 0, n_last
       | Root ({v = v} as t) ->
 	  let n_opt = try Some (Hash_info.find tbl t) with Not_found -> None in
 	  match n_opt with
@@ -290,7 +283,7 @@ module Make (Hv : HV) = struct
 	dot_show_edge n e
       in
       match root with
-      | Empty _ -> 0, n_last
+      | Empty -> 0, n_last
       | Root ({v = v} as t) ->
 	  let n_opt = try Some (Hash_info.find tbl t) with Not_found -> None in
 	  match n_opt with

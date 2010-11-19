@@ -54,7 +54,7 @@ let t0 l children = {label=l; layout=l0(); children=children}
 type extent =
     Start of int
   | End of string * int (* string is nonterminal name *)
-type parse_forest = extent History.history
+type parse_forest = (extent, History.label) History.history
 module Memo = History.Make(struct type t = extent let compare = compare let hash = Hashtbl.hash end)
 (* To use an extent history:
 

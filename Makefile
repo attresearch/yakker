@@ -81,7 +81,7 @@ TESTS_ML := $(foreach test,$(TESTS),$(test).ml)
 TESTS_PCOMB_ML := $(foreach test,$(TESTS),$(test)_pcomb.ml)
 
 # Examples requiring the -inline-cs option.
-EXAMPLES_ICS = ocaml_opt python ocamlyacc
+EXAMPLES_ICS = ocaml_opt python ocamlyacc ocamlparser_regular
 EXAMPLES_ICS_ML := $(foreach example,$(EXAMPLES_ICS),$(example).ml)
 
 EXAMPLES := aurochs aurochs_cor ocaml pexpr pyexpr js mailapp lgul $(EXAMPLES_ICS)
@@ -524,7 +524,6 @@ ocamlparser: yak.cma ocamlparser.cmo llexer.cmo opdriver.cmo
            $(OCAML_COMP_DIR)/syntaxerr.cmo \
            $^ -package unix -linkpkg -o $@
 
-
 ocamlparser.opt: yak.cmxa ocamlparser.cmx llexer.cmx opdriver.cmx
 	$(OCAMLOPT) $(OCAML_COMP_DIR)/config.cmx \
            $(OCAML_COMP_DIR)/misc.cmx \
@@ -547,6 +546,8 @@ opdriver.cmo: ocamlparser.cmi llexer.cmi
 opdriver.cmx: ocamlparser.cmi llexer.cmi
 ocamlparser.cmo: ocamlparser.cmi
 ocamlparser.cmx: ocamlparser.cmi
+
+
 llexer.cmo: ocamlparser.cmi
 llexer.cmx: ocamlparser.cmi
 
@@ -555,6 +556,40 @@ ocamlparser.ml: ocamlparser.bnf
 
 llexer.ml: llexer.mll
 	ocamllex $<
+
+########################
+# OCaml distro's parser
+
+oparser: opbdriver.cmo
+	$(OCAMLC) $(OCAML_COMP_DIR)/config.cmo \
+           $(OCAML_COMP_DIR)/misc.cmo \
+           $(OCAML_COMP_DIR)/clflags.cmo $(OCAML_COMP_DIR)/linenum.cmo \
+           $(OCAML_COMP_DIR)/warnings.cmo \
+           $(OCAML_COMP_DIR)/location.cmo \
+           $(OCAML_COMP_DIR)/syntaxerr.cmo \
+           $(OCAML_COMP_DIR)/parser.cmo \
+           $(OCAML_COMP_DIR)/lexer.cmo \
+           $(OCAML_COMP_DIR)/parse.cmo \
+           $^ -package unix -linkpkg -o $@
+
+oparser.opt: opbdriver.cmx
+	$(OCAMLOPT) $(OCAML_COMP_DIR)/config.cmx \
+           $(OCAML_COMP_DIR)/misc.cmx \
+           $(OCAML_COMP_DIR)/clflags.cmx $(OCAML_COMP_DIR)/linenum.cmx \
+           $(OCAML_COMP_DIR)/warnings.cmx \
+           $(OCAML_COMP_DIR)/location.cmx \
+           $(OCAML_COMP_DIR)/syntaxerr.cmx \
+           $(OCAML_COMP_DIR)/parser.cmx \
+           $(OCAML_COMP_DIR)/lexer.cmx \
+           $(OCAML_COMP_DIR)/parse.cmx \
+           $^ -package unix -linkpkg -o $@
+
+opbdriver.cmo : %.cmo: tests/ocamls/$$*.ml
+	$(OCAMLC) $(OCAML_COMP_INCLUDES) -c $< -o $@
+
+opbdriver.cmx : %.cmx: tests/ocamls/$$*.ml
+	$(OCAMLOPT) $(OCAML_COMP_INCLUDES) -c $< -o $@
+
 
 ###############################
 

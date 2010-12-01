@@ -69,6 +69,28 @@ define(`DEF4', `define(`$1', _DEF_4ARG(`$2',VAR(`1'),`$3',VAR(`2'),
 				       `$4',VAR(`3'),`$5',VAR(`4'),
 				       `$6'))')
 
+define(`argn', `ifelse(`$1', 1, ``$2'',
+       `argn(decr(`$1'), shift(shift($@)))')')
+
+define(`force_expand',`$1')
+
+define(`_DEF_5ARG', 
+       ``ifelse(`$1', `$2', `', `pushdef(`$1',`$2')')dnl
+        ifelse(`$3', `$4', `', `pushdef(`$3',`$4')')dnl
+        ifelse(`$5', `$6', `', `pushdef(`$5',`$6')')dnl
+        ifelse(`$7', `$8', `', `pushdef(`$7',`$8')')dnl
+        ifelse(`$9', `argn(`10',$@)', `', `pushdef(`$9',`argn(`10',$@)')')dnl
+        force_expand(argn(`11',$@))dnl
+        ifelse(`$9', `argn(`10',$@)', `', `popdef(`$9')')dnl
+        ifelse(`$7', `$8', `', `popdef(`$7')')dnl
+	ifelse(`$5', `$6', `', `popdef(`$5')')dnl
+	ifelse(`$3', `$4', `', `popdef(`$3')')dnl
+	ifelse(`$1', `$2', `', `popdef(`$1')')'')
+define(`DEF5', `define(`$1', _DEF_5ARG(`$2',VAR(`1'),`$3',VAR(`2'),
+				       `$4',VAR(`3'),`$5',VAR(`4'),
+				       `$6',VAR(`5'),
+				       `$7'))')
+
 DEF1(`IF_FLA', `block', `if support_FLA then begin block end')
 DEF2(`IFE_FLA', `ibranch', `ebranch', `(if support_FLA then ibranch else ebranch)')
 
@@ -284,7 +306,43 @@ DEF3(`SOCVAS_ITER', `socvas', `pattern', `body',
      `(match socvas with
 	 | Socvas.Empty -> ()
 	 | Socvas.Singleton pattern -> (body)
-	 | Socvas.Other __s__ -> Socvas.iter_ms (fun pattern -> body) __s__)')
+	 | Socvas.Other __s__ -> Socvas.MS.iter (fun pattern -> body) __s__)')
+
+DEF5(`SOCVAS_FOLD', `socvas', `v_init', `pattern', `p_acc', `body',
+     `(match socvas with
+	 | Socvas.Empty -> v_init
+	 | Socvas.Singleton pattern -> let p_acc = v_init in (body)
+	 | Socvas.Other __s__ -> 
+	     Socvas.MS.fold 
+	       (fun pattern p_acc -> body) 
+	       __s__ v_init)')
+
+(** Special version when fold is building a new Socvas. *)
+DEF5(`SOCVAS_FOLD_S', `socvas', `pattern', `body_s', `p_acc', `body',
+     `(match socvas with
+	 | Socvas.Empty -> Socvas.Empty
+	 | Socvas.Singleton pattern -> (body_s)
+	 | Socvas.Other __s__ -> 
+	     let image = Socvas.MS.fold 
+	       (fun pattern p_acc -> body) 
+	       __s__ Socvas.MS.empty in
+	     match Socvas.MS.cardinal image with 
+	       | 0 -> Socvas.Empty
+	       | 1 -> Socvas.Singleton (Socvas.MS.choose image)
+	       | _ -> Socvas.Other image)')
+
+DEF3(`SOCVAS_MAP', `socvas', `pattern', `body',
+     `(match socvas with
+	 | Socvas.Empty -> Socvas.Empty
+	 | Socvas.Singleton pattern -> Socvas.Singleton (body)
+	 | Socvas.Other __s__ -> 
+	     let image = Socvas.MS.fold 
+	       (fun pattern __image__ -> Socvas.MS.add (body) __image__) 
+	       __s__ Socvas.MS.empty in
+	     match Socvas.MS.cardinal image with 
+	       | 0 -> Socvas.Empty
+	       | 1 -> Socvas.Singleton (Socvas.MS.choose image)
+	       | _ -> Socvas.Other image)')
 
 (* 
    The current callset is not formed until *after* we're done processing
@@ -307,10 +365,12 @@ module PJDN = PamJIT.DNELR
 
 DEF2(`MCOMPLETE_CODE', `nts', `no_args', `(
   LOG(
-    let n = Socvas.cardinal socvas_s in
-    Logging.Distributions.add_value 
-      IFE_TRUE(no_args, `"CSS"', `"CPSS"') 
-      n;
+    if Logging.features_are_set Logging.Features.stats then begin
+      let n = Socvas.cardinal socvas_s in
+      Logging.Distributions.add_value 
+	IFE_TRUE(no_args, `"CSS"', `"CPSS"') 
+	n;
+    end;
   );
   let m_nts = Array.length nts - 1 in
   IFE_TRUE(no_args, `',`let curr_pos = current_callset.id in')
@@ -459,7 +519,7 @@ module Full_yakker (Sem_val : SEMVAL) = struct
     val iter : (elt -> unit) -> t -> unit
     val fold : (elt -> 'a -> 'a) -> t -> 'a -> 'a
 
-    val iter_ms :  (elt -> unit) -> many_set -> unit
+    module MS : Set.S with type t = many_set and type elt = elt
   end
 
   module rec CVA : sig
@@ -479,9 +539,9 @@ module Full_yakker (Sem_val : SEMVAL) = struct
     = 
 (* Set.Make(CVA) *)
   struct
-    module Many_set = Set.Make(CVA)
+    module MS = Set.Make(CVA)
     type elt = CVA.t
-    type many_set = Many_set.t
+    type many_set = MS.t
     type t = Empty | Singleton of elt | Other of many_set
 
     let empty = Empty
@@ -493,26 +553,26 @@ module Full_yakker (Sem_val : SEMVAL) = struct
     let cardinal = function
       | Empty -> 0
       | Singleton _ -> 1
-      | Other s -> Many_set.cardinal s
+      | Other s -> MS.cardinal s
 
     let mem x = function
       | Empty -> false
       | Singleton y -> CVA.compare x y = 0
-      | Other s -> Many_set.mem x s
+      | Other s -> MS.mem x s
 
     let add x = function
       | Empty -> Singleton x
-      | Singleton y -> Other (Many_set.add x (Many_set.singleton y))
-      | Other s -> Other (Many_set.add x s)
+      | Singleton y -> Other (MS.add x (MS.singleton y))
+      | Other s -> Other (MS.add x s)
 
      let diff s1 s2 =
        match s1, s2 with
 	 | Empty, _  -> Empty
 	 | _, Empty  -> s1
 	 | Singleton x, Singleton y -> if CVA.compare x y = 0 then Empty else s1
-	 | Singleton x, Other s -> if Many_set.mem x s then Empty else s1
-	 | Other s, Singleton y -> Other (Many_set.remove y s)
-	 | Other ms1, Other ms2 -> Other (Many_set.diff ms1 ms2)
+	 | Singleton x, Other s -> if MS.mem x s then Empty else s1
+	 | Other s, Singleton y -> Other (MS.remove y s)
+	 | Other ms1, Other ms2 -> Other (MS.diff ms1 ms2)
 
      let union s1 s2 =
        match s1, s2 with
@@ -520,23 +580,21 @@ module Full_yakker (Sem_val : SEMVAL) = struct
 	 | _, Empty  -> s1
 	 | Singleton x, Singleton y ->
 	     if CVA.compare x y = 0 then s1
-	     else Other (Many_set.add x (Many_set.singleton y))
-	 | Singleton x, Other s -> Other (Many_set.add x s)
-	 | Other s, Singleton y -> Other (Many_set.add y s)
-	 | Other ms1, Other ms2 -> Other (Many_set.union ms1 ms2)
+	     else Other (MS.add x (MS.singleton y))
+	 | Singleton x, Other s -> Other (MS.add x s)
+	 | Other s, Singleton y -> Other (MS.add y s)
+	 | Other ms1, Other ms2 -> Other (MS.union ms1 ms2)
 
      let iter f = function
       | Empty -> ()
       | Singleton y -> f y
-      | Other s -> Many_set.iter f s
-
-     let iter_ms = Many_set.iter
+      | Other s -> MS.iter f s
 
      let fold f s v =
        match s with
 	 | Empty -> v
 	 | Singleton y -> f y v
-	 | Other s -> Many_set.fold f s v
+	 | Other s -> MS.fold f s v
   end
 
   module Proto_callset_list = struct
@@ -909,10 +967,12 @@ DEF3(`CALL_P_CODE', `target', `grow_callset', `call_act',
 
 let mcomplete_code nonterm_table p_nonterm_table s i ol cs socvas_s current_callset nts no_args =
   LOG(
-    let n = Socvas.cardinal socvas_s in
-    Logging.Distributions.add_value 
-      (if no_args then "CSS" else "CPSS")
-      n;
+    if Logging.features_are_set Logging.Features.stats then begin
+      let n = Socvas.cardinal socvas_s in
+      Logging.Distributions.add_value 
+	(if no_args then "CSS" else "CPSS")
+	n;
+    end;
   );
   let m_nts = Array.length nts - 1 in
   let curr_pos = current_callset.id in
@@ -943,6 +1003,7 @@ define(`SCAN_CODE', `(
   let c = Char.code (YkBuf.get_current ykb) in
   let t = col.(c) in
   if t > 0 then insert_many_nc ns t socvas_s
+(*   if t > 0 then epsilon_close term_table (current_callset.id + 1) ns t socvas_s *)
 )')
 
 define(`LA_CODE', `(
@@ -981,7 +1042,9 @@ DEF4(`REGLA_CODE', `presence', `la_target', `la_nt', `target',
 )')
 
 DEF4(`EXTLA_CODE', `presence', `la_target', `la_nt', `target', 
-`(if presence = nplookahead_fn la_nt la_target ykb then insert_many i ol cs target socvas_s)')
+  `(if presence = nplookahead_fn la_nt la_target ykb then insert_many i ol cs target socvas_s)')
+
+  let get_set_size m = WI.fold (fun _ socvas n -> n + (Socvas.cardinal socvas)) m 0
 
   (* PERF: Create this closure once, and store it in [xyz]. *)
   (** Invokes full-blown lookahead in CfgLA case. *)
@@ -1015,14 +1078,63 @@ DEF4(`EXTLA_CODE', `presence', `la_target', `la_nt', `target',
       r
     end 
 
+  (** Follow all single (deterministic) epsilon transitions without
+      recording state in Earley set. Place final result into [es], which
+      should *not* currently be being processed.
+
+      epsilon loops will be a problem,
+      but they generally are. ideally, do this statically. 
+      
+      12/01/10: current tests indicate slight negative impact from this "optimization".
+  *)
+  and epsilon_close 
+      term_table curr_pos es (* don't change when called internally *)
+      s socvas_s = 
+    let instr = term_table.(s) in
+    match instr with
+      | PJDN.No_trans -> () (* dead end, do nothing. *)
+
+      (* In any of the following cases, we've finished with our closure.
+	 Add state [s] and its socvas to the Earley set [es]. *)
+      | PJDN.Scan_trans _ | PJDN.MScan_trans _
+      | PJDN.Lookahead_trans _ | PJDN.Det_multi_trans _
+      | PJDN.Box_trans _ | PJDN.Maybe_nullable_trans2 _ | PJDN.Many_trans _
+      | PJDN.RegLookahead_trans _ | PJDN.ExtLookahead_trans _
+      | PJDN.MComplete_trans _ | PJDN.MComplete_p_trans _ 
+      | PJDN.Call_trans _ | PJDN.Call_p_trans _
+      | PJDN.Complete_trans _ | PJDN.Complete_p_trans _ ->
+	  insert_many_nc es s socvas_s
+
+(*    | PJDN.RegLookahead_trans (presence, la_target, la_nt, target) ->  *)
+(* 	       REGLA_CODE(`presence', `la_target', `la_nt', `target') *)
+
+(*    | PJDN.ExtLookahead_trans (presence, la_target, la_nt, target) ->  *)
+(* 	       EXTLA_CODE(`presence', `la_target', `la_nt', `target') *)
+
+      (* In these cases, do something and then continue the closure. *)
+      | PJDN.Action_trans (act, target) -> 
+	  let image = SOCVAS_MAP(`socvas_s', `(callset, sv, sv_arg)', `(callset, (act curr_pos sv), sv_arg)') in
+	  epsilon_close term_table curr_pos es target image
+
+      | PJDN.When_trans (p, next, target) -> 
+	  let image = SOCVAS_FOLD_S(`socvas_s', `(callset, sv, sv_arg)',
+				    `if p curr_pos sv then Socvas.Singleton (callset, (next curr_pos sv), sv_arg) 
+				    else Socvas.Empty',
+				    `image',
+				    `if p curr_pos sv then Socvas.MS.add (callset, (next curr_pos sv), sv_arg) image else image') in
+	  epsilon_close term_table curr_pos es target image
+	    
+
+  (** last argument, [i], is the current worklist index. *)
   and process_trans 
-      (term_table, nonterm_table, p_nonterm_table, sv0, ol, cs, ns, 
+      (term_table, nonterm_table, p_nonterm_table, sv0, ol, cs, ns,
        pre_cc, current_callset, ykb, futuresq, nplookahead_fn as xyz) 
        s socvas_s i = function
 	   | PJDN.No_trans -> ()
 	   | PJDN.Scan_trans (c,t) ->
 	       let c1 = Char.code (YkBuf.get_current ykb) in
 	       if c1 = c then insert_many_nc ns t socvas_s
+(* 	       if c1 = c then epsilon_close term_table (current_callset.id + 1) ns t socvas_s *)
 	   | PJDN.MScan_trans col -> SCAN_CODE(`col')
 	   | PJDN.Lookahead_trans col -> LA_CODE(`col')
 	   | PJDN.Det_multi_trans col ->
@@ -1050,8 +1162,10 @@ DEF4(`EXTLA_CODE', `presence', `la_target', `la_nt', `target',
 
 	   | PJDN.Complete_trans nt -> 
 	       LOG(
-		 let n = Socvas.cardinal socvas_s in
-		 Logging.Distributions.add_value "CSS" n;
+		 if Logging.features_are_set Logging.Features.stats then begin
+		   let n = Socvas.cardinal socvas_s in
+		   Logging.Distributions.add_value "CSS" n;
+		 end;
 	       );
 	       SOCVAS_ITER(`socvas_s', `(callset, _, _)', ` 
 		 if CURRENT_CALLSET_GUARD then begin
@@ -1065,8 +1179,10 @@ DEF4(`EXTLA_CODE', `presence', `la_target', `la_nt', `target',
 
 	   | PJDN.Complete_p_trans nt ->
 	       LOG(
-		 let n = Socvas.cardinal socvas_s in
-		 Logging.Distributions.add_value "CPSS" n;
+		 if Logging.features_are_set Logging.Features.stats then begin
+		   let n = Socvas.cardinal socvas_s in
+		   Logging.Distributions.add_value "CPSS" n;
+		 end;
 	       );
                let curr_pos = current_callset.id in 
 	       SOCVAS_ITER(`socvas_s', `(callset, sv, sv_arg)', ` 
@@ -1278,9 +1394,11 @@ DEF4(`EXTLA_CODE', `presence', `la_target', `la_nt', `target',
       sv0 (ykb : YkBuf.t) = 
 
     LOG(
-      Logging.Distributions.init ();
-      Logging.Distributions.register "CSS";      
-      Logging.Distributions.register "CPSS";      
+      if Logging.features_are_set Logging.Features.stats then begin
+	Logging.Distributions.init ();
+	Logging.Distributions.register "CSS";      
+	Logging.Distributions.register "CPSS";      
+      end
     );
 
     let num_states = Array.length term_table in
@@ -1465,6 +1583,9 @@ DEF4(`EXTLA_CODE', `presence', `la_target', `la_nt', `target',
 	incr i;
       done;
       
+      (* Report size of the Earley set. *)
+      LOGp(stats, "%d %d\n" ccs.id (get_set_size cs));
+
       IF_FLA(
 	`if not is_exact_match && check_done term_table d dcs start_nt cs.WI.count then
 	  s_matched := true;'
@@ -1576,7 +1697,9 @@ DEF4(`EXTLA_CODE', `presence', `la_target', `la_nt', `target',
       done;
 
       LOG(
+      if Logging.features_are_set Logging.Features.stats then begin
 	Logging.Distributions.report ();
+      end
       );
 
       !successes
@@ -1586,7 +1709,9 @@ DEF4(`EXTLA_CODE', `presence', `la_target', `la_nt', `target',
 	 by one to ensure proper error reporting. *)
       YkBuf.step_back ykb;      
       LOG(
+      if Logging.features_are_set Logging.Features.stats then begin
 	Logging.Distributions.report ();
+      end
       );
       []
     end

@@ -43,6 +43,13 @@ let support_FLA = true
 
 
 
+
+
+
+
+
+
+
 (** Debugging use. For internal use only. *)
 module Imp_position = struct
   let current_position = ref 0
@@ -248,6 +255,13 @@ type insertion_result = Ignore_elt | Reprocess_elt | Process_elt
 
 
 
+
+
+(** Special version when fold is building a new Socvas. *)
+
+
+
+
 (* 
    The current callset is not formed until *after* we're done processing
    the current Earley set. So, trying to return to it will in
@@ -347,7 +361,7 @@ module Full_yakker (Sem_val : SEMVAL) = struct
     val iter : (elt -> unit) -> t -> unit
     val fold : (elt -> 'a -> 'a) -> t -> 'a -> 'a
 
-    val iter_ms :  (elt -> unit) -> many_set -> unit
+    module MS : Set.S with type t = many_set and type elt = elt
   end
 
   module rec CVA : sig
@@ -367,9 +381,9 @@ module Full_yakker (Sem_val : SEMVAL) = struct
     = 
 (* Set.Make(CVA) *)
   struct
-    module Many_set = Set.Make(CVA)
+    module MS = Set.Make(CVA)
     type elt = CVA.t
-    type many_set = Many_set.t
+    type many_set = MS.t
     type t = Empty | Singleton of elt | Other of many_set
 
     let empty = Empty
@@ -381,26 +395,26 @@ module Full_yakker (Sem_val : SEMVAL) = struct
     let cardinal = function
       | Empty -> 0
       | Singleton _ -> 1
-      | Other s -> Many_set.cardinal s
+      | Other s -> MS.cardinal s
 
     let mem x = function
       | Empty -> false
       | Singleton y -> CVA.compare x y = 0
-      | Other s -> Many_set.mem x s
+      | Other s -> MS.mem x s
 
     let add x = function
       | Empty -> Singleton x
-      | Singleton y -> Other (Many_set.add x (Many_set.singleton y))
-      | Other s -> Other (Many_set.add x s)
+      | Singleton y -> Other (MS.add x (MS.singleton y))
+      | Other s -> Other (MS.add x s)
 
      let diff s1 s2 =
        match s1, s2 with
 	 | Empty, _  -> Empty
 	 | _, Empty  -> s1
 	 | Singleton x, Singleton y -> if CVA.compare x y = 0 then Empty else s1
-	 | Singleton x, Other s -> if Many_set.mem x s then Empty else s1
-	 | Other s, Singleton y -> Other (Many_set.remove y s)
-	 | Other ms1, Other ms2 -> Other (Many_set.diff ms1 ms2)
+	 | Singleton x, Other s -> if MS.mem x s then Empty else s1
+	 | Other s, Singleton y -> Other (MS.remove y s)
+	 | Other ms1, Other ms2 -> Other (MS.diff ms1 ms2)
 
      let union s1 s2 =
        match s1, s2 with
@@ -408,23 +422,21 @@ module Full_yakker (Sem_val : SEMVAL) = struct
 	 | _, Empty  -> s1
 	 | Singleton x, Singleton y ->
 	     if CVA.compare x y = 0 then s1
-	     else Other (Many_set.add x (Many_set.singleton y))
-	 | Singleton x, Other s -> Other (Many_set.add x s)
-	 | Other s, Singleton y -> Other (Many_set.add y s)
-	 | Other ms1, Other ms2 -> Other (Many_set.union ms1 ms2)
+	     else Other (MS.add x (MS.singleton y))
+	 | Singleton x, Other s -> Other (MS.add x s)
+	 | Other s, Singleton y -> Other (MS.add y s)
+	 | Other ms1, Other ms2 -> Other (MS.union ms1 ms2)
 
      let iter f = function
       | Empty -> ()
       | Singleton y -> f y
-      | Other s -> Many_set.iter f s
-
-     let iter_ms = Many_set.iter
+      | Other s -> MS.iter f s
 
      let fold f s v =
        match s with
 	 | Empty -> v
 	 | Singleton y -> f y v
-	 | Other s -> Many_set.fold f s v
+	 | Other s -> MS.fold f s v
   end
 
   module Proto_callset_list = struct
@@ -638,7 +650,7 @@ let null_compl nonterm_table p_nonterm_table s i ol cs socvas_s curr_pos target 
 	 | Socvas.Empty -> ()
 	 | Socvas.Singleton (callset, sv, sv_arg) -> ( 
 				  insert_one_ig i ol cs t1 callset (binder curr_pos sv new_sv) sv_arg)
-	 | Socvas.Other __s__ -> Socvas.iter_ms (fun (callset, sv, sv_arg) ->  
+	 | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, sv, sv_arg) ->  
 				  insert_one_ig i ol cs t1 callset (binder curr_pos sv new_sv) sv_arg) __s__) 			
 		 end;
 
@@ -673,10 +685,12 @@ let null_compl nonterm_table p_nonterm_table s i ol cs socvas_s curr_pos target 
 
 
 let mcomplete_code nonterm_table p_nonterm_table s i ol cs socvas_s current_callset nts no_args =
-   	    if Logging.activated then begin let n = Socvas.cardinal socvas_s in
-    Logging.Distributions.add_value 
-      (if no_args then "CSS" else "CPSS")
-      n;
+   	    if Logging.activated then begin if Logging.features_are_set Logging.Features.stats then begin
+      let n = Socvas.cardinal socvas_s in
+      Logging.Distributions.add_value 
+	(if no_args then "CSS" else "CPSS")
+	n;
+    end;
    end 	    ;
   let m_nts = Array.length nts - 1 in
   let curr_pos = current_callset.id in
@@ -696,13 +710,13 @@ let mcomplete_code nonterm_table p_nonterm_table s i ol cs socvas_s current_call
 	 | Socvas.Singleton (callset_s_l, sv_s_l, sv_arg_s_l) -> ( 
 	       if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then
 		 insert_one_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l)
-	 | Socvas.Other __s__ -> Socvas.iter_ms (fun (callset_s_l, sv_s_l, sv_arg_s_l) ->  
+	 | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset_s_l, sv_s_l, sv_arg_s_l) ->  
 	       if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then
 		 insert_one_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l) __s__) 			
            end
       done
     done)
-	 | Socvas.Other __s__ -> Socvas.iter_ms (fun (callset, sv, sv_arg) -> let items = callset.data in
+	 | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, sv, sv_arg) -> let items = callset.data in
     for l = 0 to Array.length items - 1 do
       let s_l, c_l = items.(l) in
       for k = 0 to m_nts do
@@ -716,7 +730,7 @@ let mcomplete_code nonterm_table p_nonterm_table s i ol cs socvas_s current_call
 	 | Socvas.Singleton (callset_s_l, sv_s_l, sv_arg_s_l) -> ( 
 	       if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then
 		 insert_one_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l)
-	 | Socvas.Other __s__ -> Socvas.iter_ms (fun (callset_s_l, sv_s_l, sv_arg_s_l) ->  
+	 | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset_s_l, sv_s_l, sv_arg_s_l) ->  
 	       if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then
 		 insert_one_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l) __s__) 			
            end
@@ -734,6 +748,8 @@ let mcomplete_code nonterm_table p_nonterm_table s i ol cs socvas_s current_call
 
 
 
+
+  let get_set_size m = WI.fold (fun _ socvas n -> n + (Socvas.cardinal socvas)) m 0
 
   (* PERF: Create this closure once, and store it in [xyz]. *)
   (** Invokes full-blown lookahead in CfgLA case. *)
@@ -767,19 +783,84 @@ let mcomplete_code nonterm_table p_nonterm_table s i ol cs socvas_s current_call
       r
     end 
 
+  (** Follow all single (deterministic) epsilon transitions without
+      recording state in Earley set. Place final result into [es], which
+      should *not* currently be being processed.
+
+      epsilon loops will be a problem,
+      but they generally are. ideally, do this statically. *)
+  and epsilon_close 
+      term_table curr_pos es (* don't change when called internally *)
+      s socvas_s = 
+    let instr = term_table.(s) in
+    match instr with
+      | PJDN.No_trans -> () (* dead end, do nothing. *)
+
+      (* In any of the following cases, we've finished with our closure.
+	 Add state [s] and its socvas to the Earley set [es]. *)
+      | PJDN.Scan_trans _ | PJDN.MScan_trans _
+      | PJDN.Lookahead_trans _ | PJDN.Det_multi_trans _
+      | PJDN.Box_trans _ | PJDN.Maybe_nullable_trans2 _ | PJDN.Many_trans _
+      | PJDN.RegLookahead_trans _ | PJDN.ExtLookahead_trans _
+      | PJDN.MComplete_trans _ | PJDN.MComplete_p_trans _ 
+      | PJDN.Call_trans _ | PJDN.Call_p_trans _
+      | PJDN.Complete_trans _ | PJDN.Complete_p_trans _ ->
+	  insert_many_nc es s socvas_s
+
+(*    | PJDN.RegLookahead_trans (presence, la_target, la_nt, target) ->  *)
+(* 	       REGLA_CODE(`presence', `la_target', `la_nt', `target') *)
+
+(*    | PJDN.ExtLookahead_trans (presence, la_target, la_nt, target) ->  *)
+(* 	       EXTLA_CODE(`presence', `la_target', `la_nt', `target') *)
+
+      (* In these cases, do something and then continue the closure. *)
+      | PJDN.Action_trans (act, target) -> 
+	  let image =                         (match socvas_s with
+	 | Socvas.Empty -> Socvas.Empty
+	 | Socvas.Singleton (callset, sv, sv_arg) -> Socvas.Singleton ((callset, (act curr_pos sv), sv_arg))
+	 | Socvas.Other __s__ -> 
+	     let image = Socvas.MS.fold 
+	       (fun (callset, sv, sv_arg) __image__ -> Socvas.MS.add ((callset, (act curr_pos sv), sv_arg)) __image__) 
+	       __s__ Socvas.MS.empty in
+	     match Socvas.MS.cardinal image with 
+	       | 0 -> Socvas.Empty
+	       | 1 -> Socvas.Singleton (Socvas.MS.choose image)
+	       | _ -> Socvas.Other image) 			 in
+	  epsilon_close term_table curr_pos es target image
+
+      | PJDN.When_trans (p, next, target) -> 
+	  let image =                                         (match socvas_s with
+	 | Socvas.Empty -> Socvas.Empty
+	 | Socvas.Singleton (callset, sv, sv_arg) -> (if p curr_pos sv then Socvas.Singleton (callset, (next curr_pos sv), sv_arg) 
+				    else Socvas.Empty)
+	 | Socvas.Other __s__ -> 
+	     let image = Socvas.MS.fold 
+	       (fun (callset, sv, sv_arg) image -> if p curr_pos sv then Socvas.MS.add (callset, (next curr_pos sv), sv_arg) image else image) 
+	       __s__ Socvas.MS.empty in
+	     match Socvas.MS.cardinal image with 
+	       | 0 -> Socvas.Empty
+	       | 1 -> Socvas.Singleton (Socvas.MS.choose image)
+	       | _ -> Socvas.Other image)                			 in
+	  epsilon_close term_table curr_pos es target image
+	    
+
+
+  (** last argument, [i], is the current worklist index. *)
   and process_trans 
-      (term_table, nonterm_table, p_nonterm_table, sv0, ol, cs, ns, 
+      (term_table, nonterm_table, p_nonterm_table, sv0, ol, cs, ns,
        pre_cc, current_callset, ykb, futuresq, nplookahead_fn as xyz) 
        s socvas_s i = function
 	   | PJDN.No_trans -> ()
 	   | PJDN.Scan_trans (c,t) ->
 	       let c1 = Char.code (YkBuf.get_current ykb) in
 	       if c1 = c then insert_many_nc ns t socvas_s
+(* 	       if c1 = c then epsilon_close term_table (current_callset.id + 1) ns t socvas_s *)
 	   | PJDN.MScan_trans col -> (
   let col = col in
   let c = Char.code (YkBuf.get_current ykb) in
   let t = col.(c) in
   if t > 0 then insert_many_nc ns t socvas_s
+(*   if t > 0 then epsilon_close term_table (current_callset.id + 1) ns t socvas_s *)
 )
 	   | PJDN.Lookahead_trans col -> (
   let col = col in
@@ -998,7 +1079,7 @@ let mcomplete_code nonterm_table p_nonterm_table s i ol cs socvas_s current_call
 	      | _ -> ()
 	  done
       | _ -> () )
-	 | Socvas.Other __s__ -> Socvas.iter_ms (fun (callset, sv, sv_arg) -> let	curr_pos = current_callset.id in
+	 | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, sv, sv_arg) -> let	curr_pos = current_callset.id in
      let arg = call_act curr_pos sv in
     (match insert_one i ol cs t (current_callset, arg, arg) with
 	| Ignore_elt | Reprocess_elt -> ()
@@ -1067,8 +1148,10 @@ let mcomplete_code nonterm_table p_nonterm_table s i ol cs socvas_s current_call
       | _ -> () ) __s__) 			) 			
 
 	   | PJDN.Complete_trans nt -> 
-	        	    if Logging.activated then begin let n = Socvas.cardinal socvas_s in
-		 Logging.Distributions.add_value "CSS" n;
+	        	    if Logging.activated then begin if Logging.features_are_set Logging.Features.stats then begin
+		   let n = Socvas.cardinal socvas_s in
+		   Logging.Distributions.add_value "CSS" n;
+		 end;
 	        end 	    ;
 	                               (match socvas_s with
 	 | Socvas.Empty -> ()
@@ -1081,7 +1164,7 @@ let mcomplete_code nonterm_table p_nonterm_table s i ol cs socvas_s current_call
 		     if t > 0 then insert_many i ol cs t c_l
 		   done
 		 end)
-	 | Socvas.Other __s__ -> Socvas.iter_ms (fun (callset, _, _) ->  
+	 | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, _, _) ->  
 		 if true then begin
 		   let items = callset.data in
 		   for l = 0 to Array.length items - 1 do
@@ -1092,8 +1175,10 @@ let mcomplete_code nonterm_table p_nonterm_table s i ol cs socvas_s current_call
 		 end) __s__) 			
 
 	   | PJDN.Complete_p_trans nt ->
-	        	    if Logging.activated then begin let n = Socvas.cardinal socvas_s in
-		 Logging.Distributions.add_value "CPSS" n;
+	        	    if Logging.activated then begin if Logging.features_are_set Logging.Features.stats then begin
+		   let n = Socvas.cardinal socvas_s in
+		   Logging.Distributions.add_value "CPSS" n;
+		 end;
 	        end 	    ;
                let curr_pos = current_callset.id in 
 	                               (match socvas_s with
@@ -1121,7 +1206,7 @@ let mcomplete_code nonterm_table p_nonterm_table s i ol cs socvas_s current_call
 				      end 	    ;
 				     insert_one_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
 				   end)
-	 | Socvas.Other __s__ -> Socvas.iter_ms (fun (callset_s_l, sv_s_l, sv_arg_s_l) ->  
+	 | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset_s_l, sv_s_l, sv_arg_s_l) ->  
   				   if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
 				      	    if Logging.activated then begin Logging.log Logging.Features.comp_ne "%d => %d [%d(_)]\n" s_l t nt
 				      end 	    ;
@@ -1129,7 +1214,7 @@ let mcomplete_code nonterm_table p_nonterm_table s i ol cs socvas_s current_call
 				   end) __s__) 			
 		   end
 		     done)
-	 | Socvas.Other __s__ -> Socvas.iter_ms (fun (callset, sv, sv_arg) ->  
+	 | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, sv, sv_arg) ->  
 		 let items = callset.data in
 		 for l = 0 to Array.length items - 1 do
 		   let s_l, c_l = items.(l) in
@@ -1152,7 +1237,7 @@ let mcomplete_code nonterm_table p_nonterm_table s i ol cs socvas_s current_call
 				      end 	    ;
 				     insert_one_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
 				   end)
-	 | Socvas.Other __s__ -> Socvas.iter_ms (fun (callset_s_l, sv_s_l, sv_arg_s_l) ->  
+	 | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset_s_l, sv_s_l, sv_arg_s_l) ->  
   				   if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
 				      	    if Logging.activated then begin Logging.log Logging.Features.comp_ne "%d => %d [%d(_)]\n" s_l t nt
 				      end 	    ;
@@ -1162,10 +1247,12 @@ let mcomplete_code nonterm_table p_nonterm_table s i ol cs socvas_s current_call
 		     done) __s__) 			
 
 	   | PJDN.MComplete_trans nts ->                                 (
-   	    if Logging.activated then begin let n = Socvas.cardinal socvas_s in
-    Logging.Distributions.add_value 
-      "CSS" 
-      n;
+   	    if Logging.activated then begin if Logging.features_are_set Logging.Features.stats then begin
+      let n = Socvas.cardinal socvas_s in
+      Logging.Distributions.add_value 
+	"CSS" 
+	n;
+    end;
    end 	    ;
   let m_nts = Array.length nts - 1 in
   
@@ -1180,7 +1267,7 @@ let mcomplete_code nonterm_table p_nonterm_table s i ol cs socvas_s current_call
         
       done
     done)
-	 | Socvas.Other __s__ -> Socvas.iter_ms (fun (callset, _, _)  -> let items = callset.data in
+	 | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, _, _)  -> let items = callset.data in
     for l = 0 to Array.length items - 1 do
       let s_l, c_l = items.(l) in
       for k = 0 to m_nts do
@@ -1191,10 +1278,12 @@ let mcomplete_code nonterm_table p_nonterm_table s i ol cs socvas_s current_call
     done) __s__) 			 
 ) 		 		
 	   | PJDN.MComplete_p_trans nts ->                                 (
-   	    if Logging.activated then begin let n = Socvas.cardinal socvas_s in
-    Logging.Distributions.add_value 
-      "CPSS" 
-      n;
+   	    if Logging.activated then begin if Logging.features_are_set Logging.Features.stats then begin
+      let n = Socvas.cardinal socvas_s in
+      Logging.Distributions.add_value 
+	"CPSS" 
+	n;
+    end;
    end 	    ;
   let m_nts = Array.length nts - 1 in
   let curr_pos = current_callset.id in
@@ -1216,7 +1305,7 @@ let mcomplete_code nonterm_table p_nonterm_table s i ol cs socvas_s current_call
 		  end 	    ;
 		 insert_one_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
 	       end)
-	 | Socvas.Other __s__ -> Socvas.iter_ms (fun (callset_s_l, sv_s_l, sv_arg_s_l) ->  
+	 | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset_s_l, sv_s_l, sv_arg_s_l) ->  
 	       if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
 		  	    if Logging.activated then begin Logging.log Logging.Features.comp_ne "%d => %d [%d(_)]\n" s_l t nts.(k)
 		  end 	    ;
@@ -1225,7 +1314,7 @@ let mcomplete_code nonterm_table p_nonterm_table s i ol cs socvas_s current_call
            end
       done
     done)
-	 | Socvas.Other __s__ -> Socvas.iter_ms (fun (callset, sv, sv_arg)  -> let items = callset.data in
+	 | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, sv, sv_arg)  -> let items = callset.data in
     for l = 0 to Array.length items - 1 do
       let s_l, c_l = items.(l) in
       for k = 0 to m_nts do
@@ -1241,7 +1330,7 @@ let mcomplete_code nonterm_table p_nonterm_table s i ol cs socvas_s current_call
 		  end 	    ;
 		 insert_one_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
 	       end)
-	 | Socvas.Other __s__ -> Socvas.iter_ms (fun (callset_s_l, sv_s_l, sv_arg_s_l) ->  
+	 | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset_s_l, sv_s_l, sv_arg_s_l) ->  
 	       if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
 		  	    if Logging.activated then begin Logging.log Logging.Features.comp_ne "%d => %d [%d(_)]\n" s_l t nts.(k)
 		  end 	    ;
@@ -1266,14 +1355,14 @@ let mcomplete_code nonterm_table p_nonterm_table s i ol cs socvas_s current_call
 	                               (match socvas_s with
 	 | Socvas.Empty -> ()
 	 | Socvas.Singleton (callset, sv, sv_arg) -> (insert_one_ig i ol cs target callset (act curr_pos sv) sv_arg)
-	 | Socvas.Other __s__ -> Socvas.iter_ms (fun (callset, sv, sv_arg) -> insert_one_ig i ol cs target callset (act curr_pos sv) sv_arg) __s__) 			
+	 | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, sv, sv_arg) -> insert_one_ig i ol cs target callset (act curr_pos sv) sv_arg) __s__) 			
 
 	   | PJDN.When_trans (p, next, target) -> 
                let curr_pos = current_callset.id in
 	                               (match socvas_s with
 	 | Socvas.Empty -> ()
 	 | Socvas.Singleton (callset, sv, sv_arg) -> (if p curr_pos sv then insert_one_ig i ol cs target callset (next curr_pos sv) sv_arg)
-	 | Socvas.Other __s__ -> Socvas.iter_ms (fun (callset, sv, sv_arg) -> if p curr_pos sv then insert_one_ig i ol cs target callset (next curr_pos sv) sv_arg) __s__) 			
+	 | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, sv, sv_arg) -> if p curr_pos sv then insert_one_ig i ol cs target callset (next curr_pos sv) sv_arg) __s__) 			
 
 	   | PJDN.Box_trans (box, target) ->
 	       (                        (match socvas_s with
@@ -1291,7 +1380,7 @@ let mcomplete_code nonterm_table p_nonterm_table s i ol cs socvas_s current_call
 			      | None -> ()
 			   );
 			   YkBuf.restore ykb cp)
-	 | Socvas.Other __s__ -> Socvas.iter_ms (fun (callset, sv, sv_arg) -> let cp = YkBuf.save ykb in
+	 | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, sv, sv_arg) -> let cp = YkBuf.save ykb in
 			   (match box sv current_callset.id ykb with
 				Some (0, ret_sv) -> (* returns to current set *)
 				  insert_one_ig i ol cs target callset ret_sv sv_arg
@@ -1513,7 +1602,7 @@ let mcomplete_code nonterm_table p_nonterm_table s i ol cs socvas_s current_call
 	      | _ -> ()
 	  done
       | _ -> () )
-	 | Socvas.Other __s__ -> Socvas.iter_ms (fun (callset, sv, sv_arg) -> let	curr_pos = current_callset.id in
+	 | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, sv, sv_arg) -> let	curr_pos = current_callset.id in
      let arg = call_act curr_pos sv in
     insert_one_ig i ol cs t current_callset arg arg;
 
@@ -1591,7 +1680,7 @@ let mcomplete_code nonterm_table p_nonterm_table s i ol cs socvas_s current_call
 		   let t = PJ.lookup_trans_nt nonterm_table s_l nt in
 		   if t > 0 then insert_many i ol cs t c_l
 		 done)
-	 | Socvas.Other __s__ -> Socvas.iter_ms (fun (callset,_,_) ->  
+	 | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset,_,_) ->  
    	         if is_nt && callset.id = 0 then succeeded := true;
 		 let items = callset.data in
 		 for l = 0 to Array.length items - 1 do
@@ -1621,12 +1710,12 @@ let mcomplete_code nonterm_table p_nonterm_table s i ol cs socvas_s current_call
 	 | Socvas.Singleton (callset_s_l, sv_s_l, sv_arg_s_l) -> ( 
   		       if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then
 			 insert_one_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l)
-	 | Socvas.Other __s__ -> Socvas.iter_ms (fun (callset_s_l, sv_s_l, sv_arg_s_l) ->  
+	 | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset_s_l, sv_s_l, sv_arg_s_l) ->  
   		       if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then
 			 insert_one_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l) __s__) 			
 		   end
 		 done)
-	 | Socvas.Other __s__ -> Socvas.iter_ms (fun (callset, sv, sv_arg) ->  
+	 | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, sv, sv_arg) ->  
    	         if is_nt && callset.id = 0 then succeeded := true;
 		 let items = callset.data in
 		 for l = 0 to Array.length items - 1 do
@@ -1642,7 +1731,7 @@ let mcomplete_code nonterm_table p_nonterm_table s i ol cs socvas_s current_call
 	 | Socvas.Singleton (callset_s_l, sv_s_l, sv_arg_s_l) -> ( 
   		       if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then
 			 insert_one_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l)
-	 | Socvas.Other __s__ -> Socvas.iter_ms (fun (callset_s_l, sv_s_l, sv_arg_s_l) ->  
+	 | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset_s_l, sv_s_l, sv_arg_s_l) ->  
   		       if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then
 			 insert_one_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l) __s__) 			
 		   end
@@ -1667,7 +1756,7 @@ let mcomplete_code nonterm_table p_nonterm_table s i ol cs socvas_s current_call
 			 if t > 0 then insert_many i ol cs t c_l
 		       done
 		   done)
-	 | Socvas.Other __s__ -> Socvas.iter_ms (fun (callset,_,_) ->  
+	 | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset,_,_) ->  
 		   let is_start = callset.id = 0 in
 		   let items = callset.data in
 		   let m_items = Array.length items - 1 in
@@ -1711,14 +1800,14 @@ let mcomplete_code nonterm_table p_nonterm_table s i ol cs socvas_s current_call
 			     if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then
 			       insert_one_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
 		            )
-	 | Socvas.Other __s__ -> Socvas.iter_ms (fun (callset_s_l, sv_s_l, sv_arg_s_l) ->  
+	 | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset_s_l, sv_s_l, sv_arg_s_l) ->  
 			     if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then
 			       insert_one_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
 		            ) __s__) 			
 			 end
 		       done
 		   done)
-	 | Socvas.Other __s__ -> Socvas.iter_ms (fun (callset, sv, sv_arg) ->  
+	 | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, sv, sv_arg) ->  
 		   let is_start = callset.id = 0 in
 		   let items = callset.data in
 		   let m_items = Array.length items - 1 in
@@ -1741,7 +1830,7 @@ let mcomplete_code nonterm_table p_nonterm_table s i ol cs socvas_s current_call
 			     if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then
 			       insert_one_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
 		            )
-	 | Socvas.Other __s__ -> Socvas.iter_ms (fun (callset_s_l, sv_s_l, sv_arg_s_l) ->  
+	 | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset_s_l, sv_s_l, sv_arg_s_l) ->  
 			     if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then
 			       insert_one_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
 		            ) __s__) 			
@@ -1787,7 +1876,7 @@ let mcomplete_code nonterm_table p_nonterm_table s i ol cs socvas_s current_call
 			      | None -> ()
 			   );
 			   YkBuf.restore ykb cp)
-	 | Socvas.Other __s__ -> Socvas.iter_ms (fun (callset, sv, sv_arg) -> let cp = YkBuf.save ykb in
+	 | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, sv, sv_arg) -> let cp = YkBuf.save ykb in
 			   (match box sv current_callset.id ykb with
 				Some (0, ret_sv) -> (* returns to current set *)
 				  insert_one_ig i ol cs target callset ret_sv sv_arg
@@ -1803,9 +1892,11 @@ let mcomplete_code nonterm_table p_nonterm_table s i ol cs socvas_s current_call
        p_nonterm_table = p_nonterm_table;} 
       sv0 (ykb : YkBuf.t) = 
 
-     	    if Logging.activated then begin Logging.Distributions.init ();
-      Logging.Distributions.register "CSS";      
-      Logging.Distributions.register "CPSS";      
+     	    if Logging.activated then begin if Logging.features_are_set Logging.Features.stats then begin
+	Logging.Distributions.init ();
+	Logging.Distributions.register "CSS";      
+	Logging.Distributions.register "CPSS";      
+      end
      end 	    ;
 
     let num_states = Array.length term_table in
@@ -1996,6 +2087,10 @@ let mcomplete_code nonterm_table p_nonterm_table s i ol cs socvas_s current_call
 	incr i;
       done;
       
+      (* Report size of the Earley set. *)
+                      if Logging.activated then begin 
+       Logging.log Logging.Features.stats "%d %d\n" ccs.id (get_set_size cs) end 		;
+
        	    if support_FLA then begin if not is_exact_match && check_done term_table d dcs start_nt cs.WI.count then
 	  s_matched := true;
        end 	    ;
@@ -2111,7 +2206,9 @@ let mcomplete_code nonterm_table p_nonterm_table s i ol cs socvas_s current_call
 	  | PJDN.Scan_trans _| PJDN.No_trans -> ()
       done;
 
-       	    if Logging.activated then begin Logging.Distributions.report ();
+       	    if Logging.activated then begin if Logging.features_are_set Logging.Features.stats then begin
+	Logging.Distributions.report ();
+      end
        end 	    ;
 
       !successes
@@ -2120,7 +2217,9 @@ let mcomplete_code nonterm_table p_nonterm_table s i ol cs socvas_s current_call
       (* There was no succesful scan of the last byte, so we backtrack
 	 by one to ensure proper error reporting. *)
       YkBuf.step_back ykb;      
-       	    if Logging.activated then begin Logging.Distributions.report ();
+       	    if Logging.activated then begin if Logging.features_are_set Logging.Features.stats then begin
+	Logging.Distributions.report ();
+      end
        end 	    ;
       []
     end

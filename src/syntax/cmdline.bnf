@@ -60,7 +60,6 @@ type command =
 let cmd = ref Print_gul_cmd
 let files = ref []
 let roots = ref []
-let exec_f = ref ""
 let exec_l = ref []
 let rfc_num = ref 0
 let translate_plugin = ref (Dypgen_PI false)
@@ -104,7 +103,7 @@ command =
       | "extract" o                       { Extract_cmd }
       | "rfc" (1*DIGIT)$n o               { try rfc_num := int_of_string n; Rfc_cmd with _ -> failwith "Invalid RFC number" }
       | "print-npreds" o                  { Print_npreds_cmd }
-      | "exec" o arg$f *(o arg$x {x})$l o { exec_f := f; exec_l := l; Exec_cmd }
+      | "exec" o arg$f *(o arg$x {x})$l o { files := f::!files; exec_l := l; Exec_cmd }
       | "info" o                          { Info_cmd }
 
       | "transform" o transformation$tx *("," transformation$x {x})$txs o { transforms := (tx::txs); Transform_cmd }

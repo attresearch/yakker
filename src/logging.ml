@@ -9,7 +9,7 @@
  *    Trevor Jim and Yitzhak Mandelbaum
  *******************************************************************************)
 
-let activated = true
+let activated = false
 
 type level = int
 
@@ -86,19 +86,19 @@ module Distributions = struct
 
   let report () =
     Hashtbl.iter (fun k vs ->
-		      let distribution =
-			match List.sort (-) vs with
-			  | [] -> []
-			  | x::xs ->
-			      let v, n, d = List.fold_left
-				(fun (v_last, n, dis) v ->
-				   if v = v_last then (v_last, n + 1, dis)
-				   else (v, 1, (v_last, n)::dis)) (x, 1, []) xs in
-			      List.rev ((v,n)::d) in
-		      log Features.stats "%s:" k;
-		      List.iter (fun (v, n) ->
-				   log Features.stats " %d, %d |" v n)
-			distribution;
-		      log Features.stats "\n") table
+                      let distribution =
+                        match List.sort (-) vs with
+                          | [] -> []
+                          | x::xs ->
+                              let v, n, d = List.fold_left
+                                (fun (v_last, n, dis) v ->
+                                   if v = v_last then (v_last, n + 1, dis)
+                                   else (v, 1, (v_last, n)::dis)) (x, 1, []) xs in
+                              List.rev ((v,n)::d) in
+                      log Features.stats "%s:" k;
+                      List.iter (fun (v, n) ->
+                                   log Features.stats " %d, %d |" v n)
+                        distribution;
+                      log Features.stats "\n") table
 
 end

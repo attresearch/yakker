@@ -53,7 +53,6 @@ type command =
 let cmd = ref Print_gul_cmd
 let files = ref []
 let roots = ref []
-let exec_f = ref ""
 let exec_l = ref []
 let rfc_num = ref 0
 let translate_plugin = ref (Dypgen_PI false)
@@ -171,7 +170,7 @@ _r_command(_n,ykinput) = (ignore (*1030*) (_n());
  )) in _x49([])))
   in (ignore (*1167*) (_n()); (List.rev _x20))
  ))
-  in (ignore (*1169*) (_n());  exec_f := f; exec_l := l; Exec_cmd )
+  in (ignore (*1169*) (_n());  files := f::!files; exec_l := l; Exec_cmd )
  ))
  ))
  ))

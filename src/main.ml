@@ -22,7 +22,15 @@ let phase_order = (* preorder on phases *)
     (List.fold_left add Tgraph.empty
        [
         (* standalone commands that handle their own output*)
-        [Print_npreds_cmd];
+        [Info_cmd];                (* these do not operate on Gul.grammars *)
+        [Rfc_cmd];
+        [Extract_cmd];
+
+        [Print_gil_cmd];           (* takes Gil as input *)
+
+        [Print_npreds_cmd];        (* these take Gul.grammars as input *)
+        [Print_gul_cmd];
+        [Print_relevance_cmd];
         [Analyze_cmd];
         [Lookahead_analysis_cmd];
         [Strip_late_actions_cmd];
@@ -34,12 +42,15 @@ let phase_order = (* preorder on phases *)
         [  Compile_cmd; Fuse_cmd];
         [     Exec_cmd; Fuse_cmd];
 
-        (* transformations that are part of the usual compiling process *)
+        (* commands that do not handle their own output *)
+        (* they compose the usual sequence of transformations in compilation *)
         (* this ordering is over-specified, but that's useful for determinism *)
-        [Fuse_cmd; Dispatch_cmd; Wrap_cmd; Attributes_cmd; Lift_cmd;
-         Desugar_cmd; Unroll_star_cmd; Inline_regular_cmd; Copyrule_cmd;
-         Hash_cmd; Minus_cmd; Tx_prec_cmd; Close_under_core_cmd;
-         Subset_cmd; Lexer_cmd];
+        [Fuse_cmd;                 (* Gil transformer *)
+         Dispatch_cmd;             (* transforms Gul.grammar to Gil *)
+         (* Gul.grammar transformers *)
+         Wrap_cmd; Attributes_cmd; Lift_cmd; Desugar_cmd; Unroll_star_cmd;
+         Inline_regular_cmd; Copyrule_cmd; Hash_cmd; Minus_cmd;
+         Tx_prec_cmd; Close_under_core_cmd; Subset_cmd; Lexer_cmd];
       ])
 let phase_order_sorted = Tgraph.tsort phase_order
 let phases_of cmd =
@@ -70,17 +81,6 @@ let phases_of cmd =
 
     | _                      -> phases in
   List.rev phases
-
-;;Logging.add_features (Logging.Features.none
-(*   lor Logging.Features.completions *)
-(*   lor Logging.Features.scans *)
-(*   lor Logging.Features.registrations *)
-(*   lor Logging.Features.reg_ne *)
-(*   lor Logging.Features.lookahead *)
-(*   lor Logging.Features.sppf *)
-(*   lor Logging.Features.calls *)
-)
-;;
 
 (* NB this use of Logging.log is not guarded by Logging.activated, so the -v flag
    takes effect in either case *)
@@ -507,8 +507,30 @@ let parse_file file =
         prerr_endline "Warning: yakker input has multiple parses";
         gr)
 
-;;
-match cmd with
+;; (* sanity checks *)
+if cmd=Exec_cmd && List.length files <> 1 then failwith "exec must be used on a single file";;
+(* these aren't supported because we do not parse Gil *)
+if cmd=Print_gil_cmd then failwith "print-gil is not yet supported";;
+if !Cmdline.only then
+  match cmd with
+    Translate_cmd -> failwith "translate -only is not supported"
+  | Dot_cmd       -> failwith "dot -only is not supported"
+  | Compile_cmd   -> failwith "compile -only is not supported"
+  | Exec_cmd      -> failwith "exec -only is not supported"
+  | Fuse_cmd      -> failwith "fuse -only is not supported"
+  | _ -> ()
+
+;; Logging.add_features (Logging.Features.none
+(*   lor Logging.Features.completions *)
+(*   lor Logging.Features.scans *)
+(*   lor Logging.Features.registrations *)
+(*   lor Logging.Features.reg_ne *)
+(*   lor Logging.Features.lookahead *)
+(*   lor Logging.Features.sppf *)
+(*   lor Logging.Features.calls *)
+)
+
+;; match cmd with
 (* Deal first with commands that do not operate on Gul grammars *)
 | Info_cmd ->
     Printf.printf "Yakker version %s.\n" Version.text;

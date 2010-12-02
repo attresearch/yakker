@@ -26,36 +26,36 @@ type transformation = Inline_regular_Tx | Add_LR1_lookahead_Tx
 type analyses = A_precedence_sets
 
 type command =
-| Exec_cmd
-| Compile_cmd
-| Translate_cmd
-| Close_under_core_cmd
-| Dispatch_cmd
-| Wrap_cmd
+| Analyze_cmd
 | Attributes_cmd
-| Lift_cmd
+| Close_under_core_cmd
+| Compile_cmd
+| Copyrule_cmd
 | Desugar_cmd
+| Dispatch_cmd
+| Dot_cmd
+| Exec_cmd
+| Extract_cmd
 | Fuse_cmd
-| Tx_prec_cmd
+| Hash_cmd
+| Info_cmd
+| Inline_regular_cmd
+| Lexer_cmd
+| Lift_cmd
+| Lookahead_analysis_cmd
+| Minus_cmd
 | Print_gil_cmd
 | Print_gul_cmd
 | Print_npreds_cmd
-| Extract_cmd
-| Lexer_cmd
-| Subset_cmd
-| Hash_cmd
-| Minus_cmd
-| Inline_regular_cmd
-| Unroll_star_cmd
-| Lookahead_analysis_cmd
-| Copyrule_cmd
 | Print_relevance_cmd
 | Rfc_cmd
-| Dot_cmd
 | Strip_late_actions_cmd
-| Info_cmd (* display internal information about the compiler. *)
+| Subset_cmd
 | Transform_cmd
-| Analyze_cmd (** Perform a grammar analysis. *)
+| Translate_cmd
+| Tx_prec_cmd
+| Unroll_star_cmd
+| Wrap_cmd
 
 let cmd = ref Print_gul_cmd
 let files = ref []
@@ -85,48 +85,58 @@ transformation =
           .
 analysis = "precedence" {A_precedence_sets}.
 command =
-        "dot" o                           { Dot_cmd }
-      | "precedence" o                    { Tx_prec_cmd }
-      | "desugar" o                       { Desugar_cmd }
-      | "lift" o                          { Lift_cmd }
+        "analyze" o analysis$a o          { analysis := a; Analyze_cmd }
       | "attributes" o                    { Attributes_cmd }
-      | "wrap" o                          { Wrap_cmd }
-      | "dispatch" o                      { Dispatch_cmd }
+      | "close-under-core" o              { Close_under_core_cmd }
       | "compile" o                       { Compile_cmd }
+      | "desugar" o                       { Desugar_cmd }
+      | "dispatch" o                      { Dispatch_cmd }
+      | "dot" o                           { Dot_cmd }
+      | "exec" o arg$f *(o arg$x {x})$l o { files := f::!files; exec_l := l; Exec_cmd }
+      | "extract" o                       { Extract_cmd }
+      | "fuse" o                          { Fuse_cmd }
+      | "hash" o                          { Hash_cmd }
+      | "info" o                          { Info_cmd }
+      | "inline-regular" o                { Inline_regular_cmd }
+      | "lexer" o                         { Lexer_cmd }
+      | "lift" o                          { Lift_cmd }
+      | "lookahead-analysis" o            { Lookahead_analysis_cmd }
+      | "minus" o                         { Minus_cmd }
+      | "precedence" o                    { Tx_prec_cmd }
+      | "print" o                         { Print_gul_cmd }
+      | "print-gil" o                     { Print_gil_cmd }
+      | "print-npreds" o                  { Print_npreds_cmd }
+      | "print-nullable-predicates" o     { Print_npreds_cmd }
+      | "print-relevance" o               { Print_relevance_cmd }
+      | "rfc" (1*DIGIT)$n o               { try rfc_num := int_of_string n; Rfc_cmd with _ -> failwith "Invalid RFC number" }
+      | "strip-late-actions" o            { Strip_late_actions_cmd }
+      | "subset" o                        { Subset_cmd }
+      | "transform" o transformation$tx *("," transformation$x {x})$txs o { transforms := (tx::txs); Transform_cmd }
       | "translate" o
            ("dypgen" {Dypgen_PI false}
            |"dypgen-scannerless"
                     {Dypgen_PI true})$t o { translate_plugin := t; Translate_cmd }
-      | "print-gil" o                     { Print_gil_cmd }
-      | "print" o                         { Print_gul_cmd }
-      | "strip-late-actions" o            { Strip_late_actions_cmd }
-      | "extract" o                       { Extract_cmd }
-      | "rfc" (1*DIGIT)$n o               { try rfc_num := int_of_string n; Rfc_cmd with _ -> failwith "Invalid RFC number" }
-      | "print-npreds" o                  { Print_npreds_cmd }
-      | "exec" o arg$f *(o arg$x {x})$l o { files := f::!files; exec_l := l; Exec_cmd }
-      | "info" o                          { Info_cmd }
-
-      | "transform" o transformation$tx *("," transformation$x {x})$txs o { transforms := (tx::txs); Transform_cmd }
-      | "analyze" o analysis$a o          { analysis := a; Analyze_cmd }
+      | "unroll-star" o                   { Unroll_star_cmd }
+      | "wrap" o                          { Wrap_cmd }
 
 args =
-        "-case-insensitive" o             { Compileopt.case_sensitive := false }
-      | "-backend" o
+        "-backend" o
           ( "fun" {Fun_BE}
           | "tx"  {Trans_BE}
           | "peg-strict" {Peg_BE false}
           | "peg" {Peg_BE true} )$b o     { backend := b }
-      | "-only" o                         { only := true }
+      | "-case-insensitive" o             { Compileopt.case_sensitive := false }
+      | "-check-labels" o                 { Compileopt.check_labels := true }
+      | "-counter" o (1*DIGIT)$n o        { Variables.counter := (int_of_string n) }
       | "-inline-cs" o                    { Compileopt.inline_cs := true }
       | "-inline-regular" o               { Compileopt.inline_regular := true }
-      | "-unroll-star" o (1*DIGIT)$n o    { Compileopt.unroll_star_n := (int_of_string n) }
-      | "-counter" o (1*DIGIT)$n o        { Variables.counter := (int_of_string n) }
       | "-lookahead" o                    { Compileopt.lookahead := true }
-      | "-no-coalesce" o                  { Compileopt.coalesce := false }
       | "-new-engine" o                   { Yak.Pami.new_engine_flag := true }
-      | "-check-labels" o                 { Compileopt.check_labels := true }
-      | "-v" o                            { Yak.Logging.add_features Yak.Logging.Features.verbose }
+      | "-no-coalesce" o                  { Compileopt.coalesce := false }
+      | "-only" o                         { only := true }
       | "-root" o arg$x o                 { roots := x::!roots }
+      | "-unroll-star" o (1*DIGIT)$n o    { Compileopt.unroll_star_n := (int_of_string n) }
+      | "-v" o                            { Yak.Logging.add_features Yak.Logging.Features.verbose }
       | file$f o                          { files := f::!files }
 .
 eof = "" !OCTET .

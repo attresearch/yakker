@@ -609,10 +609,10 @@ let get_symb_start = function
   | _ -> raise Not_found
 
 open Yak.Pam_internal
-module SV_hashtbl = Hashtbl.Make(struct 
-			  type t = sv 
-			  let equal a b = sv_compare a b = 0
-			  let hash = Hashtbl.hash end)
+module SV_hashtbl = Hashtbl.Make(struct
+                          type t = sv
+                          let equal a b = sv_compare a b = 0
+                          let hash = Hashtbl.hash end)
 module Pred = Pred3
 let rec nullable_rulename_body __lookahead _p0_ _x0_ = None
 
@@ -725,7 +725,7 @@ and nullable_rfc __lookahead _p0_ _x0_ = ((((Pred.andc (let symb_pred = nullable
     fun la ykb v ->
      let p = Yak.YkBuf.get_offset ykb in
      match symb_pred la ykb (f_call p v) with
-	None -> None
+        None -> None
       | Some v2 -> Some (f_ret p v v2)) (fun _x1_ _x2_ _x3_ -> (Some (((_d_and_push 1003) ((Yak.YkBuf.get_offset) _x2_)) (((_d_and_push 1002) ((Yak.YkBuf.get_offset) _x2_)) _x3_))))) __lookahead) _p0_) (((fun p v -> _p 1000 p (_x44 p (v))) ((Yak.YkBuf.get_offset) _p0_)) _x0_))
 
 and nullable_repeat __lookahead _p0_ _x0_ = ((((Pred.orc (let symb_pred = nullable_DIGITS
@@ -735,7 +735,7 @@ and nullable_repeat __lookahead _p0_ _x0_ = ((((Pred.orc (let symb_pred = nullab
     fun la ykb v ->
      let p = Yak.YkBuf.get_offset ykb in
      match symb_pred la ykb (f_call p v) with
-	None -> None
+        None -> None
       | Some v2 -> Some (f_ret p v v2)) (fun _x1_ _x2_ _x3_ -> None)) __lookahead) _p0_) _x0_)
 
 and nullable_HEXDIG __lookahead _p0_ _x0_ = None

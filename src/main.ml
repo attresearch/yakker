@@ -28,11 +28,11 @@ let phase_order = (* preorder on phases *)
 
         [Print_gil_cmd];           (* takes Gil as input *)
 
-        [Print_npreds_cmd];        (* these take Gul.grammars as input *)
+        [Lookahead_analysis_cmd];  (* these take Gul.grammars as input *)
+        [Precedence_analysis_cmd];
         [Print_gul_cmd];
+        [Print_npreds_cmd];
         [Print_relevance_cmd];
-        [Analyze_cmd];
-        [Lookahead_analysis_cmd];
         [Strip_late_actions_cmd];
         [Transform_cmd];
 
@@ -125,21 +125,6 @@ let gil_transducer,gil_dot =
     (* FST *)
     try_fst Fsm.fsm_transducer,try_fst Fsm.fsm_dot
 
-let dump_prologue gr =
-  List.iter
-    (function Ocaml x ->
-(*      Printf.printf "dumping--\n%s%!" x;*)
-      Printf.fprintf !outch "%s" x;
-()(*      Printf.printf "X%s%!" x*)
-      | _ -> failwith "dump_prologue")
-    (List.rev gr.prologue)
-
-let dump_epilogue gr =
-  List.iter
-    (function Ocaml x -> Printf.fprintf !outch "%s" x
-      | _ -> failwith "dump_epilogue")
-    gr.epilogue
-
 let add_boilerplate2 backend gr =
   let post_parse_function =
     match gr.grammar_early_relevant,gr.grammar_late_relevant with
@@ -200,14 +185,20 @@ let do_phase name thunk =
 
 let do_compile gr =
   do_phase "compiling to backend" (fun () ->
-    dump_prologue gr;
+    List.iter
+      (function Ocaml x -> Printf.fprintf !outch "%s" x
+        | _ -> failwith "Non-ocaml blob in prologue")
+      (List.rev gr.prologue);
     (match backend with
     | Fun_BE -> Gil_gen.pr_gil_definitions2 !outch gr.start_symbol gr.tokmap gr.gildefs
     | Peg_BE liberal -> Gil_gen.Peg.pr_definitions !outch liberal gr.start_symbol gr.gildefs
     | Trans_BE ->
         gil_transducer gr.gildefs);
     add_boilerplate2 backend gr;
-    dump_epilogue gr)
+    List.iter
+      (function Ocaml x -> Printf.fprintf !outch "%s" x
+        | _ -> failwith "Non-ocaml blob in epilogue")
+      gr.epilogue)
 
 let do_phases gr =
   List.iter
@@ -367,34 +358,18 @@ let do_phases gr =
           do_phase "exporting to alternate syntax" (fun () ->
             match plugin with Dypgen_PI (is_scannerless) ->
               let b = Buffer.create 11 in
-              Pr.Gil.Dypgen.pr_grammar b is_scannerless gr gr.gildefs; (*TODO: Change Dypgen.pr_grammar to use gr.gildefs*)
+              Pr.Gil.Dypgen.pr_grammar b is_scannerless gr;
               Printf.fprintf !outch "%s\n%!" (Buffer.contents b))
       | Print_npreds_cmd ->
           do_phase "printing nullable predicates" (fun () ->
-            let tbl_ntnames = Hashtbl.create 11 in
-            let ntnum = ref 264 in
-            let add_nonterm nt =
-              begin
-                match Util.find_option tbl_ntnames nt with
-                | Some x -> x
-                | None ->
-                    let num = !ntnum in
-                    incr ntnum;
-                    Hashtbl.add tbl_ntnames nt num;
-                    num
-              end
-            in
-            (* use dummy get_start function because there is no transducer. *)
-            Nullable_pred.process_grammar !outch add_nonterm (fun _ -> 0) gr)
-      | Analyze_cmd ->
-          (match !Cmdline.analysis with
-            A_precedence_sets ->
-              do_phase "lexer transform" (fun () ->
-                Lexutil.transform gr;
-                Lexutil.run_ocamllex gr);
-              do_phase "precedence analysis" (fun () ->
-                let v = Analyze.build_prec_sets gr in
-                Analyze.print_prec_sets v))
+            Nullable_pred.print_nullable_predicates gr !outch)
+      | Precedence_analysis_cmd ->
+          do_phase "lexer transform" (fun () ->
+            Lexutil.transform gr;
+            Lexutil.run_ocamllex gr);
+          do_phase "precedence analysis" (fun () ->
+            let v = Analyze.build_prec_sets gr in
+            Analyze.print_prec_sets v)
       | Lookahead_analysis_cmd ->
           do_phase "FIRST/FOLLOW set analysis" (fun () ->
             Analyze.producers gr;
@@ -406,95 +381,12 @@ let do_phases gr =
             Pr.pr_grammar stdout (remove_late_actions gr))
       | Transform_cmd  ->
           let txs = !Cmdline.transforms in
-          let do_tx gr = function
-            | Inline_regular_Tx -> Analyze.regular_inline gr true; gr
-            | Add_LR1_lookahead_Tx ->
-                let first_map = Analyze.First_set_lex.first_gr gr gr.tokmap in
-                let first r = Analyze.First_set_lex.first r first_map in
-                let sz = List.length gr.ds in
-                let nametbl = Hashtbl.create sz in
-                let ftbl = Hashtbl.create sz in
-                let apptbl = Hashtbl.create 101 in
-                let dummy = mkLIT("") in
-                let rec findfree n x tbl =
-                  let n_try = n ^ string_of_int x in
-                  if Hashtbl.mem tbl n_try then
-                    findfree n (x+1) tbl
-                  else x, n_try in
-                let mk_name n =
-                  try
-                    let x = Hashtbl.find nametbl n in
-                    let x',n' = findfree n x ftbl in
-                    Hashtbl.replace nametbl n (x' + 1);
-                    n'
-                  with Not_found ->
-                    Hashtbl.add nametbl n 1;
-                    n in
-                let la_app (n:nonterminal) fs =
-                  try
-                    let n_fs,_,_ = Hashtbl.find apptbl (n,fs) in
-                    n_fs
-                  with Not_found ->
-                    let n_fs = mk_name n in
-                    let f_n, a = Hashtbl.find ftbl n in
-                    Hashtbl.add apptbl (n, fs) (n_fs, dummy, a);
-                    let r_fs = f_n fs in
-                    Hashtbl.replace apptbl (n, fs) (n_fs, r_fs, a);
-                    n_fs in
-                let rec tx r = match r.r with
-                | Symb (n1, _, _,_) -> (fun follow -> mkSYMB (la_app n1 follow, None, None)) (* TODO: attributes *)
-                | Lit _ | CharRange _ -> (fun follow -> r)
-                | Seq(r1, None, None, r2) ->
-                    let r1' = tx r1 in
-                    let r2' = tx r2 in
-                    let f_r2 = first r2 in
-                    (fun follow ->
-                      mkSEQ2 (r1' (Analyze.First_set_lex.concat f_r2 follow None None),
-                              None, None,
-                              r2' follow))
-                | Alt(r1,r2) ->
-                    let r1' = tx r1 in
-                    let r2' = tx r2 in
-                    (fun follow -> mkALT2 (r1' follow, r2' follow))
-                | Star (Bounds(0,Infinity) as b, r1) ->
-                    let r1' = tx r1 in
-                    (fun follow -> mkSTAR2 (b, r1' (Analyze.First_set_lex.union (first r1) follow)))
-                | Opt(r1)  ->
-                    let r1' = tx r1 in
-                    (fun follow -> mkOPT (r1' follow))
-                | Minus _ -> Util.warn Util.Sys_warn "minus not processed by lookahead"; (fun follow -> r)
-                | Assign _
-                | Star _
-                | Seq _
-                | Lookahead _
-                | Box _
-                | Action _
-                | Position _
-                | Rcount _
-                | Hash _
-                | When _
-                | Delay _ | Prose _ ->
-                    Util.warn Util.Sys_warn "rule not handled by lookahead transformation";
-                    (fun _ -> mkLIT("!ERROR!")) in
-                let tx_def = function
-                  | RuleDef(n, r, a) ->
-                      let r' = tx r in
-                      Hashtbl.add ftbl n
-                        ((fun la -> mkSEQ2(r' la, None, None, mkLOOKAHEAD(true, Analyze.First_set_lex.to_rule la))),
-                         a)
-                  | d -> () in
-                (* load [ftbl] *)
-                List.iter tx_def gr.ds;
-                (* load [apptbl] *)
-                let ssymb = la_app gr.start_symbol (Analyze.First_set_lex.non_singleton (256, 256)) in
-                (* convert [apptbl] to new grammar. *)
-                let retrieve_defs _ (n,r,a) ds = (RuleDef (n,r,a))::ds in
-                let ds' = Hashtbl.fold retrieve_defs apptbl [] in
-                {gr with ds = ds'; start_symbol = ssymb;} in
+          let do_tx gr = (function Add_LR1_lookahead_Tx -> Lookahead.add_lr1_lookahead gr) in
           let gr = List.fold_left do_tx gr txs in
           Pr.pr_grammar stdout gr
-
-      | _ -> failwith "Internal error: unexpected phase")
+      | Extract_cmd -> failwith "Internal error: Extract_cmd in do_phases"
+      | Info_cmd -> failwith "Internal error: Info_cmd in do_phases"
+      | Rfc_cmd -> failwith "Internal error: Rfc_cmd in do_phases")
 
 let parse_file file =
   do_phase "parsing bnf" (fun () ->

@@ -2520,10 +2520,10 @@ let get_symb_start = function
   | _ -> raise Not_found
 
 open Yak.Pam_internal
-module SV_hashtbl = Hashtbl.Make(struct 
-			  type t = sv 
-			  let equal a b = sv_compare a b = 0
-			  let hash = Hashtbl.hash end)
+module SV_hashtbl = Hashtbl.Make(struct
+                          type t = sv
+                          let equal a b = sv_compare a b = 0
+                          let hash = Hashtbl.hash end)
 module Pred = Pred3
 let rec nullable_rulename_body __lookahead _p0_ _x0_ = None
 
@@ -2588,7 +2588,7 @@ and nullable_rulelist __lookahead _p0_ _x0_ = ((((Pred.andc (let symb_pred = nul
     fun la ykb v ->
      let p = Yak.YkBuf.get_offset ykb in
      match symb_pred la ykb (f_call p v) with
-	None -> None
+        None -> None
       | Some v2 -> Some (f_ret p v v2)) (fun _x1_ _x2_ _x3_ -> ((((Pred.andc (let symb_pred = nullable_o
        and f_call = (fun _x4_ _x5_ -> (sv0))
        and f_ret = (fun _x4_ _x5_ _x6_ -> _x5_)
@@ -2596,7 +2596,7 @@ and nullable_rulelist __lookahead _p0_ _x0_ = ((((Pred.andc (let symb_pred = nul
     fun la ykb v ->
      let p = Yak.YkBuf.get_offset ykb in
      match symb_pred la ykb (f_call p v) with
-	None -> None
+        None -> None
       | Some v2 -> Some (f_ret p v v2)) (fun _x4_ _x5_ _x6_ -> ((((Pred.andc (let p = _dwhen 1028 and n = _dnext 1029 in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None) (fun _x7_ _x8_ _x9_ -> ((((Pred.andc (let symb_pred = nullable_o
        and f_call = (fun _x10_ _x11_ -> (sv0))
        and f_ret = (fun _x10_ _x11_ _x12_ -> _x11_)
@@ -2604,7 +2604,7 @@ and nullable_rulelist __lookahead _p0_ _x0_ = ((((Pred.andc (let symb_pred = nul
     fun la ykb v ->
      let p = Yak.YkBuf.get_offset ykb in
      match symb_pred la ykb (f_call p v) with
-	None -> None
+        None -> None
       | Some v2 -> Some (f_ret p v v2)) (fun _x10_ _x11_ _x12_ -> (Some (((fun p v -> _p 1036 p (_p 1035 p (v))) ((Yak.YkBuf.get_offset) _x11_)) _x12_)))) _x7_) _x8_) ((((_m 1033) ((Yak.YkBuf.get_offset) _x8_)) (((fun p v -> _p 1032 p (_p 1031 p (_p 1030 p (v)))) ((Yak.YkBuf.get_offset) _x8_)) _x9_)) (((fun p v -> _p 2667 p (_p 2666 p (_d_and_push 2606 p (v)))) ((Yak.YkBuf.get_offset) _x8_)) (((fun p v -> _d_and_push 2605 p (_p 2604 p (_p 2603 p (_x704 p (v))))) ((Yak.YkBuf.get_offset) _x8_)) (sv0))))))) _x4_) _x5_) (((_d_and_push 1010) ((Yak.YkBuf.get_offset) _x5_)) (((fun p v -> _d_and_push 1009 p (_d_and_push 1008 p (_p 1007 p (v)))) ((Yak.YkBuf.get_offset) _x5_)) _x6_))))) _x1_) _x2_) ((((_m 1005) ((Yak.YkBuf.get_offset) _x2_)) (((fun p v -> _p 1004 p (_p 1003 p (v))) ((Yak.YkBuf.get_offset) _x2_)) _x3_)) (((fun p v -> _p 2602 p (_p 2601 p (_d_and_push 2516 p (v)))) ((Yak.YkBuf.get_offset) _x2_)) (((fun p v -> _d_and_push 2515 p (_p 2514 p (_p 2513 p (_x688 p (v))))) ((Yak.YkBuf.get_offset) _x2_)) (sv0))))))) __lookahead) _p0_) (((fun p v -> _p 1000 p (_x348 p (v))) ((Yak.YkBuf.get_offset) _p0_)) _x0_))
 
 and nullable_string __lookahead _p0_ _x0_ = None

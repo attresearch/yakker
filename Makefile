@@ -41,7 +41,7 @@ CMOS:=$(ML_SOURCES:.ml=.cmo)
 CMXS:=$(ML_SOURCES:.ml=.cmx)
 
 FRONT_END_SOURCES := compileopt.ml variables.ml tgraph.ml gil.ml gul.ml desugar.ml pr.ml nullable_pred.ml minus.ml hash.ml copyrule.ml \
-                     analyze.ml fusion.ml attributes.ml wrap.ml coroutine.ml replay.ml dispatch.ml label.ml lift.ml fsm.ml \
+                     analyze.ml lookahead.ml fusion.ml attributes.ml wrap.ml coroutine.ml replay.ml dispatch.ml label.ml lift.ml fsm.ml \
 		     extract_grammar.ml rfc.ml yakker_grammar.ml cmdline.ml gil_gen.ml version.ml lexutil.ml main.ml
 FRONT_END_ML_SOURCES := $(filter %.ml, $(FRONT_END_SOURCES))
 FRONT_END_CMOS := $(FRONT_END_ML_SOURCES:.ml=.cmo)

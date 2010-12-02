@@ -73,7 +73,7 @@ and pr_maybe_group f r r0 pos =
 and pr_bound_rule f r =
   if must_group (get_prec r) binder_prec left then pr_rule_paren f r else pr_rule f r
 
-and pr_rule f r = 
+and pr_rule f r =
   (match r.r with
   | Action(None,None) -> pr_rule f (mkLIT "")
   | Action(early,late) ->
@@ -176,7 +176,7 @@ and pr_rule f r =
       pr_maybe_group f r2 r right
   | Minus(r2,r3) ->
       pr_maybe_group f r2 r left; bprintf f " - "; pr_maybe_group f r3 r right);
-  match r.a.precedence with 
+  match r.a.precedence with
     | Default_prec -> ()
     | No_prec -> bprintf f " @no-prec"
     | Some_prec p -> bprintf f " @prec %s" p
@@ -219,7 +219,7 @@ let pr_text f = function
   | Dypgenlex x -> fprintf f "@dypgenlex {%s}\n" x
 
 let pr_assoc f = function
-  | Non_assoc -> fprintf f "@non" 
+  | Non_assoc -> fprintf f "@non"
   | Left_assoc -> fprintf f "@left"
   | Right_assoc -> fprintf f "@right"
 
@@ -228,8 +228,8 @@ let pr_grammar f gr =
 
   let pls = gr.precs in
   let n_pls = Array.length pls in
-  if n_pls = 0 then () 
-  else begin 
+  if n_pls = 0 then ()
+  else begin
     fprintf f "\n@precedence : ";
     let a, ns = pls.(0) in
     pr_assoc f a; List.iter (fprintf f " %s") ns;
@@ -596,7 +596,8 @@ let _appp dyp f = f %s dyp.Dyp.last_local_data
         List.iter
           (fun (x, s) -> Printf.bprintf b "%s: %s\n" x s) !lifted
 
-      let pr_grammar b is_scannerless gr ds =
+      let pr_grammar b is_scannerless gr =
+        let ds = gr.gildefs in
         let gr_prologue = List.rev gr.prologue in
 
         let is_first = ref true in

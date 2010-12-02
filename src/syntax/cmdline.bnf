@@ -21,12 +21,9 @@ open Yak
 type plugin =
   | Dypgen_PI of bool (** flag indicating whether the generated grammar should be faux-scannerless. *)
 
-type transformation = Inline_regular_Tx | Add_LR1_lookahead_Tx
-
-type analyses = A_precedence_sets
+type transformation = Add_LR1_lookahead_Tx
 
 type command =
-| Analyze_cmd
 | Attributes_cmd
 | Close_under_core_cmd
 | Compile_cmd
@@ -44,6 +41,7 @@ type command =
 | Lift_cmd
 | Lookahead_analysis_cmd
 | Minus_cmd
+| Precedence_analysis_cmd
 | Print_gil_cmd
 | Print_gul_cmd
 | Print_npreds_cmd
@@ -64,7 +62,6 @@ let exec_l = ref []
 let rfc_num = ref 0
 let translate_plugin = ref (Dypgen_PI false)
 let transforms = ref []
-let analysis = ref A_precedence_sets
 let only = ref false
 
 type backend =
@@ -80,13 +77,10 @@ o = %d0 .
 arg = 1*CHAR !CHAR .
 file = (CHAR - "-") *CHAR !CHAR .
 transformation =
-            "inline-regular" { Inline_regular_Tx }
-          | "add-lr1-lookahead" { Add_LR1_lookahead_Tx }
+      "add-lr1-lookahead" { Add_LR1_lookahead_Tx }
           .
-analysis = "precedence" {A_precedence_sets}.
 command =
-        "analyze" o analysis$a o          { analysis := a; Analyze_cmd }
-      | "attributes" o                    { Attributes_cmd }
+        "attributes" o                    { Attributes_cmd }
       | "close-under-core" o              { Close_under_core_cmd }
       | "compile" o                       { Compile_cmd }
       | "desugar" o                       { Desugar_cmd }
@@ -94,15 +88,16 @@ command =
       | "dot" o                           { Dot_cmd }
       | "exec" o arg$f *(o arg$x {x})$l o { files := f::!files; exec_l := l; Exec_cmd }
       | "extract" o                       { Extract_cmd }
-      | "fuse" o                          { Fuse_cmd }
+      | "fuse" o                          { Compileopt.coalesce := true; Fuse_cmd }
       | "hash" o                          { Hash_cmd }
       | "info" o                          { Info_cmd }
-      | "inline-regular" o                { Inline_regular_cmd }
+      | "inline-regular" o                { Compileopt.inline_regular := true; Inline_regular_cmd }
       | "lexer" o                         { Lexer_cmd }
       | "lift" o                          { Lift_cmd }
       | "lookahead-analysis" o            { Lookahead_analysis_cmd }
       | "minus" o                         { Minus_cmd }
       | "precedence" o                    { Tx_prec_cmd }
+      | "precedence-analysis" o           { Precedence_analysis_cmd }
       | "print" o                         { Print_gul_cmd }
       | "print-gil" o                     { Print_gil_cmd }
       | "print-npreds" o                  { Print_npreds_cmd }
@@ -116,7 +111,7 @@ command =
            ("dypgen" {Dypgen_PI false}
            |"dypgen-scannerless"
                     {Dypgen_PI true})$t o { translate_plugin := t; Translate_cmd }
-      | "unroll-star" o                   { Unroll_star_cmd }
+      | "unroll-star" o                   { if !Compileopt.unroll_star_n<1 then Compileopt.unroll_star_n := 1; Unroll_star_cmd }
       | "wrap" o                          { Wrap_cmd }
 
 args =

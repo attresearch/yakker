@@ -11,17 +11,15 @@
 
 exception Parse_error of string * int * int * int
   (** message, position, line number, column number (all 1-indexed) *)
-  
+
 let _internal_get_substring =
   ref (fun o n ->
-	 failwith "get_substring function not initialized.")
+         failwith "get_substring function not initialized.")
 let default_get_substring ykb cp off len = YkBuf.extract_string ykb cp off len
 let get_substring i j = !_internal_get_substring i (j-i)
 let set_get_substring_fun f = _internal_get_substring := f
 
-let new_engine_flag = ref true
-
-let mk_parse_fun _pf pp ykb = 
+let mk_parse_fun _pf pp ykb =
   let r, b = _pf ykb in
   List.map (fun (_,x) -> pp b x) r
 
@@ -60,7 +58,6 @@ module Simple = struct
   let parse_string f s = f (YkBuf.string2buf s)
 
   let _test verbose parse visualize =
-    new_engine_flag := false;
     let visualize_flag = ref false in
     let args =
       match Array.to_list Sys.argv with
@@ -68,28 +65,27 @@ module Simple = struct
       | _::args ->
           (let rec loop = function
             | [] -> []
-            | "-new-engine"::tl -> new_engine_flag := true; loop tl
-            | "-viz"::tl ->         visualize_flag := true; loop tl
+            | "-viz"::tl -> visualize_flag := true; loop tl
             | hd::tl -> hd::(loop tl) in
           loop args) in
     let args = if args=[] then ["/dev/stdin"] else args in
     let process = if !visualize_flag then visualize else parse in
     let process_file file =
       try
-	process file;
-	if verbose then Printf.eprintf "%s ok.\n%!" file
+        process file;
+        if verbose then Printf.eprintf "%s ok.\n%!" file
       with
-	  Parse_error (msg, pos, lnum, cnum) ->
-	    (* its really the token preceding the reported character/pos. 
-	       pos is 1-based and cnum is 0-based.
-	     *)
-(* 	    Printf.eprintf "File %S, line %d, characters %d-%d (pos: %d):\n%s\n%!"  *)
-(* 	      file lnum cnum cnum pos msg *)
-	    Printf.eprintf "File %S, line %d, characters %d-%d:\n%s\n%!" 
-	      file lnum cnum cnum msg
-	| e ->
-	    Printf.eprintf "File \"%s\" failed with exception %s\n%!" file
-	      (Printexc.to_string e);
+          Parse_error (msg, pos, lnum, cnum) ->
+            (* its really the token preceding the reported character/pos.
+               pos is 1-based and cnum is 0-based.
+             *)
+(*          Printf.eprintf "File %S, line %d, characters %d-%d (pos: %d):\n%s\n%!"  *)
+(*            file lnum cnum cnum pos msg *)
+            Printf.eprintf "File %S, line %d, characters %d-%d:\n%s\n%!"
+              file lnum cnum cnum msg
+        | e ->
+            Printf.eprintf "File \"%s\" failed with exception %s\n%!" file
+              (Printexc.to_string e);
             prerr_endline (Printexc.get_backtrace())
     in
     List.iter process_file args
@@ -122,7 +118,7 @@ module Basic = struct
     let n = YkBuf.get_input_size ykb in
     if n = -1 (* didn't reach eof *)
       || results = [] then
-	parse_error "No complete parses found." (max_offset + 1) ykb
+        parse_error "No complete parses found." (max_offset + 1) ykb
     else
       ()
 
@@ -134,24 +130,24 @@ module Basic = struct
     if results = [] then
       let n = YkBuf.get_input_size ykb in
       let read_all =
-	if n > -1 then max_offset >= n - 1
-	else begin
-	  (* check whether max_offset was the
-	     last offset before EOF. *)
-	  YkBuf.set_offset ykb (max_offset + 1);
-	  not (YkBuf.fill2 ykb 1)
-	end in
+        if n > -1 then max_offset >= n - 1
+        else begin
+          (* check whether max_offset was the
+             last offset before EOF. *)
+          YkBuf.set_offset ykb (max_offset + 1);
+          not (YkBuf.fill2 ykb 1)
+        end in
       YkBuf.restore ykb cp;
       let msg = if read_all then "No complete parses found." else  "Error at byte." in
       (* [max_offset] is the maximum valid offset. We add one to increase to the next invalid offset
-	 and another to translate to "position." *)
+         and another to translate to "position." *)
       parse_error msg (max_offset + 2) ykb
     else
       begin
-	YkBuf.advance_to_last ykb;
-	let b = YkBuf.snapshot ykb cp in
-	YkBuf.commit ykb;
-	results, b
+        YkBuf.advance_to_last ykb;
+        let b = YkBuf.snapshot ykb cp in
+        YkBuf.commit ykb;
+        results, b
       end
 end
 
@@ -163,24 +159,24 @@ module Peg = struct
     set_get_substring_fun (default_get_substring ykb cp);
     match Allp.Peg.parse c ykb v_init with
       | (Some res), max_offset ->
-	  let b = YkBuf.snapshot ykb cp in
-	  YkBuf.commit ykb;
-	  [res], b
+          let b = YkBuf.snapshot ykb cp in
+          YkBuf.commit ykb;
+          [res], b
       | None, max_offset ->
-	  let n = YkBuf.get_input_size ykb in
-	  let read_all =
-	    if n > -1 then max_offset >= n - 1
-	    else begin
-	      (* check whether max_offset was the
-		 last offset before EOF. *)
-	      YkBuf.set_offset ykb (max_offset + 1);
-	      not (YkBuf.fill2 ykb 1)
-	    end in
-	  YkBuf.restore ykb cp;
-	  let msg = if read_all then "No complete parses found." else  "Error at byte." in
-	  (* [max_offset] is the maximum valid offset. We add one to increase to the next invalid offset
-	     and another to translate to "position." *)
-	  parse_error msg (max_offset + 2) ykb
+          let n = YkBuf.get_input_size ykb in
+          let read_all =
+            if n > -1 then max_offset >= n - 1
+            else begin
+              (* check whether max_offset was the
+                 last offset before EOF. *)
+              YkBuf.set_offset ykb (max_offset + 1);
+              not (YkBuf.fill2 ykb 1)
+            end in
+          YkBuf.restore ykb cp;
+          let msg = if read_all then "No complete parses found." else  "Error at byte." in
+          (* [max_offset] is the maximum valid offset. We add one to increase to the next invalid offset
+             and another to translate to "position." *)
+          parse_error msg (max_offset + 2) ykb
 
 
 end
@@ -208,24 +204,24 @@ module Wfe = struct
     let parse_result = pf data sv0 ykb in
     match parse_result with
       | [] ->
-	  let read_all = YkBuf.is_eof ykb in
-	  let msg = if read_all then "No complete parses found." else  "Error at byte." in
-	  let b = YkBuf.to_lexbuf ykb in
-	  let lcp = b.Lexing.lex_curr_p in
-	  let line = lcp.Lexing.pos_lnum in
-	  let cnum = lcp.Lexing.pos_cnum - lcp.Lexing.pos_bol in
-	  let pos = YkBuf.get_offset ykb + 1 in
-	  YkBuf.restore ykb cp;
-	  raise (Parse_error (msg, pos, line, cnum))
+          let read_all = YkBuf.is_eof ykb in
+          let msg = if read_all then "No complete parses found." else  "Error at byte." in
+          let b = YkBuf.to_lexbuf ykb in
+          let lcp = b.Lexing.lex_curr_p in
+          let line = lcp.Lexing.pos_lnum in
+          let cnum = lcp.Lexing.pos_cnum - lcp.Lexing.pos_bol in
+          let pos = YkBuf.get_offset ykb + 1 in
+          YkBuf.restore ykb cp;
+          raise (Parse_error (msg, pos, line, cnum))
       | [x] ->
-	  let b = YkBuf.snapshot ykb cp in
-	  YkBuf.commit ykb;
-	  pp b x
+          let b = YkBuf.snapshot ykb cp in
+          YkBuf.commit ykb;
+          pp b x
       | x::_ ->
-	  Printf.eprintf "mk_parse_single: ambiguity in parse.\n";
-	  let b = YkBuf.snapshot ykb cp in
-	  YkBuf.commit ykb;
-	  pp b x
+          Printf.eprintf "mk_parse_single: ambiguity in parse.\n";
+          let b = YkBuf.snapshot ykb cp in
+          YkBuf.commit ykb;
+          pp b x
 end
 
 (** Express as a functor so as to avoid requiring the dypgen libraries to be compiled
@@ -250,10 +246,10 @@ module Dypgen (Dyp: sig exception Syntax_error end) = struct
       f lexbuf
     with
       | Dyp.Syntax_error ->
-	  raise (Parse_error ("Syntax error.", 
-			      lexbuf.Lexing.lex_curr_p.Lexing.pos_cnum, 
-			      lexbuf.Lexing.lex_curr_p.Lexing.pos_lnum,
-			      lexbuf.Lexing.lex_curr_p.Lexing.pos_cnum -
-				lexbuf.Lexing.lex_curr_p.Lexing.pos_bol))
+          raise (Parse_error ("Syntax error.",
+                              lexbuf.Lexing.lex_curr_p.Lexing.pos_cnum,
+                              lexbuf.Lexing.lex_curr_p.Lexing.pos_lnum,
+                              lexbuf.Lexing.lex_curr_p.Lexing.pos_cnum -
+                                lexbuf.Lexing.lex_curr_p.Lexing.pos_bol))
 
 end

@@ -257,7 +257,7 @@ run-e-% update-e-% show-e-% perf-e-% pc-perf-e-% recperf-e-%: D=../examples
 define run-regression
 	@echo testing $*
 	@for i in $(D)/$*/inputs/*;\
-	  do ./$*-parser.opt -new-engine $$i 2>&1 |\
+	  do ./$*-parser.opt $$i 2>&1 |\
 		cmp -s - $(D)/$*/outputs/`basename $$i` || echo '    FAILURE:' `basename $$i`;\
 	done
 endef
@@ -266,7 +266,7 @@ define update-regression
 	@echo updating regression tests for $*
 	@mkdir -p $(D)/$*/outputs
 	@for i in $(D)/$*/inputs/*;\
-	  do ./$*-parser.opt -new-engine $$i 2>&1 |\
+	  do ./$*-parser.opt $$i 2>&1 |\
 		cmp -s - $(D)/$*/outputs/`basename $$i` ||\
 		echo '    updating' $* on `basename $$i` &&\
 		./$*-parser.opt $$i > $(D)/$*/outputs/`basename $$i` 2>&1 ;\
@@ -276,7 +276,7 @@ endef
 define show-regression
 	@echo '***********************************' $* '***********************************'
 	@for i in $(D)/$*/inputs/*;\
-	  do ./$*-parser.opt -new-engine $$i ;\
+	  do ./$*-parser.opt $$i ;\
 	done
 endef
 

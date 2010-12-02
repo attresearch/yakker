@@ -116,7 +116,6 @@ args =
       | "-inline-cs" o                    { Compileopt.inline_cs := true }
       | "-inline-regular" o               { Compileopt.inline_regular := true }
       | "-lookahead" o                    { Compileopt.lookahead := true }
-      | "-new-engine" o                   { Yak.Pami.new_engine_flag := true }
       | "-no-coalesce" o                  { Compileopt.coalesce := false }
       | "-only" o                         { only := true }
       | "-root" o arg$x o                 { roots := x::!roots }

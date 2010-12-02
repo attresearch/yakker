@@ -22,25 +22,27 @@ let phase_order = (* preorder on phases *)
     (List.fold_left add Tgraph.empty
        [
         (* standalone commands that handle their own output*)
-        [Info_cmd];                (* these do not operate on Gul.grammars *)
+        [Extract_cmd];             (* these do not operate on Gul.grammars *)
+        [Info_cmd];
         [Rfc_cmd];
-        [Extract_cmd];
 
         [Print_gil_cmd];           (* takes Gil as input *)
 
         [Lookahead_analysis_cmd];  (* these take Gul.grammars as input *)
+        [Lr1_lookahead_cmd];
         [Precedence_analysis_cmd];
         [Print_gul_cmd];
         [Print_npreds_cmd];
         [Print_relevance_cmd];
         [Strip_late_actions_cmd];
-        [Transform_cmd];
 
-        (* commands that handle their own output and invoke a chain of transformations *)
-        [Translate_cmd; Fuse_cmd];
-        [      Dot_cmd; Fuse_cmd];
-        [  Compile_cmd; Fuse_cmd];
-        [     Exec_cmd; Fuse_cmd];
+        (* commands that handle their own output and
+           invoke a chain of transformations ending with fuse *)
+        [Translate_dypgen_scannerless_cmd; Fuse_cmd];
+        [Translate_dypgen_cmd            ; Fuse_cmd];
+        [Dot_cmd                         ; Fuse_cmd];
+        [Compile_cmd                     ; Fuse_cmd];
+        [Exec_cmd                        ; Fuse_cmd];
 
         (* commands that do not handle their own output *)
         (* they compose the usual sequence of transformations in compilation *)
@@ -353,13 +355,18 @@ let do_phases gr =
             Pr.Gil.Pretty.pr_definitions b gr.gildefs;
             Printf.printf "%s\n%!" (Buffer.contents b)
           end
-      | Translate_cmd ->
-          let plugin = !Cmdline.translate_plugin in
-          do_phase "exporting to alternate syntax" (fun () ->
-            match plugin with Dypgen_PI (is_scannerless) ->
-              let b = Buffer.create 11 in
-              Pr.Gil.Dypgen.pr_grammar b is_scannerless gr;
-              Printf.fprintf !outch "%s\n%!" (Buffer.contents b))
+      | Translate_dypgen_cmd ->
+          do_phase "translating to dypgen" (fun () ->
+            let is_scannerless = false in
+            let b = Buffer.create 11 in
+            Pr.Gil.Dypgen.pr_grammar b is_scannerless gr;
+            Printf.fprintf !outch "%s\n%!" (Buffer.contents b))
+      | Translate_dypgen_scannerless_cmd ->
+          do_phase "translating to dypgen-scannerless" (fun () ->
+            let is_scannerless = true in
+            let b = Buffer.create 11 in
+            Pr.Gil.Dypgen.pr_grammar b is_scannerless gr;
+            Printf.fprintf !outch "%s\n%!" (Buffer.contents b))
       | Print_npreds_cmd ->
           do_phase "printing nullable predicates" (fun () ->
             Nullable_pred.print_nullable_predicates gr !outch)
@@ -379,11 +386,11 @@ let do_phases gr =
       | Strip_late_actions_cmd ->
           do_phase "stripping late actions" (fun () ->
             Pr.pr_grammar stdout (remove_late_actions gr))
-      | Transform_cmd  ->
-          let txs = !Cmdline.transforms in
-          let do_tx gr = (function Add_LR1_lookahead_Tx -> Lookahead.add_lr1_lookahead gr) in
-          let gr = List.fold_left do_tx gr txs in
-          Pr.pr_grammar stdout gr
+      | Lr1_lookahead_cmd ->
+          (* TODO: once debugged this should be put into the standard pipeline, controlled by flag  *)
+          do_phase "adding LR(1) lookahead" (fun () ->
+            let gr = Lookahead.add_lr1_lookahead gr in
+            Pr.pr_grammar stdout gr)
       | Extract_cmd -> failwith "Internal error: Extract_cmd in do_phases"
       | Info_cmd -> failwith "Internal error: Info_cmd in do_phases"
       | Rfc_cmd -> failwith "Internal error: Rfc_cmd in do_phases")
@@ -405,11 +412,12 @@ if cmd=Exec_cmd && List.length files <> 1 then failwith "exec must be used on a 
 if cmd=Print_gil_cmd then failwith "print-gil is not yet supported";;
 if !Cmdline.only then
   match cmd with
-    Translate_cmd -> failwith "translate -only is not supported"
-  | Dot_cmd       -> failwith "dot -only is not supported"
-  | Compile_cmd   -> failwith "compile -only is not supported"
-  | Exec_cmd      -> failwith "exec -only is not supported"
-  | Fuse_cmd      -> failwith "fuse -only is not supported"
+  | Translate_dypgen_cmd             -> failwith "translate-dypgen -only is not supported"
+  | Translate_dypgen_scannerless_cmd -> failwith "translate-dypgen-scannerless -only is not supported"
+  | Dot_cmd                          -> failwith "dot -only is not supported"
+  | Compile_cmd                      -> failwith "compile -only is not supported"
+  | Exec_cmd                         -> failwith "exec -only is not supported"
+  | Fuse_cmd                         -> failwith "fuse -only is not supported"
   | _ -> ()
 
 ;; Logging.add_features (Logging.Features.none

@@ -18,10 +18,6 @@
  *******************************************************************************)
 
 open Yak
-type plugin =
-  | Dypgen_PI of bool (** flag indicating whether the generated grammar should be faux-scannerless. *)
-
-type transformation = Add_LR1_lookahead_Tx
 
 type command =
 | Attributes_cmd
@@ -40,6 +36,7 @@ type command =
 | Lexer_cmd
 | Lift_cmd
 | Lookahead_analysis_cmd
+| Lr1_lookahead_cmd
 | Minus_cmd
 | Precedence_analysis_cmd
 | Print_gil_cmd
@@ -49,8 +46,8 @@ type command =
 | Rfc_cmd
 | Strip_late_actions_cmd
 | Subset_cmd
-| Transform_cmd
-| Translate_cmd
+| Translate_dypgen_cmd
+| Translate_dypgen_scannerless_cmd
 | Tx_prec_cmd
 | Unroll_star_cmd
 | Wrap_cmd
@@ -60,8 +57,6 @@ let files = ref []
 let roots = ref []
 let exec_l = ref []
 let rfc_num = ref 0
-let translate_plugin = ref (Dypgen_PI false)
-let transforms = ref []
 let only = ref false
 
 type backend =
@@ -76,9 +71,6 @@ cmd-line-args = command$c *args eof { cmd := c }.
 o = %d0 .
 arg = 1*CHAR !CHAR .
 file = (CHAR - "-") *CHAR !CHAR .
-transformation =
-      "add-lr1-lookahead" { Add_LR1_lookahead_Tx }
-          .
 command =
         "attributes" o                    { Attributes_cmd }
       | "close-under-core" o              { Close_under_core_cmd }
@@ -95,6 +87,7 @@ command =
       | "lexer" o                         { Lexer_cmd }
       | "lift" o                          { Lift_cmd }
       | "lookahead-analysis" o            { Lookahead_analysis_cmd }
+      | "lr1-lookahead" o                 { Lr1_lookahead_cmd }
       | "minus" o                         { Minus_cmd }
       | "precedence" o                    { Tx_prec_cmd }
       | "precedence-analysis" o           { Precedence_analysis_cmd }
@@ -106,11 +99,8 @@ command =
       | "rfc" (1*DIGIT)$n o               { try rfc_num := int_of_string n; Rfc_cmd with _ -> failwith "Invalid RFC number" }
       | "strip-late-actions" o            { Strip_late_actions_cmd }
       | "subset" o                        { Subset_cmd }
-      | "transform" o transformation$tx *("," transformation$x {x})$txs o { transforms := (tx::txs); Transform_cmd }
-      | "translate" o
-           ("dypgen" {Dypgen_PI false}
-           |"dypgen-scannerless"
-                    {Dypgen_PI true})$t o { translate_plugin := t; Translate_cmd }
+      | "translate-dypgen" o              { Translate_dypgen_cmd }
+      | "translate-dypgen-scannerless" o  { Translate_dypgen_scannerless_cmd }
       | "unroll-star" o                   { if !Compileopt.unroll_star_n<1 then Compileopt.unroll_star_n := 1; Unroll_star_cmd }
       | "wrap" o                          { Wrap_cmd }
 

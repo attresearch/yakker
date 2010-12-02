@@ -13,40 +13,56 @@ open Yak
 open Gul
 open Cmdline
 
-(** [implied_by cmd1] is a predicate defining the set of cmds implied
-    by [cmd1]. Put another way,  [implied_by cmd1 cmd2] is true when
-    [cmd1] implies [cmd2]. *)
-let implied_by cmd1 cmd2 = match cmd1,cmd2 with
-  | Exec_cmd _         ,(Exec_cmd _ | Compile_cmd | Fuse_cmd | Dispatch_cmd | Wrap_cmd | Attributes_cmd | Lift_cmd | Desugar_cmd | Close_under_core_cmd | Tx_prec_cmd) -> true
-  | Compile_cmd        ,(Compile_cmd | Fuse_cmd | Dispatch_cmd | Wrap_cmd | Attributes_cmd | Lift_cmd | Desugar_cmd | Close_under_core_cmd | Tx_prec_cmd) -> true
-  | Translate_cmd (Dypgen_PI false)
-                     ,(Fuse_cmd | Dispatch_cmd | Wrap_cmd | Attributes_cmd | Lift_cmd | Desugar_cmd) -> true
-  | (Translate_cmd (Dypgen_PI true)
-    | Print_gil_cmd)   ,(Fuse_cmd | Dispatch_cmd | Wrap_cmd | Attributes_cmd | Lift_cmd | Desugar_cmd | Close_under_core_cmd | Tx_prec_cmd) -> true
-  | Translate_cmd _    ,Translate_cmd _ -> true
-  | Dot_cmd            ,(Dot_cmd | Fuse_cmd | Dispatch_cmd | Wrap_cmd | Attributes_cmd | Lift_cmd | Desugar_cmd | Close_under_core_cmd | Tx_prec_cmd) -> true
-  | Dispatch_cmd       ,(Dispatch_cmd | Wrap_cmd | Attributes_cmd | Lift_cmd | Desugar_cmd | Close_under_core_cmd | Tx_prec_cmd) -> true
-  | Wrap_cmd           ,(Wrap_cmd | Attributes_cmd | Lift_cmd | Desugar_cmd | Close_under_core_cmd | Tx_prec_cmd) -> true
-  | Attributes_cmd     ,(Attributes_cmd | Lift_cmd | Desugar_cmd | Close_under_core_cmd | Tx_prec_cmd) -> true
-  | Lift_cmd           ,(Lift_cmd | Desugar_cmd | Close_under_core_cmd | Tx_prec_cmd) -> true
-  | Desugar_cmd        ,(Desugar_cmd | Close_under_core_cmd | Tx_prec_cmd) -> true
-  | (Wrap_cmd
-    | Attributes_cmd
-    | Lift_cmd
-    | Desugar_cmd
-    | Tx_prec_cmd
-    | Transform_cmd _) ,Print_gul_cmd -> true
-  | Dispatch_cmd       ,Print_gil_cmd -> true
-  | Compile_only_cmd   ,Compile_cmd -> true
-  | Dispatch_only_cmd  ,Dispatch_cmd -> true
-  | Wrap_only_cmd      ,Wrap_cmd -> true
-  | Lift_only_cmd      ,Lift_cmd -> true
-  | Desugar_only_cmd   ,Desugar_cmd -> true
-  | x                ,y when x=y -> true
-  | _                ,_ -> false
-;;
+let phase_order = (* preorder on phases *)
+  let rec add g = function
+      [] -> g
+    | [s] -> Tgraph.add_edge g s s
+    | s::t::tl -> add (Tgraph.add_edge (Tgraph.add_edge g s s) s t) (t::tl) in
+  Tgraph.tc
+    (List.fold_left add Tgraph.empty
+       [
+        [Translate_cmd; Fuse_cmd];
+        [      Dot_cmd; Fuse_cmd];
+        [  Compile_cmd; Fuse_cmd];
+        [     Exec_cmd; Fuse_cmd];
 
-Logging.add_features (Logging.Features.none
+        (* This ordering is over-specified, but that's useful for determinism *)
+        [Fuse_cmd; Dispatch_cmd; Wrap_cmd; Attributes_cmd; Lift_cmd;
+         Desugar_cmd; Unroll_star_cmd; Inline_regular_cmd; Copyrule_cmd;
+         Hash_cmd; Minus_cmd; Tx_prec_cmd; Close_under_core_cmd;
+         Subset_cmd; Lexer_cmd];
+      ])
+let phase_order_sorted = Tgraph.tsort phase_order
+let phases_of cmd =
+  let phases =
+    if !Cmdline.only then [cmd] else
+    List.filter
+      (fun x -> Tgraph.is_edge phase_order cmd x)
+      phase_order_sorted in
+  let phases = (* Add an output phase if necessary *)
+    match cmd with
+    | Lexer_cmd
+    | Subset_cmd
+    | Close_under_core_cmd
+    | Tx_prec_cmd
+    | Minus_cmd
+    | Hash_cmd
+    | Copyrule_cmd
+    | Inline_regular_cmd
+    | Unroll_star_cmd
+    | Lookahead_analysis_cmd
+    | Desugar_cmd
+    | Lift_cmd
+    | Attributes_cmd
+    | Wrap_cmd               -> Print_gul_cmd::phases
+
+    | Dispatch_cmd
+    | Fuse_cmd               -> Print_gil_cmd::phases
+
+    | _                      -> phases in
+  List.rev phases
+
+;;Logging.add_features (Logging.Features.none
 (*   lor Logging.Features.completions *)
 (*   lor Logging.Features.scans *)
 (*   lor Logging.Features.registrations *)
@@ -91,7 +107,7 @@ let try_fst f gr = (* OpenFST version *)
     (fun w -> Fsm.grammar_fsm w gr)
     (fun r -> f gr r !outch)
 
-let use_fsm = false
+let use_fsm = true
 let gil_transducer,gil_dot =
   if use_fsm then
     (* FSM *)
@@ -102,7 +118,10 @@ let gil_transducer,gil_dot =
 
 let dump_prologue gr =
   List.iter
-    (function Ocaml x -> Printf.fprintf !outch "%s" x
+    (function Ocaml x ->
+(*      Printf.printf "dumping--\n%s%!" x;*)
+      Printf.fprintf !outch "%s" x;
+()(*      Printf.printf "X%s%!" x*)
       | _ -> failwith "dump_prologue")
     (List.rev gr.prologue)
 
@@ -111,7 +130,6 @@ let dump_epilogue gr =
     (function Ocaml x -> Printf.fprintf !outch "%s" x
       | _ -> failwith "dump_epilogue")
     gr.epilogue
-;;
 
 let add_boilerplate2 backend gr =
   let post_parse_function =
@@ -164,20 +182,6 @@ let parse = Yak.Pami.mk_parse_fun __parse %s
 let parse_string = Yak.Pami.Simple.parse_string parse
 ;;\n" in
   add_to_epilogue gr boilerplate
-;;
-
-Logging.add_features (
-  Logging.Features.none
-(* lor  Logging.Features.stats *)
-(*   lor Logging.Features.extent *)
-(*   lor Logging.Features.completions *)
-(*   lor Logging.Features.scans *)
-(*   lor Logging.Features.registrations *)
-(*   lor Logging.Features.lookahead *)
-(*   lor Logging.Features.sppf  *)
-(*   lor Logging.Features.worklist *)
-)
-;;
 
 let do_phase name thunk =
   vprintf "%s...%!" name;
@@ -185,204 +189,178 @@ let do_phase name thunk =
   vprintf "done\n%!";
   result
 
-let process_ds gr =
-  do_phase "lexer transform" (fun () ->
-    Lexutil.transform gr;
-    Lexutil.run_ocamllex gr);
+let do_compile gr =
+  do_phase "compiling to backend" (fun () ->
+    dump_prologue gr;
+    (match backend with
+    | Fun_BE -> Gil_gen.pr_gil_definitions2 !outch gr.start_symbol gr.tokmap gr.gildefs
+    | Peg_BE liberal -> Gil_gen.Peg.pr_definitions !outch liberal gr.start_symbol gr.gildefs
+    | Trans_BE ->
+        gil_transducer gr.gildefs);
+    add_boilerplate2 backend gr;
+    dump_epilogue gr)
 
-  if roots <> [] then
-    do_phase "subsetting" (fun () ->
-      gr.ds <- Gul.get_reachable gr.ds roots);
-
-  let doit = implied_by cmd in
-
-  if doit Close_under_core_cmd then
-    begin
-      do_phase "closing under core rules" (fun () ->
-        gr.ds <- Gul.close_definitions gr.ds core)
-    end;
-
-  if doit Tx_prec_cmd then
-    begin
-      do_phase "precedence transform" (fun () ->
-	Analyze.prec_rewrite gr)
-    end;
-
-  do_phase "minus elimination" (fun () ->
-    Analyze.relevance gr;
-    Minus.elim gr);
-
-  do_phase "hash elimination" (fun () ->
-    Hash.elim gr);
-
-  do_phase "copy rule transform" (fun () ->
-    Copyrule.transform gr);
-
-  if doit Print_npreds_cmd then
-    begin
-      let tbl_ntnames = Hashtbl.create 11 in
-      let ntnum = ref 264 in
-      let add_nonterm nt =
-        begin
-          match Util.find_option tbl_ntnames nt with
-          | Some x -> x
-          | None ->
-              let num = !ntnum in
-              incr ntnum;
-              Hashtbl.add tbl_ntnames nt num;
-              num
-        end
-      in
-      (* use dummy get_start function because there is no transducer. *)
-      Nullable_pred.process_grammar !outch add_nonterm (fun _ -> 0) gr
-    end;
-
-  Analyze.relevance gr;
-
-  if !Compileopt.inline_regular then
-    (do_phase "inlining regular grammars" (fun () ->
-      Analyze.regular_inline gr true;
-      vprintf "%t"
-        (fun outc ->
-          if (List.exists (function RuleDef(_,r,_) -> r.a.is_regular | _ -> false) gr.ds) then begin
-            Printf.fprintf outc "These nonterminals have regular right-hand sides:";
+let do_phases gr =
+  List.iter
+    (function
+      | Lexer_cmd ->
+          do_phase "lexer transform" (fun () ->
+            Lexutil.transform gr;
+            Lexutil.run_ocamllex gr)
+      | Subset_cmd ->
+          if roots <> [] then
+            do_phase "subsetting" (fun () ->
+              gr.ds <- Gul.get_reachable gr.ds roots)
+      | Close_under_core_cmd ->
+          do_phase "closing under core rules" (fun () ->
+            gr.ds <- Gul.close_definitions gr.ds core)
+      | Tx_prec_cmd ->
+          do_phase "precedence transform" (fun () ->
+            Analyze.producers gr;
+            Analyze.relevance gr;
+            Analyze.prec_rewrite gr)
+      | Minus_cmd ->
+          do_phase "minus elimination" (fun () ->
+            Analyze.producers gr;
+            Analyze.relevance gr;
+            Minus.elim gr)
+      | Hash_cmd ->
+          do_phase "hash elimination" (fun () ->
+            Hash.elim gr)
+      | Copyrule_cmd ->
+          do_phase "copy rule transform" (fun () ->
+            Copyrule.transform gr)
+      | Inline_regular_cmd ->
+          if !Compileopt.inline_regular then
+            (do_phase "inlining regular grammars" (fun () ->
+              Analyze.producers gr;
+              Analyze.relevance gr;
+              Analyze.regular_inline gr true;
+              vprintf "%t"
+                (fun outc ->
+                  if (List.exists (function RuleDef(_,r,_) -> r.a.is_regular | _ -> false) gr.ds) then begin
+                    Printf.fprintf outc "These nonterminals have regular right-hand sides:";
+                    List.iter
+                      (function RuleDef(n,r,_) -> if r.a.is_regular then Printf.fprintf outc " %s" n | _ -> ())
+                      gr.ds;
+                    Printf.fprintf outc "\n"
+                  end
+                  else
+                    Printf.fprintf outc "No nonterminals have regular right-hand sides\n")))
+      | Unroll_star_cmd ->
+          if !Compileopt.unroll_star_n > 0 then
+            (do_phase "unrolling Kleene closure" (fun () ->
+              Analyze.producers gr;
+              Analyze.relevance gr;
+              Analyze.unroll_analyze gr;
+              vprintf "%t" (fun outc -> Pr.pr_grammar outc gr)))
+      | Desugar_cmd ->
+          do_phase "desugaring" (fun () ->
+            Desugar.desugar gr)
+      | Lift_cmd ->
+          do_phase "lifting" (fun () ->
+            Analyze.producers gr;
+            Analyze.relevance gr;
+            Lift.transform gr)
+      | Attributes_cmd ->
+          do_phase "attributes" (fun () ->
+            Analyze.producers gr;
+            Analyze.relevance gr;
+            Attributes.eliminate gr)
+      | Wrap_cmd ->
+          do_phase "wrapping" (fun () ->
+            Analyze.producers gr;
+            Analyze.relevance gr;
+            if gr.grammar_early_relevant then begin
+              Wrap.wrap gr; Analyze.relevance gr;
+              Wrap.force_alt_relevance gr; Analyze.relevance gr
+            end;
+            Wrap.transform_history gr)
+      | Print_relevance_cmd ->
+          vprintf "%t" (fun outc ->
+            Analyze.relevance gr;
             List.iter
-              (function RuleDef(n,r,_) -> if r.a.is_regular then Printf.fprintf outc " %s" n | _ -> ())
-              gr.ds;
-            Printf.fprintf outc "\n"
+              (function
+                  RuleDef(n,r,a) ->
+                    Printf.fprintf outc "Rel[%s,%s] Prod[%s,%s] <-- %s\n%!"
+                      (if r.a.early_relevant then "T" else "F")
+                      (if r.a.late_relevant then "T" else "F")
+                      (if (PSet.mem n gr.early_producers) then "T" else "F")
+                      (if (PSet.mem n gr.late_producers) then "T" else "F")
+                      n
+                | _ -> ())
+              gr.ds)
+      | Print_gul_cmd ->
+          Pr.pr_grammar stdout gr
+      | Dispatch_cmd ->
+          do_phase "dispatching" (fun () ->
+            Analyze.relevance gr;
+            Label.transform gr;
+            if !Compileopt.check_labels then
+              add_to_prologue gr
+                "let _i (x,y) = if x=y then y else failwith(Printf.sprintf \"_i expected %d, got %d\" x y)\n";
+            Analyze.assignments gr;
+            Replay.transform gr;
+            Dispatch.transform gr)
+      | Fuse_cmd ->
+          if !Compileopt.coalesce then
+            do_phase "coalescing actions" (fun () -> Fusion.fuse gr)
+      | Compile_cmd ->
+          do_compile gr
+
+      | Exec_cmd ->
+          begin
+            (* If the commands come with no epilogue, default to parsing the start symbol. *)
+            if gr.epilogue=[] then
+              add_to_epilogue gr "Yak.Pami.Simple.run parse_file";
+            (* redirect output to a temporary file *)
+            let (temp_file_name,temp_chan) = Filename.open_temp_file "yakker" ".ml" in
+
+            outch := temp_chan;
+
+            do_compile gr;
+
+            (* make sure compiled output is flushed *)
+            close_out temp_chan;
+            (* have ocaml execute the output *)
+            (* need to pass -I flag so that ocaml can find yakker.cmi etc. *)
+            (* currently the Makefile stashes this in buildinfo.ml, the build_dir
+               is where those files end up during the build.
+               TODO: eventually this ought to be the install location *)
+            let args = String.concat " " (List.map (fun s -> "\""^s^"\"") (!Cmdline.exec_l)) in
+            let command = Printf.sprintf "ocaml -I \"%s\" unix.cma yak.cma %s %s" Buildinfo.build_dir temp_file_name args in
+            (match Unix.system command with
+              Unix.WEXITED x ->   () (* Printf.eprintf "ocaml exited with %d\n%!" x        *)
+            | Unix.WSIGNALED x -> () (* Printf.eprintf "ocaml exited with signal %d\n%!" x *)
+            | Unix.WSTOPPED x ->  () (* Printf.eprintf "ocaml stopped with %d\n%!" x       *)
+            );
+            (* clean up temp file *)
+            Sys.remove temp_file_name
           end
-          else
-            Printf.fprintf outc "No nonterminals have regular right-hand sides\n")));
-
-  if !Compileopt.unroll_star_n > 0 then
-    (do_phase "unrolling Kleene closure" (fun () ->
-      Analyze.unroll_analyze gr;
-      vprintf "%t" (fun outc -> Pr.pr_grammar outc gr)));
-
-
-  if !Compileopt.lookahead then
-    (do_phase "FIRST/FOLLOW set analysis" (fun () ->
-      vprintf "%t"
-        (fun outc -> Analyze.First_set_lex.report gr outc gr.tokmap)));
-
-
-  if doit Desugar_cmd then
-    do_phase "desugaring" (fun () ->
-      Desugar.desugar gr; Analyze.relevance gr);
-
-  if doit Lift_cmd then
-    do_phase "lifting" (fun () ->
-      Lift.transform gr;
-      Analyze.relevance gr);
-
-  if doit Attributes_cmd then
-    do_phase "attributes" (fun () ->
-      Attributes.eliminate gr;
-      Analyze.producers gr;
-      Analyze.relevance gr);
-
-  if doit Wrap_cmd then
-    do_phase "wrapping" (fun () ->
-      if gr.grammar_early_relevant then begin
-        Wrap.wrap gr; Analyze.relevance gr;
-        Wrap.force_alt_relevance gr; Analyze.relevance gr
-      end;
-      Wrap.transform_history gr; Analyze.relevance gr);
-
-  vprintf "%t" (fun outc ->
-    List.iter
-      (function
-          RuleDef(n,r,a) ->
-            Printf.fprintf outc "Rel[%s,%s] Prod[%s,%s] <-- %s\n%!"
-              (if r.a.early_relevant then "T" else "F")
-              (if r.a.late_relevant then "T" else "F")
-              (if (PSet.mem n gr.early_producers) then "T" else "F")
-              (if (PSet.mem n gr.late_producers) then "T" else "F")
-              n
-        | _ -> ())
-      gr.ds);
-
-  if doit Dispatch_cmd then
-    do_phase "dispatching" (fun () ->
-      Label.transform gr;
-      if !Compileopt.check_labels then
-        add_to_prologue gr
-          "let _i (x,y) = if x=y then y else failwith(Printf.sprintf \"_i expected %d, got %d\" x y)\n";
-      Analyze.assignments gr;
-      Replay.transform gr;
-      Dispatch.transform gr);
-
-  if doit Fuse_cmd && !Compileopt.coalesce then
-    do_phase "coalescing actions" (fun () -> Fusion.fuse gr);
-
-  let exec_context = ref None in
-  if doit (Exec_cmd("",[])) then begin
-    (* If the commands come with no epilogue, default to parsing the start symbol. *)
-    if gr.epilogue=[] then
-      add_to_epilogue gr "Yak.Pami.Simple.run parse_file";
-    (* redirect output to a temporary file *)
-    let (temp_file_name,temp_chan) = Filename.open_temp_file "yakker" ".ml" in
-    exec_context := Some(temp_file_name,temp_chan);
-    outch := temp_chan
-  end;
-  if doit Compile_cmd then
-    do_phase "compiling to backend" (fun () ->
-      dump_prologue gr;
-      (match backend with
-        | Fun_BE -> Gil_gen.pr_gil_definitions2 !outch gr.start_symbol gr.tokmap gr.gildefs
-        | Peg_BE liberal -> Gil_gen.Peg.pr_definitions !outch liberal gr.start_symbol gr.gildefs
-        | Trans_BE -> gil_transducer gr.gildefs);
-      add_boilerplate2 backend gr;
-      dump_epilogue gr);
-  if doit (Exec_cmd("",[])) then begin
-    match !exec_context with None -> ()
-    | Some(temp_file_name,temp_chan) ->
-        (* make sure compiled output is flushed *)
-        close_out temp_chan;
-        (* have ocaml execute the output *)
-        (* need to pass -I flag so that ocaml can find yakker.cmi etc. *)
-        (* currently the Makefile stashes this in buildinfo.ml, the build_dir
-           is where those files end up during the build.
-           TODO: eventually this ought to be the install location *)
-        let args =
-          match cmd with Exec_cmd(_,args) ->
-            String.concat " " (List.map (fun s -> "\""^s^"\"") args)
-          | _ -> "" in
-        let command = Printf.sprintf "ocaml -I \"%s\" unix.cma yak.cma %s %s" Buildinfo.build_dir temp_file_name args in
-        (match Unix.system command with
-          Unix.WEXITED x ->   () (* Printf.eprintf "ocaml exited with %d\n%!" x        *)
-        | Unix.WSIGNALED x -> () (* Printf.eprintf "ocaml exited with signal %d\n%!" x *)
-        | Unix.WSTOPPED x ->  () (* Printf.eprintf "ocaml stopped with %d\n%!" x       *)
-        );
-        (* clean up temp file *)
-        Sys.remove temp_file_name;
-  end;
-  if doit Dot_cmd then
-    gil_dot gr.gildefs;
-  if doit Print_gul_cmd then
-    Pr.pr_grammar stdout gr;
-  if doit Print_gil_cmd then
-    begin
-      let b = Buffer.create 11 in
-      if gr.prologue=[] then () else begin
-        Printf.bprintf b "{\n";
-        List.iter
-          (function Ocaml x -> Printf.bprintf b "%s" x
-            | _ -> failwith "main")
-          (List.rev gr.prologue);
-        Printf.bprintf b "\n}\n\n"
-      end;
-      Pr.Gil.Pretty.pr_definitions b gr.gildefs;
-      Printf.printf "%s\n%!" (Buffer.contents b)
-    end;
-  (match cmd with
-    | Translate_cmd plugin ->
-        do_phase "exporting to alternate syntax" (fun () ->
-          match plugin with Dypgen_PI (is_scannerless) ->
+      | Dot_cmd ->
+          gil_dot gr.gildefs
+      | Print_gil_cmd ->
+          begin
             let b = Buffer.create 11 in
-            Pr.Gil.Dypgen.pr_grammar b is_scannerless gr gr.gildefs; (*TODO: Change Dypgen.pr_grammar to use gr.gildefs*)
-            Printf.fprintf !outch "%s\n%!" (Buffer.contents b))
-    | _ -> ())
+            if gr.prologue=[] then () else begin
+              Printf.bprintf b "{\n";
+              List.iter
+                (function Ocaml x -> Printf.bprintf b "%s" x
+                  | _ -> failwith "main")
+                (List.rev gr.prologue);
+              Printf.bprintf b "\n}\n\n"
+            end;
+            Pr.Gil.Pretty.pr_definitions b gr.gildefs;
+            Printf.printf "%s\n%!" (Buffer.contents b)
+          end
+      | Translate_cmd ->
+          let plugin = !Cmdline.translate_plugin in
+          do_phase "exporting to alternate syntax" (fun () ->
+            match plugin with Dypgen_PI (is_scannerless) ->
+              let b = Buffer.create 11 in
+              Pr.Gil.Dypgen.pr_grammar b is_scannerless gr gr.gildefs; (*TODO: Change Dypgen.pr_grammar to use gr.gildefs*)
+              Printf.fprintf !outch "%s\n%!" (Buffer.contents b))
+      | _ -> failwith "Internal error: unexpected phase")
 
 let parse_file file =
   do_phase "parsing bnf" (fun () ->
@@ -404,8 +382,8 @@ match cmd with
     else Printf.printf "not activated.\n";
     exit 0
 
-| Rfc_cmd n ->
-    Rfc.get n
+| Rfc_cmd ->
+    Rfc.get !Cmdline.rfc_num
 
 | Extract_cmd ->
     List.iter
@@ -417,7 +395,8 @@ match cmd with
       (fun file -> Pr.pr_grammar stdout (remove_late_actions(parse_file file)))
       files
 
-| Transform_cmd txs ->
+| Transform_cmd  ->
+    let txs = !Cmdline.transforms in
     (let do_tx gr = function
       | Inline_regular_Tx -> Analyze.regular_inline gr true; gr
       | Add_LR1_lookahead_Tx ->
@@ -514,35 +493,60 @@ match cmd with
       prerr_endline ("Exception raised:\n" ^ Printexc.to_string e);
       prerr_endline (Printexc.get_backtrace());
       exit 1)
-
-| Analyze_cmd A_precedence_sets ->
-    let process_gr gr =
-      do_phase "lexer transform" (fun () ->
-        Lexutil.transform gr;
-        Lexutil.run_ocamllex gr);
-
-
-      do_phase "precedence analysis" (fun () ->
-        let v = Analyze.build_prec_sets gr in
-        Analyze.print_prec_sets v;
-      );
-
-(*       do_phase "precedence transform" (fun () -> *)
-(*      Analyze.prec_rewrite gr *)
-(*       ); *)
-(*       Pr.pr_grammar stdout gr  *)
-    in
+| Print_npreds_cmd ->
     List.iter
-      (fun file -> process_gr (parse_file file))
-      files;
+      (fun file ->
+        let gr = parse_file file in
+        let tbl_ntnames = Hashtbl.create 11 in
+        let ntnum = ref 264 in
+        let add_nonterm nt =
+          begin
+            match Util.find_option tbl_ntnames nt with
+            | Some x -> x
+            | None ->
+                let num = !ntnum in
+                incr ntnum;
+                Hashtbl.add tbl_ntnames nt num;
+                num
+          end
+        in
+        (* use dummy get_start function because there is no transducer. *)
+        Nullable_pred.process_grammar !outch add_nonterm (fun _ -> 0) gr)
+      files
+| Lookahead_analysis_cmd ->
+    List.iter
+      (fun file ->
+        let gr = parse_file file in
+        do_phase "FIRST/FOLLOW set analysis" (fun () ->
+          Analyze.producers gr;
+          Analyze.relevance gr;
+          vprintf "%t"
+            (fun outc -> Analyze.First_set_lex.report gr outc gr.tokmap)))
+      files
+| Analyze_cmd ->
+    (match !Cmdline.analysis with
+      A_precedence_sets ->
+        let process_gr gr =
+          do_phase "lexer transform" (fun () ->
+            Lexutil.transform gr;
+            Lexutil.run_ocamllex gr);
+          do_phase "precedence analysis" (fun () ->
+            let v = Analyze.build_prec_sets gr in
+            Analyze.print_prec_sets v) in
+        List.iter
+          (fun file -> process_gr (parse_file file))
+          files)
 
-| Exec_cmd(file,_) ->
-    process_ds(parse_file file)
+| Exec_cmd ->
+    let file = !Cmdline.exec_f in
+    let gr = parse_file file in
+    do_phases gr (phases_of Exec_cmd)
 | _ ->
     (try
       List.iter
         (fun file ->
-          process_ds(parse_file file))
+          let gr = parse_file file in
+          do_phases gr (phases_of cmd))
         files;
     with e ->
       prerr_endline ("Exception raised:\n" ^ Printexc.to_string e);

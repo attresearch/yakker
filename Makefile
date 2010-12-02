@@ -62,11 +62,6 @@ endif
 OCAMLOPT=ocamlfind ocamlopt
 OCAMLDOC=ocamlfind ocamldoc
 
-#ENGINE_TESTS = simple thunk
-ENGINE_TESTS = thunk
-ETESTS_EXE = $(foreach test,$(ENGINE_TESTS),$(test)-parser)
-ETESTS_ML = $(foreach test,$(ENGINE_TESTS),$(test).ml)
-
 # TJIM: removed "history" test below, temporary, conflict with new history.ml
 #TESTS=history
 TESTS = expr int255 intFW scott_example3 yxml2 imap t000 t001 t002 t003 t004 \
@@ -122,7 +117,7 @@ uninstall:
 	ocamlfind remove yakker
 
 .PHONY: tests
-tests: $(ETESTS_EXE) $(TESTS_EXE)
+tests: $(TESTS_EXE)
 
 .PHONY: examples
 examples: $(EXAMPLES_EXE)
@@ -443,17 +438,6 @@ endif
 ##   Tests
 ########################################################################
 
-$(ETESTS_EXE) : %-parser : yak.cma %.cmo
-	@echo "--x> " $@
-	@$(OCAMLC) $^ -g -package unix -linkpkg -o $@
-
-
-$(ETESTS_ML) : %.ml : tests/$$*/$$*.bnf yakker
-	@echo "x--> " $@
-	@./yakker compile-only $< > $@
-
-########################################################################
-
 $(TESTS_OPT_EXE): %-parser.opt: yak.cmxa %.cmx
 	@echo "--x> " $@
 	@$(OCAMLOPT) $^ -package unix -linkpkg -o $@
@@ -554,8 +538,11 @@ llexer.cmx: ocamlparser.cmi
 ocamlparser.ml: ocamlparser.bnf
 	./yakker compile $< > $(TOPDIR)/src/ocamlparser.ml
 
-llexer.ml: llexer.mll
+%.ml: %.mll
 	ocamllex $<
+
+ocaml_lexer.mll: ../ocaml/lexer.patch ../ocaml/lexer.mll
+	patch -o - -d ../ocaml < $< > $@
 
 ########################
 # OCaml distro's parser

@@ -44,6 +44,8 @@ let set_features fs = current_features := fs
 let add_features fs =
   current_features := !current_features lor fs
 
+let features_are_set fs = fs land !current_features = fs
+
 (** Add to log if any of the specified features are active *)
 let log_any features =
   if (features land !current_features) <> 0 then Printf.eprintf
@@ -68,11 +70,21 @@ module Counters = struct
     let n = Hashtbl.find counters c in
     Hashtbl.replace counters c (n+1)
 
+  let increment_by c m =
+    let n = Hashtbl.find counters c in
+    Hashtbl.replace counters c (n + m)
+
   let report () =
     Hashtbl.iter (fun c n -> log Features.stats "%s = %d\n" c n) counters
 end
 
 module Distributions = struct
+
+  (** not used yet. plan is to store values in vals until val_count crosses 
+      a threshold and then to calculate the distro and discard the vals. *)
+  type 'a distro = { distro : ('a (* value *) * int (* count *)) list;
+		     val_count : int;
+		     vals : 'a list; }		     
 
   let table : (string, int list) Hashtbl.t = Hashtbl.create 11
 
@@ -84,21 +96,25 @@ module Distributions = struct
     let vs = Hashtbl.find table k in
     Hashtbl.replace table k (v::vs)
 
+  (** Map a list of values to a distribution. *)
+  let calculate (vs : int list) =
+    match List.sort (-) vs with
+      | [] -> []
+      | x::xs ->
+	  let v, n, d = List.fold_left
+	    (fun (v_last, n, dis) v ->
+	       if v = v_last then (v_last, n + 1, dis)
+	       else (v, 1, (v_last, n)::dis)) (x, 1, []) xs in
+	  List.rev ((v,n)::d)
+
+  let log_distro =
+    List.iter (fun (v, n) -> log Features.stats " %d, %d |" v n)
+
   let report () =
     Hashtbl.iter (fun k vs ->
-		      let distribution =
-			match List.sort (-) vs with
-			  | [] -> []
-			  | x::xs ->
-			      let v, n, d = List.fold_left
-				(fun (v_last, n, dis) v ->
-				   if v = v_last then (v_last, n + 1, dis)
-				   else (v, 1, (v_last, n)::dis)) (x, 1, []) xs in
-			      List.rev ((v,n)::d) in
+		      let distribution = calculate vs in
 		      log Features.stats "%s:" k;
-		      List.iter (fun (v, n) ->
-				   log Features.stats " %d, %d |" v n)
-			distribution;
+		      log_distro distribution;
 		      log Features.stats "\n") table
 
 end

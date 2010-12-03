@@ -9,7 +9,7 @@
  *    Trevor Jim and Yitzhak Mandelbaum
  *******************************************************************************)
 
-let activated = true
+let activated = false
 
 type level = int
 
@@ -116,5 +116,4 @@ module Distributions = struct
 		      log Features.stats "%s:" k;
 		      log_distro distribution;
 		      log Features.stats "\n") table
-
 end

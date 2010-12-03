@@ -18,51 +18,46 @@
  *******************************************************************************)
 
 open Yak
-type plugin =
-  | Dypgen_PI of bool (** flag indicating whether the generated grammar should be faux-scannerless. *)
-
-type transformation = Inline_regular_Tx | Add_LR1_lookahead_Tx
-
-type analyses = A_precedence_sets
 
 type command =
-| Exec_cmd of string * string list
-| Compile_cmd
-| Translate_cmd of plugin
-
-| Close_under_core_cmd
-| Dispatch_cmd
-| Wrap_cmd
 | Attributes_cmd
-| Lift_cmd
+| Close_under_core_cmd
+| Compile_cmd
+| Copyrule_cmd
 | Desugar_cmd
+| Dispatch_cmd
+| Dot_cmd
+| Exec_cmd
+| Extract_cmd
 | Fuse_cmd
-| Tx_prec_cmd
-
-| Compile_only_cmd
-| Dispatch_only_cmd
-| Wrap_only_cmd
-| Attributes_only_cmd
-| Lift_only_cmd
-| Desugar_only_cmd
-
+| Hash_cmd
+| Info_cmd
+| Inline_regular_cmd
+| Lexer_cmd
+| Lift_cmd
+| Lookahead_analysis_cmd
+| Lr1_lookahead_cmd
+| Minus_cmd
+| Precedence_analysis_cmd
 | Print_gil_cmd
 | Print_gul_cmd
 | Print_npreds_cmd
-| Extract_cmd
-| Rfc_cmd of int
-| Dot_cmd
+| Print_relevance_cmd
+| Rfc_cmd
 | Strip_late_actions_cmd
-
-| Info_cmd (* display internal information about the compiler. *)
-
-| Transform_cmd of transformation list
-
-| Analyze_cmd of analyses (** Perform a grammar analysis. *)
+| Subset_cmd
+| Translate_dypgen_cmd
+| Translate_dypgen_scannerless_cmd
+| Tx_prec_cmd
+| Unroll_star_cmd
+| Wrap_cmd
 
 let cmd = ref Print_gul_cmd
 let files = ref []
 let roots = ref []
+let exec_l = ref []
+let rfc_num = ref 0
+let only = ref false
 
 type backend =
   | Fun_BE   (** Functional backend (parser combinators).*)
@@ -76,59 +71,57 @@ cmd-line-args = command$c *args eof { cmd := c }.
 o = %d0 .
 arg = 1*CHAR !CHAR .
 file = (CHAR - "-") *CHAR !CHAR .
-transformation =
-            "inline-regular" { Inline_regular_Tx }
-          | "add-lr1-lookahead" { Add_LR1_lookahead_Tx }
-          .
-analysis = "precedence" {A_precedence_sets}.
 command =
-        "dot" o                           { Dot_cmd }
-      | "lift-only" o                     { Lift_only_cmd }
-      | "attributes-only" o               { Attributes_only_cmd }
-      | "wrap-only" o                     { Wrap_only_cmd }
-      | "dispatch-only" o                 { Dispatch_only_cmd }
-      | "compile-only" o                  { Compile_only_cmd }
-      | "precedence" o                    { Tx_prec_cmd }
-      | "desugar" o                       { Desugar_cmd }
-      | "lift" o                          { Lift_cmd }
-      | "attributes" o                    { Attributes_cmd }
-      | "wrap" o                          { Wrap_cmd }
-      | "dispatch" o                      { Dispatch_cmd }
+        "attributes" o                    { Attributes_cmd }
+      | "close-under-core" o              { Close_under_core_cmd }
       | "compile" o                       { Compile_cmd }
-      | "translate" o
-           ("dypgen" {Dypgen_PI false}
-           |"dypgen-scannerless"
-                    {Dypgen_PI true})$t o { Translate_cmd t }
-      | "print-gil" o                     { Print_gil_cmd }
-      | "print" o                         { Print_gul_cmd }
-      | "strip-late-actions" o            { Strip_late_actions_cmd }
+      | "desugar" o                       { Desugar_cmd }
+      | "dispatch" o                      { Dispatch_cmd }
+      | "dot" o                           { Dot_cmd }
+      | "exec" o arg$f *(o arg$x {x})$l o { files := f::!files; exec_l := l; Exec_cmd }
       | "extract" o                       { Extract_cmd }
-      | "rfc" (1*DIGIT)$n o               { try Rfc_cmd(int_of_string n) with _ -> raise(Failure "Invalid RFC number") }
-      | "print-npreds" o                  { Print_npreds_cmd }
-      | "exec" o arg$f *(o arg$x {x})$l o { Exec_cmd(f,l) }
+      | "fuse" o                          { Compileopt.coalesce := true; Fuse_cmd }
+      | "hash" o                          { Hash_cmd }
       | "info" o                          { Info_cmd }
-
-      | "transform" o transformation$tx *("," transformation$x {x})$txs o { Transform_cmd (tx::txs) }
-      | "analyze" o analysis$a o            { Analyze_cmd a }
+      | "inline-regular" o                { Compileopt.inline_regular := true; Inline_regular_cmd }
+      | "lexer" o                         { Lexer_cmd }
+      | "lift" o                          { Lift_cmd }
+      | "lookahead-analysis" o            { Lookahead_analysis_cmd }
+      | "lr1-lookahead" o                 { Lr1_lookahead_cmd }
+      | "minus" o                         { Minus_cmd }
+      | "precedence" o                    { Tx_prec_cmd }
+      | "precedence-analysis" o           { Precedence_analysis_cmd }
+      | "print" o                         { Print_gul_cmd }
+      | "print-gil" o                     { Print_gil_cmd }
+      | "print-npreds" o                  { Print_npreds_cmd }
+      | "print-nullable-predicates" o     { Print_npreds_cmd }
+      | "print-relevance" o               { Print_relevance_cmd }
+      | "rfc" (1*DIGIT)$n o               { try rfc_num := int_of_string n; Rfc_cmd with _ -> failwith "Invalid RFC number" }
+      | "strip-late-actions" o            { Strip_late_actions_cmd }
+      | "subset" o                        { Subset_cmd }
+      | "translate-dypgen" o              { Translate_dypgen_cmd }
+      | "translate-dypgen-scannerless" o  { Translate_dypgen_scannerless_cmd }
+      | "unroll-star" o                   { if !Compileopt.unroll_star_n<1 then Compileopt.unroll_star_n := 1; Unroll_star_cmd }
+      | "wrap" o                          { Wrap_cmd }
 
 args =
-        "-case-insensitive" o              { Compileopt.case_sensitive := false }
-      | "-backend" o
+        "-backend" o
           ( "fun" {Fun_BE}
           | "tx"  {Trans_BE}
           | "peg-strict" {Peg_BE false}
-          | "peg" {Peg_BE true} )$b o      { backend := b }
-      | "-inline-cs" o                     { Compileopt.inline_cs := true }
-      | "-inline-regular" o                { Compileopt.inline_regular := true }
-      | "-unroll-star" o (1*DIGIT)$n o     { Compileopt.unroll_star_n := (int_of_string n) }
-      | "-counter" o (1*DIGIT)$n o         { Variables.counter := (int_of_string n) }
-      | "-lookahead" o                     { Compileopt.lookahead := true }
-      | "-no-coalesce" o                   { Compileopt.coalesce := false }
-      | "-new-engine" o                    { Yak.Pami.new_engine_flag := true }
-      | "-check-labels" o                  { Compileopt.check_labels := true }
-      | "-v" o                             { Yak.Logging.add_features Yak.Logging.Features.verbose }
-      | "-root" o arg$x o                  { roots := x::!roots }
-      | file$f o                           { files := f::!files }
+          | "peg" {Peg_BE true} )$b o     { backend := b }
+      | "-case-insensitive" o             { Compileopt.case_sensitive := false }
+      | "-check-labels" o                 { Compileopt.check_labels := true }
+      | "-counter" o (1*DIGIT)$n o        { Variables.counter := (int_of_string n) }
+      | "-inline-cs" o                    { Compileopt.inline_cs := true }
+      | "-inline-regular" o               { Compileopt.inline_regular := true }
+      | "-lookahead" o                    { Compileopt.lookahead := true }
+      | "-no-coalesce" o                  { Compileopt.coalesce := false }
+      | "-only" o                         { only := true }
+      | "-root" o arg$x o                 { roots := x::!roots }
+      | "-unroll-star" o (1*DIGIT)$n o    { Compileopt.unroll_star_n := (int_of_string n) }
+      | "-v" o                            { Yak.Logging.add_features Yak.Logging.Features.verbose }
+      | file$f o                          { files := f::!files }
 .
 eof = "" !OCTET .
 @end {

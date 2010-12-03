@@ -41,7 +41,7 @@ CMOS:=$(ML_SOURCES:.ml=.cmo)
 CMXS:=$(ML_SOURCES:.ml=.cmx)
 
 FRONT_END_SOURCES := compileopt.ml variables.ml tgraph.ml gil.ml gul.ml desugar.ml pr.ml nullable_pred.ml minus.ml hash.ml copyrule.ml \
-                     analyze.ml fusion.ml attributes.ml wrap.ml coroutine.ml replay.ml dispatch.ml label.ml lift.ml fsm.ml \
+                     analyze.ml lookahead.ml fusion.ml attributes.ml wrap.ml coroutine.ml replay.ml dispatch.ml label.ml lift.ml fsm.ml \
 		     extract_grammar.ml rfc.ml yakker_grammar.ml cmdline.ml gil_gen.ml version.ml lexutil.ml main.ml
 FRONT_END_ML_SOURCES := $(filter %.ml, $(FRONT_END_SOURCES))
 FRONT_END_CMOS := $(FRONT_END_ML_SOURCES:.ml=.cmo)
@@ -61,11 +61,6 @@ endif
 #  OCAMLC=~/Downloads/ocaml-3.12.0/boot/ocamlrun ~/Downloads/ocaml-3.12.0/boot/ocamlc  -I /Users/yitzhakm/Downloads/ocaml-3.12.0/boot
 OCAMLOPT=ocamlfind ocamlopt
 OCAMLDOC=ocamlfind ocamldoc
-
-#ENGINE_TESTS = simple thunk
-ENGINE_TESTS = thunk
-ETESTS_EXE = $(foreach test,$(ENGINE_TESTS),$(test)-parser)
-ETESTS_ML = $(foreach test,$(ENGINE_TESTS),$(test).ml)
 
 # TJIM: removed "history" test below, temporary, conflict with new history.ml
 #TESTS=history
@@ -122,7 +117,7 @@ uninstall:
 	ocamlfind remove yakker
 
 .PHONY: tests
-tests: $(ETESTS_EXE) $(TESTS_EXE)
+tests: $(TESTS_EXE)
 
 .PHONY: examples
 examples: $(EXAMPLES_EXE)
@@ -262,7 +257,7 @@ run-e-% update-e-% show-e-% perf-e-% pc-perf-e-% recperf-e-%: D=../examples
 define run-regression
 	@echo testing $*
 	@for i in $(D)/$*/inputs/*;\
-	  do ./$*-parser.opt -new-engine $$i 2>&1 |\
+	  do ./$*-parser.opt $$i 2>&1 |\
 		cmp -s - $(D)/$*/outputs/`basename $$i` || echo '    FAILURE:' `basename $$i`;\
 	done
 endef
@@ -271,7 +266,7 @@ define update-regression
 	@echo updating regression tests for $*
 	@mkdir -p $(D)/$*/outputs
 	@for i in $(D)/$*/inputs/*;\
-	  do ./$*-parser.opt -new-engine $$i 2>&1 |\
+	  do ./$*-parser.opt $$i 2>&1 |\
 		cmp -s - $(D)/$*/outputs/`basename $$i` ||\
 		echo '    updating' $* on `basename $$i` &&\
 		./$*-parser.opt $$i > $(D)/$*/outputs/`basename $$i` 2>&1 ;\
@@ -281,7 +276,7 @@ endef
 define show-regression
 	@echo '***********************************' $* '***********************************'
 	@for i in $(D)/$*/inputs/*;\
-	  do ./$*-parser.opt -new-engine $$i ;\
+	  do ./$*-parser.opt $$i ;\
 	done
 endef
 
@@ -443,17 +438,6 @@ endif
 ##   Tests
 ########################################################################
 
-$(ETESTS_EXE) : %-parser : yak.cma %.cmo
-	@echo "--x> " $@
-	@$(OCAMLC) $^ -g -package unix -linkpkg -o $@
-
-
-$(ETESTS_ML) : %.ml : tests/$$*/$$*.bnf yakker
-	@echo "x--> " $@
-	@./yakker compile-only $< > $@
-
-########################################################################
-
 $(TESTS_OPT_EXE): %-parser.opt: yak.cmxa %.cmx
 	@echo "--x> " $@
 	@$(OCAMLOPT) $^ -package unix -linkpkg -o $@
@@ -554,8 +538,11 @@ llexer.cmx: ocamlparser.cmi
 ocamlparser.ml: ocamlparser.bnf
 	./yakker compile $< > $(TOPDIR)/src/ocamlparser.ml
 
-llexer.ml: llexer.mll
+%.ml: %.mll
 	ocamllex $<
+
+ocaml_lexer.mll: ../ocaml/lexer.patch ../ocaml/lexer.mll
+	patch -o - -d ../ocaml < $< > $@
 
 ########################
 # OCaml distro's parser

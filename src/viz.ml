@@ -69,7 +69,7 @@ module Memo = History.Make(struct type t = extent let compare = compare let hash
 
  *)
 
-let mk_t input pf =
+let mk_t input (pf:parse_forest) =
   (* utilities for building leaves and sequences of leaves *)
   let epsilon() = t0 "" [] in
   let leaf i = t0 (Printf.sprintf "%c" (String.get input i)) [] in
@@ -80,7 +80,7 @@ let mk_t input pf =
       leaves := (leaf i)::!leaves
     done;
     !leaves in
-  let traverse = pf#traverse_postfix pf in (* Postfix traversal, gives sequence of extents *)
+  let traverse = pf#traverse_postfix in    (* Postfix traversal, gives sequence of extents *)
   let rec symbols left children =          (* Convert traversal to layout tree *)
     match traverse#next() with
     | Start left' ->

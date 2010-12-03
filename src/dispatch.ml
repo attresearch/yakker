@@ -15,6 +15,15 @@ open Yak
 open Gul
 open Variables
 
+let add_no_early_or_late_prologue gr =
+  add_to_prologue gr
+    "
+type sv = unit
+let sv_compare = compare
+let sv0 = ()
+let sv_hash () = 0
+"
+
 let add_early_late_prologue gr =
   let hproj = if gr.wrapped_history then "Ykd_int" else "" in
   add_to_prologue gr (Printf.sprintf
@@ -110,9 +119,9 @@ let _dmerge x p =
   (function
     | (Yk_more(_,t),h1) ->
         (fun (r,h2) ->
-	  match t x p with
-	  | Yk_bind(f) -> (f r,h1#merge p (%s(x),p) h2)
-	  | _ -> failwith \"_dmerge1\")
+          match t x p with
+          | Yk_bind(f) -> (f r,h1#merge p (%s(x),p) h2)
+          | _ -> failwith \"_dmerge1\")
     | _ -> failwith \"_dmerge3\")
 let _d_and_push x p = function
     (Yk_more(_,t),h) -> (t x p,h#push p (%s(x),p))
@@ -220,7 +229,7 @@ let transform gr =
   | false,true ->
       add_late_prologue gr
   | false,false ->
-      ());
+      add_no_early_or_late_prologue gr);
   add_to_prologue gr all_prologue;
   let disp          = Printf.sprintf "_d %d" in
   let disp_delay    = Printf.sprintf "_ddelay %d" in

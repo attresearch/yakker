@@ -1,0 +1,137 @@
+*** lexer.mll	2010-11-30 11:01:25.000000000 -0500
+--- ocaml_lexer.mll	2010-11-30 10:20:52.000000000 -0500
+***************
+*** 15,20 ****
+--- 15,146 ----
+  (* The lexer definition *)
+  
+  {
++ module Parser = struct
++ type token =
++   | AMPERAMPER
++   | AMPERSAND
++   | AND
++   | AS
++   | ASSERT
++   | BACKQUOTE
++   | BAR
++   | BARBAR
++   | BARRBRACKET
++   | BEGIN
++   | CHAR of (char)
++   | CLASS
++   | COLON
++   | COLONCOLON
++   | COLONEQUAL
++   | COLONGREATER
++   | COMMA
++   | CONSTRAINT
++   | DO
++   | DONE
++   | DOT
++   | DOTDOT
++   | DOWNTO
++   | ELSE
++   | END
++   | EOF
++   | EQUAL
++   | EXCEPTION
++   | EXTERNAL
++   | FALSE
++   | FLOAT of (string)
++   | FOR
++   | FUN
++   | FUNCTION
++   | FUNCTOR
++   | GREATER
++   | GREATERRBRACE
++   | GREATERRBRACKET
++   | IF
++   | IN
++   | INCLUDE
++   | INFIXOP0 of (string)
++   | INFIXOP1 of (string)
++   | INFIXOP2 of (string)
++   | INFIXOP3 of (string)
++   | INFIXOP4 of (string)
++   | INHERIT
++   | INITIALIZER
++   | INT of (int)
++   | INT32 of (int32)
++   | INT64 of (int64)
++   | LABEL of (string)
++   | LAZY
++   | LBRACE
++   | LBRACELESS
++   | LBRACKET
++   | LBRACKETBAR
++   | LBRACKETLESS
++   | LBRACKETGREATER
++   | LESS
++   | LESSMINUS
++   | LET
++   | LIDENT of (string)
++   | LPAREN
++   | MATCH
++   | METHOD
++   | MINUS
++   | MINUSDOT
++   | MINUSGREATER
++   | MODULE
++   | MUTABLE
++   | NATIVEINT of (nativeint)
++   | NEW
++   | OBJECT
++   | OF
++   | OPEN
++   | OPTLABEL of (string)
++   | OR
++   | PLUS
++   | PREFIXOP of (string)
++   | PRIVATE
++   | QUESTION
++   | QUESTIONQUESTION
++   | QUOTE
++   | RBRACE
++   | RBRACKET
++   | REC
++   | RPAREN
++   | SEMI
++   | SEMISEMI
++   | SHARP
++   | SIG
++   | STAR
++   | STRING of (string)
++   | STRUCT
++   | THEN
++   | TILDE
++   | TO
++   | TRUE
++   | TRY
++   | TYPE
++   | UIDENT of (string)
++   | UNDERSCORE
++   | VAL
++   | VIRTUAL
++   | WHEN
++   | WHILE
++   | WITH
++ end (* module Parser *)
++ module Misc = struct
++ let create_hashtable size init =
++   let tbl = Hashtbl.create size in
++   List.iter (fun (key, data) -> Hashtbl.add tbl key data) init;
++   tbl
++ end
++ module Warnings = struct
++   type t = Comment_start | Comment_not_end | Illegal_backslash
++ end
++ module Location = struct
++ type t = unit
++ let none = ()
++ let curr _ = ()
++ let prerr_warning loc w = ()
++ end
+  open Lexing
+  open Misc
+  open Parser

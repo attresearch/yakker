@@ -788,7 +788,10 @@ let mcomplete_code nonterm_table p_nonterm_table s i ol cs socvas_s current_call
       should *not* currently be being processed.
 
       epsilon loops will be a problem,
-      but they generally are. ideally, do this statically. *)
+      but they generally are. ideally, do this statically. 
+      
+      12/01/10: current tests indicate slight negative impact from this "optimization".
+  *)
   and epsilon_close 
       term_table curr_pos es (* don't change when called internally *)
       s socvas_s = 
@@ -843,7 +846,6 @@ let mcomplete_code nonterm_table p_nonterm_table s i ol cs socvas_s current_call
 	       | _ -> Socvas.Other image)                			 in
 	  epsilon_close term_table curr_pos es target image
 	    
-
 
   (** last argument, [i], is the current worklist index. *)
   and process_trans 

@@ -80,6 +80,15 @@ let int_array_contains (x:int) (xs:int array) =
   let n = Array.length xs in
   loop x xs n 0
 
+let array_exists p xs =
+  let rec loop p xs n i =
+    if i = n then false
+    else if p (Array.unsafe_get xs i) then true
+    else loop p xs n (succ i)
+  in
+  let n = Array.length xs in
+  loop p xs n 0
+
 let array_existsi p xs =
   let rec loop p xs n i =
     if i = n then false

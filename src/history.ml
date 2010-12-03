@@ -31,7 +31,7 @@ and ('a,'lbl) branching =
   | One of ('a,'lbl) root
   | Two of ('a,'lbl) root * ('a,'lbl) root
 
-let get_label p = function Empty _ -> p | Root {label=p1} -> p1
+let get_label p = function Empty -> p | Root {label=p1} -> p1
 
 let impossible() = failwith "History.impossible"
 

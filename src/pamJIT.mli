@@ -170,7 +170,27 @@ module DNELR :
 
     val measure_percent : 'a data -> ('a trans -> bool) -> float
     val measure_percenti : 'a data -> (int -> 'a trans -> bool) -> float
-    val call_targets : 'a data -> bool array
+    val call_targets : 'a trans array -> bool array
+
+    (** 
+	[refl_trans_closure term_table state]
+
+	Return the set of states reachable from [state] via action 
+	edges. *)
+    val refl_trans_closure : 'a trans array -> Pam_internal.label -> Pam_internal.label list
+
+    (** 
+	[reachable_calls term_table state]
+
+	Return the set of call states reachable from [state] via action 
+	edges. *)
+    val reachable_calls : 'a trans array -> Pam_internal.label -> Pam_internal.label list
+
+    val count_reachable_calls : 'a trans array -> Pam_internal.label -> int
+    val compute_integer_property : ('a trans array -> Pam_internal.label -> int) -> 
+      'a trans array -> bool array -> (Pam_internal.label * int) list
+
+    val compute_callee_reachable_calls : 'a trans array -> (Pam_internal.label * int) list
 
   end
 

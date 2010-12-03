@@ -15,7 +15,7 @@ exception Not_regular
 
 (** A conservative check that the subset of the transducer [p]
     reachable from state [s] is deterministicly regular. Only
-    scans and completions are allowed. *)
+    scans, charset lookahead, and completions are allowed. *)
 let is_regular p start =
   let num_states = Array.length p in
   let unvisited = Array.make num_states true in
@@ -987,7 +987,7 @@ module DNELR = struct
     let n = loop tbl p sz 0 0 in
     (float n) /. (float sz)
 
-  let call_targets {term_table=tbl} =
+  let call_targets tbl =
     let n = Array.length tbl in
     let tgts = Array.make n false in
     for i = 0 to n - 1 do
@@ -1003,6 +1003,63 @@ module DNELR = struct
 	| _ -> ()
     done;
     tgts
+
+  (** Return the set of states reachable from [s] via action 
+      edges. *)
+  let refl_trans_closure term_table start =
+    let num_states = Array.length term_table in
+    let unvisited = Array.make num_states true in
+
+    (** a depth-first search from any state in the list of arguments.
+	we assume that all arguments are unvisited. *)
+    let rec loop reachables s =
+      let rec step reachables = function
+	| Action_trans (_, t) -> 
+	    if unvisited.(t) then loop reachables t else reachables
+
+	| Many_trans trans ->
+	    Array.fold_left step reachables trans
+
+	| No_trans 
+	| Maybe_nullable_trans2 _ 
+	| Scan_trans _
+	| MScan_trans _
+	| Lookahead_trans _
+	| Det_multi_trans _
+	| RegLookahead_trans _
+	| ExtLookahead_trans _
+	| Call_trans _ | Call_p_trans _ 
+	| Complete_trans _ | Complete_p_trans _ 
+	| MComplete_trans _ | MComplete_p_trans _ 
+	| When_trans _
+	| Box_trans _
+	  -> reachables in
+      unvisited.(s) <- false;  (* mark s as visited. *)
+      let rs = s::reachables in (* add s to list.     *)
+      step rs term_table.(s) in
+    loop [] start
+
+  let reachable_calls term_table start =
+    let rec has_call = function
+      | Call_trans _ | Call_p_trans _ -> true
+      | Many_trans trans -> Util.array_exists has_call trans 
+      | _ -> false in
+    List.filter (fun s -> has_call term_table.(s)) (refl_trans_closure term_table start)
+
+  let count_reachable_calls term_table start =
+    (* sure could use a good optimizing compiler here: *)
+    List.length (reachable_calls term_table start)
+
+  let compute_integer_property p term_table states =
+    let n = Array.length states in
+    let rec loop i vs =
+      if i >= n then vs
+      else loop (i + 1) (if states.(i) then (i, p term_table i) ::  vs else vs) in
+    loop 1 []
+
+  let compute_callee_reachable_calls term_table =
+    let callees = call_targets term_table in
+    compute_integer_property count_reachable_calls term_table callees
 
 end
 

@@ -75,6 +75,7 @@ command =
         "attributes" o                    { Attributes_cmd }
       | "close-under-core" o              { Close_under_core_cmd }
       | "compile" o                       { Compile_cmd }
+      | "copyrule" o                      { Copyrule_cmd }
       | "desugar" o                       { Desugar_cmd }
       | "dispatch" o                      { Dispatch_cmd }
       | "dot" o                           { Dot_cmd }

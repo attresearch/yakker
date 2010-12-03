@@ -53,6 +53,7 @@ type command =
 | Wrap_cmd
 
 let cmd = ref Print_gul_cmd
+let after = ref None
 let files = ref []
 let roots = ref []
 let exec_l = ref []
@@ -71,26 +72,35 @@ cmd-line-args = command$c *args eof { cmd := c }.
 o = %d0 .
 arg = 1*CHAR !CHAR .
 file = (CHAR - "-") *CHAR !CHAR .
-command =
+phases = ; these commands can be controlled by -after
         "attributes" o                    { Attributes_cmd }
       | "close-under-core" o              { Close_under_core_cmd }
-      | "compile" o                       { Compile_cmd }
       | "copyrule" o                      { Copyrule_cmd }
       | "desugar" o                       { Desugar_cmd }
+      | "hash" o                          { Hash_cmd }
+      | "inline-regular" o                { Inline_regular_cmd }
+      | "lexer" o                         { Lexer_cmd }
+      | "lift" o                          { Lift_cmd }
+      | "minus" o                         { Minus_cmd }
+      | "precedence" o                    { Tx_prec_cmd }
+      | "subset" o                        { Subset_cmd }
+      | "unroll-star" o                   { Unroll_star_cmd }
+      | "wrap" o                          { Wrap_cmd }
+command =
+        phases$p                          { (match p with
+                                               Inline_regular_cmd -> Compileopt.inline_regular := true
+                                             | Unroll_star_cmd -> if !Compileopt.unroll_star_n<1 then Compileopt.unroll_star_n := 1
+                                             | _ -> ());
+                                            p }
+      | "compile" o                       { Compile_cmd }
       | "dispatch" o                      { Dispatch_cmd }
       | "dot" o                           { Dot_cmd }
       | "exec" o arg$f *(o arg$x {x})$l o { files := f::!files; exec_l := l; Exec_cmd }
       | "extract" o                       { Extract_cmd }
       | "fuse" o                          { Compileopt.coalesce := true; Fuse_cmd }
-      | "hash" o                          { Hash_cmd }
       | "info" o                          { Info_cmd }
-      | "inline-regular" o                { Compileopt.inline_regular := true; Inline_regular_cmd }
-      | "lexer" o                         { Lexer_cmd }
-      | "lift" o                          { Lift_cmd }
       | "lookahead-analysis" o            { Lookahead_analysis_cmd }
       | "lr1-lookahead" o                 { Lr1_lookahead_cmd }
-      | "minus" o                         { Minus_cmd }
-      | "precedence" o                    { Tx_prec_cmd }
       | "precedence-analysis" o           { Precedence_analysis_cmd }
       | "print" o                         { Print_gul_cmd }
       | "print-gil" o                     { Print_gil_cmd }
@@ -99,14 +109,12 @@ command =
       | "print-relevance" o               { Print_relevance_cmd }
       | "rfc" (1*DIGIT)$n o               { try rfc_num := int_of_string n; Rfc_cmd with _ -> failwith "Invalid RFC number" }
       | "strip-late-actions" o            { Strip_late_actions_cmd }
-      | "subset" o                        { Subset_cmd }
       | "translate-dypgen" o              { Translate_dypgen_cmd }
       | "translate-dypgen-scannerless" o  { Translate_dypgen_scannerless_cmd }
-      | "unroll-star" o                   { if !Compileopt.unroll_star_n<1 then Compileopt.unroll_star_n := 1; Unroll_star_cmd }
-      | "wrap" o                          { Wrap_cmd }
 
 args =
-        "-backend" o
+        "-after" o phases$p               { after := Some p }
+      | "-backend" o
           ( "fun" {Fun_BE}
           | "tx"  {Trans_BE}
           | "peg-strict" {Peg_BE false}

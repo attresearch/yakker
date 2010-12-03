@@ -61,6 +61,12 @@ let phases_of cmd =
     List.filter
       (fun x -> Tgraph.is_edge phase_order cmd x)
       phase_order_sorted in
+  let phases = (* Remove phases according to -after flag *)
+    match !Cmdline.after with None -> phases
+    | Some phase ->
+        List.filter
+          (fun x -> not(Tgraph.is_edge phase_order phase x))
+          phases in
   let phases = (* Add an output phase if necessary *)
     match cmd with
     | Lexer_cmd
@@ -296,6 +302,7 @@ let do_phases gr =
           Pr.pr_grammar stdout gr
       | Dispatch_cmd ->
           do_phase "dispatching" (fun () ->
+            Analyze.producers gr;
             Analyze.relevance gr;
             Label.transform gr;
             if !Compileopt.check_labels then

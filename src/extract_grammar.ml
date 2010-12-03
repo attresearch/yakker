@@ -145,9 +145,9 @@ let _dmerge x p =
   (function
     | (Yk_more(_,t),h1) ->
         (fun (r,h2) ->
-	  match t x p with
-	  | Yk_bind(f) -> (f r,h1#merge p ((x),p) h2)
-	  | _ -> failwith "_dmerge1")
+          match t x p with
+          | Yk_bind(f) -> (f r,h1#merge p ((x),p) h2)
+          | _ -> failwith "_dmerge1")
     | _ -> failwith "_dmerge3")
 let _d_and_push x p = function
     (Yk_more(_,t),h) -> (t x p,h#push p ((x),p))

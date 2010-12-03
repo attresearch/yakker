@@ -67,12 +67,53 @@ module Memo = History.Make(struct type t = extent let compare = compare let hash
    On return do a h#merge(Start 0), the value doesn't matter, as our postfix
    traversal throws it away.
 
+   Here's one that works:
+
+    #!build/yakker exec
+    @begin{
+    module Viz=Yak.Viz
+    let h0 = Viz.Memo.new_history()
+    type vhist = Viz.parse_forest
+    let m0 = Viz.Start 0 (* throw-away extent used as merge label,
+                            discarded by postfix traversal *)
+    }
+    S = @{h0#push pos_ (Viz.Start pos_)}@h1
+        S1
+        !OCTET
+        @{h1#merge pos_ m0 h}@h1
+        @{h1#push pos_ (Viz.End("S",pos_))}@h1
+        @delay(pos_{int})$pos
+        @delay(h1{vhist})$parse_forest
+          { let input = (Yak.YkBuf.Snapshot.sub ykinput 0 pos) in
+            Viz.HTML.pr stdout input parse_forest
+          }
+    .
+    S1>@(;h:vhist) = (@{h0#push pos_ (Viz.Start pos_)}>@h1)
+                     A (@{h1#merge pos_ m0 h}>@h1)
+                     B (@{h1#merge pos_ m0 h}>@h1)
+                     (@{h1#push pos_ (Viz.End("S1",pos_))}>@h)
+    .
+    A>@(;h:vhist)  = (@{h0#push pos_ (Viz.Start pos_)}>@h1)
+                     "a"
+                     (@{h1#push pos_ (Viz.End("A",pos_))}>@h)
+    ;                            ["a" [C] A]
+    .
+    B>@(;h:vhist)  = (@{h0#push pos_ (Viz.Start pos_)}>@h1)
+                     "b"
+                     (@{h1}>@h) ; for "" case of option below
+                     [
+                      B (@{h1#merge pos_ m0 h}>@h1)
+                     ]
+                     (@{h1#push pos_ (Viz.End("B",pos_))}>@h)
+    .
+
  *)
 
 let mk_t input (pf:parse_forest) =
   (* utilities for building leaves and sequences of leaves *)
   let epsilon() = t0 "" [] in
-  let leaf i = t0 (Printf.sprintf "%c" (String.get input i)) [] in
+  let leaf i =
+    t0 (Printf.sprintf "%c" (String.get input i)) [] in
   let span left right =
     if left>=right then [] else
     let leaves = ref [] in
@@ -82,17 +123,22 @@ let mk_t input (pf:parse_forest) =
     !leaves in
   let traverse = pf#traverse_postfix in    (* Postfix traversal, gives sequence of extents *)
   let rec symbols left children =          (* Convert traversal to layout tree *)
-    match traverse#next() with
-    | Start left' ->
-        symbols left ((symbols left' [])::children)
-    | End(n,right) ->
-        ({label = n;
-          layout = { x=left; w=right-left; y=0; h=0 };
-          children = children})
+    try
+      match traverse#next() with
+      | Start left' ->
+          symbols left ((symbols left' [])::children)
+      | End(n,right) ->
+          ({label = n;
+            layout = { x=left; w=right-left; y=0; h=0 };
+            children = List.rev children})
+    with Not_found -> (* at end of traversal *)
+      (match children with [t] -> t
+      | _ -> failwith "Impossible Viz.mk_t")
   in
   (* given a list of symbol trees and an extent, fill out the list of trees with additional leaves of input not covered *)
   let rec add_leaves left right =
-    function [] -> span left right
+    function [] ->
+      span left right
       | hd::tl ->
           if hd.children=[] && hd.layout.w=0 then hd.children <- [epsilon()] else
           hd.children <- add_leaves hd.layout.x (hd.layout.x+hd.layout.w) hd.children;
@@ -568,7 +614,9 @@ let escape s =
   done;
   Buffer.contents b
 let pr_tree f t =
-  Printf.fprintf f "<html><body><div id='rule'>&gt;</div><div id='tree'>";
+  Printf.fprintf f "<html><body>\n";
+  Printf.fprintf f "<p>Navigation: h=left j=down k=up l=right</p>\n";
+  Printf.fprintf f "<div id='rule'>&gt;</div><div id='tree'>";
   let rec loop t =
     Printf.fprintf f "";
     (match t.children with

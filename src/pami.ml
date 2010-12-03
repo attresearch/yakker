@@ -59,7 +59,7 @@ module Simple = struct
       parse string [s] with parsing function [f]. *)
   let parse_string f s = f (YkBuf.string2buf s)
 
-  let _test verbose parse visualize =
+  let _test verbose print_pos parse visualize =
     new_engine_flag := false;
     let visualize_flag = ref false in
     let args =
@@ -83,10 +83,12 @@ module Simple = struct
 	    (* its really the token preceding the reported character/pos. 
 	       pos is 1-based and cnum is 0-based.
 	     *)
-(* 	    Printf.eprintf "File %S, line %d, characters %d-%d (pos: %d):\n%s\n%!"  *)
-(* 	      file lnum cnum cnum pos msg *)
-	    Printf.eprintf "File %S, line %d, characters %d-%d:\n%s\n%!" 
-	      file lnum cnum cnum msg
+	    if print_pos then 
+	      Printf.eprintf "File %S, line %d, characters %d-%d (pos: %d):\n%s\n%!"
+		file lnum cnum cnum pos msg
+	    else
+	      Printf.eprintf "File %S, line %d, characters %d-%d:\n%s\n%!" 
+		file lnum cnum cnum msg
 	| e ->
 	    Printf.eprintf "File \"%s\" failed with exception %s\n%!" file
 	      (Printexc.to_string e);
@@ -94,12 +96,13 @@ module Simple = struct
     in
     List.iter process_file args
 
-  let test parse visualize = _test true parse visualize
+  let test parse visualize = _test true false parse visualize
 
   (** quiet test. only reports failure. *)
-  let qtest parse visualize = _test false parse visualize
+  let qtest parse visualize = _test false false parse visualize
 
-  let run parse = _test true parse (fun _ -> failwith "Visualization not available.")
+  let run parse = _test true true parse (fun _ -> failwith "Visualization not available.")
+  let qrun parse = _test false true parse (fun _ -> failwith "Visualization not available.")
 
   (* deprecated *)
   let test_recognize f_r = test (fun file -> f_r file; ()) (fun _ -> ())

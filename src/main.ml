@@ -134,6 +134,28 @@ let gil_transducer,gil_dot =
     try_fst Fsm.fsm_transducer,try_fst Fsm.fsm_dot
 
 let add_boilerplate2 backend gr =
+  let mk_trans_bp1 = Printf.sprintf "
+let start_symb = get_symb_action \"%s\"
+
+module P2__ = Yak.Engine.Full_yakker(struct type t = sv let cmp = sv_compare end)
+
+let _wfe_data_ = Yak.PamJIT.DNELR.to_table (Yak.Pam_internal.load_internal_program program)
+  start_symb (get_symb_start start_symb) %d num_symbols
+  %s %s
+
+let parse = Yak.Pami.Wfe.mk_parse P2__.parse _wfe_data_ sv0 %s
+let visualize = parse
+let visualize_file = Yak.Pami.Simple.parse_file visualize
+let visualize_string = Yak.Pami.Simple.parse_string visualize
+\n" in
+  let mk_other_bp1 = Printf.sprintf "\nlet visualize = Yak.Pami.mk_parse_fun __parse
+   (fun input state_node ->
+      Printf.printf \"Visualization not supported by Gil interpreter.\n\")
+let visualize_file = Yak.Pami.Simple.parse_file visualize
+let visualize_string = Yak.Pami.Simple.parse_string visualize
+
+let parse = Yak.Pami.mk_parse_fun __parse %s
+" in
   let post_parse_function =
     match gr.grammar_early_relevant,gr.grammar_late_relevant with
     | (true,true) ->
@@ -152,38 +174,18 @@ let add_boilerplate2 backend gr =
     )
 " (Variables.bnf2ocaml gr.start_symbol)
     | _ -> "(fun ykinput x -> ())" in
-  let boilerplate =
-    (match backend with
-       | Trans_BE ->
-           Printf.sprintf "
-let start_symb = get_symb_action \"%s\"
-
-module P2__ = Yak.Engine.Full_yakker(struct type t = sv let cmp = sv_compare end)
-
-let _wfe_data_ = Yak.PamJIT.DNELR.to_table (Yak.Pam_internal.load_internal_program program)
-  start_symb (get_symb_start start_symb) %d num_symbols
-  %s %s
-
-let parse = Yak.Pami.Wfe.mk_parse P2__.parse _wfe_data_ sv0 %s
-let visualize = parse
-let visualize_file = Yak.Pami.Simple.parse_file visualize
-let visualize_string = Yak.Pami.Simple.parse_string visualize
-\n"
-    gr.start_symbol Fsm.min_symbol Fsm.default_call_tx Fsm.default_binder_tx post_parse_function
-       | Fun_BE | Peg_BE _ ->
-      Printf.sprintf "\nlet visualize = Yak.Pami.mk_parse_fun __parse
-   (fun input state_node ->
-      Printf.printf \"Visualization not supported by Gil interpreter.\n\")
-let visualize_file = Yak.Pami.Simple.parse_file visualize
-let visualize_string = Yak.Pami.Simple.parse_string visualize
-
-let parse = Yak.Pami.mk_parse_fun __parse %s
-"       post_parse_function)
-    ^
-      "let parse_file = Yak.Pami.Simple.parse_file parse
+  let boilerplate_vary =
+    match backend with
+      | Trans_BE -> 
+	  mk_trans_bp1 gr.start_symbol Fsm.min_symbol Fsm.default_call_tx 
+	    Fsm.default_binder_tx post_parse_function
+      | Fun_BE | Peg_BE _ -> 
+	  mk_other_bp1 post_parse_function in
+  let boilerplate_shared = 
+    "let parse_file = Yak.Pami.Simple.parse_file parse
 let parse_string = Yak.Pami.Simple.parse_string parse
 ;;\n" in
-  add_to_epilogue gr boilerplate
+  add_to_epilogue gr (boilerplate_vary ^ boilerplate_shared)
 
 let do_phase name thunk =
   vprintf "%s...%!" name;

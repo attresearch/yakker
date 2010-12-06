@@ -10,16 +10,17 @@
  *******************************************************************************)
 
 (* Desugar a few constructs:
-   @Position
-   lookahead of non-symbols
+   $pos (late positions) is implemented with @delay
+   Non-symbol, non-character set lookahead is lifted out to a fresh nonterminal
 *)
 
 open Gul
 
-let desugar g =
+let desugar gr =
+  Minus.cs_annot gr;
   let define r =
-    let nt1 = fresh_nonterminal g in
-    g.ds <- (RuleDef(nt1, (dupRule r), mkAttr()))::g.ds;
+    let nt1 = fresh_nonterminal gr in
+    gr.ds <- (RuleDef(nt1, (dupRule r), mkAttr()))::gr.ds;
     Symb(nt1,None,[],None)
   in
   let rec loop r = match r.r with
@@ -47,4 +48,4 @@ let desugar g =
     | Hash(_,r2) ->
         loop r2
   in
-  List.iter (function RuleDef(_,r,_) -> loop r | _ -> ()) g.ds
+  List.iter (function RuleDef(_,r,_) -> loop r | _ -> ()) gr.ds

@@ -133,7 +133,7 @@ let gil_transducer,gil_dot =
     (* FST *)
     try_fst Fsm.fsm_transducer,try_fst Fsm.fsm_dot
 
-let add_boilerplate2 backend gr =
+let add_boilerplate backend gr =
   let mk_trans_bp1 = Printf.sprintf "
 let start_symb = get_symb_action \"%s\"
 
@@ -174,6 +174,10 @@ let parse = Yak.Pami.mk_parse_fun __parse %s
     )
 " (Variables.bnf2ocaml gr.start_symbol)
     | _ -> "(fun ykinput x -> ())" in
+  let memoize_history_code =
+    if gr.grammar_late_relevant then 
+	Printf.sprintf "Yk_History.memoize := %B;;\n" !Compileopt.memoize_history
+    else "" in
   let boilerplate_vary =
     match backend with
       | Trans_BE -> 
@@ -183,8 +187,8 @@ let parse = Yak.Pami.mk_parse_fun __parse %s
 	  mk_other_bp1 post_parse_function in
   let boilerplate_shared = 
     "let parse_file = Yak.Pami.Simple.parse_file parse
-let parse_string = Yak.Pami.Simple.parse_string parse
-;;\n" in
+let parse_string = Yak.Pami.Simple.parse_string parse\n;;\n" 
+    ^ memoize_history_code in
   add_to_epilogue gr (boilerplate_vary ^ boilerplate_shared)
 
 let do_phase name thunk =
@@ -204,7 +208,7 @@ let do_compile gr =
     | Peg_BE liberal -> Gil_gen.Peg.pr_definitions !outch liberal gr.start_symbol gr.gildefs
     | Trans_BE ->
         gil_transducer gr.gildefs);
-    add_boilerplate2 backend gr;
+    add_boilerplate backend gr;
     List.iter
       (function Ocaml x -> Printf.fprintf !outch "%s" x
         | _ -> failwith "Non-ocaml blob in epilogue")

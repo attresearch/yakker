@@ -17,3 +17,7 @@ let lookahead = ref false
 let case_sensitive = ref true
 let coalesce = ref true
 let check_labels = ref false
+let memoize_history = ref false
+
+(* testing-related *)
+let unit_history = ref false

@@ -975,6 +975,7 @@ let parse = Yak.Pami.Wfe.mk_parse P2__.parse _wfe_data_ sv0
       let _n() = (let (x,_) = _o#next() in x) in
       _r_rfc(_n,ykinput)
     )
+
 let visualize = parse
 let visualize_file = Yak.Pami.Simple.parse_file visualize
 let visualize_string = Yak.Pami.Simple.parse_string visualize
@@ -982,6 +983,7 @@ let visualize_string = Yak.Pami.Simple.parse_string visualize
 let parse_file = Yak.Pami.Simple.parse_file parse
 let parse_string = Yak.Pami.Simple.parse_string parse
 ;;
+Yk_History.memoize := false;;
 
 let extract ch file =
   begin

@@ -24,17 +24,16 @@ let sv0 = ()
 let sv_hash () = 0
 "
 
-(* make history transformers *)
-let mk_h_txs hproj = 
-  if !Compileopt.unit_history then
-    "let _p x p h = h
-let _m x p h h1 = h\n"
-  else
-    Printf.sprintf "let _p x p = (fun(v,h)->(v,h#push p (%s(x),p)))
-let _m x p = (fun(v1,h1)->fun(_,h2)-> (v1,h1#merge p (%s(x),p) h2))\n" hproj hproj
-
 let add_early_late_prologue gr =
   let hproj = if gr.wrapped_history then "Ykd_int" else "" in
+  (* history transformers *)
+  let h_txs = 
+    if !Compileopt.unit_history then
+      "let _p x p v = v
+let _m x p v v1 = v\n"
+    else
+      Printf.sprintf "let _p x p = (fun(v,h)->(v,h#push p (%s(x),p)))
+let _m x p = (fun(v1,h1)->fun(_,h2)-> (v1,h1#merge p (%s(x),p) h2))\n" hproj hproj in  
   add_to_prologue gr (Printf.sprintf
   "
 (*EARLY-LATE PROLOGUE*)
@@ -140,7 +139,7 @@ let _dnext x p = function (*TJIM: same as _d without p *)
   | _ -> failwith \"_dnext\"
 (* History transformers *)
 %s
-" hproj hproj hproj (mk_h_txs hproj))
+" hproj hproj hproj h_txs)
 
 let early_prologue = "
 (*EARLY PROLOGUE*)
@@ -202,6 +201,14 @@ let _dret x p =
 
 let add_late_prologue gr =
   let hproj = if gr.wrapped_history then "Ykd_int" else "" in
+(* make history transformers *)
+  let h_txs = 
+    if !Compileopt.unit_history then
+      "let _p x p h = h
+let _m x p h h1 = h\n"
+    else
+      Printf.sprintf "let _p x p = (fun h->h#push p (%s(x),p))
+let _m x p = (fun h1 h2-> h1#merge p (%s(x),p) h2)\n" hproj hproj in
   add_to_prologue gr (Printf.sprintf
   "
 (*LATE PROLOGUE*)
@@ -214,7 +221,7 @@ let sv_hash = Yk_History.hash
 
 (* History transformers *)
 %s
-" (mk_h_txs hproj))
+" h_txs)
 
 let all_prologue = "let sv_eq x y = sv_compare x y = 0
 let key_eq (i,v1) (j,v2) = i = j &&  sv_eq v1 v2

@@ -156,24 +156,21 @@ let visualize_string = Yak.Pami.Simple.parse_string visualize
 
 let parse = Yak.Pami.mk_parse_fun __parse %s
 " in
+  (* The [unit_history] flag overrides the standard history relevance. *)
   let post_parse_function =
-    match gr.grammar_early_relevant,gr.grammar_late_relevant with
-    | (true,true) ->
-        Printf.sprintf "
-    (fun ykinput (_,h) ->
-      let _o = (h#traverse_postfix) in
-      let _n() = (let (x,_) = _o#next() in x) in
-      _r_%s(_n,ykinput)
-    )" (Variables.bnf2ocaml gr.start_symbol)
-    | (false,true) ->
-        Printf.sprintf "
-    (fun ykinput h ->
+    if gr.grammar_late_relevant && not !Compileopt.unit_history then
+      let patt = if gr.grammar_early_relevant then "(_,h)" else "h" in
+      Printf.sprintf "
+    (fun ykinput %s ->
       let _o = (h#traverse_postfix) in
       let _n() = (let (x,_) = _o#next() in x) in
       _r_%s(_n,ykinput)
     )
-" (Variables.bnf2ocaml gr.start_symbol)
-    | _ -> "(fun ykinput x -> ())" in
+" 
+	patt
+	(Variables.bnf2ocaml gr.start_symbol)
+    else
+      "(fun ykinput x -> ())" in
   let memoize_history_code =
     if gr.grammar_late_relevant then 
 	Printf.sprintf "Yk_History.memoize := %B;;\n" !Compileopt.memoize_history

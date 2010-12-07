@@ -387,16 +387,23 @@ let close_definitions rules_orig rules_external =
    for easier reading. *)
 let remove_late_actions gr =
   let rec loop r = match r.r with
-    | Action (_, None) | Box _ | Symb _ | Position _
+    | Action (_, None) | Box _ | Symb (_,_,_,None) | Position true
     | Prose _ | When _ | Delay _
     | CharRange _ | Lit _ -> r
 
+    | Symb (s,e,a, Some _) -> mkSYMB2(s,e,a,None)
+
+    | Position false -> mkACTION2(None, None)
     | Action (e, Some _) -> mkACTION2 (e, None)
     | Seq(r2, x,  _, r3) ->
         let r3_rla = loop r3 in
-        (match  r3_rla.r with
+        (match r3_rla.r with
            | Action (None, None) -> loop r2
-           | _ -> mkSEQ2 (loop r2, x, None, r3_rla))
+           | _ -> 
+	       let r2_rla = loop r2 in
+	       (match r2_rla.r, x with
+		  | Action (None, None), None -> r3_rla
+		  | _ -> mkSEQ2 (r2_rla, x, None, r3_rla)))
     | Assign(r2, x,  _) -> mkASSIGN(loop r2,x,None)
     | Star(Accumulate (Some _ as x, _), r2) -> mkSTAR2(Accumulate (x, None), loop r2)
     | Star(Accumulate (None, _), r2) -> mkSTAR(0, Infinity, loop r2)
@@ -413,7 +420,9 @@ let remove_late_actions gr =
   in
 
   let rla_def = function
-    | RuleDef (n,r,a) -> RuleDef (n, loop r, a)
+    | RuleDef (n,r,a) -> 
+	a.Attr.late_params <- None;
+	RuleDef (n, loop r, a)
     | d -> d
   in
 

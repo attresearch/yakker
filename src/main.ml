@@ -158,7 +158,7 @@ let parse = Yak.Pami.mk_parse_fun __parse %s
 " in
   (* The [unit_history] flag overrides the standard history relevance. *)
   let post_parse_function =
-    if gr.grammar_late_relevant && not !Compileopt.unit_history then
+    if gr.grammar_late_relevant && not !Compileopt.unit_history  && not !Compileopt.repress_replay then
       let patt = if gr.grammar_early_relevant then "(_,h)" else "h" in
       Printf.sprintf "
     (fun ykinput %s ->

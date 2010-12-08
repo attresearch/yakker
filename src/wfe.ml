@@ -1039,6 +1039,11 @@ DEF4(`EXTLA_CODE', `presence', `la_target', `la_nt', `target',
   `(presence = nplookahead_fn la_nt la_target ykb)')
 
   let get_set_size m = WI.fold (fun _ socvas n -> n + (Socvas.cardinal socvas)) m 0
+  let append_socvas_semvals socvas hs = 
+    SOCVAS_FOLD(`socvas', `hs', `(callset, sv, _)', `hs',
+		`(callset, sv)::hs')
+  let collect_set_semvals m = WI.fold (fun _ socvas hs -> 
+					 append_socvas_semvals socvas hs) m []
 
   (* PERF: Create this closure once, and store it in [xyz]. *)
   (** Invokes full-blown lookahead in CfgLA case. *)
@@ -1787,6 +1792,12 @@ DEF4(`EXTLA_CODE', `presence', `la_target', `la_nt', `target',
       
       (* Report size of the Earley set. *)
       LOGp(stats, "%d %d\n" ccs.id (get_set_size cs));
+
+      (* Report memory size of the data accessable from the Earley set (focusing on 
+	 the semantic values). *)
+      LOGp(hist_size, "%d %d\n" ccs.id 
+	     (let relevant_data = collect_set_semvals cs in
+	      Objsize.size_with_headers (Objsize.objsize relevant_data)));
 
       IF_FLA(
 	`if not is_exact_match && check_done term_table d dcs start_nt cs.WI.count then

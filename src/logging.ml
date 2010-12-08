@@ -9,7 +9,7 @@
  *    Trevor Jim and Yitzhak Mandelbaum
  *******************************************************************************)
 
-let activated = false
+let activated = true
 
 type level = int
 
@@ -33,8 +33,9 @@ module Features = struct
   let reg_ne      = 0x8000 (** registrations, new engine *)
   let comp_ne    = 0x10000 (** completions, new engine *)
   let calls_ne   = 0x20000 (** calls, new engine *)
-  let stats      = 0x40000
-  let eof_ne     = 0x80000 (** processing of earley set on EOF. *)
+  let eof_ne     = 0x40000 (** processing of earley set on EOF. *)
+  let stats      = 0x80000
+  let hist_size = 0x100000 (** size of history data. *)
 end
 
 let current_features = ref Features.none

@@ -21,3 +21,4 @@ let memoize_history = ref false
 
 (* testing-related *)
 let unit_history = ref false
+let repress_replay = ref false

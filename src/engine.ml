@@ -746,6 +746,16 @@ let mcomplete_code nonterm_table p_nonterm_table s i ol cs socvas_s current_call
 
 
   let get_set_size m = WI.fold (fun _ socvas n -> n + (Socvas.cardinal socvas)) m 0
+  let append_socvas_semvals socvas hs = 
+                                            (match socvas with
+	 | Socvas.Empty -> hs
+	 | Socvas.Singleton (callset, sv, _) -> let hs = hs in ((callset, sv)::hs)
+	 | Socvas.Other __s__ -> 
+	     Socvas.MS.fold 
+	       (fun (callset, sv, _) hs -> (callset, sv)::hs) 
+	       __s__ hs)                			
+  let collect_set_semvals m = WI.fold (fun _ socvas hs -> 
+					 append_socvas_semvals socvas hs) m []
 
   (* PERF: Create this closure once, and store it in [xyz]. *)
   (** Invokes full-blown lookahead in CfgLA case. *)
@@ -2521,6 +2531,13 @@ let mcomplete_code nonterm_table p_nonterm_table s i ol cs socvas_s current_call
       (* Report size of the Earley set. *)
                       if Logging.activated then begin 
        Logging.log Logging.Features.stats "%d %d\n" ccs.id (get_set_size cs) end 		;
+
+      (* Report memory size of the data accessable from the Earley set (focusing on 
+	 the semantic values). *)
+                      if Logging.activated then begin 
+       Logging.log Logging.Features.hist_size "%d %d\n" ccs.id 
+	     (let relevant_data = collect_set_semvals cs in
+	      Objsize.size_with_headers (Objsize.objsize relevant_data)) end 		;
 
        	    if support_FLA then begin if not is_exact_match && check_done term_table d dcs start_nt cs.WI.count then
 	  s_matched := true;

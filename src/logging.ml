@@ -9,7 +9,7 @@
  *    Trevor Jim and Yitzhak Mandelbaum
  *******************************************************************************)
 
-let activated = true
+let activated = false
 
 type level = int
 

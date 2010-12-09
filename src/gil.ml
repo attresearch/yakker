@@ -63,6 +63,14 @@ let rec mkSEQ_rev = function
   | [r] -> r
   | r::rs -> List.fold_left (fun r_acc r -> Seq(r, r_acc)) r rs
 
+let rec map f = function
+  | ( Action _ | Symb _ | Box _
+    | When _ | Lit _ | CharRange _ | Lookahead _)
+      as r -> f r
+  | Alt (r1, r2) -> Alt (map f r2, map f r2) 
+  | Star r1 -> Star (map f r1)
+  | Seq (r1, r2) -> Seq (map f r2, map f r2) 
+
 (** [ends_in_sem r] indicates whether [r] ends in a semantically relevant
     element: predicate, action, box, or symbol with binder. *)
 let rec ends_in_sem = function

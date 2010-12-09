@@ -316,7 +316,7 @@ let do_phases gr =
             Dispatch.transform gr)
       | Fuse_cmd ->
           if !Compileopt.coalesce then
-            do_phase "coalescing actions" (fun () -> Fusion.fuse gr)
+            do_phase "coalescing actions" (fun () -> Fusion.fuse_gil gr)
       | Compile_cmd ->
           do_compile gr
 

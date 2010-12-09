@@ -146,6 +146,9 @@ $(CMXS): %.cmx: %.ml
 	@echo "-x-> " $@
 	@$(OCAMLOPT) $(OCAMLOPT_FLAGS) -for-pack Yak -c $< -o $@
 
+engine.cmo: OCAML_FLAGS+= -package objsize
+engine.cmx: OCAMLOPT_FLAGS+= -package objsize
+
 yak.cma: yak.cmo
 	@echo "--x> " $@
 	@$(OCAMLC) -g -a -o $@ -package unix $^

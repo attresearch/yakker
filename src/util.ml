@@ -33,6 +33,9 @@ let postincr m =
   m := res+1;
   res
 
+let list_of_opt = function None -> [] | Some v -> [v]
+let cons_opt opt vs = match opt with None -> vs | Some v -> v::vs
+
 (* memory statistics *)
 let memcount = ref 0
 let memstat () =

@@ -146,6 +146,9 @@ $(CMXS): %.cmx: %.ml
 	@echo "-x-> " $@
 	@$(OCAMLOPT) $(OCAMLOPT_FLAGS) -for-pack Yak -c $< -o $@
 
+engine.cmo: OCAML_FLAGS+= -package objsize
+engine.cmx: OCAMLOPT_FLAGS+= -package objsize
+
 yak.cma: yak.cmo
 	@echo "--x> " $@
 	@$(OCAMLC) -g -a -o $@ -package unix $^
@@ -427,11 +430,11 @@ restore-yakker: restore-yakker_grammar restore-cmdline restore-extract_grammar r
 ifndef NO_YR
 yakker-byte: yak.cma strings.cmo rfcs.cmo buildinfo.cmo $(FRONT_END_CMOS)
 	@echo "--x> " $@
-	@$(OCAMLC) $^ -g -package unix -linkpkg -o $@
+	@$(OCAMLC) $^ -g -package unix,objsize -linkpkg -o $@
 
 yakker: yak.cmxa strings.cmx rfcs.cmx buildinfo.cmx $(FRONT_END_CMXS)
 	@echo "--x> " $@
-	@$(OCAMLOPT) $^ -package unix -linkpkg -o $@
+	@$(OCAMLOPT) $^ -package unix,objsize -linkpkg -o $@
 endif
 
 ########################################################################

@@ -14,6 +14,7 @@ open Yak
 (* Gul abstract syntax *)
 type nonterminal = Gil.nonterminal
 type expr = Gil.expr
+type ty = string
 type var = string
 
 type repeat = Infinity | Num of int
@@ -42,14 +43,17 @@ type rhs = { mutable a: annot;
              mutable r: rhs0 }
 
 and rhs0 =
-    Symb of nonterminal * expr option * ((var * expr) list) * expr option
+    Symb of nonterminal 
+      * expr option                (* early args *)
+      * ((var * expr) list)        (* attributes *)
+      * expr option                (* late args  *)
   | Lit of bool * string                (* true iff case sensitive *)
   | Position of bool                    (* true iff early *)
   | CharRange of int * int
   | Prose of string
   | Action of expr option * expr option
-  | Box of expr * expr option * boxnull (* argument * return type *)
-  | Delay of expr * expr option         (* argument * return type *)
+  | Box of expr * ty option * boxnull (* argument, return type, box nullability info *)
+  | Delay of expr * ty option         (* argument, return type *)
   | When of expr
   | Opt of rhs
   | Seq of rhs * var option * var option * rhs

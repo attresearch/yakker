@@ -356,9 +356,23 @@ DEF3(`SOCVAS_MAP', `socvas', `pattern', `body',
 (*define(`CURRENT_CALLSET_GUARD', `callset.id <> current_callset.id')*)
 define(`CURRENT_CALLSET_GUARD', `true')
 
+(** This module provides dummy values for the [idata] and [inspector]
+    fields of the [SEMVAL] signature. Clients wishing to instantiate
+    [SEMVAL], can include this module for convenience. *)
+module Dummy_inspector = struct
+  type idata = unit
+  let inspector x y = y
+end
+
 module type SEMVAL = sig 
   type t
   val cmp : t -> t -> int
+  type idata 
+    (** data used for inspecting semantic values. Used for logging
+	purposes and can safely be instantiated with dummy types/values.*)
+  val inspector : t -> idata -> idata
+    (** for certain logging, we fold over all live semantic
+	values. This function is used in that folding. *)
 end
 
 module PJDN = PamJIT.DNELR
@@ -1039,11 +1053,37 @@ DEF4(`EXTLA_CODE', `presence', `la_target', `la_nt', `target',
   `(presence = nplookahead_fn la_nt la_target ykb)')
 
   let get_set_size m = WI.fold (fun _ socvas n -> n + (Socvas.cardinal socvas)) m 0
+
   let append_socvas_semvals socvas hs = 
     SOCVAS_FOLD(`socvas', `hs', `(callset, sv, _)', `hs',
 		`(callset, sv)::hs')
   let collect_set_semvals m = WI.fold (fun _ socvas hs -> 
 					 append_socvas_semvals socvas hs) m []
+
+  module Int_set = Hashtbl.Make(struct type t = int 
+				       let equal = (==)
+				       let hash x = x end)
+
+  let fold_semvals f earley_set v_0 = 
+    let visited = Int_set.create 11 in
+    let rec fold_callset callset v = 
+      if Int_set.mem visited callset.id then v
+      else begin
+	Int_set.add visited callset.id ();
+	let acc = ref v in
+	for i = 0 to Array.length callset.data - 1 do
+	  let socvas = snd callset.data.(i) in
+	  acc := fold_socvas socvas !acc;
+	done;
+	!acc
+      end
+    (** count the number of semvals in [socvas] and its children *)
+    and fold_socvas socvas v =
+      SOCVAS_FOLD(`socvas', `v', 
+		  `(cs, sv, _)', `m', `let v1 = f sv m in fold_callset cs v1') in
+    WI.fold (fun _ socvas v -> fold_socvas socvas v) earley_set v_0
+
+  let count_semvals earley_set = fold_semvals (fun _ n -> n + 1) earley_set 0
 
   (* PERF: Create this closure once, and store it in [xyz]. *)
   (** Invokes full-blown lookahead in CfgLA case. *)
@@ -1794,10 +1834,17 @@ DEF4(`EXTLA_CODE', `presence', `la_target', `la_nt', `target',
       LOGp(stats, "%d %d\n" ccs.id (get_set_size cs));
 
       (* Report memory size of the data accessable from the Earley set (focusing on 
-	 the semantic values). *)
-      LOGp(hist_size, "%d %d\n" ccs.id 
+	 the semantic values). We use LOG rather than LOGp so that we can ensure
+	 that memsize is executed before objsize. *)
+      LOG(
+	let msize = Util.memsize () in (* will force a major GC. *)
+	let sv_count = count_semvals cs in
+	Logging.log Logging.Features.hist_size 
+	  "%d %d %d\n" ccs.id 
+	     msize
 	     (let relevant_data = collect_set_semvals cs in
-	      Objsize.size_with_headers (Objsize.objsize relevant_data)));
+	      Objsize.size_with_headers (Objsize.objsize relevant_data))
+      );
 
       IF_FLA(
 	`if not is_exact_match && check_done term_table d dcs start_nt cs.WI.count then

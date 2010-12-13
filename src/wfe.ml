@@ -361,7 +361,9 @@ define(`CURRENT_CALLSET_GUARD', `true')
     [SEMVAL], can include this module for convenience. *)
 module Dummy_inspector = struct
   type idata = unit
-  let inspector x y = y
+  let create_idata () = ()
+  let inspect x y = y
+  let summarize_inspection x = "n/a"
 end
 
 module type SEMVAL = sig 
@@ -370,59 +372,66 @@ module type SEMVAL = sig
   type idata 
     (** data used for inspecting semantic values. Used for logging
 	purposes and can safely be instantiated with dummy types/values.*)
-  val inspector : t -> idata -> idata
+
+  val create_idata : unit -> idata
+
+  val inspect : t -> idata -> idata
     (** for certain logging, we fold over all live semantic
 	values. This function is used in that folding. *)
+
+  val summarize_inspection : idata -> string
+    (** return a string summarizing the results of the inspection. The
+	string should preferably fit onto a single line. *)
 end
 
 module PJDN = PamJIT.DNELR
 
-DEF2(`MCOMPLETE_CODE', `nts', `no_args', `(
-   LOG(
-     if Logging.features_are_set Logging.Features.stats then begin
-       let n = Socvas.cardinal socvas_s in
-       Logging.Distributions.add_value 
-	 IFE_TRUE(no_args, `"CSS"', `"CPSS"') 
-	 n;
-     end;
-   );
-   let m_nts = Array.length nts - 1 in
-   IFE_TRUE(no_args, `',`let curr_pos = current_callset.id in')
-   SOCVAS_ITER(`socvas_s', 
-     `IFE_TRUE(no_args, `(callset, _, _)', `(callset, sv, sv_arg)') ',
-     `let items = callset.data in
-     for l = 0 to Array.length items - 1 do
-       let s_l, c_l = items.(l) in
-       for k = 0 to m_nts do
-	 let t = PJ.lookup_trans_nt nonterm_table s_l nts.(k) in
-	 if t > 0 then insert_many i ol cs t c_l;
-	 IFE_TRUE(no_args, `',
-	   `let {PJDN.ctarget = t; carg = arg_act; cbinder = binder} = PJDN.lookup_trans_pnt p_nonterm_table s_l nts.(k) in
-	    if t > 0 then begin
-	      SOCVAS_ITER(`c_l', `(callset_s_l, sv_s_l, sv_arg_s_l)', ` 
-		if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
-		  LOG(
-		    Logging.log Logging.Features.comp_ne "%d => %d [%d(_)]\n" s_l t nts.(k)
-		  );
-		  insert_one_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
-		end')
-	    end')
-       done
-     done') 
-)')
+  DEF2(`MCOMPLETE_CODE', `nts', `no_args', `(
+	 LOG(
+	   if Logging.features_are_set Logging.Features.stats then begin
+	     let n = Socvas.cardinal socvas_s in
+	     Logging.Distributions.add_value 
+	       IFE_TRUE(no_args, `"CSS"', `"CPSS"') 
+	       n;
+	   end;
+	 );
+	 let m_nts = Array.length nts - 1 in
+	 IFE_TRUE(no_args, `',`let curr_pos = current_callset.id in')
+	   SOCVAS_ITER(`socvas_s', 
+		       `IFE_TRUE(no_args, `(callset, _, _)', `(callset, sv, sv_arg)') ',
+		       `let items = callset.data in
+		       for l = 0 to Array.length items - 1 do
+			 let s_l, c_l = items.(l) in
+			 for k = 0 to m_nts do
+			   let t = PJ.lookup_trans_nt nonterm_table s_l nts.(k) in
+			   if t > 0 then insert_many i ol cs t c_l;
+			   IFE_TRUE(no_args, `',
+				    `let {PJDN.ctarget = t; carg = arg_act; cbinder = binder} = PJDN.lookup_trans_pnt p_nonterm_table s_l nts.(k) in
+				    if t > 0 then begin
+				      SOCVAS_ITER(`c_l', `(callset_s_l, sv_s_l, sv_arg_s_l)', ` 
+						    if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
+						      LOG(
+							Logging.log Logging.Features.comp_ne "%d => %d [%d(_)]\n" s_l t nts.(k)
+						      );
+						      insert_one_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
+							end')
+					end')
+			 done
+			   done') 
+       )')
 
-DEF2(`NULL_COMPL', `nt', `new_sv', `(
-   let t1 = PJ.lookup_trans_nt nonterm_table s nt in
-   if t1 > 0 then begin
-     LOG(
-       Logging.log Logging.Features.comp_ne "%d => %d [%d]\n" s t1 nt
-     );
-     insert_many i ol cs t1 socvas_s;
-   end;
+  DEF2(`NULL_COMPL', `nt', `new_sv', `(
+	 let t1 = PJ.lookup_trans_nt nonterm_table s nt in
+	 if t1 > 0 then begin
+	   LOG(
+	     Logging.log Logging.Features.comp_ne "%d => %d [%d]\n" s t1 nt
+	   );
+	   insert_many i ol cs t1 socvas_s;
+	 end;
 
-   (* We can be sure the carg is irrelevant because the nonterminal is connected to 
-      a parameterless call. (FIX: is this really true? how can we be sure that no
-      parametered calls share this state in the transducer?) *)
+	 (* We can be sure the carg is irrelevant because the nonterminal is connected to 
+	    a parameterless call. (FIX: is this really true? how can we be sure that no
+	    parametered calls share this state in the transducer?) *)
    let {PJDN.ctarget = t1; carg = _; cbinder = binder} = 
      PJDN.lookup_trans_pnt p_nonterm_table s nt in
    if t1 > 0 then begin  
@@ -1085,6 +1094,15 @@ module Full_yakker (Sem_val : SEMVAL) = struct
     WI.fold (fun _ socvas v -> fold_socvas socvas v) earley_set v_0
 
   let count_semvals earley_set = fold_semvals (fun _ n -> n + 1) earley_set 0
+
+  (** count the number of semantic values and inspect each one with
+      client-specified inspector. *)
+  let count_semvals_plus earley_set =     
+    fold_semvals (fun sv (n, idata) -> n + 1, Sem_val.inspect sv idata) 
+      earley_set (0, Sem_val.create_idata ())
+
+  let inspect_semvals earley_set =     
+    fold_semvals Sem_val.inspect earley_set (Sem_val.create_idata ())
 
   (* PERF: Create this closure once, and store it in [xyz]. *)
   (** Invokes full-blown lookahead in CfgLA case. *)
@@ -1838,13 +1856,14 @@ module Full_yakker (Sem_val : SEMVAL) = struct
 	 the semantic values). We use LOG rather than LOGp so that we can ensure
 	 that memsize is executed before objsize. *)
       LOG(
-	let msize = Util.memsize () in (* will force a major GC. *)
-	let sv_count = count_semvals cs in
+       `let msize = Util.memsize () in (* will force a major GC. *)
+	let sv_count, idata = count_semvals_plus cs in
 	Logging.log Logging.Features.hist_size 
-	  "%d %d %d\n" ccs.id 
+	  "%d %d %d %s\n" ccs.id 
 	     msize
-	     (let relevant_data = collect_set_semvals cs in
-	      Objsize.size_with_headers (Objsize.objsize relevant_data))
+(* 	     (let relevant_data = collect_set_semvals cs in *)
+(* 	      Objsize.size_with_headers (Objsize.objsize relevant_data)) *)
+	  sv_count (Sem_val.summarize_inspection idata)'
       );
 
       IF_FLA(

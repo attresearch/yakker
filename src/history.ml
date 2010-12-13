@@ -22,11 +22,11 @@
 type ('a,'lbl) root =
   | Empty
   | Root of ('a,'lbl) info
-and ('a,'lbl) info = {label : 'lbl; v:'a; 
-	       mutable branchings:('a,'lbl) branching list; (* NB we aren't compacting 
-							(eliminating duplicates) 
-							the branchings *)
-	      }
+and ('a,'lbl) info = {label : 'lbl; v:'a;
+               mutable branchings:('a,'lbl) branching list; (* NB we aren't compacting
+                                                        (eliminating duplicates)
+                                                        the branchings *)
+              }
 and ('a,'lbl) branching =
   | One of ('a,'lbl) root
   | Two of ('a,'lbl) root * ('a,'lbl) root
@@ -41,13 +41,13 @@ class type ['a] postfix =
       end
 
 class type ['a,'lbl] history =
-      object ('b)
-        method empty : int -> 'b
-        method merge : int -> 'a -> 'b -> 'b
-        method push : int -> 'a -> 'b
-        method get_root : ('a,'lbl) root 
+      object ('h)
+        method empty : int -> 'h
+        method merge : int -> 'a -> 'h -> 'h
+        method push : int -> 'a -> 'h
+        method get_root : ('a,'lbl) root
 
-	method traverse_postfix : 'a postfix
+        method traverse_postfix : 'a postfix
       end
 
 
@@ -139,43 +139,60 @@ module Make (Hv : HV) = struct
 
   let compare_root r1 r2 =
     match r1, r2 with
-	Empty, Empty -> 0
+        Empty, Empty -> 0
       | Empty, _ -> -1
       | _, Empty -> 1
       | Root inf1, Root inf2 -> Info.compare inf1 inf2
 
   let compare h1 h2 = compare_root h1#get_root h2#get_root
 
-  module WeakInfo = Weak.Make(Info)
+  module Weak_info = Weak.Make(Info)
 
   let hash h = match (h#get_root) with Empty -> 0 | Root inf -> Info.hash inf
   let memoize = ref false
 
   let new_history () =
     if !memoize then
-      let memo_tbl = WeakInfo.create 11 in
-      new history_impl (WeakInfo.merge memo_tbl)
+      let memo_tbl = Weak_info.create 11 in
+      new history_impl (Weak_info.merge memo_tbl)
     else
       new history_impl (fun x -> x)
 
+  module Root_id_set = Set.Make(Info)
+
+  let add_id_set r ris =
+    let rec recur_root ris = function
+      | Empty -> ris
+      | Root info -> (* Add the current root and then add the children. *)
+          let x = Root_id_set.add info ris in
+          List.fold_left recur_branching x info.branchings
+    and recur_branching ris = function
+      | One r -> recur_root ris r
+      | Two (r1, r2) ->
+          let x = recur_root ris r1 in
+          recur_root x r2 in
+    recur_root ris r
+
+  let get_id_set r = add_id_set r Root_id_set.empty
+
 (******************************************************************************)
 
-  (** 
+  (**
       Visualization functions.
   *)
 
   module Edge = struct
     type t = (Hv.t,label) branching
 
-    let compare b1 b2 = 
+    let compare b1 b2 =
       match b1 , b2 with
-	  One r1, One r2 -> compare_root r1 r2
-	| One _, Two _ -> -1
-	| Two _, One _ -> 1
-	| Two (r2, r3), Two (r2', r3') -> 
-	    let c = compare_root r2 r2' in
-	    if c <> 0 then c else
-	      compare_root r3 r3'
+          One r1, One r2 -> compare_root r1 r2
+        | One _, Two _ -> -1
+        | Two _, One _ -> 1
+        | Two (r2, r3), Two (r2', r3') ->
+            let c = compare_root r2 r2' in
+            if c <> 0 then c else
+              compare_root r3 r3'
   end
   module Edge_set = struct
     module Edge_set = Set.Make(Edge)
@@ -187,30 +204,30 @@ module Make (Hv : HV) = struct
   module Hash_info = Hashtbl.Make(Info)
 
   (** returns r and its left siblings. *)
-  let get_left_siblings r = 
+  let get_left_siblings r =
     let rec loop rs r = match r with
     | Empty -> rs
-    | Root {branchings = [One r2]}  
-    | Root {branchings = [Two(r2,_)]} -> 
-	loop (r::rs) r2
+    | Root {branchings = [One r2]}
+    | Root {branchings = [Two(r2,_)]} ->
+        loop (r::rs) r2
     | Root {branchings = (One r2) :: _}
-    | Root {branchings = (Two(r2,_)) :: _} -> 
-	Printf.eprintf "get_left_siblings: Ambiguity encountered.\n";
-	loop (r::rs) r2
+    | Root {branchings = (Two(r2,_)) :: _} ->
+        Printf.eprintf "get_left_siblings: Ambiguity encountered.\n";
+        loop (r::rs) r2
     | Root {branchings=[]} -> impossible() in
     loop [] r
 
   let get_children = function
     | {branchings = [One _]} ->
-	[]
+        []
     | {branchings = (One _) :: _} ->
-	Printf.eprintf "get_children: Ambiguity encountered.\n";
-	[]
+        Printf.eprintf "get_children: Ambiguity encountered.\n";
+        []
     | {branchings = [Two (_, r3)]} ->
-	get_left_siblings r3
+        get_left_siblings r3
     | {branchings = (Two(_, r3)) :: _} ->
-	Printf.eprintf "get_children: Ambiguity encountered.\n";
-	get_left_siblings r3	
+        Printf.eprintf "get_children: Ambiguity encountered.\n";
+        get_left_siblings r3
     | {branchings=[]} -> impossible()
 
   let dot_show_pretty string_of_atom h =
@@ -226,17 +243,17 @@ module Make (Hv : HV) = struct
     and dot_show_tree n_last = function
       | Empty -> 0, n_last
       | Root ({v = v} as t) ->
-	  let n_opt = try Some (Hash_info.find tbl t) with Not_found -> None in
-	  match n_opt with
+          let n_opt = try Some (Hash_info.find tbl t) with Not_found -> None in
+          match n_opt with
             | Some n -> (n,n_last)
             | None ->
-		let n = n_last + 1 in
-		Hash_info.add tbl t n;
-		Printf.printf "%i [ label = %S shape = box, style = rounded];\n" n
-		  (string_of_atom v);
-		let children = get_children t in
-		let n_final = List.fold_left (dot_show_child n) n children in
-		(n,n_final)
+                let n = n_last + 1 in
+                Hash_info.add tbl t n;
+                Printf.printf "%i [ label = %S shape = box, style = rounded];\n" n
+                  (string_of_atom v);
+                let children = get_children t in
+                let n_final = List.fold_left (dot_show_child n) n children in
+                (n,n_final)
 
     in
     Printf.printf "digraph g {\n";
@@ -264,47 +281,47 @@ module Make (Hv : HV) = struct
 
       (** returns: last used n *)
       let dot_show_edge n_v = function
-	  One r ->
-	    let (n1,n_final) = dot_show_tree n_v r in
-	    edge n_v n1;
-	    n_final
-	| Two (r2, r3) ->
-	    let (n3,n_cur) = dot_show_tree n_v r3 in
-	    child_edge n_v n3;
-	    let (n2,n_final) = dot_show_tree n_cur r2 in
-	    edge n_v n2;
-	    n_final
+          One r ->
+            let (n1,n_final) = dot_show_tree n_v r in
+            edge n_v n1;
+            n_final
+        | Two (r2, r3) ->
+            let (n3,n_cur) = dot_show_tree n_v r3 in
+            child_edge n_v n3;
+            let (n2,n_final) = dot_show_tree n_cur r2 in
+            edge n_v n2;
+            n_final
       in
       (** returns: last used n *)
       let dot_show_packed n_parent e n_last =
-	let n = n_last + 1 in
-	Printf.printf "%i [label=\"\" shape = circle width = 0.15];\n" n;
-	edge n_parent n;
-	dot_show_edge n e
+        let n = n_last + 1 in
+        Printf.printf "%i [label=\"\" shape = circle width = 0.15];\n" n;
+        edge n_parent n;
+        dot_show_edge n e
       in
       match root with
       | Empty -> 0, n_last
       | Root ({v = v} as t) ->
-	  let n_opt = try Some (Hash_info.find tbl t) with Not_found -> None in
-	  match n_opt with
+          let n_opt = try Some (Hash_info.find tbl t) with Not_found -> None in
+          match n_opt with
             | Some n -> (n,n_last)
             | None ->
-		let n = n_last + 1 in
-		Hash_info.add tbl t n;
-		Printf.printf "%i [ label = %S shape = box, style = rounded];\n" n
-		  ((string_of_atom v) ^ "(" ^ Label.to_string t.label ^ ")");
-		let n_final = match t.branchings with
+                let n = n_last + 1 in
+                Hash_info.add tbl t n;
+                Printf.printf "%i [ label = %S shape = box, style = rounded];\n" n
+                  ((string_of_atom v) ^ "(" ^ Label.to_string t.label ^ ")");
+                let n_final = match t.branchings with
                     [] -> impossible()
-		  | [e] -> dot_show_edge n e
-		  | edges ->
-	              if Logging.activated then
-			Logging.log Logging.Features.sppf
+                  | [e] -> dot_show_edge n e
+                  | edges ->
+                      if Logging.activated then
+                        Logging.log Logging.Features.sppf
                           "Encountered node with non-singular edge set. (%s)." (string_of_atom v);
-		      let edgeset = Edge_set.from_list edges in
+                      let edgeset = Edge_set.from_list edges in
                       if Edge_set.cardinal edgeset > 1 then
-			Edge_set.fold (dot_show_packed n) edgeset n 
-		      else dot_show_edge n (Edge_set.choose edgeset) in
-		(n,n_final) in
+                        Edge_set.fold (dot_show_packed n) edgeset n
+                      else dot_show_edge n (Edge_set.choose edgeset) in
+                (n,n_final) in
     Printf.printf "digraph g {\nordering=out\n";
     ignore(dot_show_tree 0 h#get_root);
     pr_edges();

@@ -135,10 +135,10 @@ let gil_transducer,gil_dot =
 
 let add_boilerplate backend gr =
   let mk_trans_bp1 = Printf.sprintf "
-let start_symb = get_symb_action \"%s\"
+let start_symb = get_symb_action %S
 
 module P2__ = Yak.Engine.Full_yakker(struct type t = sv let cmp = sv_compare 
-                                            include Yak.Engine.Dummy_inspector end)
+                                            %s end)
 
 let _wfe_data_ = Yak.PamJIT.DNELR.to_table (Yak.Pam_internal.load_internal_program program)
   start_symb (get_symb_start start_symb) %d num_symbols
@@ -167,7 +167,7 @@ let parse = Yak.Pami.mk_parse_fun __parse %s
       let _n() = (let (x,_) = _o#next() in x) in
       _r_%s(_n,ykinput)
     )
-" 
+"
 	patt
 	(Variables.bnf2ocaml gr.start_symbol)
     else
@@ -176,10 +176,19 @@ let parse = Yak.Pami.mk_parse_fun __parse %s
     if gr.grammar_late_relevant then 
 	Printf.sprintf "Yk_History.memoize := %B;;\n" !Compileopt.memoize_history
     else "" in
+  let inspector_fields = 
+    if gr.grammar_late_relevant && not !Compileopt.unit_history then
+      let patt = if gr.grammar_early_relevant then "(_,h)" else "h" in
+      Printf.sprintf "type idata = Yk_History.Root_id_set.t
+  let create_idata () = Yk_History.Root_id_set.empty
+  let inspect %s s = Yk_History.add_id_set h#get_root s
+  let summarize_inspection s = string_of_int (Yk_History.Root_id_set.cardinal s)" patt
+    else
+      "include Yak.Engine.Dummy_inspector" in
   let boilerplate_vary =
     match backend with
       | Trans_BE -> 
-	  mk_trans_bp1 gr.start_symbol Fsm.min_symbol Fsm.default_call_tx 
+	  mk_trans_bp1 gr.start_symbol inspector_fields Fsm.min_symbol Fsm.default_call_tx 
 	    Fsm.default_binder_tx post_parse_function
       | Fun_BE | Peg_BE _ -> 
 	  mk_other_bp1 post_parse_function in

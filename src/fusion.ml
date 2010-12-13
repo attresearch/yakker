@@ -152,7 +152,7 @@ let fuse_gil gr = gr.Gul.gildefs <- fuse_gil_definitions gr.Gul.gildefs
 
 
 
-(* let fuse_gul_rhs =  *)
+(* let fuse_gul_rhs = *)
 
 (* (\* TODO: In Alt case, if r1 and r2 end with the same fused action, we *)
 (*    can actually factor it our of the alternative and keep going with *)
@@ -168,13 +168,13 @@ let fuse_gil gr = gr.Gul.gildefs <- fuse_gil_definitions gr.Gul.gildefs
 
 (*   (\** Fuse a (reversed) list of actions [fn] ... [f1]: *)
 
-(*       [  fun p v ->  fn p (.. f2 p (f1 p v)...)]       *)
+(*       [  fun p v ->  fn p (.. f2 p (f1 p v)...)] *)
 (*   *\) *)
 (*   let fuse = function *)
 (*     | [] -> invalid_arg "empty list of actions passed to fuse" *)
 (*     | [a] -> Gil.Action a *)
 (*     | actions_rev -> *)
-(* 	let action_string =  *)
+(* 	let action_string = *)
 (* 	  List.fold_right (fun a s -> Printf.sprintf "%s p (%s)" a s) actions_rev "v" in *)
 (* 	Gil.Action("fun p v -> " ^ action_string) in *)
 
@@ -183,7 +183,7 @@ let fuse_gil gr = gr.Gul.gildefs <- fuse_gil_definitions gr.Gul.gildefs
 (*   let fuse_box actions b n = match actions with *)
 (*     | [] -> invalid_arg "empty list of actions passed to fuse" *)
 (*     | actions_rev -> *)
-(* 	let action_string =  *)
+(* 	let action_string = *)
 (* 	  List.fold_right (fun a s -> Printf.sprintf "(%s p %s)" a s) actions_rev "v" in *)
 (* 	let box = Printf.sprintf "fun v p ykb -> let v' = %s in %s v' p ykb" action_string b in *)
 (* 	Gil.Box(box, n) in *)
@@ -191,7 +191,7 @@ let fuse_gil gr = gr.Gul.gildefs <- fuse_gil_definitions gr.Gul.gildefs
 (*   let fuse_box_pred actions b p = match actions with *)
 (*     | [] -> invalid_arg "empty list of actions passed to fuse" *)
 (*     | actions_rev -> *)
-(* 	let action_string =  *)
+(* 	let action_string = *)
 (* 	  List.fold_right (fun a s -> Printf.sprintf "(%s p %s)" a s) actions_rev "v" in *)
 (* 	let box = Printf.sprintf "fun v p ykb -> let v' = %s in %s v' p ykb" action_string b in *)
 (* 	let pred = Printf.sprintf "fun v -> %s %s" p action_string in *)
@@ -200,14 +200,14 @@ let fuse_gil gr = gr.Gul.gildefs <- fuse_gil_definitions gr.Gul.gildefs
 (*   let fuse_pred actions p n = match actions with *)
 (*     | [] -> invalid_arg "empty list of actions passed to fuse" *)
 (*     | actions_rev -> *)
-(* 	let action_string =  *)
+(* 	let action_string = *)
 (* 	  List.fold_right (fun a s -> Printf.sprintf "(%s p %s)" a s) actions_rev "v" in *)
 (* 	let pred = Printf.sprintf "fun p v -> %s p %s" p action_string in *)
 (* 	Gil.When(pred, n) in *)
 
 (*   let rec recur r = Gil.mkSEQ_rev (scan [] r []) *)
 
-(*   (\** invocation: [scan r_acc r r_k]  *)
+(*   (\** invocation: [scan r_acc r r_k] *)
       
 (*       Scan [r] from left to right, breaking left-nested sequences *)
 (*       until a leaf is found. Build up a worklist in the "continuation" *)
@@ -228,9 +228,9 @@ let fuse_gil gr = gr.Gul.gildefs <- fuse_gil_definitions gr.Gul.gildefs
 (*       actions,...) which will eventually be turned back into a sequence. *)
 (*   *\) *)
 (*   and scan r_acc r k = match r.r with *)
-(*     | Gul.Symb _  *)
+(*     | Gul.Symb _ *)
 (*     | Gul.Lit _ *)
-(*     | Gul.CharRange _  *)
+(*     | Gul.CharRange _ *)
 (*     | Gul.Prose _ *)
 (*     | Gul.Delay _ *)
 (*     | Gul.Box _ *)
@@ -240,7 +240,7 @@ let fuse_gil gr = gr.Gul.gildefs <- fuse_gil_definitions gr.Gul.gildefs
 
 (*     | Gul.Opt r1 -> continue_s (Gul.mkOPT (recur r1) :: r_acc) k *)
 (*     | Gul.Assign (r1, v1, v2) -> continue_s (Gul.mkASSIGN (recur r1, v1, v2) :: r_acc) k *)
-(*     | Gul.Alt (r1, r2) ->  *)
+(*     | Gul.Alt (r1, r2) -> *)
 (* 	continue_s (Gul.mkALT2 (recur r1, recur r2) :: r_acc) k *)
 (*     | Gul.Rcount (e, r1) -> continue_s (Gul.mkRCOUNT (e, recur r1) :: r_acc) k *)
 (*     | Gul.Star (l, r1) -> continue_s (Gul.mkSTAR2 (l, recur r1) :: r_acc) k *)
@@ -250,12 +250,12 @@ let fuse_gil gr = gr.Gul.gildefs <- fuse_gil_definitions gr.Gul.gildefs
 
 (*     | Gul.Seq (r1, r2) -> scan r_acc r1 (r2::k) *)
 
-(*   and collect r_acc ea_acc la_acc r k =  *)
+(*   and collect r_acc ea_acc la_acc r k = *)
 (*     let to_scan r e l rs k = continue_s (r :: fuse e l :: rs) k in *)
 (*     match r.r with *)
-(*     | Gul.Symb _  *)
+(*     | Gul.Symb _ *)
 (*     | Gul.Lit _ *)
-(*     | Gul.CharRange _  *)
+(*     | Gul.CharRange _ *)
 (*     | Gul.Prose _ *)
 (*     | Gul.Delay _ *)
 (*     | Gul.When _ *)
@@ -264,22 +264,22 @@ let fuse_gil gr = gr.Gul.gildefs <- fuse_gil_definitions gr.Gul.gildefs
 
 (*     | Gul.Opt r1 -> to_scan (Gul.mkOPT (recur r1)) ea_acc la_acc r_acc k *)
 (*     | Gul.Assign (r1, v1, v2) -> to_scan (Gul.mkASSIGN (recur r1, v1, v2)) ea_acc la_acc r_acc k *)
-(*     | Gul.Alt (r1, r2) ->  *)
+(*     | Gul.Alt (r1, r2) -> *)
 (* 	to_scan (Gul.mkALT2 (recur r1, recur r2)) ea_acc la_acc r_acc k *)
 (*     | Gul.Rcount (e, r1) -> to_scan (Gul.mkRCOUNT (e, recur r1)) ea_acc la_acc r_acc k *)
 (*     | Gul.Star (l, r1) -> to_scan (Gul.mkSTAR2 (l, recur r1)) ea_acc la_acc r_acc k *)
 (*     | Gul.Hash (l, r1) -> to_scan (Gul.mkHASH2 (l, recur r1)) ea_acc la_acc r_acc k *)
 	  
-(*     | Gul.Box (e, ty_opt, Gul.Runpred_null p) ->  *)
+(*     | Gul.Box (e, ty_opt, Gul.Runpred_null p) -> *)
 (* 	continue_s (fuse_box_pred a_acc e ty_opt p :: r_acc) k *)
 
-(*     | Gul.Box (e, ty_opt, n) ->  *)
+(*     | Gul.Box (e, ty_opt, n) -> *)
 (* 	continue_s ((fuse_box a_acc e ty_opt n) :: r_acc) k *)
 
 (*     (\*     | Gul.When (f_pred, f_next) ->  *\) *)
 (* (\* 	continue_s (fuse_pred a_acc f_pred f_next :: r_acc) k *\) *)
 
-(*     | Gul.Action (e_a, e_l) -> continue_c r_acc (Util.cons_opt e_a ea_acc) (Util.cons_opt l_a la_acc) k  *)
+(*     | Gul.Action (e_a, e_l) -> continue_c r_acc (Util.cons_opt e_a ea_acc) (Util.cons_opt l_a la_acc) k *)
 
 (*     | Gul.Seq (r1, r2) -> collect r_acc a_acc r1 (r2 :: k) *)
 
@@ -287,7 +287,7 @@ let fuse_gil gr = gr.Gul.gildefs <- fuse_gil_definitions gr.Gul.gildefs
 (*     | [] -> r_acc *)
 (*     | r::rs -> scan r_acc r rs *)
 
-(*   (\**  *)
+(*   (\** *)
 (*       [ea_acc] = early action accumulator *)
 (*       [la_acc] = late action accumulator *)
 (*   *\) *)
@@ -298,9 +298,9 @@ let fuse_gil gr = gr.Gul.gildefs <- fuse_gil_definitions gr.Gul.gildefs
 (*   recur *)
 
 
-(* let fuse_gul_definitions ds =  *)
-(*   let f = function  *)
-(*     | RuleDef(n, r, a) -> RuleDef(n, fuse_gul_rhs r, a)  *)
+(* let fuse_gul_definitions ds = *)
+(*   let f = function *)
+(*     | RuleDef(n, r, a) -> RuleDef(n, fuse_gul_rhs r, a) *)
 (*     | d -> d in *)
 (*   List.map f ds *)
 

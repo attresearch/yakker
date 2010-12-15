@@ -2607,14 +2607,13 @@ module Full_yakker (Sem_val : SEMVAL) = struct
       (* Report memory size of the data accessable from the Earley set (focusing on 
 	 the semantic values). We use LOG rather than LOGp so that we can ensure
 	 that memsize is executed before objsize. *)
-       	    if Logging.activated then begin let msize = Util.memsize () in (* will force a major GC. *)
-	let sv_count, idata = count_semvals_plus cs in
-	Logging.log Logging.Features.hist_size 
-	  "%d %d %d %s\n" ccs.id 
-	     msize
-(* 	     (let relevant_data = collect_set_semvals cs in *)
-(* 	      Objsize.size_with_headers (Objsize.objsize relevant_data)) *)
-	  sv_count (Sem_val.summarize_inspection idata)
+       	    if Logging.activated then begin if Logging.features_are_set Logging.Features.hist_size then
+	 let msize = Util.memsize () in (* will force a major GC. *)
+         let es_size = get_set_size cs in
+	 let sv_count, idata = count_semvals_plus cs in
+	 let insp_summary = Sem_val.summarize_inspection idata in
+	 Logging.log Logging.Features.hist_size "%d %d %d %d %s\n" 
+	   ccs.id es_size sv_count msize insp_summary
        end 	    ;
 
        	    if support_FLA then begin if not is_exact_match && check_done term_table d dcs start_nt cs.WI.count then
@@ -2735,6 +2734,15 @@ module Full_yakker (Sem_val : SEMVAL) = struct
        	    if Logging.activated then begin if Logging.features_are_set Logging.Features.stats then begin
 	Logging.Distributions.report ();
       end
+       end 	    ;
+
+
+       	    if Logging.activated then begin let idata =
+	 List.fold_left (fun idata sv -> Sem_val.inspect sv idata) 
+	   (Sem_val.create_idata ()) !successes in
+	Logging.log Logging.Features.hist_size 
+	  "Success %d %s\n" (!current_callset).id 
+	  (Sem_val.summarize_inspection idata)
        end 	    ;
 
       !successes

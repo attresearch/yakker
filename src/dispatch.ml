@@ -243,6 +243,7 @@ let transform gr =
   | false,false ->
       add_no_early_or_late_prologue gr);
   add_to_prologue gr all_prologue;
+
   let disp          = Printf.sprintf "_d %d" in
   let disp_delay    = Printf.sprintf "_ddelay %d" in
   let disp_when     = Printf.sprintf "_dwhen %d" in
@@ -254,17 +255,19 @@ let transform gr =
   let push          = Printf.sprintf "_p %d" in
   let merge         = Printf.sprintf "_m %d" in
   let disp_and_push = Printf.sprintf "_d_and_push %d" in
+
+  (* Translate irrelevant Gul right-parts to Gil. *)
   let rec gul2gil r = (* should only be called by dispatch, so invariants are satisfied *)
     match r.r with
-    | CharRange(x,y) -> Gil.CharRange(x,y)
-    | Lit(x,y)  -> Gil.Lit(x,y)
-    | Opt(r1) -> Gil.Alt(Gil.Lit(false,""),gul2gil r1)
-    | Alt(r1,r2) -> Gil.Alt(gul2gil r1,gul2gil r2)
-    | Symb(n,None,[],None) -> Gil.Symb(n,None,None)
-    | Action(None,None) -> Gil.Lit(false,"")
-    | Seq(r1,None,None,r2) -> Gil.Seq(gul2gil r1,gul2gil r2)
-    | Star(Bounds(0,Infinity),r1) -> Gil.Star(gul2gil r1)
-    | Lookahead(b,r1)  -> Gil.Lookahead(b,d r1) (* CALL D <-- mutual recursion needed*)
+    | CharRange(x, y) -> Gil.CharRange(x, y)
+    | Lit(x, y)  -> Gil.Lit(x, y)
+    | Opt(r1) -> Gil.Alt(Gil.Lit(false, ""), gul2gil r1)
+    | Alt(r1, r2) -> Gil.Alt(gul2gil r1, gul2gil r2)
+    | Symb(n, None, [], None) -> Gil.Symb(n, None, None)
+    | Action(None, None) -> Gil.Lit(false, "")
+    | Seq(r1, None, None, r2) -> Gil.Seq(gul2gil r1, gul2gil r2)
+    | Star(Bounds(0, Infinity), r1) -> Gil.Star(gul2gil r1)
+    | Lookahead(b, r1)  -> Gil.Lookahead(b, d r1) (* CALL D <-- mutual recursion needed*)
           (* The cases below are relevant, gul2gil should not be called on relevant rhs *)
     | Star _      -> Util.impossible "Dispatch.gul2gil.Star"
     | Delay _     -> Util.impossible "Dispatch.gul2gil.Delay"
@@ -411,6 +414,6 @@ let transform gr =
                        x h (Coroutine.transform r) h n) in
                let coroutine = fresh() in
                add_to_prologue gr (Printf.sprintf "let %s =\n %s\n" coroutine c);
-               [(n,Gil.Seq(Gil.Action(coroutine),d r))]
+               [(n, Gil.Seq(Gil.Action(coroutine), d r))]
            | _ -> [])
          gr.ds)

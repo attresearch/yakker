@@ -3653,7 +3653,8 @@ let program : (int * sv instruction list) list = [
 
 let start_symb = get_symb_action "rulelist"
 
-module P2__ = Yak.Engine.Full_yakker(struct type t = sv let cmp = sv_compare end)
+module P2__ = Yak.Engine.Full_yakker(struct type t = sv let cmp = sv_compare 
+                                            include Yak.Engine.Dummy_inspector end)
 
 let _wfe_data_ = Yak.PamJIT.DNELR.to_table (Yak.Pam_internal.load_internal_program program)
   start_symb (get_symb_start start_symb) 264 num_symbols

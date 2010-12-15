@@ -40,6 +40,8 @@ let cons_opt opt vs = match opt with None -> vs | Some v -> v::vs
 let memcount = ref 0
 let memstat () =
   (Gc.full_major(); Printf.eprintf "%d %d\n%!" (postincr memcount) ((Gc.stat()).Gc.live_words))
+let memsize () = Gc.full_major(); (Gc.stat()).Gc.live_words
+
 
 (* piped processes *)
 let pipe_in_out command send_in get_out =

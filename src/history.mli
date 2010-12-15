@@ -47,6 +47,12 @@ module Make (Hv : HV) :
       val memoize : bool ref
       val new_history : unit -> (Hv.t, label) history
 
+      module Root_id_set : Set.S
+      val get_id_set : (Hv.t, label) root -> Root_id_set.t
+	(** Get the set of (unique) identifiers reachable from the given root. *)
+      val add_id_set : (Hv.t, label) root -> Root_id_set.t -> Root_id_set.t
+	(** Add the set of (unique) identifiers reachable from the given root to the given id set. *)
+	
       val dot_show : (Hv.t -> string) -> (Hv.t, label) history -> unit
       val dot_show_pretty : (Hv.t -> string) -> (Hv.t, label) history -> unit
     end

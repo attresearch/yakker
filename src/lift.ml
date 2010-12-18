@@ -24,7 +24,7 @@ let transform gr =
   let pieces p =
     if not(p) then None,None,None,None,None else
     let x,y = fresh(),fresh() in
-    (Some(x,"[]")),
+    (Some(x,"Yak.Util.nil")),
     (Some y),
     (Some (Printf.sprintf "%s::%s" y x)),
     (Some x),
@@ -35,7 +35,7 @@ let transform gr =
     let n = fresh() in
     if p then
       let ex = fresh() in
-      (Some(n,Printf.sprintf "(%s,[])" count)),
+      (Some(n,Printf.sprintf "(%s,Yak.Util.nil)" count)),
       (Printf.sprintf "fst(%s)>0" n),
       (Some ex),
       (Some(Printf.sprintf "(fst(%s)-1,%s::snd(%s))" n ex n)),
@@ -57,7 +57,7 @@ let transform gr =
     let n = fresh() in
     if p then
       let ex = fresh() in
-      (Some(n,Printf.sprintf "(0,[])")),
+      (Some(n,Printf.sprintf "(0,Yak.Util.nil)")),
       (Printf.sprintf "fst(%s)<=%d" n ub),
       (Some ex),
       (Some(Printf.sprintf "(fst(%s)+1,%s::snd(%s))" n ex n)),
@@ -78,7 +78,7 @@ let transform gr =
     let n = fresh() in
     if p then
       let ex = fresh() in
-      (Some(n,Printf.sprintf "(0,[])")),
+      (Some(n,Printf.sprintf "(0,Yak.Util.nil)")),
       (Some ex),
       (Some(Printf.sprintf "(fst(%s)+1,%s::snd(%s))" n ex n)),
       (Some n),
@@ -115,7 +115,19 @@ let transform gr =
         (* calculate extent for r1 if needed *)
         let need_early_extent = not e1 && early<>None in
         let need_late_extent = not l1 && late<>None in
-        if need_early_extent || need_late_extent then begin
+        if not need_early_extent && need_late_extent then begin
+          let before_l,after_l = fresh(),fresh() in
+          let extent_l = Printf.sprintf "Yak.YkBuf.get_string %s %s ykinput" before_l after_l in
+          r.r <-
+            (mkSEQ2(mkPOSITION false,None,Some before_l,
+                    mkSEQ2(dupRule r1,early,None,
+                           mkSEQ2(mkPOSITION false,None,Some after_l,
+                                  mkSEQ2(mkACTION2(None,
+                                                   Some(extent_l)),
+                                         None,late,
+                                         r2))))).r
+        end
+        else if need_early_extent then begin
           let extent before after = Printf.sprintf "Yak.Pami.get_substring %s %s" before after in
           let extent_l before after = Printf.sprintf "Yak.YkBuf.get_string %s %s ykinput" before after in
           let before,after = fresh(),fresh() in
@@ -151,12 +163,12 @@ let transform gr =
         loop r2
     | Opt _
     | Alt _ ->
-	let alt2rules = (* differs from bnf.ml b/c need to desugar Opt *)
+        let alt2rules = (* differs from bnf.ml b/c need to desugar Opt *)
           let rec loop l r = match r.r with
-	  | Alt(r1,r2) -> loop (loop l r2) r1
-	  | Opt(r1) ->
-	      r.r <- (mkALT[r1;mkLIT ""]).r; loop l r
-	  | _ -> r::l in
+          | Alt(r1,r2) -> loop (loop l r2) r1
+          | Opt(r1) ->
+              r.r <- (mkALT[r1;mkLIT ""]).r; loop l r
+          | _ -> r::l in
           loop [] in
         let alts = alt2rules r in
         let lift_p = List.map (fun r -> loop r) alts in

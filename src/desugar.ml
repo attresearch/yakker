@@ -33,8 +33,10 @@ let desugar gr =
            | {a={css=Some(_)}} -> ()
            | _ ->
                r2.r <- define r2)
+(*
     | Position false ->
         r.r <- (mkDELAY("pos_",None)).r
+*)
     | Symb _ | Position _ | Prose _
     | When _ | Action _ | Box _ | Delay _
     | CharRange _ | Minus _ | Lit _ -> ()

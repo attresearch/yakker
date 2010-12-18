@@ -63,7 +63,8 @@ let transform gr =
           []
       | Delay _ ->
           [(pre,"_n()")]
-      | Position false -> Util.impossible "Replay.rp.Position false" (*TJIM: TODO*)
+      | Position false ->
+          [(pre,"_n()")]
       | Opt r1 ->
           rp r1
       | Alt(r1,r2) ->
@@ -109,8 +110,8 @@ let transform gr =
               (* this case is impossible because our analysis marks this as not late relevant,
                  regardless of whether there is a variable binding *)
               Util.warn Util.Sys_warn "Impossible case in replay transformation: not late relevant.";
-	      Pr.pr_rule_channel stderr r;
-	      prerr_newline ();
+              Pr.pr_rule_channel stderr r;
+              prerr_newline ();
               [])
       | Star(Accumulate(_,Some(x,e)),r1) ->
           let g,y = fresh(),fresh() in

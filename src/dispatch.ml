@@ -27,13 +27,15 @@ let sv_hash () = 0
 let add_early_late_prologue gr =
   let hproj = if gr.wrapped_history then "Ykd_int" else "" in
   (* history transformers *)
-  let h_txs = 
+  let h_txs =
     if !Compileopt.unit_history then
       "let _p x p v = v
+let _p_pos x p v = v
 let _m x p v v1 = v\n"
     else
       Printf.sprintf "let _p x p = (fun(v,h)->(v,h#push p (%s(x),p)))
-let _m x p = (fun(v1,h1)->fun(_,h2)-> (v1,h1#merge p (%s(x),p) h2))\n" hproj hproj in  
+let _p_pos x p = (fun(v,h)->(v,(h#push p (%s(x),p))#push p (%s(p),p)))
+let _m x p = (fun(v1,h1)->fun(_,h2)-> (v1,h1#merge p (%s(x),p) h2))\n" hproj hproj hproj hproj in
   add_to_prologue gr (Printf.sprintf
   "
 (*EARLY-LATE PROLOGUE*)
@@ -202,13 +204,15 @@ let _dret x p =
 let add_late_prologue gr =
   let hproj = if gr.wrapped_history then "Ykd_int" else "" in
 (* make history transformers *)
-  let h_txs = 
+  let h_txs =
     if !Compileopt.unit_history then
       "let _p x p h = h
+let _p_pos x p h = h
 let _m x p h h1 = h\n"
     else
       Printf.sprintf "let _p x p = (fun h->h#push p (%s(x),p))
-let _m x p = (fun h1 h2-> h1#merge p (%s(x),p) h2)\n" hproj hproj in
+let _p_pos x p = (fun h->(h#push p (%s(x),p))#push p (%s(p),p))
+let _m x p = (fun h1 h2-> h1#merge p (%s(x),p) h2)\n" hproj hproj hproj hproj in
   add_to_prologue gr (Printf.sprintf
   "
 (*LATE PROLOGUE*)
@@ -253,6 +257,7 @@ let transform gr =
   let disp_merge    = Printf.sprintf "_dmerge %d" in
   let disp_arg      = Printf.sprintf "_darg %d" in
   let push          = Printf.sprintf "_p %d" in
+  let push_pos      = Printf.sprintf "_p_pos %d" in
   let merge         = Printf.sprintf "_m %d" in
   let disp_and_push = Printf.sprintf "_d_and_push %d" in
 
@@ -319,6 +324,8 @@ let transform gr =
           Gil.Action(disp_delay(pre))
       | Position true ->
           Gil.Action(disp(pre))
+      | Position false ->
+          Gil.Action(push_pos(pre))
       | Opt r1 ->
           Gil.Alt(Gil.Lit(false,""),d r1)
       | Alt(r1,r2) ->
@@ -381,7 +388,6 @@ let transform gr =
                               Gil.Action(push(post))))
           | false,false ->
               Util.impossible "dispatch Star")
-      | Position _
       | CharRange(_,_)
       | Prose(_)
       | Lookahead _

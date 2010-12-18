@@ -137,7 +137,7 @@ let add_boilerplate backend gr =
   let mk_trans_bp1 = Printf.sprintf "
 let start_symb = get_symb_action %S
 
-module P2__ = Yak.Engine.Full_yakker(struct type t = sv let cmp = sv_compare 
+module P2__ = Yak.Engine.Full_yakker(struct type t = sv let cmp = sv_compare
                                             %s end)
 
 let _wfe_data_ = Yak.PamJIT.DNELR.to_table (Yak.Pam_internal.load_internal_program program)
@@ -168,15 +168,15 @@ let parse = Yak.Pami.mk_parse_fun __parse %s
       _r_%s(_n,ykinput)
     )
 "
-	patt
-	(Variables.bnf2ocaml gr.start_symbol)
+        patt
+        (Variables.bnf2ocaml gr.start_symbol)
     else
       "(fun ykinput x -> ())" in
   let memoize_history_code =
-    if gr.grammar_late_relevant then 
-	Printf.sprintf "Yk_History.memoize := %B;;\n" !Compileopt.memoize_history
+    if gr.grammar_late_relevant then
+        Printf.sprintf "Yk_History.memoize := %B;;\n" !Compileopt.memoize_history
     else "" in
-  let inspector_fields = 
+  let inspector_fields =
     if gr.grammar_late_relevant && not !Compileopt.unit_history then
       let patt = if gr.grammar_early_relevant then "(_,h)" else "h" in
       Printf.sprintf "type idata = Yk_History.Root_id_set.t
@@ -187,14 +187,14 @@ let parse = Yak.Pami.mk_parse_fun __parse %s
       "include Yak.Engine.Dummy_inspector" in
   let boilerplate_vary =
     match backend with
-      | Trans_BE -> 
-	  mk_trans_bp1 gr.start_symbol inspector_fields Fsm.min_symbol Fsm.default_call_tx 
-	    Fsm.default_binder_tx post_parse_function
-      | Fun_BE | Peg_BE _ -> 
-	  mk_other_bp1 post_parse_function in
-  let boilerplate_shared = 
+      | Trans_BE ->
+          mk_trans_bp1 gr.start_symbol inspector_fields Fsm.min_symbol Fsm.default_call_tx
+            Fsm.default_binder_tx post_parse_function
+      | Fun_BE | Peg_BE _ ->
+          mk_other_bp1 post_parse_function in
+  let boilerplate_shared =
     "let parse_file = Yak.Pami.Simple.parse_file parse
-let parse_string = Yak.Pami.Simple.parse_string parse\n;;\n" 
+let parse_string = Yak.Pami.Simple.parse_string parse\n;;\n"
     ^ memoize_history_code in
   add_to_epilogue gr (boilerplate_vary ^ boilerplate_shared)
 
@@ -298,19 +298,20 @@ let do_phases gr =
             end;
             Wrap.transform_history gr)
       | Print_relevance_cmd ->
-          vprintf "%t" (fun outc ->
-            Analyze.relevance gr;
-            List.iter
-              (function
-                  RuleDef(n,r,a) ->
-                    Printf.fprintf outc "Rel[%s,%s] Prod[%s,%s] <-- %s\n%!"
-                      (if r.a.early_relevant then "T" else "F")
-                      (if r.a.late_relevant then "T" else "F")
-                      (if (PSet.mem n gr.early_producers) then "T" else "F")
-                      (if (PSet.mem n gr.late_producers) then "T" else "F")
-                      n
-                | _ -> ())
-              gr.ds)
+          let outc = !outch in
+          Analyze.producers gr;
+          Analyze.relevance gr;
+          List.iter
+            (function
+                RuleDef(n,r,a) ->
+                  Printf.fprintf outc "Rel[%s,%s] Prod[%s,%s] <-- %s\n%!"
+                    (if r.a.early_relevant then "T" else "F")
+                    (if r.a.late_relevant then "T" else "F")
+                    (if (PSet.mem n gr.early_producers) then "T" else "F")
+                    (if (PSet.mem n gr.late_producers) then "T" else "F")
+                    n
+              | _ -> ())
+            gr.ds
       | Print_gul_cmd ->
           Pr.pr_grammar stdout gr
       | Dispatch_cmd ->

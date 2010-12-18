@@ -42,6 +42,7 @@ let memstat () =
   (Gc.full_major(); Printf.eprintf "%d %d\n%!" (postincr memcount) ((Gc.stat()).Gc.live_words))
 let memsize () = Gc.full_major(); (Gc.stat()).Gc.live_words
 
+let nil = [] (* Used in some generated code because yakker parser currently chokes on [] sometimes *)
 
 (* piped processes *)
 let pipe_in_out command send_in get_out =

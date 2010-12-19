@@ -12,7 +12,7 @@
 (* Compile-time options for Yakker *)
 let inline_cs = ref false
 let inline_regular = ref false
-let unroll_star_n = ref 0
+let unroll_star_n = ref 3
 let lookahead = ref false
 let case_sensitive = ref true
 let coalesce = ref true

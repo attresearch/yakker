@@ -269,12 +269,8 @@ let do_phases gr =
                   else
                     Printf.fprintf outc "No nonterminals have regular right-hand sides\n")))
       | Unroll_star_cmd ->
-          if !Compileopt.unroll_star_n > 0 then
-            (do_phase "unrolling Kleene closure" (fun () ->
-              Analyze.producers gr;
-              Analyze.relevance gr;
-              Analyze.unroll_analyze gr;
-              vprintf "%t" (fun outc -> Pr.pr_grammar outc gr)))
+          do_phase "unrolling Kleene closure" (fun () ->
+            Unroll.transform gr)
       | Desugar_cmd ->
           do_phase "desugaring" (fun () ->
             Desugar.desugar gr)

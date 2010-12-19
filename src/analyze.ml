@@ -13,7 +13,7 @@ open Yak
 open Gul
 
 (*
-  
+
    Some token-related utility functions.
 
 *)
@@ -21,7 +21,7 @@ open Gul
 (** Used to short-circuit token search in case of success. *)
 exception Found_tok_info of Gul.expr * (nonterminal * expr option)
 
-(** Search the list that stores the token info, given a constructor/type name, 
+(** Search the list that stores the token info, given a constructor/type name,
     return the tokenizer, constructor, and carried_type.  *)
 let search_tokmap tokmap n =
   let search_tokenizer (tokenizer, lit_env) =
@@ -33,13 +33,13 @@ let search_tokmap tokmap n =
   with Found_tok_info (tokenizer, (ocaml_constructor, carried_type) ) ->
     Some (tokenizer, ocaml_constructor, carried_type)
 
-let is_token tokmap n = 
+let is_token tokmap n =
   match search_tokmap tokmap n with None -> false | Some _ -> true
 
 let pr_tokmap tokmap =
   let printone (tokenizer, lit_env) =
-    Printf.sprintf "%s: %s\n" tokenizer (String.concat "," 
-					   (List.map (fun (s1,s2) -> s1^" "^s2) lit_env))
+    Printf.sprintf "%s: %s\n" tokenizer (String.concat ","
+                                           (List.map (fun (s1,s2) -> s1^" "^s2) lit_env))
   in
     String.concat "\n" (List.map printone tokmap)
 
@@ -331,57 +331,57 @@ exception Found_prec of int
 let invalid_prec_dir n = invalid_arg ("get_prec: precedence annotation \'" ^ n ^ "\' encountered, \
                                      but not found in precedence table.")
 
-let warn_invalid_prec_dir n = 
+let warn_invalid_prec_dir n =
   Util.warn Util.User_warn ("get_prec: precedence annotation \'" ^ n ^ "\' not found in precedence table.")
 
 (** Find the precedence of the rule [r]. Default is precedence of
     rightmost terminal. If the rightmost terminal has no precedence,
     then 0 is returned. If there is no terminal and no
     prec. annotation, then None is returned. *)
-let infer_prec ptbl tokmap r = 
-  let rec loop r = 
-      match r.a.precedence with 
-	| Some_prec n -> 
-	    let p = try Hashtbl.find ptbl n with Not_found -> invalid_prec_dir n in
-	    raise (Found_prec p)
-	| No_prec -> raise (Found_prec 0)
-	| Default_prec -> loop0 r.r
-  and loop0 = function      
-    | Symb (x, _, _, _) -> 
-	if is_token tokmap x then
-	  let p = match Util.find_option ptbl x with None -> 0 | Some p -> p in
-	  raise (Found_prec p)
-	else ()
-    | Assign _ 
-    | Action _ 
+let infer_prec ptbl tokmap r =
+  let rec loop r =
+      match r.a.precedence with
+        | Some_prec n ->
+            let p = try Hashtbl.find ptbl n with Not_found -> invalid_prec_dir n in
+            raise (Found_prec p)
+        | No_prec -> raise (Found_prec 0)
+        | Default_prec -> loop0 r.r
+  and loop0 = function
+    | Symb (x, _, _, _) ->
+        if is_token tokmap x then
+          let p = match Util.find_option ptbl x with None -> 0 | Some p -> p in
+          raise (Found_prec p)
+        else ()
+    | Assign _
+    | Action _
     | Position _
     | Box _
-    | Prose _ 
+    | Prose _
     | When _
-    | Delay _ 
-    | Lit _ 
-	
+    | Delay _
+    | Lit _
+
     | Rcount _
     | Star _
     | Hash _
-    | Alt _ | Lookahead _ 
+    | Alt _ | Lookahead _
     | Opt _
     | Minus _ (* TODO, we should desugar this *)
-    | CharRange _ -> () 
+    | CharRange _ -> ()
 
     | Seq(r1,_,_,r2) ->
-	loop r2; loop r1 in
+        loop r2; loop r1 in
   try loop r; None with Found_prec p -> Some p
 
 (** Find the precedence of the rule [r], relying only on
     explicit annotations. If the annotation is @no-prec,
     then 0 is returned. If there is no
     prec. annotation, then None is returned. *)
-let get_prec_explicit ptbl r = 
-  match r.a.precedence with 
+let get_prec_explicit ptbl r =
+  match r.a.precedence with
     | Some_prec n ->
-	(try Some (Hashtbl.find ptbl n)
-	with Not_found -> warn_invalid_prec_dir n; None)
+        (try Some (Hashtbl.find ptbl n)
+        with Not_found -> warn_invalid_prec_dir n; None)
     | No_prec -> Some 0
     | Default_prec -> None
 
@@ -419,26 +419,26 @@ let iter_with_pos f r =
     | Symb (n, e1, attrs, e2) -> f (Some pos) r n e1 attrs e2; Middle_of
 
     | Box _ | Lit _ | Rcount _ | Star _ | Hash _
-    | Alt _ | Minus _ | CharRange _ | Opt _ -> Middle_of 
+    | Alt _ | Minus _ | CharRange _ | Opt _ -> Middle_of
 
     | Assign _ | Action _ | Position _ | Prose _
     | When _ | Delay _ | Lookahead _ -> pos
 
-    | Seq(r1,_,_,r2) ->	
-	match pos with
-	  | Left_of | Middle_of -> 
-	      ignore (loop pos r1);
-	      loop Middle_of r2
-	  | Right_of ->
-	      let p = loop pos r2 in
-	      loop p r1 in
+    | Seq(r1,_,_,r2) ->
+        match pos with
+          | Left_of | Middle_of ->
+              ignore (loop pos r1);
+              loop Middle_of r2
+          | Right_of ->
+              let p = loop pos r2 in
+              loop p r1 in
   match r.r with
     | Action _ -> ()
     | Seq ({r = Symb (n, e1, attrs, e2)}, _, _, {r=Action _}) -> f None r n e1 attrs e2
     | Seq (_, _, _, {r=Action _}) -> ()
     | Seq(r1, _, _, r2) ->
-	ignore (loop Left_of r1);
-	ignore (loop Right_of r2)
+        ignore (loop Left_of r1);
+        ignore (loop Right_of r2)
     | _ -> invalid_arg "Expected rule adhering to ocamlyacc format."
 
 let prec_dependency_graph ptbl tokmap ds =
@@ -466,19 +466,19 @@ let prec_dependency_graph ptbl tokmap ds =
   List.fold_left
     (fun g_result -> function
         RuleDef(n,r, _)->
-	  let g = Tgraph.add_node g_result n in
-	  let rs = alt2rules r in
-	  List.fold_left (fun g r_b ->
+          let g = Tgraph.add_node g_result n in
+          let rs = alt2rules r in
+          List.fold_left (fun g r_b ->
 
-(* TODO: refine further so that a dependency is not drawn for calls when they are not to the left/right of relevant nonterminal. 
-get_depend should be like iter_with_prec. could generalize to fold_right_with_prec. not sure this is right, though. e.g 
+(* TODO: refine further so that a dependency is not drawn for calls when they are not to the left/right of relevant nonterminal.
+get_depend should be like iter_with_prec. could generalize to fold_right_with_prec. not sure this is right, though. e.g
 
 LPAREN expr STAR expr RPAREN. ?
 *)
 
-			    match get_prec ptbl tokmap r_b with
-			      | Some 0 -> g
-			      | None | Some _ -> get_depend g n r_b) g rs
+                            match get_prec ptbl tokmap r_b with
+                              | Some 0 -> g
+                              | None | Some _ -> get_depend g n r_b) g rs
 
       | _ -> g_result)
     Tgraph.empty
@@ -486,15 +486,15 @@ LPAREN expr STAR expr RPAREN. ?
 
 let build_prec_sets gr =
   let ptbl = create_prec_table gr in
-  let has_prec r = match get_prec ptbl gr.tokmap r with 
-      None | Some 0 -> false 
+  let has_prec r = match get_prec ptbl gr.tokmap r with
+      None | Some 0 -> false
     | _ -> true in
-  let is_primary = function 
-    | RuleDef (n, r, _) -> 
-	let rules = alt2rules r in
-	if List.exists has_prec rules then Some n else None
-    | _ -> None in	       
-  let primary = List.fold_left (fun s x -> Stringset.add x s) 
+  let is_primary = function
+    | RuleDef (n, r, _) ->
+        let rules = alt2rules r in
+        if List.exists has_prec rules then Some n else None
+    | _ -> None in
+  let primary = List.fold_left (fun s x -> Stringset.add x s)
     Stringset.empty (filter_map is_primary gr.ds) in
   let g = prec_dependency_graph ptbl gr.tokmap gr.ds in
   let tc_g = Tgraph.tc g in
@@ -530,23 +530,23 @@ let print_prec_sets (_, primary, secondary, relevant, both, primary_only, second
     It is a conservative estimate of the desired associativity. As long as
     [x] is not other-assoc. (where other should be either left or right)
     or non-assoc., it counts. This way,
-    if [x] is not declared with any associativity, the given associativity 
+    if [x] is not declared with any associativity, the given associativity
     is permitted. *)
 let mk_assoc_array other_a n_a =
   let len = Array.length other_a in
-  if Array.length n_a <> len then 
+  if Array.length n_a <> len then
     invalid_arg "mk_assoc_array: array arguments must be of the same length.";
   Array.init len (fun p -> not ( other_a.(p) or n_a.(p) ))
 
 (** Rewrite the grammar based on the precedence annotations. *)
 let prec_rewrite_complex gr =
   if gr.precs = [||] then () else
-  let (ptbl, primary, secondary, relevant, both, primary_only, secondary_only) = 
+  let (ptbl, primary, secondary, relevant, both, primary_only, secondary_only) =
     build_prec_sets gr in
-  
+
   let prec_var = "prec" in
   let prec_type = "Pami.prec" in
-  let pos_var = "gpos" in 
+  let pos_var = "gpos" in
   let pos_type = "Pami.assoc_pred" in
   let mk_pguard p = Printf.sprintf "Pami.prec_case_guard %d %s %s" p prec_var pos_var in
 
@@ -554,58 +554,58 @@ let prec_rewrite_complex gr =
      - From annotation, place at end of rule case.
      - From terminal, place immediately following terminal.
 
-    Note that we should be able to further analyze the grammar to further filter guard placement. 
-    Here's the principle: a production of lower precedence should never appear lower in a tree 
+    Note that we should be able to further analyze the grammar to further filter guard placement.
+    Here's the principle: a production of lower precedence should never appear lower in a tree
      than a production of higher precedence, without passing through some reset.
-    We can compare current precedence against max precedence of parents. If it is higher, than 
+    We can compare current precedence against max precedence of parents. If it is higher, than
     there is no need to guard. Correspondingly, can filter attribute placement by comparing against max
     precedence of children. For each child, if their precedence is higher, than no need to pass parameters.
-    Note, of course, that for both of these cases, since symbols can be called from multiple sights, you 
+    Note, of course, that for both of these cases, since symbols can be called from multiple sights, you
      might not be able to take advantage of these analyses without duplicating the symbol.
-  *) 
+  *)
 
   let compare_pos p = Printf.sprintf "(if %s == %s then %s else %s)" pos_var p p middle_pos in
 
   let instantiate_attrs prec =
-    iter_with_pos (fun pos_opt r n e1 attrs e2 -> 
-		     if Stringset.mem n secondary then
-		       let cprec, pos = match pos_opt with
-			 | Some Middle_of -> 0, Middle_of
-			 | Some p -> prec, p 
-			 | None -> prec, Middle_of in
-		       r.r <- Symb(n, e1, (prec_var, string_of_int cprec)
-				     ::(pos_var, string_of_gpos pos)
-				     :: attrs, e2)) in
+    iter_with_pos (fun pos_opt r n e1 attrs e2 ->
+                     if Stringset.mem n secondary then
+                       let cprec, pos = match pos_opt with
+                         | Some Middle_of -> 0, Middle_of
+                         | Some p -> prec, p
+                         | None -> prec, Middle_of in
+                       r.r <- Symb(n, e1, (prec_var, string_of_int cprec)
+                                     ::(pos_var, string_of_gpos pos)
+                                     :: attrs, e2)) in
 
   (** instantiate attributes for the case when the branch has no precedence. *)
   let instantiate_attrs_copy =
-    iter_with_pos (fun pos_opt r n e1 attrs e2 -> 
-		     if Stringset.mem n secondary then
-		       match pos_opt with None -> () (* leave it to copy rule. *)
-			 | Some pos ->
-			     let cprec = match pos with Middle_of -> "0" | _ -> prec_var in
-			     let cpos = match pos with
-			       | Left_of -> compare_pos left_pos
-			       | Middle_of -> middle_pos
-			       | Right_of -> compare_pos right_pos in
-			     r.r <- Symb(n, e1, (prec_var, cprec)
-					   ::(pos_var, cpos)
-					   :: attrs, e2)) in
+    iter_with_pos (fun pos_opt r n e1 attrs e2 ->
+                     if Stringset.mem n secondary then
+                       match pos_opt with None -> () (* leave it to copy rule. *)
+                         | Some pos ->
+                             let cprec = match pos with Middle_of -> "0" | _ -> prec_var in
+                             let cpos = match pos with
+                               | Left_of -> compare_pos left_pos
+                               | Middle_of -> middle_pos
+                               | Right_of -> compare_pos right_pos in
+                             r.r <- Symb(n, e1, (prec_var, cprec)
+                                           ::(pos_var, cpos)
+                                           :: attrs, e2)) in
 
   let instantiate_attrs_irrel =
     iter_rule_postorder (fun r -> match r.r with
-			   | Symb (n, e1, attrs, e2) -> 
-			       if Stringset.mem n relevant then
-				 r.r <- Symb(n, e1, (prec_var, "0")::(pos_var, middle_pos)::attrs, e2)
-			   | _ -> ()) in
+                           | Symb (n, e1, attrs, e2) ->
+                               if Stringset.mem n relevant then
+                                 r.r <- Symb(n, e1, (prec_var, "0")::(pos_var, middle_pos)::attrs, e2)
+                           | _ -> ()) in
 
-  (** Rewrite a rule to include handle precedence. 
+  (** Rewrite a rule to include handle precedence.
 
      Step 1: Add attribute declarations to nonterminals.
-     Step 2: Instantiate attributes. 
-     Step 3: Add guards to branches. 
+     Step 2: Instantiate attributes.
+     Step 3: Add guards to branches.
 
-      Almost there: can still have a secondary nonterm where all branches are "capped" 
+      Almost there: can still have a secondary nonterm where all branches are "capped"
       resulting in copyrule not add params, yet it is still given attributes by others.
 
       TODO - assign attributes according to *MOST RECENT* rightmost
@@ -615,23 +615,23 @@ let prec_rewrite_complex gr =
   *)
   let add_prec_attrs tokmap = function
     | RuleDef (n, r, a) ->
-	if Stringset.mem n relevant then begin
-	  a.Attr.input_attributes <- (prec_var, prec_type)::(pos_var, pos_type)::a.Attr.input_attributes;
-	  	  
-	  let rs = alt2rules r in
-	  List.iter (fun r_b ->
-		       match get_prec ptbl tokmap r_b with
-			 | None -> instantiate_attrs_copy r_b
-			 | Some 0 -> instantiate_attrs_irrel r_b
-			 | Some p ->
-			     instantiate_attrs p r_b;
-			     let guard = mkWHEN (mk_pguard p) in
-			     r_b.r <- Seq(guard, None, None, mkRHS r_b.r)) rs
-	end else (* not relevant *) begin
-	  instantiate_attrs_irrel r
-	end;
-	(* Clear any precedence annotations, now that they've been processed. *)
-	iter_rule_postorder (fun r -> r.a.precedence <- Default_prec) r
+        if Stringset.mem n relevant then begin
+          a.Attr.input_attributes <- (prec_var, prec_type)::(pos_var, pos_type)::a.Attr.input_attributes;
+
+          let rs = alt2rules r in
+          List.iter (fun r_b ->
+                       match get_prec ptbl tokmap r_b with
+                         | None -> instantiate_attrs_copy r_b
+                         | Some 0 -> instantiate_attrs_irrel r_b
+                         | Some p ->
+                             instantiate_attrs p r_b;
+                             let guard = mkWHEN (mk_pguard p) in
+                             r_b.r <- Seq(guard, None, None, mkRHS r_b.r)) rs
+        end else (* not relevant *) begin
+          instantiate_attrs_irrel r
+        end;
+        (* Clear any precedence annotations, now that they've been processed. *)
+        iter_rule_postorder (fun r -> r.a.precedence <- Default_prec) r
     | LexerDef _ | LexerDecl _ -> () in
   List.iter (add_prec_attrs gr.tokmap) gr.ds;
 
@@ -643,8 +643,8 @@ let prec_rewrite_complex gr =
   let r_a = Array.make sz false in
   let n_a = Array.make sz false in
   l_a.(0) <- true;
-  for i = 1 to n do 
-    match gr.precs.(i-1) with 
+  for i = 1 to n do
+    match gr.precs.(i-1) with
       | (Left_assoc, _) -> l_a.(i) <- true
       | (Right_assoc, _) -> r_a.(i) <- true
       | (Non_assoc, _) -> n_a.(i) <- true
@@ -663,7 +663,7 @@ let prec_rewrite_complex gr =
     Printf.bprintf b "|]\n";
     Buffer.contents b in
 
-  add_to_prologue gr (string_of_bool_array left_pos left); 
+  add_to_prologue gr (string_of_bool_array left_pos left);
   add_to_prologue gr (string_of_bool_array middle_pos middle);
   add_to_prologue gr (string_of_bool_array right_pos right);
 
@@ -686,45 +686,45 @@ Simple version of precedence transformation.
        2) Primary nonterminals *return* their precedence upon completion.
 
        3) When called from other primaries, returned precedence is checked.
-*)  
+*)
 
 let iter_with_pos2 f r =
   let rec loop pos r = match r.r with
     | Symb (n, _, _, _) -> f (Some pos) r n; Middle_of
 
     | Box _ | Lit _ | Rcount _ | Star _ | Hash _
-    | Alt _ | Minus _ | CharRange _ | Opt _ -> Middle_of 
+    | Alt _ | Minus _ | CharRange _ | Opt _ -> Middle_of
 
     | Assign _ | Action _ | Position _ | Prose _
     | When _ | Delay _ | Lookahead _ -> pos
 
     | Seq({r=Symb (n, _, _, _)}, _, _, r2) ->
-	(match pos with
-	   | Left_of | Middle_of -> 
-	       let p = loop Middle_of r2 in
-	       f (Some pos) r n; p   (* Since [f] will modify r, we loop over [r2] first. 
-					But, still need to return result of [r2].*)
-	   | Right_of ->
-	       let p = loop pos r2 in
-	       f (Some p) r n; Middle_of)	
-    | Seq(r1,_,_,r2) ->	
-	match pos with
-	  | Left_of | Middle_of -> 
-	      ignore (loop pos r1);
-	      loop Middle_of r2
-	  | Right_of ->
-	      let p = loop pos r2 in
-	      loop p r1 in
+        (match pos with
+           | Left_of | Middle_of ->
+               let p = loop Middle_of r2 in
+               f (Some pos) r n; p   (* Since [f] will modify r, we loop over [r2] first.
+                                        But, still need to return result of [r2].*)
+           | Right_of ->
+               let p = loop pos r2 in
+               f (Some p) r n; Middle_of)
+    | Seq(r1,_,_,r2) ->
+        match pos with
+          | Left_of | Middle_of ->
+              ignore (loop pos r1);
+              loop Middle_of r2
+          | Right_of ->
+              let p = loop pos r2 in
+              loop p r1 in
   match r.r with
     | Action _ -> ()
     | Seq ({r = Symb (n, _, _, _)}, _, _, {r=Action _}) -> f None r n
     | Seq (_, _, _, {r=Action _}) -> ()
     | Seq({r=Symb (n, _, _, _)}, _, _, r2) ->
-	f (Some Left_of) r n;
-	ignore (loop Right_of r2)
+        f (Some Left_of) r n;
+        ignore (loop Right_of r2)
     | Seq(r1, _, _, r2) ->
-	ignore (loop Left_of r1);
-	ignore (loop Right_of r2)
+        ignore (loop Left_of r1);
+        ignore (loop Right_of r2)
     | _ -> invalid_arg "Expected rule adhering to ocamlyacc format."
 
 (** A simpler version of the precedence set calculation. Only
@@ -732,15 +732,15 @@ let iter_with_pos2 f r =
     considered. No notion of secondary is built. *)
 let build_prec_sets_simple gr =
   let ptbl = create_prec_table gr in
-  let has_prec r = match get_prec ptbl gr.tokmap r with 
-      None | Some 0 -> false 
+  let has_prec r = match get_prec ptbl gr.tokmap r with
+      None | Some 0 -> false
     | _ -> true in
-  let is_primary = function 
-    | RuleDef (n, r, _) -> 
-	let rules = alt2rules r in
-	if List.exists has_prec rules then Some n else None
-    | _ -> None in	       
-  let primary = List.fold_left (fun s x -> Stringset.add x s) 
+  let is_primary = function
+    | RuleDef (n, r, _) ->
+        let rules = alt2rules r in
+        if List.exists has_prec rules then Some n else None
+    | _ -> None in
+  let primary = List.fold_left (fun s x -> Stringset.add x s)
     Stringset.empty (filter_map is_primary gr.ds) in
   ptbl, primary
 
@@ -757,8 +757,8 @@ let prec_rewrite_simple gr =
   let r_a = Array.make sz false in
   let n_a = Array.make sz false in
   l_a.(0) <- true;
-  for i = 1 to n do 
-    match gr.precs.(i-1) with 
+  for i = 1 to n do
+    match gr.precs.(i-1) with
       | (Left_assoc, _) -> l_a.(i) <- true
       | (Right_assoc, _) -> r_a.(i) <- true
       | (Non_assoc, _) -> n_a.(i) <- true
@@ -767,11 +767,11 @@ let prec_rewrite_simple gr =
   (* Generate [left] and [right] from l_a, n_a and r_a. *)
   let left = mk_assoc_array r_a n_a in
   let right = mk_assoc_array l_a n_a in
-  
+
   let prec_var = "prec" in
   let prec_type = "Pami.prec" in
 
-  let mk_pguard x prec pos = 
+  let mk_pguard x prec pos =
     if pos then
       Printf.sprintf "%d <= %s" prec x
     else
@@ -790,31 +790,31 @@ let prec_rewrite_simple gr =
 
   (* TODO: switch to output attribute rather than binder. *)
   let instantiate_attrs prec =
-    iter_with_pos2 (fun pos_opt r n -> 
-		     if Stringset.mem n primary then
-		       match r.r with
-			 | Symb _ -> 
-			     (match pos_opt with
-				| Some Middle_of -> ()
-				| None -> rewrite_symb prec true r
-				| Some Left_of -> rewrite_symb prec left.(prec) r
-				| Some Right_of -> rewrite_symb prec right.(prec) r)
-			 | Seq({r=Symb _} as r1, xopt, late, r2) ->
-			     (match pos_opt with
-				| Some Middle_of -> ()
-				| None -> rewrite_symb_seq prec true xopt late r r1 r2
-				| Some Left_of -> rewrite_symb_seq prec left.(prec) xopt late r r1 r2
-				| Some Right_of -> rewrite_symb_seq prec right.(prec) xopt late r r1 r2)
-			 | _ -> ()) in
+    iter_with_pos2 (fun pos_opt r n ->
+                     if Stringset.mem n primary then
+                       match r.r with
+                         | Symb _ ->
+                             (match pos_opt with
+                                | Some Middle_of -> ()
+                                | None -> rewrite_symb prec true r
+                                | Some Left_of -> rewrite_symb prec left.(prec) r
+                                | Some Right_of -> rewrite_symb prec right.(prec) r)
+                         | Seq({r=Symb _} as r1, xopt, late, r2) ->
+                             (match pos_opt with
+                                | Some Middle_of -> ()
+                                | None -> rewrite_symb_seq prec true xopt late r r1 r2
+                                | Some Left_of -> rewrite_symb_seq prec left.(prec) xopt late r r1 r2
+                                | Some Right_of -> rewrite_symb_seq prec right.(prec) xopt late r r1 r2)
+                         | _ -> ()) in
 
   let add_early_action a_e r =
     let change r = match r.r with
       | Action (None, a_l_opt) ->
-	  r.r <- Action(Some a_e, a_l_opt)
+          r.r <- Action(Some a_e, a_l_opt)
       | Action (Some _, _) ->
-	  invalid_arg "add_early_action: expected rule adhering to ocamlyacc format (found early action at end)." 
-      | _ -> 
-	  invalid_arg "add_early_action: expected rule adhering to ocamlyacc format (did not find action at end)." in
+          invalid_arg "add_early_action: expected rule adhering to ocamlyacc format (found early action at end)."
+      | _ ->
+          invalid_arg "add_early_action: expected rule adhering to ocamlyacc format (did not find action at end)." in
     let rec loop r = match r.r with
       | Seq(_, _, _, r2) -> loop r2
       | _ -> change r in
@@ -822,20 +822,20 @@ let prec_rewrite_simple gr =
 
   let add_prec_attrs tokmap = function
     | RuleDef (n, r, a) ->
-	if Stringset.mem n primary then begin
-(* 	  a.Attr.output_attributes <- (prec_var, prec_type)::a.Attr.output_attributes; *)
-	  a.Attr.early_rettype <- Some prec_type;
-	  let rs = alt2rules r in
-	  List.iter (fun r_b ->
-		       match get_prec ptbl tokmap r_b with
-			 | None
-			 | Some 0 -> add_early_action (string_of_int sz) r_b
-			 | Some p ->
-			     instantiate_attrs p r_b;
-			     add_early_action (string_of_int p) r_b) rs
-	end;
-	(* Clear any precedence annotations, now that they've been processed. *)
-	iter_rule_postorder (fun r -> r.a.precedence <- Default_prec) r
+        if Stringset.mem n primary then begin
+(*        a.Attr.output_attributes <- (prec_var, prec_type)::a.Attr.output_attributes; *)
+          a.Attr.early_rettype <- Some prec_type;
+          let rs = alt2rules r in
+          List.iter (fun r_b ->
+                       match get_prec ptbl tokmap r_b with
+                         | None
+                         | Some 0 -> add_early_action (string_of_int sz) r_b
+                         | Some p ->
+                             instantiate_attrs p r_b;
+                             add_early_action (string_of_int p) r_b) rs
+        end;
+        (* Clear any precedence annotations, now that they've been processed. *)
+        iter_rule_postorder (fun r -> r.a.precedence <- Default_prec) r
     | LexerDef _ | LexerDecl _ -> () in
   List.iter (add_prec_attrs gr.tokmap) gr.ds;
 
@@ -844,176 +844,6 @@ let prec_rewrite_simple gr =
 
 (* TODO: add flag to control which function is called by [prec_rewrite]. *)
 let prec_rewrite = prec_rewrite_simple
-
-
-(***************
-
-This unroll function:
-
-Gets the info of whether the body of an Kleene-closure is an early producer, late producer or not a producer;
-
-Then
-if late producer then
- unrolls the body for n(=lower bound) times and binds the return value to x1; goes through the rest and binds the return value to x2; constructs the new return value List.append x1 x2
-if not a producer then
- simply unrolls the body for n times and then goes through the rest
-else
- do nothing
-
-Example 1: a = 2*4(b) => a = (b b) *2b
-Example 2: a = 2*4({1}) => a = a = (((({1}$_x6 {1} {_x4}) {List.append [_x6] [_x4]}) {_x5}) *2{1})$_x2 {List.append _x5 _x2}.
-
-****************)
-
-let unroll_analyze gr =
-  if !Compileopt.unroll_star_n > 0 then begin
-    let unroll_n = !Compileopt.unroll_star_n in
-    Logging.log Logging.Features.verbose "Unrolling (<%d)\n%!" unroll_n;
-    producers gr;
-    let is_early_producer n = PSet.mem n gr.early_producers in
-    let is_late_producer n = PSet.mem n gr.late_producers in
-
-    (* a helper function for unrolling *)
-    let valOf = function
-        Some x1 -> x1
-      | None -> failwith "Option value not found" in
-    let rec unroll n r1 fresh =
-      if fresh then
-        if n == 1 then
-          let x = Variables.fresh() in
-          (mkSEQ2(r1, None, None, mkACTION2(None, Some x)), Some x, true)
-        else
-          let (scd, name, mklistflag) = unroll (n-1) r1 fresh in
-          let name  = valOf name in
-          let x,y = Variables.fresh(),Variables.fresh() in
-          if mklistflag then
-            (mkSEQ2(mkSEQ2(mkSEQ2(r1, None, Some x, scd), None, None,
-                           mkACTION2(None, Some ("List.append ["^x^"] ["^name^"]"))),
-                    None, None, mkACTION2(None, Some y)), Some y, false)
-          else
-            (mkSEQ2(mkSEQ2(mkSEQ2(r1, None, Some x, scd), None, None,
-                           mkACTION2(None, Some ("List.append "^x^" ["^name^"]"))),
-                    None, None, mkACTION2(None, Some y)), Some y, false)
-      else
-        if n == 1 then (r1, None, false)
-        else
-          let (scd, _, _) = unroll (n-1) r1 fresh in
-          (mkSEQ2(r1, None, None, scd), None, false) in
-    let rec loop r =
-      match r.r with
-        | Action(early,late) ->
-            (early<>None,late<>None)
-        | Position true -> (true,false)
-        | Position false -> (false,true)
-        | Symb (n, _, _, _) -> (is_early_producer n,is_late_producer n) (* TODO: attributes *)
-        | Delay _ -> (false,true)
-        | Box(_,Some _,_) -> (true,false)
-        | Box(_,None,_) -> (false,true)
-        | Minus(r1,r2) -> (false,false)
-        | Lit _ | CharRange _ | Prose _ | When _ | Lookahead _ -> (false,false)
-        | Star(Accumulate(_,_),r1) -> loop r1
-        | Hash(Accumulate(_,_),r1) -> loop r1
-        | Seq(r1,early,late,r2) -> ignore (loop r1); loop r2
-        | Assign(r1,early,late) -> ignore (loop r1); (false,false)
-        | Opt _
-        | Alt _ ->
-            let alt2rules = (* differs from bnf.ml b/c need to desugar Opt *)
-              let rec loop l r = match r.r with
-                | Alt(r1,r2) -> loop (loop l r2) r1
-                | Opt(r1) ->
-                    r.r <- (mkALT[r1;mkLIT ""]).r; loop l r
-                | _ -> r::l in
-              loop [] in
-            let alts = alt2rules r in
-            let lift_p = List.map (fun r -> loop r) alts in
-            let early_all_true  = List.for_all (fun (x,_) -> x)     lift_p in
-            let early_all_false = List.for_all (fun (x,_) -> not x) lift_p in
-            let late_all_true   = List.for_all (fun (_,x) -> x)     lift_p in
-            let late_all_false  = List.for_all (fun (_,x) -> not x) lift_p in
-            (match early_all_true,early_all_false,late_all_true,late_all_false with
-                 true,_,true,_ -> (true,true)
-               | true,_,_,true -> (true,false)
-               | _,true,true,_ -> (false,true)
-               | _,true,_,true -> (false,false)
-               | _ ->
-                   let is_early_producer = early_all_true || not(early_all_false) in
-                   let is_late_producer = late_all_true || not(late_all_false) in
-                   (is_early_producer,is_late_producer))
-
-        (* no unrolling for Rcount and Hash *)
-
-        | Rcount(e,r1) ->
-            let early_producer,late_producer = loop r1 in
-            (early_producer,late_producer)
-        | Star(Bounds(m,Num n),r1) ->
-            let early_producer,late_producer = loop r1 in
-
-            (* FIX: looks like m = n case should be special-cased, not
-               ignored. ? YHM *)
-
-            if 0<m && m <= unroll_n && m<>n then
-              (* note that 2"a" shouldn't be unrolled to "a" "a" 0"a", in which case m=n *)
-              begin
-                if late_producer then
-                  let x,y = Variables.fresh(),Variables.fresh() in
-                  let (rhs, name, mklistflag) = unroll m r1 true in
-                  let name = valOf(name) in
-                  if mklistflag then
-                    r.r <-
-                      (mkSEQ2((mkSEQ2(rhs, None, None, mkSTAR2(Bounds(0, Num (n-m)), r1))),
-                              None, Some y, mkACTION2(None, Some ("List.append ["^name^"] "^y)))).r
-                  else
-                    r.r <-
-                      (mkSEQ2((mkSEQ2(rhs, None, None, mkSTAR2(Bounds(0, Num (n-m)), r1))),
-                              None, Some y, mkACTION2(None, Some ("List.append "^name^" "^y)))).r
-                else if (not(late_producer) && not(early_producer)) then
-                  let (rhs, _, _) = unroll m r1 false in
-                  r.r <-
-                    (mkSEQ2(rhs, None, None, mkSTAR2(Bounds(0, Num (n-m)), r1))).r
-                else ()
-              end;
-            (early_producer, late_producer)
-        | Star(Bounds(0,Infinity),r1) ->
-            let early_producer,late_producer = loop r1 in
-            (early_producer,late_producer)
-        | Star(Bounds(m,Infinity),r1) ->
-            Logging.log Logging.Features.verbose "Unrolling star %d (<%d)\n%!" m unroll_n;
-            let early_producer,late_producer = loop r1 in
-            if 0<m && m <= unroll_n then
-              begin
-                if late_producer then
-                  let x,y = Variables.fresh(),Variables.fresh() in
-                  let (rhs, name, mklistflag) = unroll m r1 true in
-                  let name = valOf(name) in
-                  if mklistflag then
-                    r.r <-
-                      (mkSEQ2((mkSEQ2(rhs, None, None, mkSTAR2(Bounds(0, Infinity), r1))),
-                              None, Some y, mkACTION2(None, Some ("List.append ["^name^"] "^y)))).r
-                  else
-                    r.r <-
-                      (mkSEQ2((mkSEQ2(rhs, None, None, mkSTAR2(Bounds(0, Infinity), r1))),
-                              None, Some y, mkACTION2(None, Some ("List.append "^name^" "^y)))).r
-                else if (not(late_producer) && not(early_producer)) then
-                  let (rhs, _, _) = unroll m r1 false in
-                  r.r <-
-                    (mkSEQ2(rhs, None, None, mkSTAR2(Bounds(0, Infinity), r1))).r
-                else ()
-              end;
-            (early_producer,late_producer)
-        | Hash(Bounds(m,Num n),r1) ->
-            let early_producer,late_producer = loop r1 in
-            (early_producer,late_producer)
-        | Hash(Bounds(0,Infinity),r1) ->
-            let early_producer,late_producer = loop r1 in
-            (early_producer,late_producer)
-        | Hash(Bounds(m,Infinity),r1) ->
-            let early_producer,late_producer = loop r1 in
-            (early_producer,late_producer) in
-    List.iter
-      (function RuleDef(n,r,a) -> ignore(loop r) | _ -> ())
-      gr.ds
-  end
-
 
 (******************
 This function recognizes parts in the grammar that belong to the regular family, and inlines those parts for potential speedup.

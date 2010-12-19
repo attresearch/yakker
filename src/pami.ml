@@ -65,6 +65,14 @@ module Simple = struct
       | _::args ->
           (let rec loop = function
             | [] -> []
+            | "--ensure-logging"::tl
+            | "-e"::tl  ->
+                if not Logging.activated then begin
+                  Printf.eprintf "Error: Logging not activated!\n";
+                  exit 1
+                end;
+                loop tl
+            | "-"::tl -> visualize_flag := true; loop tl
             | "-viz"::tl -> visualize_flag := true; loop tl
             | hd::tl -> hd::(loop tl) in
           loop args) in
@@ -75,19 +83,19 @@ module Simple = struct
         process file;
         if verbose then Printf.eprintf "%s ok.\n%!" file
       with
-	  Parse_error (msg, pos, lnum, cnum) ->
-	    (* its really the token preceding the reported character/pos. 
-	       pos is 1-based and cnum is 0-based.
-	     *)
-	    if print_pos then 
-	      Printf.eprintf "File %S, line %d, characters %d-%d (pos: %d):\n%s\n%!"
-		file lnum cnum cnum pos msg
-	    else
-	      Printf.eprintf "File %S, line %d, characters %d-%d:\n%s\n%!" 
-		file lnum cnum cnum msg
-	| e ->
-	    Printf.eprintf "File \"%s\" failed with exception %s\n%!" file
-	      (Printexc.to_string e);
+          Parse_error (msg, pos, lnum, cnum) ->
+            (* its really the token preceding the reported character/pos.
+               pos is 1-based and cnum is 0-based.
+             *)
+            if print_pos then
+              Printf.eprintf "File %S, line %d, characters %d-%d (pos: %d):\n%s\n%!"
+                file lnum cnum cnum pos msg
+            else
+              Printf.eprintf "File %S, line %d, characters %d-%d:\n%s\n%!"
+                file lnum cnum cnum msg
+        | e ->
+            Printf.eprintf "File \"%s\" failed with exception %s\n%!" file
+              (Printexc.to_string e);
             prerr_endline (Printexc.get_backtrace())
     in
     List.iter process_file args

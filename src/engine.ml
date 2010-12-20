@@ -2615,8 +2615,11 @@ module Full_yakker (Sem_val : SEMVAL) = struct
            (p <= 100000 && p mod 1000 = 0) then
              let msize = Util.memsize () in (* will force a major GC. *)
              let es_size = get_set_size cs in
-             let sv_count, idata = count_semvals_plus cs in
-             let insp_summary = Sem_val.summarize_inspection idata in
+             let sv_count, insp_summary =
+               if Logging.features_are_set Logging.Features.verbose then
+                 let sv_count, idata = count_semvals_plus cs in
+                 sv_count, Sem_val.summarize_inspection idata
+               else 0, "n/a" in
              Logging.log Logging.Features.hist_size "%d %d %d %d %s\n"
                p es_size sv_count msize insp_summary
        end             ;
@@ -2742,12 +2745,20 @@ module Full_yakker (Sem_val : SEMVAL) = struct
        end             ;
 
 
-                   if Logging.activated then begin let idata =
-         List.fold_left (fun idata sv -> Sem_val.inspect sv idata)
-           (Sem_val.create_idata ()) !successes in
-        Logging.log Logging.Features.hist_size
-          "Success %d %s\n" (!current_callset).id
-          (Sem_val.summarize_inspection idata)
+                   if Logging.activated then begin if Logging.features_are_set Logging.Features.hist_size then
+          let ccs = !current_callset in
+          let msize = Util.memsize () in (* will force a major GC. *)
+          let es_size = get_set_size cs in
+          let idata_s =
+            List.fold_left (fun idata sv -> Sem_val.inspect sv idata)
+              (Sem_val.create_idata ()) !successes in
+          let sv_count, idata = count_semvals_plus cs in
+          let insp_summary_s = Sem_val.summarize_inspection idata_s in
+          let insp_summary = Sem_val.summarize_inspection idata in
+          Logging.log Logging.Features.hist_size
+            "Success %d %d %d %s %s\n"
+            ccs.id es_size msize
+            insp_summary insp_summary_s
        end             ;
 
       !successes

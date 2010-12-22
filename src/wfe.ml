@@ -1869,7 +1869,7 @@ module Full_yakker (Sem_val : SEMVAL) = struct
                  let sv_count, idata = count_semvals_plus cs in
                  sv_count, Sem_val.summarize_inspection idata
                else 0, "n/a" in
-             Logging.log Logging.Features.hist_size "%d %d %d %d %s\n"
+             Logging.log Logging.Features.hist_size "%d %d %d %d %s\n%!"
                p es_size sv_count msize insp_summary'
       );
 
@@ -2002,7 +2002,7 @@ module Full_yakker (Sem_val : SEMVAL) = struct
           let insp_summary_s = Sem_val.summarize_inspection idata_s in
           let insp_summary = Sem_val.summarize_inspection idata in
           Logging.log Logging.Features.hist_size
-            "Success %d %d %d %s %s\n"
+            "Success %d %d %d %s %s\n%!"
             ccs.id es_size msize
             insp_summary insp_summary_s'
       );

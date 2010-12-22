@@ -2752,9 +2752,12 @@ module Full_yakker (Sem_val : SEMVAL) = struct
           let idata_s =
             List.fold_left (fun idata sv -> Sem_val.inspect sv idata)
               (Sem_val.create_idata ()) !successes in
-          let sv_count, idata = count_semvals_plus cs in
           let insp_summary_s = Sem_val.summarize_inspection idata_s in
-          let insp_summary = Sem_val.summarize_inspection idata in
+          let insp_summary =
+            if Logging.features_are_set Logging.Features.verbose then
+              let _, idata = count_semvals_plus cs in
+              Sem_val.summarize_inspection idata
+            else "0" in
           Logging.log Logging.Features.hist_size
             "Success %d %d %d %s %s\n%!"
             ccs.id es_size msize

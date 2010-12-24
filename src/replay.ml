@@ -14,10 +14,14 @@ open Yak
 open Gul
 open Variables
 
+let skip_opt = ref false
+
 let replay_prologue = "
 (*REPLAY PROLOGUE*)
 "
 let transform gr =
+  let skipped_labels = ref PSet.empty in
+  let skip l = if !skip_opt then (skipped_labels := PSet.add l !skipped_labels; true) else false in
   let hproj = if gr.wrapped_history then "Ykd_int" else "" in
   let n_int =
     if gr.wrapped_history then
@@ -26,11 +30,15 @@ let transform gr =
   let match_cases e = function
     | [] -> Util.impossible "Replay.transform.match_cases([])"
     | [(label,body)] ->
-        (* Could just use next case, but this prints a bit more nicely *)
-        if !Compileopt.check_labels then
-          Printf.sprintf "(_i(%d,%s); %s)\n " label e body (* NB _i defn is added to prologue by Main *)
-        else
-          Printf.sprintf "(ignore (*%d*) (%s); %s)\n " label e body (* prevent match warning *)
+        if skip label then
+          Printf.sprintf "(%s)\n" body
+        else begin
+          (* Could just use next case, but this prints a bit more nicely *)
+          if !Compileopt.check_labels then
+            Printf.sprintf "(_i(%d,%s); %s)\n " label e body (* NB _i defn is added to prologue by Main *)
+          else
+            Printf.sprintf "(ignore (*%d*) (%s); %s)\n " label e body (* prevent match warning *)
+        end
     | cases ->
         let b = Buffer.create 11 in
         Printf.bprintf b "\n (match %s with\n " e;
@@ -157,4 +165,6 @@ let transform gr =
         first := false
       end
       | _ -> ())
-    gr.ds
+    gr.ds;
+  !skipped_labels
+

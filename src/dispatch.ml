@@ -31,11 +31,13 @@ let add_early_late_prologue gr =
     if !Compileopt.unit_history then
       "let _p x p v = v
 let _p_pos x p v = v
+let _p_pos_only x p v = v
 let _m x p v v1 = v\n"
     else
       Printf.sprintf "let _p x p = (fun(v,h)->(v,h#push p (%s(x),p)))
 let _p_pos x p = (fun(v,h)->(v,(h#push p (%s(x),p))#push p (%s(p),p)))
-let _m x p = (fun(v1,h1)->fun(_,h2)-> (v1,h1#merge p (%s(x),p) h2))\n" hproj hproj hproj hproj in
+let _p_pos_only x p = (fun(v,h)->(v,h#push p (%s(p),p)))
+let _m x p = (fun(v1,h1)->fun(_,h2)-> (v1,h1#merge p (%s(x),p) h2))\n" hproj hproj hproj hproj hproj in
   add_to_prologue gr (Printf.sprintf
   "
 (*EARLY-LATE PROLOGUE*)
@@ -208,11 +210,13 @@ let add_late_prologue gr =
     if !Compileopt.unit_history then
       "let _p x p h = h
 let _p_pos x p h = h
+let _p_pos_only x p h = h
 let _m x p h h1 = h\n"
     else
       Printf.sprintf "let _p x p = (fun h->h#push p (%s(x),p))
 let _p_pos x p = (fun h->(h#push p (%s(x),p))#push p (%s(p),p))
-let _m x p = (fun h1 h2-> h1#merge p (%s(x),p) h2)\n" hproj hproj hproj hproj in
+let _p_pos_only x p = (fun h->h#push p (%s(p),p))
+let _m x p = (fun h1 h2-> h1#merge p (%s(x),p) h2)\n" hproj hproj hproj hproj hproj in
   add_to_prologue gr (Printf.sprintf
   "
 (*LATE PROLOGUE*)
@@ -236,7 +240,8 @@ module TDHashtable = Hashtbl.Make(struct type t = int * sv let equal = key_eq le
 
 "
 
-let transform gr =
+let transform gr skipped_labels =
+  if not(PSet.is_empty skipped_labels) then Printf.eprintf "********************************************\n%!";
   (match gr.grammar_early_relevant,gr.grammar_late_relevant with
   | true,true ->
       add_early_late_prologue gr
@@ -254,12 +259,20 @@ let transform gr =
   let disp_box      = Printf.sprintf "_dbox %d" in
   let disp_next     = Printf.sprintf "_dnext %d" in
   let disp_ret      = Printf.sprintf "_dret %d" in
-  let disp_merge    = Printf.sprintf "_dmerge %d" in
   let disp_arg      = Printf.sprintf "_darg %d" in
-  let push          = Printf.sprintf "_p %d" in
-  let push_pos      = Printf.sprintf "_p_pos %d" in
+  let disp_merge    = Printf.sprintf "_dmerge %d" in
   let merge         = Printf.sprintf "_m %d" in
-  let disp_and_push = Printf.sprintf "_d_and_push %d" in
+
+  let skip l = PSet.mem l skipped_labels in
+  let maybe_skip f l = if skip l then Gil.Lit(true,"") else Gil.Action(f l) in
+
+  let push          = maybe_skip (Printf.sprintf "_p %d") in
+  let disp_and_push = maybe_skip (Printf.sprintf "_d_and_push %d") in
+  let push_pos l    =
+    if skip l then
+      Gil.Action(Printf.sprintf "_p_pos_only %d" l)
+    else
+      Gil.Action(Printf.sprintf "_p_pos %d" l) in
 
   (* Translate irrelevant Gul right-parts to Gil. *)
   let rec gul2gil r = (* should only be called by dispatch, so invariants are satisfied *)
@@ -295,23 +308,23 @@ let transform gr =
     let (pre,post) = (r.a.pre,r.a.post) in
     match r.r with
       | Action (Some _,Some _) ->
-          Gil.Action(disp_and_push(pre))
+          disp_and_push(pre)
       | Action (Some _,_) ->
           Gil.Action(disp(pre))
       | Action (_,Some _) ->
-          Gil.Action(push(pre))
+          push(pre)
       | Action (None,None) ->
           Util.impossible "Dispatch.transform.d.Action(None,None)"
       | Symb(n,early_arg_opt,_,_) -> (* TODO: attributes *)
           let f_arg = if early_arg_opt=None then None else Some(disp_arg(pre)) in
           (match r.a.early_relevant,r.a.late_relevant with
           | true,true ->
-              Gil.Seq(Gil.Action(push(pre)),
+              Gil.Seq(push(pre),
                       Gil.Symb(n,f_arg,Some(disp_merge(post))))
           | true,false ->
               Gil.Symb(n,f_arg,Some(disp_ret(post)))
           | false,true ->
-              Gil.Seq(Gil.Action(push(pre)),
+              Gil.Seq(push(pre),
                       Gil.Symb(n,None,Some(merge(post))))
           | false,false ->
               (* impossible, would have been caught above *)
@@ -325,7 +338,7 @@ let transform gr =
       | Position true ->
           Gil.Action(disp(pre))
       | Position false ->
-          Gil.Action(push_pos(pre))
+          push_pos(pre)
       | Opt r1 ->
           Gil.Alt(Gil.Lit(false,""),d r1)
       | Alt(r1,r2) ->
@@ -347,9 +360,9 @@ let transform gr =
             | false,false -> false in
           (match disp_pre,push_pre with
           | true,true ->
-              Gil.Seq(Gil.Action(disp_and_push(pre)),Gil.Seq(d r1,d r2))
+              Gil.Seq(disp_and_push(pre),Gil.Seq(d r1,d r2))
           | false,true ->
-              Gil.Seq(Gil.Action(push(pre)),Gil.Seq(d r1,d r2))
+              Gil.Seq(push(pre),Gil.Seq(d r1,d r2))
           | true,false ->
               Gil.Seq(Gil.Action(disp(pre)),Gil.Seq(d r1,d r2))
           | false,false ->
@@ -365,9 +378,9 @@ let transform gr =
             r1.a.late_relevant in
           (match disp_pre,push_pre with
           | true,true ->
-              Gil.Seq(Gil.Action(disp_and_push(pre)),d r1)
+              Gil.Seq(disp_and_push(pre),d r1)
           | false,true ->
-              Gil.Seq(Gil.Action(push(pre)),d r1)
+              Gil.Seq(push(pre),d r1)
           | true,false ->
               Gil.Seq(Gil.Action(disp(pre)),d r1)
           | false,false ->
@@ -375,17 +388,17 @@ let transform gr =
       | Star(_,r1) ->
           (match r.a.early_relevant,r.a.late_relevant with
           | true,true ->
-              Gil.Seq(Gil.Action(disp_and_push(pre)),
+              Gil.Seq(disp_and_push(pre),
                       Gil.Seq(Gil.Star(d r1),
-                              Gil.Action(disp_and_push(post))))
+                              disp_and_push(post)))
           | true,false ->
               Gil.Seq(Gil.Action(disp(pre)),
                       Gil.Seq(Gil.Star(d r1),
                               Gil.Action(disp(post))))
           | false,true ->
-              Gil.Seq(Gil.Action(push(pre)),
+              Gil.Seq(push(pre),
                       Gil.Seq(Gil.Star(d r1),
-                              Gil.Action(push(post))))
+                              push(post)))
           | false,false ->
               Util.impossible "dispatch Star")
       | CharRange(_,_)

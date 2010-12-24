@@ -156,6 +156,7 @@ let _dnext x p = function (*TJIM: same as _d without p *)
 (* History transformers *)
 let _p x p = (fun(v,h)->(v,h#push p ((x),p)))
 let _p_pos x p = (fun(v,h)->(v,(h#push p ((x),p))#push p ((p),p)))
+let _p_pos_only x p = (fun(v,h)->(v,h#push p ((p),p)))
 let _m x p = (fun(v1,h1)->fun(_,h2)-> (v1,h1#merge p ((x),p) h2))
 
 let sv_eq x y = sv_compare x y = 0

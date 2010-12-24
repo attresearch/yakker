@@ -256,6 +256,7 @@ let sv_hash = Yk_History.hash
 (* History transformers *)
 let _p x p = (fun h->h#push p ((x),p))
 let _p_pos x p = (fun h->(h#push p ((x),p))#push p ((p),p))
+let _p_pos_only x p = (fun h->h#push p ((p),p))
 let _m x p = (fun h1 h2-> h1#merge p ((x),p) h2)
 
 let sv_eq x y = sv_compare x y = 0

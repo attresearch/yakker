@@ -319,8 +319,8 @@ let do_phases gr =
               add_to_prologue gr
                 "let _i (x,y) = if x=y then y else failwith(Printf.sprintf \"_i expected %d, got %d\" x y)\n";
             Analyze.assignments gr;
-            Replay.transform gr;
-            Dispatch.transform gr)
+            let skipped_labels = Replay.transform gr in
+            Dispatch.transform gr skipped_labels)
       | Fuse_cmd ->
           if !Compileopt.coalesce then
             do_phase "coalescing actions" (fun () -> Fusion.fuse_gil gr)

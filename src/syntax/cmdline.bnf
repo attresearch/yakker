@@ -127,6 +127,7 @@ args =
       | "-memoize-history" o              { Compileopt.memoize_history := true }
       | "-no-memoize-history" o           { Compileopt.memoize_history := false }
       | "-unit-history" o                 { Compileopt.unit_history := true }
+      | "-skip-opt" o                     { Compileopt.skip_opt := true }
       | "-no-replay" o                    { Compileopt.repress_replay := true }
       | "-lookahead" o                    { Compileopt.lookahead := true }
       | "-no-coalesce" o                  { Compileopt.coalesce := false }

@@ -14,14 +14,12 @@ open Yak
 open Gul
 open Variables
 
-let skip_opt = ref false
-
 let replay_prologue = "
 (*REPLAY PROLOGUE*)
 "
 let transform gr =
   let skipped_labels = ref PSet.empty in
-  let skip l = if !skip_opt then (skipped_labels := PSet.add l !skipped_labels; true) else false in
+  let skip l = if !Compileopt.skip_opt then (skipped_labels := PSet.add l !skipped_labels; true) else false in
   let hproj = if gr.wrapped_history then "Ykd_int" else "" in
   let n_int =
     if gr.wrapped_history then

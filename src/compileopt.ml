@@ -18,6 +18,7 @@ let case_sensitive = ref true
 let coalesce = ref true
 let check_labels = ref false
 let memoize_history = ref false
+let skip_opt = ref false
 
 (* testing-related *)
 let unit_history = ref false

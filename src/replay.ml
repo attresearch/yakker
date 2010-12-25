@@ -18,8 +18,13 @@ let replay_prologue = "
 (*REPLAY PROLOGUE*)
 "
 let transform gr =
+  let skip_count = ref 0 in
+  let notskip_count = ref 0 in
   let skipped_labels = ref PSet.empty in
-  let skip l = if !Compileopt.skip_opt then (skipped_labels := PSet.add l !skipped_labels; true) else false in
+  let skip l =
+    if !Compileopt.skip_opt then
+      (skipped_labels := PSet.add l !skipped_labels; skip_count := !skip_count+1; true)
+    else (notskip_count := !notskip_count+1; false) in
   let hproj = if gr.wrapped_history then "Ykd_int" else "" in
   let n_int =
     if gr.wrapped_history then
@@ -42,11 +47,13 @@ let transform gr =
         Printf.bprintf b "\n (match %s with\n " e;
         let rec loop = function [] -> Util.impossible "Replay.transform.match_cases"
           | (label,body)::[] ->
+              notskip_count := !notskip_count+1;
               if !Compileopt.check_labels then
                 Printf.bprintf b "| %s(%d) -> (%s)\n " hproj label body
               else
                 Printf.bprintf b "| _(*%d*) -> (%s)\n " label body (* prevent match warning *)
           | (label,body)::tl ->
+              notskip_count := !notskip_count+1;
               Printf.bprintf b "| %s(%d) -> (%s)\n " hproj label body;
               loop tl
         in loop cases;
@@ -121,10 +128,13 @@ let transform gr =
               [])
       | Star(Accumulate(_,Some(x,e)),r1) ->
           let g,y = fresh(),fresh() in
+          let body_cases =
+            List.map (fun (label,case) -> (label,Printf.sprintf "%s(%s)" g case)) (rp r1) in
+          let all_cases = (post,x)::body_cases in
           [(pre,
             Printf.sprintf
-              "\n (let rec %s %s = (match %s with %d -> %s | %s -> %s(%s)) in %s(%s))"
-              g x n_int post x y g (match_cases y (rp r1)) g e)]
+              "\n (let rec %s %s = %s in %s(%s))"
+              g x (match_cases n_int all_cases) g e)]
       | Star(Accumulate(_,None),r1) (* r1 must be late relevant so we need to track pre and post anyway *)
       | Star(Bounds _,r1) ->
           (* like the last case, using a fresh variable for x and () for e *)
@@ -132,10 +142,14 @@ let transform gr =
           let x = Variables.fresh() in
           (* from here on, identical --- refactor *)
           let g,y = fresh(),fresh() in
+          let body_cases =
+            List.map (fun (label,case) -> (label,Printf.sprintf "%s(%s)" g case)) (rp r1) in
+          let all_cases = (post,x)::body_cases in
           [(pre,
             Printf.sprintf
-              "\n (let rec %s %s = (match %s with %d -> %s | %s -> %s(%s)) in %s(%s))"
-              g x n_int post x y g (match_cases y (rp r1)) g e)]
+              "\n (let rec %s %s = %s in %s(%s))"
+              g x (match_cases n_int all_cases) g e)]
+
       (* cases below are not late relevant *)
       | Position true     -> Util.impossible "Replay.rp.Position true"
       | Action(_,None)    -> Util.impossible "Replay.rp.Action(_,None)"
@@ -164,5 +178,5 @@ let transform gr =
       end
       | _ -> ())
     gr.ds;
+  Yak.Logging.log Yak.Logging.Features.verbose "\nLabels skipped: %d ; not skipped: %d\n%!" !skip_count !notskip_count;
   !skipped_labels
-

@@ -16,9 +16,9 @@ let unroll_star_n = ref 3
 let lookahead = ref false
 let case_sensitive = ref true
 let coalesce = ref true
-let check_labels = ref false
 let memoize_history = ref false
-let skip_opt = ref false
+let check_labels = ref false
+let skip_opt = ref true
 
 (* testing-related *)
 let unit_history = ref false

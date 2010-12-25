@@ -119,6 +119,10 @@ let _ddelay x p =
   (function
     | (Yk_more(_,t),h) -> (match t x p with Yk_delay(v,hv) -> (v,(h#push p (%s(x),p))#push p (hv,p)) | _ -> failwith \"_ddelay1\")
     | _ -> failwith \"_ddelay2\")
+let _ddelay_only x p =
+  (function
+    | (Yk_more(_,t),h) -> (match t x p with Yk_delay(v,hv) -> (v,h#push p (hv,p)) | _ -> failwith \"_ddelay1\")
+    | _ -> failwith \"_ddelay2\")
 let _dret x p =
   (function
     | (Yk_more(_,t),h) ->
@@ -241,7 +245,6 @@ module TDHashtable = Hashtbl.Make(struct type t = int * sv let equal = key_eq le
 "
 
 let transform gr skipped_labels =
-  if not(PSet.is_empty skipped_labels) then Printf.eprintf "********************************************\n%!";
   (match gr.grammar_early_relevant,gr.grammar_late_relevant with
   | true,true ->
       add_early_late_prologue gr
@@ -254,7 +257,6 @@ let transform gr skipped_labels =
   add_to_prologue gr all_prologue;
 
   let disp          = Printf.sprintf "_d %d" in
-  let disp_delay    = Printf.sprintf "_ddelay %d" in
   let disp_when     = Printf.sprintf "_dwhen %d" in
   let disp_box      = Printf.sprintf "_dbox %d" in
   let disp_next     = Printf.sprintf "_dnext %d" in
@@ -264,15 +266,26 @@ let transform gr skipped_labels =
   let merge         = Printf.sprintf "_m %d" in
 
   let skip l = PSet.mem l skipped_labels in
-  let maybe_skip f l = if skip l then Gil.Lit(true,"") else Gil.Action(f l) in
-
-  let push          = maybe_skip (Printf.sprintf "_p %d") in
-  let disp_and_push = maybe_skip (Printf.sprintf "_d_and_push %d") in
+  let push l =
+    if skip l then
+      Gil.Lit(true,"")
+    else
+      Gil.Action(Printf.sprintf "_p %d" l) in
+  let disp_and_push l =
+    if skip l then
+      Gil.Action(Printf.sprintf "_d %d" l)
+    else
+      Gil.Action(Printf.sprintf "_d_and_push %d" l) in
   let push_pos l    =
     if skip l then
       Gil.Action(Printf.sprintf "_p_pos_only %d" l)
     else
       Gil.Action(Printf.sprintf "_p_pos %d" l) in
+  let disp_delay l    =
+    if skip l then
+      Gil.Action(Printf.sprintf "_ddelay_only %d" l)
+    else
+      Gil.Action(Printf.sprintf "_ddelay %d" l) in
 
   (* Translate irrelevant Gul right-parts to Gil. *)
   let rec gul2gil r = (* should only be called by dispatch, so invariants are satisfied *)
@@ -334,7 +347,7 @@ let transform gr skipped_labels =
       | Box (_, _, bn) ->
           Gil.Box(disp_box(pre), bn)
       | Delay _ ->
-          Gil.Action(disp_delay(pre))
+          disp_delay(pre)
       | Position true ->
           Gil.Action(disp(pre))
       | Position false ->

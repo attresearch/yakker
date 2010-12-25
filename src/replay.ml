@@ -30,7 +30,7 @@ let transform gr =
     if gr.wrapped_history then
       "(match _n() with Ykd_int x -> x | _ -> failwith \"Replay.transform.n_int\")"
     else "_n()" in
-  let match_cases e = function
+  let match_cases = function
     | [] -> Util.impossible "Replay.transform.match_cases([])"
     | [(label,body)] ->
         if skip label then
@@ -38,13 +38,13 @@ let transform gr =
         else begin
           (* Could just use next case, but this prints a bit more nicely *)
           if !Compileopt.check_labels then
-            Printf.sprintf "(_i(%d,%s); %s)\n " label e body (* NB _i defn is added to prologue by Main *)
+            Printf.sprintf "(_i(%d,%s); %s)\n " label n_int body (* NB _i defn is added to prologue by Main *)
           else
-            Printf.sprintf "(ignore (*%d*) (%s); %s)\n " label e body (* prevent match warning *)
+            Printf.sprintf "(ignore (*%d*) (%s); %s)\n " label n_int body (* prevent match warning *)
         end
     | cases ->
         let b = Buffer.create 11 in
-        Printf.bprintf b "\n (match %s with\n " e;
+        Printf.bprintf b "\n (match %s with\n " n_int;
         let rec loop = function [] -> Util.impossible "Replay.transform.match_cases"
           | (label,body)::[] ->
               notskip_count := !notskip_count+1;
@@ -97,8 +97,8 @@ let transform gr =
                 Printf.sprintf
                   "\n (let %s = %s in %s)"
                   y
-                  (match_cases "_n()" (rp r1))
-                  (match_cases "_n()" (rp r2)))]
+                  (match_cases (rp r1))
+                  (match_cases (rp r2)))]
           | true,false ->
               (*TJIM: WRITEUP IS WRONG, NEEDS TO SEND UNIT TO K*)
               (*THEREFORE, ERASURE IN WRITEUP IS WRONG*)
@@ -111,14 +111,14 @@ let transform gr =
                 Printf.sprintf
                   "\n (let %s = %s in ())"
                   y
-                  (match_cases "_n()" (rp r1)))]
+                  (match_cases (rp r1)))]
           | false,true ->
               (match late with
               | None ->
                   rp r2 (* NB no dispatch required here... *)
               | Some y ->
                   [(pre, (* ...but here we must dispatch to bind x to unit *) (*HANDLED BY NORMALIZATION IN WRITEUP*)
-                    Printf.sprintf "(let %s=() in %s)" y (match_cases "_n()" (rp r2)))])
+                    Printf.sprintf "(let %s=() in %s)" y (match_cases (rp r2)))])
           | false,false ->
               (* this case is impossible because our analysis marks this as not late relevant,
                  regardless of whether there is a variable binding *)
@@ -134,7 +134,7 @@ let transform gr =
           [(pre,
             Printf.sprintf
               "\n (let rec %s %s = %s in %s(%s))"
-              g x (match_cases n_int all_cases) g e)]
+              g x (match_cases all_cases) g e)]
       | Star(Accumulate(_,None),r1) (* r1 must be late relevant so we need to track pre and post anyway *)
       | Star(Bounds _,r1) ->
           (* like the last case, using a fresh variable for x and () for e *)
@@ -148,7 +148,7 @@ let transform gr =
           [(pre,
             Printf.sprintf
               "\n (let rec %s %s = %s in %s(%s))"
-              g x (match_cases n_int all_cases) g e)]
+              g x (match_cases all_cases) g e)]
 
       (* cases below are not late relevant *)
       | Position true     -> Util.impossible "Replay.rp.Position true"
@@ -167,7 +167,7 @@ let transform gr =
   List.iter
     (function RuleDef(n,r,a) ->
       if r.a.late_relevant then begin
-        let replay_body = match_cases "_n()" (rp r) in
+        let replay_body = match_cases (rp r) in
         add_to_prologue gr
           (Printf.sprintf "%s_r_%s(_n,ykinput%s) = %s\n "
              (if !first then "let rec\n" else "and\n")

@@ -113,29 +113,29 @@ command =
       | "translate-dypgen-scannerless" o  { Translate_dypgen_scannerless_cmd }
 
 args =
-        "-after" o phases$p               { after := Some p }
+        "-after" o phases$p               { after := Some p } ""
       | "-backend" o
           ( "fun" {Fun_BE}
           | "tx"  {Trans_BE}
           | "peg-strict" {Peg_BE false}
-          | "peg" {Peg_BE true} )$b o     { backend := b }
-      | "-case-insensitive" o             { Compileopt.case_sensitive := false }
-      | "-check-labels" o                 { Compileopt.check_labels := true }
-      | "-counter" o (1*DIGIT)$n o        { Variables.counter := (int_of_string n) }
-      | "-inline-cs" o                    { Compileopt.inline_cs := true }
-      | "-inline-regular" o               { Compileopt.inline_regular := true }
-      | "-memoize-history" o              { Compileopt.memoize_history := true }
-      | "-no-memoize-history" o           { Compileopt.memoize_history := false }
-      | "-unit-history" o                 { Compileopt.unit_history := true }
-      | "-no-skip-opt" o                  { Compileopt.skip_opt := false }
-      | "-no-replay" o                    { Compileopt.repress_replay := true }
-      | "-lookahead" o                    { Compileopt.lookahead := true }
-      | "-no-coalesce" o                  { Compileopt.coalesce := false }
-      | "-only" o                         { only := true }
-      | "-root" o arg$x o                 { roots := x::!roots }
-      | "-unroll-star" o (1*DIGIT)$n o    { Compileopt.unroll_star_n := (int_of_string n) }
-      | "-v" o                            { Yak.Logging.add_features Yak.Logging.Features.verbose }
-      | file$f o                          { files := f::!files }
+          | "peg" {Peg_BE true} )$b o     { backend := b } ""
+      | "-case-insensitive" o             { Compileopt.case_sensitive := false } ""
+      | "-check-labels" o                 { Compileopt.check_labels := true } ""
+      | "-counter" o (1*DIGIT)$n o        { Variables.counter := (int_of_string n) } ""
+      | "-inline-cs" o                    { Compileopt.inline_cs := true } ""
+      | "-inline-regular" o               { Compileopt.inline_regular := true } ""
+      | "-memoize-history" o              { Compileopt.memoize_history := true } ""
+      | "-no-memoize-history" o           { Compileopt.memoize_history := false } ""
+      | "-unit-history" o                 { Compileopt.unit_history := true } ""
+      | "-no-skip-opt" o                  { Compileopt.skip_opt := false } ""
+      | "-no-replay" o                    { Compileopt.repress_replay := true } ""
+      | "-lookahead" o                    { Compileopt.lookahead := true } ""
+      | "-no-coalesce" o                  { Compileopt.coalesce := false } ""
+      | "-only" o                         { only := true } ""
+      | "-root" o arg$x o                 { roots := x::!roots } ""
+      | "-unroll-star" o (1*DIGIT)$n o    { Compileopt.unroll_star_n := (int_of_string n) } ""
+      | "-v" o                            { Yak.Logging.add_features Yak.Logging.Features.verbose } ""
+      | file$f o                          { files := f::!files } ""
 .
 eof = "" !OCTET .
 @end {

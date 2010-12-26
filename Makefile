@@ -471,19 +471,19 @@ $(TESTS_PCOMB_ML): %_pcomb.ml : tests/$$*/$$*.bnf yakker
 
 $(EXAMPLES_OPT_EXE): %-parser.opt: yak.cmxa %.cmx
 	@echo "--x> " $@
-	@$(OCAMLOPT) $^ -package unix -linkpkg -o $@
+	@$(OCAMLOPT) $(OCAMLOPT_FLAGS) $^ -package unix -linkpkg -o $@
 
 $(EXAMPLES_PCOMB_OPT_EXE): %-pcomb-parser.opt: yak.cmxa %_pcomb.cmx
 	@echo "--x> " $@
-	@$(OCAMLOPT) $^ -package unix -linkpkg -o $@
+	@$(OCAMLOPT) $(OCAMLOPT_FLAGS) $^ -package unix -linkpkg -o $@
 
 $(EXAMPLES_EXE): %-parser: yak.cma %.cmo
 	@echo "--x> " $@
-	@$(OCAMLC) $^ -g -package unix -linkpkg -o $@
+	@$(OCAMLC) $(OCAML_FLAGS) $^ -g -package unix -linkpkg -o $@
 
 $(EXAMPLES_PCOMB_EXE): %-pcomb-parser: yak.cma %_pcomb.cmo
 	@echo "--x> " $@
-	@$(OCAMLC) $^ -g -package unix -linkpkg -o $@
+	@$(OCAMLC) $(OCAML_FLAGS) $^ -g -package unix -linkpkg -o $@
 
 $(EXAMPLES_ICS_ML): YOPTS+=-inline-cs
 
@@ -501,6 +501,25 @@ $(EXAMPLES_PCOMB_ML): %_pcomb.ml : examples/$$*/$$*.bnf yakker
 
 OCAML_COMP_DIR=/Users/yitzhakm/sw/godi/lib/ocaml/compiler-lib
 OCAML_COMP_INCLUDES = -I $(OCAML_COMP_DIR)
+
+ocamlparser_regular-parser: OCAML_FLAGS+= \
+	$(OCAML_COMP_DIR)/config.cmo \
+           $(OCAML_COMP_DIR)/misc.cmo \
+           $(OCAML_COMP_DIR)/clflags.cmo $(OCAML_COMP_DIR)/linenum.cmo \
+           $(OCAML_COMP_DIR)/warnings.cmo \
+           $(OCAML_COMP_DIR)/location.cmo \
+           $(OCAML_COMP_DIR)/syntaxerr.cmo 
+
+ocamlparser_regular-parser.opt: OCAMLOPT_FLAGS+= \
+	$(OCAML_COMP_DIR)/config.cmx \
+           $(OCAML_COMP_DIR)/misc.cmx \
+           $(OCAML_COMP_DIR)/clflags.cmx $(OCAML_COMP_DIR)/linenum.cmx \
+           $(OCAML_COMP_DIR)/warnings.cmx \
+           $(OCAML_COMP_DIR)/location.cmx \
+           $(OCAML_COMP_DIR)/syntaxerr.cmx
+
+ocamlparser_regular.cmo : OCAML_FLAGS+=$(OCAML_COMP_INCLUDES)
+ocamlparser_regular.cmx: OCAMLOPT_FLAGS+=$(OCAML_COMP_INCLUDES)
 
 ocamlparser: yak.cma ocamlparser.cmo llexer.cmo opdriver.cmo
 	$(OCAMLC) $(OCAML_COMP_DIR)/config.cmo \

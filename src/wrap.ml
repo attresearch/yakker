@@ -271,14 +271,15 @@ let transform_history gr =
       (function RuleDef(n,r,a) -> loop r | _ -> ())
       gr.ds
   end;
-  add_to_prologue gr "
+  add_to_prologue gr (Printf.sprintf "
 module Yk_Hashed = struct
   type t = hv * int
   let compare i j = compare i j
   let hash i = Hashtbl.hash i
+  let memoize = %B
 end
 module Yk_History = Yak.History.Make(Yk_Hashed)
-"
+" !Compileopt.memoize_history)
 
 let alt2rules = (* differs from bnf.ml b/c need to desugar Opt *) (*TODO: make default in Gul*)
   let rec loop l r = match r.r with

@@ -172,10 +172,6 @@ let parse = Yak.Pami.mk_parse_fun __parse %s
         (Variables.bnf2ocaml gr.start_symbol)
     else
       "(fun ykinput x -> ())" in
-  let memoize_history_code =
-    if gr.grammar_late_relevant then
-        Printf.sprintf "Yk_History.memoize := %B;;\n" !Compileopt.memoize_history
-    else "" in
   let inspector_fields =
     if gr.grammar_late_relevant && not !Compileopt.unit_history then
       let patt = if gr.grammar_early_relevant then "(_,h)" else "h" in
@@ -194,8 +190,7 @@ let parse = Yak.Pami.mk_parse_fun __parse %s
           mk_other_bp1 post_parse_function in
   let boilerplate_shared =
     "let parse_file = Yak.Pami.Simple.parse_file parse
-let parse_string = Yak.Pami.Simple.parse_string parse\n;;\n"
-    ^ memoize_history_code in
+let parse_string = Yak.Pami.Simple.parse_string parse\n;;\n"in
   add_to_epilogue gr (boilerplate_vary ^ boilerplate_shared)
 
 let do_phase name thunk =

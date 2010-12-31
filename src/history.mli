@@ -38,13 +38,13 @@ module type HV = sig
   type t
   val compare : t -> t -> int
   val hash : t -> int
+  val memoize : bool
 end
 
 module Make (Hv : HV) :
     sig
       val compare : (Hv.t, label) history -> (Hv.t, label) history -> int
       val hash : (Hv.t, label) history -> int
-      val memoize : bool ref
       val new_history : unit -> (Hv.t, label) history
 
       module Root_id_set : Set.S

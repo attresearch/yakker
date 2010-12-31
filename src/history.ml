@@ -119,6 +119,7 @@ module type HV = sig
   type t
   val compare : t -> t -> int
   val hash : t -> int
+  val memoize : bool
 end
 
 module Make (Hv : HV) = struct
@@ -148,10 +149,10 @@ module Make (Hv : HV) = struct
   module Weak_info = Weak.Make(Info)
 
   let hash h = match (h#get_root) with Empty -> 0 | Root inf -> Info.hash inf
-  let memoize = ref false
+  let memoize = Hv.memoize
 
   let new_history () =
-    if !memoize then
+    if memoize then
       let memo_tbl = Weak_info.create 11 in
       new history_impl (Weak_info.merge memo_tbl)
     else

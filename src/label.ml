@@ -28,7 +28,6 @@ let transform gr =
     let prelabel() = r.a.pre <- postincr current in
     let postlabel() = r.a.post <- postincr current in
     match r.r with
-    | Position _
     | When _
     | Symb _ ->
         prelabel(); postlabel()
@@ -37,6 +36,7 @@ let transform gr =
         prelabel(); postlabel();
         loop r2
     | Box _
+    | Position _
     | Action _
     | Delay _ ->
         prelabel()

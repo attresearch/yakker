@@ -158,14 +158,29 @@ module Make (Hv : HV) = struct
     else
       new history_impl (fun x -> x)
 
-  module Root_id_set = Set.Make(Info)
+  (** Info, with physical equality. *)
+  module Info_phys = struct
+    type t = (Hv.t,label) info
+
+    let equal = (==)
+
+    let compare {label=k1; v=v1} {label=k2; v=v2} =
+      let c = Label.compare k1 k2 in
+      if c <> 0 then c else Hv.compare v1 v2
+
+    let hash {label=k; v=v} = (Label.hash k) lxor (Hv.hash v)
+  end
+
+  module Root_id_set = Set.Make(Info_phys)
 
   let add_id_set r ris =
     let rec recur_root ris = function
       | Empty -> ris
-      | Root info -> (* Add the current root and then add the children. *)
-          let x = Root_id_set.add info ris in
-          List.fold_left recur_branching x info.branchings
+      | Root info -> (* Add the current root and then add the children, if the root has not yet been visited. *)
+          if Root_id_set.mem info ris then ris
+          else
+            let x = Root_id_set.add info ris in
+            List.fold_left recur_branching x info.branchings
     and recur_branching ris = function
       | One r -> recur_root ris r
       | Two (r1, r2) ->
@@ -182,22 +197,11 @@ module Make (Hv : HV) = struct
   *)
 
 
-  (** Info, with physical equality. The point of the hashtable is to
-      avoid revisiting nodes in a data structure, so physical equality
-      makes the most sense. Corresponds to marking a bit in the actual
-      node. *)
-  module Info2 = struct
-    type t = (Hv.t,label) info
-
-    let equal = (==)
-
-    let compare {label=k1; v=v1} {label=k2; v=v2} =
-      let c = Label.compare k1 k2 in
-      if c <> 0 then c else Hv.compare v1 v2
-
-    let hash {label=k; v=v} = (Label.hash k) lxor (Hv.hash v)
-  end
-  module Hash_info = Hashtbl.Make(Info2)
+  (** We use Info_phys because the point of the hashtable is to avoid
+      revisiting nodes in a data structure, so physical equality makes
+      the most sense. Corresponds to marking a bit in the actual
+      node.  *)
+  module Hash_info = Hashtbl.Make(Info_phys)
 
   module Edge = struct
     type t = (Hv.t,label) branching

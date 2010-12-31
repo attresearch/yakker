@@ -105,14 +105,15 @@ module Yk_Hashed = struct
   type t = hv * int
   let compare i j = compare i j
   let hash i = Hashtbl.hash i
+  let memoize = false
 end
 module Yk_History = Yak.History.Make(Yk_Hashed)
 
 (*REPLAY PROLOGUE*)
 let rec
-_r_rulelist(_n,ykinput) = (
+_r_rulelist(_n,_ps,ykinput) = (
  (let _x172 = (
- (let p = (_r_prologue(_n,ykinput))
+ (let p = (_r_prologue(_n,_ps,ykinput))
  in (
  (let xs = (
  (let _x4 = (
@@ -123,15 +124,15 @@ _r_rulelist(_n,ykinput) = (
  (let _x3 = 
  (match _n() with
  | (1012) -> (
- (let rd = (_r_rule(_n,ykinput))
+ (let rd = (_r_rule(_n,_ps,ykinput))
  in (let (n,r,a) = rd in [RuleDef (n,r,a)])
 ))
  | (1016) -> (
- (let _x175 = (_r_directive(_n,ykinput))
+ (let _x175 = (_r_directive(_n,_ps,ykinput))
  in ([])
 ))
  | (1020) -> (
- (let d = (_r_lexer_declaration(_n,ykinput))
+ (let d = (_r_lexer_declaration(_n,_ps,ykinput))
  in ([d])
 ))
  | _(*1025*) -> ([])
@@ -141,7 +142,7 @@ _r_rulelist(_n,ykinput) = (
  in ((List.rev _x4))
 ))
  in (
- (let e = (_r_epilogue(_n,ykinput))
+ (let e = (_r_epilogue(_n,_ps,ykinput))
  in ( let ts, ps = partition_map (function Text_directive t -> Util.Left t
                                          | Disamb_directive d  -> Util.Right d) p in
       let pd = extract_pd ps in
@@ -154,10 +155,10 @@ _r_rulelist(_n,ykinput) = (
 ))
 
  and
-_r_braces_text(_n,ykinput) = (
- (let _x7 = (_n())
+_r_braces_text(_n,_ps,ykinput) = (
+ (let _x7 = (_ps())
  in (
- (let _x6 = (_n())
+ (let _x6 = (_ps())
  in (
  (let x = (Yak.YkBuf.get_string _x7 _x6 ykinput)
  in (x)
@@ -166,10 +167,10 @@ _r_braces_text(_n,ykinput) = (
 ))
 
  and
-_r_bitstring(_n,ykinput) = (
- (let _x9 = (_n())
+_r_bitstring(_n,_ps,ykinput) = (
+ (let _x9 = (_ps())
  in (
- (let _x8 = (_n())
+ (let _x8 = (_ps())
  in (
  (let x = (Yak.YkBuf.get_string _x9 _x8 ykinput)
  in (int_of_string x)
@@ -178,10 +179,10 @@ _r_bitstring(_n,ykinput) = (
 ))
 
  and
-_r_DIGITS(_n,ykinput) = (
- (let _x11 = (_n())
+_r_DIGITS(_n,_ps,ykinput) = (
+ (let _x11 = (_ps())
  in (
- (let _x10 = (_n())
+ (let _x10 = (_ps())
  in (
  (let x = (Yak.YkBuf.get_string _x11 _x10 ykinput)
  in (int_of_string x)
@@ -190,10 +191,10 @@ _r_DIGITS(_n,ykinput) = (
 ))
 
  and
-_r_HEXDIGS(_n,ykinput) = (
- (let _x13 = (_n())
+_r_HEXDIGS(_n,_ps,ykinput) = (
+ (let _x13 = (_ps())
  in (
- (let _x12 = (_n())
+ (let _x12 = (_ps())
  in (
  (let x = (Yak.YkBuf.get_string _x13 _x12 ykinput)
  in (int_of_string ("0x" ^ x))
@@ -202,31 +203,31 @@ _r_HEXDIGS(_n,ykinput) = (
 ))
 
  and
-_r_infix_op_stuff(_n,ykinput) = 
+_r_infix_op_stuff(_n,_ps,ykinput) = 
  (match _n() with
- | (1084) -> (
- (let x = (_r_alternation(_n,ykinput))
+ | (1076) -> (
+ (let x = (_r_alternation(_n,_ps,ykinput))
  in ((0,x))
 ))
- | _(*1091*) -> (
- (let x = (_r_alternation(_n,ykinput))
+ | _(*1083*) -> (
+ (let x = (_r_alternation(_n,_ps,ykinput))
  in ((1,x))
 ))
  )
  and
-_r_bin_val(_n,ykinput) = (
- (let b = (_r_bitstring(_n,ykinput))
+_r_bin_val(_n,_ps,ykinput) = (
+ (let b = (_r_bitstring(_n,_ps,ykinput))
  in 
  (match _n() with
- | (1099) -> (
+ | (1091) -> (
  (let bs = (
  (let _x15 = (
  (let rec _x177 _x15 = 
  (match _n() with
- | (1102) -> (_x15)
- | _(*1103*) -> (_x177(
+ | (1094) -> (_x15)
+ | _(*1095*) -> (_x177(
  (let _x14 = (
- (let b0 = (_r_bitstring(_n,ykinput))
+ (let b0 = (_r_bitstring(_n,_ps,ykinput))
  in (b0)
 ))
  in (_x14::_x15)
@@ -236,41 +237,41 @@ _r_bin_val(_n,ykinput) = (
 ))
  in (mkSEQ(List.map (fun b -> mkCHARRANGE(b,b)) (b::bs)))
 ))
- | _(*1113*) -> (
- (let b2 = (_r_bitstring(_n,ykinput))
+ | _(*1105*) -> (
+ (let b2 = (_r_bitstring(_n,_ps,ykinput))
  in (mkCHARRANGE(b,b2))
 ))
  )))
 
  and
-_r_char_val(_n,ykinput) = 
+_r_char_val(_n,_ps,ykinput) = 
  (match _n() with
- | (1118) -> (
- (let _x17 = (_n())
+ | (1110) -> (
+ (let _x17 = (_ps())
  in (
- (let _x16 = (_n())
+ (let _x16 = (_ps())
  in (
  (let x = (Yak.YkBuf.get_string _x17 _x16 ykinput)
  in (mkLIT x)
 ))
 ))
 ))
- | _(*1132*) -> (mkLIT "\"")
+ | _(*1122*) -> (mkLIT "\"")
  )
  and
-_r_dec_val(_n,ykinput) = (
- (let d = (_r_DIGITS(_n,ykinput))
+_r_dec_val(_n,_ps,ykinput) = (
+ (let d = (_r_DIGITS(_n,_ps,ykinput))
  in 
  (match _n() with
- | (1137) -> (
+ | (1127) -> (
  (let ds = (
  (let _x19 = (
  (let rec _x179 _x19 = 
  (match _n() with
- | (1140) -> (_x19)
- | _(*1141*) -> (_x179(
+ | (1130) -> (_x19)
+ | _(*1131*) -> (_x179(
  (let _x18 = (
- (let d0 = (_r_DIGITS(_n,ykinput))
+ (let d0 = (_r_DIGITS(_n,_ps,ykinput))
  in (d0)
 ))
  in (_x18::_x19)
@@ -280,26 +281,26 @@ _r_dec_val(_n,ykinput) = (
 ))
  in (mkSEQ(List.map (fun d -> mkCHARRANGE(d,d)) (d::ds)))
 ))
- | _(*1151*) -> (
- (let d2 = (_r_DIGITS(_n,ykinput))
+ | _(*1141*) -> (
+ (let d2 = (_r_DIGITS(_n,_ps,ykinput))
  in (mkCHARRANGE(d,d2))
 ))
  )))
 
  and
-_r_hex_val(_n,ykinput) = (
- (let x = (_r_HEXDIGS(_n,ykinput))
+_r_hex_val(_n,_ps,ykinput) = (
+ (let x = (_r_HEXDIGS(_n,_ps,ykinput))
  in 
  (match _n() with
- | (1159) -> (
+ | (1149) -> (
  (let xs = (
  (let _x21 = (
  (let rec _x181 _x21 = 
  (match _n() with
- | (1162) -> (_x21)
- | _(*1163*) -> (_x181(
+ | (1152) -> (_x21)
+ | _(*1153*) -> (_x181(
  (let _x20 = (
- (let x0 = (_r_HEXDIGS(_n,ykinput))
+ (let x0 = (_r_HEXDIGS(_n,_ps,ykinput))
  in (x0)
 ))
  in (_x20::_x21)
@@ -309,78 +310,78 @@ _r_hex_val(_n,ykinput) = (
 ))
  in (mkSEQ(List.map (fun x -> mkCHARRANGE(x,x)) (x::xs)))
 ))
- | _(*1173*) -> (
- (let x2 = (_r_HEXDIGS(_n,ykinput))
+ | _(*1163*) -> (
+ (let x2 = (_r_HEXDIGS(_n,_ps,ykinput))
  in (mkCHARRANGE(x,x2))
 ))
  )))
 
  and
-_r_num_val(_n,ykinput) = 
+_r_num_val(_n,_ps,ykinput) = 
  (match _n() with
- | (1178) -> (
- (let x = (_r_bin_val(_n,ykinput))
+ | (1168) -> (
+ (let x = (_r_bin_val(_n,_ps,ykinput))
  in (x)
 ))
- | (1182) -> (
- (let x = (_r_dec_val(_n,ykinput))
+ | (1172) -> (
+ (let x = (_r_dec_val(_n,_ps,ykinput))
  in (x)
 ))
- | _(*1186*) -> (
- (let x = (_r_hex_val(_n,ykinput))
+ | _(*1176*) -> (
+ (let x = (_r_hex_val(_n,_ps,ykinput))
  in (x)
 ))
  )
  and
-_r_alternation(_n,ykinput) = (
- (let x = (_r_concatenation(_n,ykinput))
+_r_alternation(_n,_ps,ykinput) = (
+ (let x = (_r_concatenation(_n,_ps,ykinput))
  in (
- (let pdopt = (_r_prec_dir_opt(_n,ykinput))
+ (let pdopt = (_r_prec_dir_opt(_n,_ps,ykinput))
  in (
  (let y = 
  (match _n() with
- | (1197) -> (
+ | (1187) -> (
  (let _x23 = (
- (let z = (_r_infix_op_stuff(_n,ykinput))
+ (let z = (_r_infix_op_stuff(_n,_ps,ykinput))
  in (z)
 ))
  in (Some(_x23))
 ))
- | _(*1205*) -> (None)
+ | _(*1195*) -> (None)
  ) in (process_alt (process_pdopt x pdopt) y)
 ))
 ))
 ))
 
  and
-_r_prec_dir_opt(_n,ykinput) = 
+_r_prec_dir_opt(_n,_ps,ykinput) = 
  (match _n() with
- | (1210) -> (
- (let _x25 = (_n())
+ | (1200) -> (
+ (let _x25 = (_ps())
  in (
- (let _x24 = (_n())
+ (let _x24 = (_ps())
  in (
  (let n = (Yak.YkBuf.get_string _x25 _x24 ykinput)
  in (Some_prec n)
 ))
 ))
 ))
- | (1222) -> (No_prec)
- | _(*1223*) -> (Default_prec)
+ | (1210) -> (No_prec)
+ | _(*1211*) -> (Default_prec)
  )
  and
-_r_concatenation(_n,ykinput) = 
+_r_concatenation(_n,_ps,ykinput) = 
  (match _n() with
- | (1224) -> (
- (let x = (_r_lookahead(_n,ykinput))
+ | (1212) -> (
+ (let x = (_r_lookahead(_n,_ps,ykinput))
  in (x)
 ))
- | (1228) -> (
- (let x = (_r_lookahead(_n,ykinput))
+ | (1216) -> (
+ (let x = (_r_lookahead(_n,_ps,ykinput))
  in (
- (let _x27 = (_n())
+ (let _x27 = (_ps())
  in (
- (let _x26 = (_n())
+ (let _x26 = (_ps())
  in (
  (let e = (Yak.YkBuf.get_string _x27 _x26 ykinput)
  in ( mkASSIGN(x,Some e,None) )
@@ -388,16 +389,16 @@ _r_concatenation(_n,ykinput) =
 ))
 ))
 ))
- | _(*1242*) -> (
- (let x = (_r_lookahead(_n,ykinput))
+ | _(*1228*) -> (
+ (let x = (_r_lookahead(_n,_ps,ykinput))
  in (
  (let e = 
  (match _n() with
- | (1246) -> (
+ | (1232) -> (
  (let _x31 = (
- (let _x29 = (_n())
+ (let _x29 = (_ps())
  in (
- (let _x28 = (_n())
+ (let _x28 = (_ps())
  in (
  (let i = (Yak.YkBuf.get_string _x29 _x28 ykinput)
  in (i)
@@ -406,15 +407,15 @@ _r_concatenation(_n,ykinput) =
 ))
  in (Some(_x31))
 ))
- | _(*1260*) -> (None)
+ | _(*1244*) -> (None)
  ) in (
  (let l = 
  (match _n() with
- | (1262) -> (
+ | (1246) -> (
  (let _x35 = (
- (let _x33 = (_n())
+ (let _x33 = (_ps())
  in (
- (let _x32 = (_n())
+ (let _x32 = (_ps())
  in (
  (let i = (Yak.YkBuf.get_string _x33 _x32 ykinput)
  in (i)
@@ -423,9 +424,9 @@ _r_concatenation(_n,ykinput) =
 ))
  in (Some(_x35))
 ))
- | _(*1276*) -> (None)
+ | _(*1258*) -> (None)
  ) in (
- (let y = (_r_concatenation(_n,ykinput))
+ (let y = (_r_concatenation(_n,_ps,ykinput))
  in ( mkSEQ2(x,e,l,y) )
 ))
 ))
@@ -433,24 +434,24 @@ _r_concatenation(_n,ykinput) =
 ))
  )
  and
-_r_element(_n,ykinput) = 
+_r_element(_n,_ps,ykinput) = 
  (match _n() with
- | (1282) -> (
- (let _x37 = (_n())
+ | (1264) -> (
+ (let _x37 = (_ps())
  in (
- (let _x36 = (_n())
+ (let _x36 = (_ps())
  in (
  (let x = (Yak.YkBuf.get_string _x37 _x36 ykinput)
  in (
- (let p = (_r_params(_n,ykinput))
+ (let p = (_r_params(_n,_ps,ykinput))
  in (
  (let z = 
  (match _n() with
- | (1295) -> (
+ | (1275) -> (
  (let _x41 = (
- (let _x39 = (_n())
+ (let _x39 = (_ps())
  in (
- (let _x38 = (_n())
+ (let _x38 = (_ps())
  in (
  (let b = (Yak.YkBuf.get_string _x39 _x38 ykinput)
  in (b)
@@ -459,150 +460,150 @@ _r_element(_n,ykinput) =
 ))
  in (Some(_x41))
 ))
- | _(*1310*) -> (None)
+ | _(*1288*) -> (None)
  ) in (let (e,a) = p in mkSYMB2(x,e,a,z))
 ))
 ))
 ))
 ))
 ))
- | (1312) -> (
- (let x = (_r_group(_n,ykinput))
+ | (1290) -> (
+ (let x = (_r_group(_n,_ps,ykinput))
  in (x)
 ))
- | (1316) -> (
- (let x = (_r_option(_n,ykinput))
+ | (1294) -> (
+ (let x = (_r_option(_n,_ps,ykinput))
  in (x)
 ))
- | (1320) -> (
- (let x = (_r_char_val(_n,ykinput))
+ | (1298) -> (
+ (let x = (_r_char_val(_n,_ps,ykinput))
  in (x)
 ))
- | (1324) -> (
- (let x = (_r_num_val(_n,ykinput))
+ | (1302) -> (
+ (let x = (_r_num_val(_n,_ps,ykinput))
  in (x)
 ))
- | (1328) -> (
- (let x = (_r_prose_val(_n,ykinput))
+ | (1306) -> (
+ (let x = (_r_prose_val(_n,_ps,ykinput))
  in (x)
 ))
- | (1333) -> (
- (let _x43 = (_n())
+ | (1311) -> (
+ (let _x43 = (_ps())
  in (
- (let _x42 = (_n())
+ (let _x42 = (_ps())
  in (
  (let x = (Yak.YkBuf.get_string _x43 _x42 ykinput)
  in ( mkWHEN x )
 ))
 ))
 ))
- | (1345) -> (
- (let _x45 = (_n())
+ | (1321) -> (
+ (let _x45 = (_ps())
  in (
- (let _x44 = (_n())
+ (let _x44 = (_ps())
  in (
  (let x = (Yak.YkBuf.get_string _x45 _x44 ykinput)
  in (
  (let y = 
  (match _n() with
- | (1355) -> (
- (let _x47 = (_r_return_type(_n,ykinput))
+ | (1329) -> (
+ (let _x47 = (_r_return_type(_n,_ps,ykinput))
  in (Some(_x47))
 ))
- | _(*1360*) -> (None)
+ | _(*1334*) -> (None)
  ) in ( mkDELAY(x,y) )
 ))
 ))
 ))
 ))
- | (1364) -> (
- (let _x49 = (_n())
+ | (1338) -> (
+ (let _x49 = (_ps())
  in (
- (let _x48 = (_n())
+ (let _x48 = (_ps())
  in (
  (let x = (Yak.YkBuf.get_string _x49 _x48 ykinput)
  in (
  (let y = 
  (match _n() with
- | (1374) -> (
- (let _x51 = (_r_return_type(_n,ykinput))
+ | (1346) -> (
+ (let _x51 = (_r_return_type(_n,_ps,ykinput))
  in (Some(_x51))
 ))
- | _(*1379*) -> (None)
+ | _(*1351*) -> (None)
  ) in (
  (let z = 
  (match _n() with
- | (1381) -> (
+ | (1353) -> (
  (let _x53 = (
- (let z = (_r_boxnull(_n,ykinput))
+ (let z = (_r_boxnull(_n,_ps,ykinput))
  in (z)
 ))
  in (Some(_x53))
 ))
- | _(*1392*) -> (None)
+ | _(*1364*) -> (None)
  ) in ( mkBOX(x,y,match z with None -> Runbox_null | Some w -> w) )
 ))
 ))
 ))
 ))
 ))
- | (1396) -> (
- (let _x55 = (_n())
+ | (1368) -> (
+ (let _x55 = (_ps())
  in (
- (let _x54 = (_n())
+ (let _x54 = (_ps())
  in (
  (let x = (Yak.YkBuf.get_string _x55 _x54 ykinput)
  in ( mkACTION2(None,Some x) )
 ))
 ))
 ))
- | (1408) -> (
- (let _x57 = (_n())
+ | (1378) -> (
+ (let _x57 = (_ps())
  in (
- (let _x56 = (_n())
+ (let _x56 = (_ps())
  in (
  (let x = (Yak.YkBuf.get_string _x57 _x56 ykinput)
  in ( mkACTION2(None, Some x) )
 ))
 ))
 ))
- | (1420) -> (
- (let _x59 = (_n())
+ | (1388) -> (
+ (let _x59 = (_ps())
  in (
- (let _x58 = (_n())
+ (let _x58 = (_ps())
  in (
  (let x = (Yak.YkBuf.get_string _x59 _x58 ykinput)
  in ( mkACTION2(Some x,None) )
 ))
 ))
 ))
- | (1432) -> (mkPOSITION true)
- | (1434) -> (mkPOSITION false)
- | _(*1436*) -> (mkPOSITION false)
+ | (1398) -> (mkPOSITION true)
+ | (1400) -> (mkPOSITION false)
+ | _(*1402*) -> (mkPOSITION false)
  )
  and
-_r_boxnull(_n,ykinput) = 
+_r_boxnull(_n,_ps,ykinput) = 
  (match _n() with
- | (1438) -> (Never_null)
- | (1440) -> (Always_null)
- | _(*1442*) -> (
+ | (1404) -> (Never_null)
+ | (1406) -> (Always_null)
+ | _(*1408*) -> (
  (let x = 
  (match _n() with
- | (1443) -> (
- (let _x61 = (_r_return_type(_n,ykinput))
+ | (1409) -> (
+ (let _x61 = (_r_return_type(_n,_ps,ykinput))
  in (Some(_x61))
 ))
- | _(*1448*) -> (None)
+ | _(*1414*) -> (None)
  ) in (match x with None -> Runbox_null | Some y -> Runpred_null y)
 ))
  )
  and
-_r_params(_n,ykinput) = 
+_r_params(_n,_ps,ykinput) = 
  (match _n() with
- | (1451) -> (
- (let _x63 = (_n())
+ | (1417) -> (
+ (let _x63 = (_ps())
  in (
- (let _x62 = (_n())
+ (let _x62 = (_ps())
  in (
  (let t = (Yak.YkBuf.get_string _x63 _x62 ykinput)
  in ( match split t ';' with  (* This isn't robust because ; can be used inside of expressions*)
@@ -612,31 +613,31 @@ _r_params(_n,ykinput) =
 ))
 ))
 ))
- | _(*1463*) -> ((None,[]))
+ | _(*1427*) -> ((None,[]))
  )
  and
-_r_elements(_n,ykinput) = (
- (let x = (_r_alternation(_n,ykinput))
+_r_elements(_n,_ps,ykinput) = (
+ (let x = (_r_alternation(_n,_ps,ykinput))
  in (x)
 ))
 
  and
-_r_group(_n,ykinput) = (
- (let x = (_r_alternation(_n,ykinput))
+_r_group(_n,_ps,ykinput) = (
+ (let x = (_r_alternation(_n,_ps,ykinput))
  in (x)
 ))
 
  and
-_r_option(_n,ykinput) = (
- (let x = (_r_alternation(_n,ykinput))
+_r_option(_n,_ps,ykinput) = (
+ (let x = (_r_alternation(_n,_ps,ykinput))
  in (mkOPT x)
 ))
 
  and
-_r_prose_val(_n,ykinput) = (
- (let _x65 = (_n())
+_r_prose_val(_n,_ps,ykinput) = (
+ (let _x65 = (_ps())
  in (
- (let _x64 = (_n())
+ (let _x64 = (_ps())
  in (
  (let x = (Yak.YkBuf.get_string _x65 _x64 ykinput)
  in (mkPROSE x)
@@ -645,47 +646,47 @@ _r_prose_val(_n,ykinput) = (
 ))
 
  and
-_r_lookahead(_n,ykinput) = 
+_r_lookahead(_n,_ps,ykinput) = 
  (match _n() with
- | (1496) -> (
- (let e = (_r_repetition(_n,ykinput))
+ | (1458) -> (
+ (let e = (_r_repetition(_n,_ps,ykinput))
  in (e)
 ))
- | (1502) -> (
- (let e = (_r_lookahead(_n,ykinput))
+ | (1464) -> (
+ (let e = (_r_lookahead(_n,_ps,ykinput))
  in (mkLOOKAHEAD (false,e))
 ))
- | (1508) -> (
- (let e = (_r_lookahead(_n,ykinput))
+ | (1470) -> (
+ (let e = (_r_lookahead(_n,_ps,ykinput))
  in (mkLOOKAHEAD (true, e))
 ))
- | (1513) -> (
- (let _x67 = (_n())
+ | (1475) -> (
+ (let _x67 = (_ps())
  in (
- (let _x66 = (_n())
+ (let _x66 = (_ps())
  in (
  (let x = (Yak.YkBuf.get_string _x67 _x66 ykinput)
  in (
- (let y = (_r_lookahead(_n,ykinput))
+ (let y = (_r_lookahead(_n,_ps,ykinput))
  in (mkRCOUNT(x,y))
 ))
 ))
 ))
 ))
- | (1531) -> (
- (let _x69 = (_n())
+ | (1491) -> (
+ (let _x69 = (_ps())
  in (
- (let _x68 = (_n())
+ (let _x68 = (_ps())
  in (
  (let v1 = (Yak.YkBuf.get_string _x69 _x68 ykinput)
  in (
- (let _x71 = (_n())
+ (let _x71 = (_ps())
  in (
- (let _x70 = (_n())
+ (let _x70 = (_ps())
  in (
  (let i1 = (Yak.YkBuf.get_string _x71 _x70 ykinput)
  in (
- (let z = (_r_lookahead(_n,ykinput))
+ (let z = (_r_lookahead(_n,_ps,ykinput))
  in ( {r=Star(Accumulate(Some(v1,i1),None),z);a=mkAnnot(Some z);} )
 ))
 ))
@@ -694,20 +695,20 @@ _r_lookahead(_n,ykinput) =
 ))
 ))
 ))
- | (1560) -> (
- (let _x73 = (_n())
+ | (1516) -> (
+ (let _x73 = (_ps())
  in (
- (let _x72 = (_n())
+ (let _x72 = (_ps())
  in (
  (let v2 = (Yak.YkBuf.get_string _x73 _x72 ykinput)
  in (
- (let _x75 = (_n())
+ (let _x75 = (_ps())
  in (
- (let _x74 = (_n())
+ (let _x74 = (_ps())
  in (
  (let i2 = (Yak.YkBuf.get_string _x75 _x74 ykinput)
  in (
- (let z = (_r_lookahead(_n,ykinput))
+ (let z = (_r_lookahead(_n,_ps,ykinput))
  in ( {r=Star(Accumulate(None,Some(v2,i2)),z);a=mkAnnot(Some z);} )
 ))
 ))
@@ -716,32 +717,32 @@ _r_lookahead(_n,ykinput) =
 ))
 ))
 ))
- | (1589) -> (
- (let _x77 = (_n())
+ | (1541) -> (
+ (let _x77 = (_ps())
  in (
- (let _x76 = (_n())
+ (let _x76 = (_ps())
  in (
  (let v1 = (Yak.YkBuf.get_string _x77 _x76 ykinput)
  in (
- (let _x79 = (_n())
+ (let _x79 = (_ps())
  in (
- (let _x78 = (_n())
+ (let _x78 = (_ps())
  in (
  (let i1 = (Yak.YkBuf.get_string _x79 _x78 ykinput)
  in (
- (let _x81 = (_n())
+ (let _x81 = (_ps())
  in (
- (let _x80 = (_n())
+ (let _x80 = (_ps())
  in (
  (let v2 = (Yak.YkBuf.get_string _x81 _x80 ykinput)
  in (
- (let _x83 = (_n())
+ (let _x83 = (_ps())
  in (
- (let _x82 = (_n())
+ (let _x82 = (_ps())
  in (
  (let i2 = (Yak.YkBuf.get_string _x83 _x82 ykinput)
  in (
- (let z = (_r_lookahead(_n,ykinput))
+ (let z = (_r_lookahead(_n,_ps,ykinput))
  in ( {r=Star(Accumulate(Some(v1,i1),Some(v2,i2)),z);a=mkAnnot(Some z);} )
 ))
 ))
@@ -756,20 +757,20 @@ _r_lookahead(_n,ykinput) =
 ))
 ))
 ))
- | (1641) -> (
- (let _x85 = (_n())
+ | (1585) -> (
+ (let _x85 = (_ps())
  in (
- (let _x84 = (_n())
+ (let _x84 = (_ps())
  in (
  (let v1 = (Yak.YkBuf.get_string _x85 _x84 ykinput)
  in (
- (let _x87 = (_n())
+ (let _x87 = (_ps())
  in (
- (let _x86 = (_n())
+ (let _x86 = (_ps())
  in (
  (let i1 = (Yak.YkBuf.get_string _x87 _x86 ykinput)
  in (
- (let z = (_r_lookahead(_n,ykinput))
+ (let z = (_r_lookahead(_n,_ps,ykinput))
  in ( {r=Hash(Accumulate(Some(v1,i1),None),z);a=mkAnnot(Some z);} )
 ))
 ))
@@ -778,20 +779,20 @@ _r_lookahead(_n,ykinput) =
 ))
 ))
 ))
- | (1670) -> (
- (let _x89 = (_n())
+ | (1610) -> (
+ (let _x89 = (_ps())
  in (
- (let _x88 = (_n())
+ (let _x88 = (_ps())
  in (
  (let v2 = (Yak.YkBuf.get_string _x89 _x88 ykinput)
  in (
- (let _x91 = (_n())
+ (let _x91 = (_ps())
  in (
- (let _x90 = (_n())
+ (let _x90 = (_ps())
  in (
  (let i2 = (Yak.YkBuf.get_string _x91 _x90 ykinput)
  in (
- (let z = (_r_lookahead(_n,ykinput))
+ (let z = (_r_lookahead(_n,_ps,ykinput))
  in ( {r=Hash(Accumulate(None,Some(v2,i2)),z);a=mkAnnot(Some z);} )
 ))
 ))
@@ -800,32 +801,32 @@ _r_lookahead(_n,ykinput) =
 ))
 ))
 ))
- | _(*1699*) -> (
- (let _x93 = (_n())
+ | _(*1635*) -> (
+ (let _x93 = (_ps())
  in (
- (let _x92 = (_n())
+ (let _x92 = (_ps())
  in (
  (let v1 = (Yak.YkBuf.get_string _x93 _x92 ykinput)
  in (
- (let _x95 = (_n())
+ (let _x95 = (_ps())
  in (
- (let _x94 = (_n())
+ (let _x94 = (_ps())
  in (
  (let i1 = (Yak.YkBuf.get_string _x95 _x94 ykinput)
  in (
- (let _x97 = (_n())
+ (let _x97 = (_ps())
  in (
- (let _x96 = (_n())
+ (let _x96 = (_ps())
  in (
  (let v2 = (Yak.YkBuf.get_string _x97 _x96 ykinput)
  in (
- (let _x99 = (_n())
+ (let _x99 = (_ps())
  in (
- (let _x98 = (_n())
+ (let _x98 = (_ps())
  in (
  (let i2 = (Yak.YkBuf.get_string _x99 _x98 ykinput)
  in (
- (let z = (_r_lookahead(_n,ykinput))
+ (let z = (_r_lookahead(_n,_ps,ykinput))
  in ( {r=Hash(Accumulate(Some(v1,i1),Some(v2,i2)),z);a=mkAnnot(Some z);} )
 ))
 ))
@@ -842,101 +843,101 @@ _r_lookahead(_n,ykinput) =
 ))
  )
  and
-_r_repetition(_n,ykinput) = 
+_r_repetition(_n,_ps,ykinput) = 
  (match _n() with
- | (1748) -> (
- (let e = (_r_element(_n,ykinput))
+ | (1676) -> (
+ (let e = (_r_element(_n,_ps,ykinput))
  in (e)
 ))
- | (1752) -> (
- (let x = (_r_DIGITS(_n,ykinput))
+ | (1680) -> (
+ (let x = (_r_DIGITS(_n,_ps,ykinput))
  in (
- (let y = (_r_element(_n,ykinput))
+ (let y = (_r_element(_n,_ps,ykinput))
  in (mkSTAR(x,Num x,y))
 ))
 ))
- | (1760) -> (
- (let x = (_r_DIGITS(_n,ykinput))
+ | (1688) -> (
+ (let x = (_r_DIGITS(_n,_ps,ykinput))
  in (
- (let y = (_r_element(_n,ykinput))
+ (let y = (_r_element(_n,_ps,ykinput))
  in (mkSTAR(x,Infinity,y))
 ))
 ))
- | (1770) -> (
- (let x = (_r_DIGITS(_n,ykinput))
+ | (1698) -> (
+ (let x = (_r_DIGITS(_n,_ps,ykinput))
  in (
- (let z = (_r_DIGITS(_n,ykinput))
+ (let z = (_r_DIGITS(_n,_ps,ykinput))
  in (
- (let y = (_r_element(_n,ykinput))
+ (let y = (_r_element(_n,_ps,ykinput))
  in (mkSTAR(x,Num z,y))
 ))
 ))
 ))
- | (1786) -> (
- (let z = (_r_DIGITS(_n,ykinput))
+ | (1714) -> (
+ (let z = (_r_DIGITS(_n,_ps,ykinput))
  in (
- (let y = (_r_element(_n,ykinput))
+ (let y = (_r_element(_n,_ps,ykinput))
  in (mkSTAR(0,Num z,y))
 ))
 ))
- | (1796) -> (
- (let y = (_r_element(_n,ykinput))
+ | (1724) -> (
+ (let y = (_r_element(_n,_ps,ykinput))
  in (mkSTAR(0,Infinity,y))
 ))
- | (1800) -> (
- (let x = (_r_DIGITS(_n,ykinput))
+ | (1728) -> (
+ (let x = (_r_DIGITS(_n,_ps,ykinput))
  in (
- (let y = (_r_element(_n,ykinput))
+ (let y = (_r_element(_n,_ps,ykinput))
  in (mkHASH(x,Infinity,y))
 ))
 ))
- | (1810) -> (
- (let x = (_r_DIGITS(_n,ykinput))
+ | (1738) -> (
+ (let x = (_r_DIGITS(_n,_ps,ykinput))
  in (
- (let z = (_r_DIGITS(_n,ykinput))
+ (let z = (_r_DIGITS(_n,_ps,ykinput))
  in (
- (let y = (_r_element(_n,ykinput))
+ (let y = (_r_element(_n,_ps,ykinput))
  in (mkHASH(x,Num z,y))
 ))
 ))
 ))
- | (1826) -> (
- (let z = (_r_DIGITS(_n,ykinput))
+ | (1754) -> (
+ (let z = (_r_DIGITS(_n,_ps,ykinput))
  in (
- (let y = (_r_element(_n,ykinput))
+ (let y = (_r_element(_n,_ps,ykinput))
  in (mkHASH(0,Num z,y))
 ))
 ))
- | _(*1836*) -> (
- (let y = (_r_element(_n,ykinput))
+ | _(*1764*) -> (
+ (let y = (_r_element(_n,_ps,ykinput))
  in (mkHASH(0,Infinity,y))
 ))
  )
  and
-_r_typestuff(_n,ykinput) = (
+_r_typestuff(_n,_ps,ykinput) = (
  (let x = 
  (match _n() with
- | (1841) -> (
- (let _x101 = (_r_early_inputs(_n,ykinput))
+ | (1769) -> (
+ (let _x101 = (_r_early_inputs(_n,_ps,ykinput))
  in (Some(_x101))
 ))
- | _(*1846*) -> (None)
+ | _(*1774*) -> (None)
  ) in (
  (let y = 
  (match _n() with
- | (1848) -> (
- (let _x103 = (_r_early_outputs(_n,ykinput))
+ | (1776) -> (
+ (let _x103 = (_r_early_outputs(_n,_ps,ykinput))
  in (Some(_x103))
 ))
- | _(*1854*) -> (None)
+ | _(*1782*) -> (None)
  ) in (
  (let z = 
  (match _n() with
- | (1856) -> (
- (let _x105 = (_r_late_inputs(_n,ykinput))
+ | (1784) -> (
+ (let _x105 = (_r_late_inputs(_n,_ps,ykinput))
  in (Some(_x105))
 ))
- | _(*1862*) -> (None)
+ | _(*1790*) -> (None)
  ) in ({Attr.early_params = (match x with None -> None | Some(params,_) -> params);
     input_attributes =  (match x with None -> []   | Some(_,attributes) -> attributes);
     early_rettype =     (match y with None -> None | Some(typ,_) -> typ);
@@ -947,10 +948,10 @@ _r_typestuff(_n,ykinput) = (
 ))
 
  and
-_r_early_inputs(_n,ykinput) = (
- (let _x107 = (_n())
+_r_early_inputs(_n,_ps,ykinput) = (
+ (let _x107 = (_ps())
  in (
- (let _x106 = (_n())
+ (let _x106 = (_ps())
  in (
  (let t = (Yak.YkBuf.get_string _x107 _x106 ykinput)
  in ( match split t ';' with
@@ -962,10 +963,10 @@ _r_early_inputs(_n,ykinput) = (
 ))
 
  and
-_r_early_outputs(_n,ykinput) = (
- (let _x109 = (_n())
+_r_early_outputs(_n,_ps,ykinput) = (
+ (let _x109 = (_ps())
  in (
- (let _x108 = (_n())
+ (let _x108 = (_ps())
  in (
  (let t = (Yak.YkBuf.get_string _x109 _x108 ykinput)
  in ( match split t ';' with
@@ -977,10 +978,10 @@ _r_early_outputs(_n,ykinput) = (
 ))
 
  and
-_r_late_inputs(_n,ykinput) = (
- (let _x111 = (_n())
+_r_late_inputs(_n,_ps,ykinput) = (
+ (let _x111 = (_ps())
  in (
- (let _x110 = (_n())
+ (let _x110 = (_ps())
  in (
  (let t = (Yak.YkBuf.get_string _x111 _x110 ykinput)
  in (t)
@@ -989,10 +990,10 @@ _r_late_inputs(_n,ykinput) = (
 ))
 
  and
-_r_return_type(_n,ykinput) = (
- (let _x113 = (_n())
+_r_return_type(_n,_ps,ykinput) = (
+ (let _x113 = (_ps())
  in (
- (let _x112 = (_n())
+ (let _x112 = (_ps())
  in (
  (let y = (Yak.YkBuf.get_string _x113 _x112 ykinput)
  in (y)
@@ -1001,10 +1002,10 @@ _r_return_type(_n,ykinput) = (
 ))
 
  and
-_r_rettype(_n,ykinput) = (
- (let _x115 = (_n())
+_r_rettype(_n,_ps,ykinput) = (
+ (let _x115 = (_ps())
  in (
- (let _x114 = (_n())
+ (let _x114 = (_ps())
  in (
  (let t = (Yak.YkBuf.get_string _x115 _x114 ykinput)
  in (t)
@@ -1013,26 +1014,26 @@ _r_rettype(_n,ykinput) = (
 ))
 
  and
-_r_lexer_case(_n,ykinput) = 
+_r_lexer_case(_n,_ps,ykinput) = 
  (match _n() with
- | (1931) -> (
- (let _x117 = (_n())
+ | (1849) -> (
+ (let _x117 = (_ps())
  in (
- (let _x116 = (_n())
+ (let _x116 = (_ps())
  in (
  (let n = (Yak.YkBuf.get_string _x117 _x116 ykinput)
  in (
  (let t_opt = 
  (match _n() with
- | (1942) -> (
- (let _x119 = (_r_rettype(_n,ykinput))
+ | (1858) -> (
+ (let _x119 = (_r_rettype(_n,_ps,ykinput))
  in (Some(_x119))
 ))
- | _(*1947*) -> (None)
+ | _(*1863*) -> (None)
  ) in (
- (let _x121 = (_n())
+ (let _x121 = (_ps())
  in (
- (let _x120 = (_n())
+ (let _x120 = (_ps())
  in (
  (let n2 = (Yak.YkBuf.get_string _x121 _x120 ykinput)
  in ( TokenSymb(n,t_opt,Some n2) )
@@ -1043,43 +1044,43 @@ _r_lexer_case(_n,ykinput) =
 ))
 ))
 ))
- | (1961) -> (
- (let _x123 = (_n())
+ | (1875) -> (
+ (let _x123 = (_ps())
  in (
- (let _x122 = (_n())
+ (let _x122 = (_ps())
  in (
  (let n = (Yak.YkBuf.get_string _x123 _x122 ykinput)
  in (
  (let t_opt = 
  (match _n() with
- | (1972) -> (
- (let _x125 = (_r_rettype(_n,ykinput))
+ | (1884) -> (
+ (let _x125 = (_r_rettype(_n,_ps,ykinput))
  in (Some(_x125))
 ))
- | _(*1977*) -> (None)
+ | _(*1889*) -> (None)
  ) in ( TokenSymb(n,t_opt,None) )
 ))
 ))
 ))
 ))
- | _(*1979*) -> (
- (let _x127 = (_n())
+ | _(*1891*) -> (
+ (let _x127 = (_ps())
  in (
- (let _x126 = (_n())
+ (let _x126 = (_ps())
  in (
  (let n = (Yak.YkBuf.get_string _x127 _x126 ykinput)
  in (
  (let t_opt = 
  (match _n() with
- | (1990) -> (
- (let _x129 = (_r_rettype(_n,ykinput))
+ | (1900) -> (
+ (let _x129 = (_r_rettype(_n,_ps,ykinput))
  in (Some(_x129))
 ))
- | _(*1995*) -> (None)
+ | _(*1905*) -> (None)
  ) in (
- (let _x131 = (_n())
+ (let _x131 = (_ps())
  in (
- (let _x130 = (_n())
+ (let _x130 = (_ps())
  in (
  (let s = (Yak.YkBuf.get_string _x131 _x130 ykinput)
  in ( TokenLit(n,t_opt,s) )
@@ -1092,16 +1093,16 @@ _r_lexer_case(_n,ykinput) =
 ))
  )
  and
-_r_lexer_cases(_n,ykinput) = (
- (let hd = (_r_lexer_case(_n,ykinput))
+_r_lexer_cases(_n,_ps,ykinput) = (
+ (let hd = (_r_lexer_case(_n,_ps,ykinput))
  in (
  (let tl = (
  (let _x133 = (
  (let rec _x183 _x133 = 
  (match _n() with
- | (2018) -> (_x133)
- | _(*2019*) -> (_x183(
- (let _x132 = (_r_lexer_case(_n,ykinput))
+ | (1926) -> (_x133)
+ | _(*1927*) -> (_x183(
+ (let _x132 = (_r_lexer_case(_n,_ps,ykinput))
  in (_x132::_x133)
 )))
  ) in _x183(Yak.Util.nil)))
@@ -1112,22 +1113,22 @@ _r_lexer_cases(_n,ykinput) = (
 ))
 
  and
-_r_lexer_declaration(_n,ykinput) = (
- (let _x135 = (_n())
+_r_lexer_declaration(_n,_ps,ykinput) = (
+ (let _x135 = (_ps())
  in (
- (let _x134 = (_n())
+ (let _x134 = (_ps())
  in (
  (let n = (Yak.YkBuf.get_string _x135 _x134 ykinput)
  in (
- (let t = (_r_rettype(_n,ykinput))
+ (let t = (_r_rettype(_n,_ps,ykinput))
  in (
- (let _x137 = (_n())
+ (let _x137 = (_ps())
  in (
- (let _x136 = (_n())
+ (let _x136 = (_ps())
  in (
  (let np = (Yak.YkBuf.get_string _x137 _x136 ykinput)
  in (
- (let l = (_r_lexer_cases(_n,ykinput))
+ (let l = (_r_lexer_cases(_n,_ps,ykinput))
  in ( LexerDecl(n,np,t,l) )
 ))
 ))
@@ -1139,19 +1140,19 @@ _r_lexer_declaration(_n,ykinput) = (
 ))
 
  and
-_r_assoc_tag(_n,ykinput) = 
+_r_assoc_tag(_n,_ps,ykinput) = 
  (match _n() with
- | (2065) -> (Right_assoc)
- | (2067) -> (Left_assoc)
- | _(*2069*) -> (Non_assoc)
+ | (1969) -> (Right_assoc)
+ | (1971) -> (Left_assoc)
+ | _(*1973*) -> (Non_assoc)
  )
  and
-_r_prec_declaration(_n,ykinput) = (
- (let atag = (_r_assoc_tag(_n,ykinput))
+_r_prec_declaration(_n,_ps,ykinput) = (
+ (let atag = (_r_assoc_tag(_n,_ps,ykinput))
  in (
- (let _x139 = (_n())
+ (let _x139 = (_ps())
  in (
- (let _x138 = (_n())
+ (let _x138 = (_ps())
  in (
  (let id = (Yak.YkBuf.get_string _x139 _x138 ykinput)
  in (
@@ -1159,12 +1160,12 @@ _r_prec_declaration(_n,ykinput) = (
  (let _x143 = (
  (let rec _x189 _x143 = 
  (match _n() with
- | (2091) -> (_x143)
- | _(*2092*) -> (_x189(
+ | (1993) -> (_x143)
+ | _(*1994*) -> (_x189(
  (let _x142 = (
- (let _x141 = (_n())
+ (let _x141 = (_ps())
  in (
- (let _x140 = (_n())
+ (let _x140 = (_ps())
  in (
  (let x = (Yak.YkBuf.get_string _x141 _x140 ykinput)
  in (x)
@@ -1182,19 +1183,19 @@ _r_prec_declaration(_n,ykinput) = (
  (let levels = (
  (let rec _x185 a = 
  (match _n() with
- | (2110) -> (a)
- | _(*2114*) -> (_x185(
+ | (2010) -> (a)
+ | _(*2014*) -> (_x185(
  (let atag = 
  (match _n() with
- | (2115) -> (
- (let t = (_r_assoc_tag(_n,ykinput))
+ | (2015) -> (
+ (let t = (_r_assoc_tag(_n,_ps,ykinput))
  in (t)
 ))
- | _(*2120*) -> (fst a)
+ | _(*2020*) -> (fst a)
  ) in (
- (let _x145 = (_n())
+ (let _x145 = (_ps())
  in (
- (let _x144 = (_n())
+ (let _x144 = (_ps())
  in (
  (let id = (Yak.YkBuf.get_string _x145 _x144 ykinput)
  in (
@@ -1202,12 +1203,12 @@ _r_prec_declaration(_n,ykinput) = (
  (let _x149 = (
  (let rec _x187 _x149 = 
  (match _n() with
- | (2133) -> (_x149)
- | _(*2134*) -> (_x187(
+ | (2031) -> (_x149)
+ | _(*2032*) -> (_x187(
  (let _x148 = (
- (let _x147 = (_n())
+ (let _x147 = (_ps())
  in (
- (let _x146 = (_n())
+ (let _x146 = (_ps())
  in (
  (let x = (Yak.YkBuf.get_string _x147 _x146 ykinput)
  in (x)
@@ -1236,16 +1237,16 @@ _r_prec_declaration(_n,ykinput) = (
 ))
 
  and
-_r_rule(_n,ykinput) = (
- (let _x151 = (_n())
+_r_rule(_n,_ps,ykinput) = (
+ (let _x151 = (_ps())
  in (
- (let _x150 = (_n())
+ (let _x150 = (_ps())
  in (
  (let n = (Yak.YkBuf.get_string _x151 _x150 ykinput)
  in (
- (let y = (_r_typestuff(_n,ykinput))
+ (let y = (_r_typestuff(_n,_ps,ykinput))
  in (
- (let r = (_r_elements(_n,ykinput))
+ (let r = (_r_elements(_n,_ps,ykinput))
  in ((n, r, y))
 ))
 ))
@@ -1254,52 +1255,52 @@ _r_rule(_n,ykinput) = (
 ))
 
  and
-_r_prologue(_n,ykinput) = (
+_r_prologue(_n,_ps,ykinput) = (
  (let _x161 = (
  (let rec _x191 _x161 = 
  (match _n() with
- | (2177) -> (_x161)
- | _(*2178*) -> (_x191(
+ | (2071) -> (_x161)
+ | _(*2072*) -> (_x191(
  (let _x160 = 
  (match _n() with
- | (2182) -> (
- (let _x153 = (_n())
+ | (2076) -> (
+ (let _x153 = (_ps())
  in (
- (let _x152 = (_n())
+ (let _x152 = (_ps())
  in (
  (let x = (Yak.YkBuf.get_string _x153 _x152 ykinput)
  in (Text_directive (Ocaml x))
 ))
 ))
 ))
- | (2197) -> (
- (let _x155 = (_n())
+ | (2089) -> (
+ (let _x155 = (_ps())
  in (
- (let _x154 = (_n())
+ (let _x154 = (_ps())
  in (
  (let x = (Yak.YkBuf.get_string _x155 _x154 ykinput)
  in (Text_directive (Ocaml x))
 ))
 ))
 ))
- | (2209) -> (
- (let d = (_r_prec_declaration(_n,ykinput))
+ | (2099) -> (
+ (let d = (_r_prec_declaration(_n,_ps,ykinput))
  in (Disamb_directive d)
 ))
- | (2216) -> (
- (let _x157 = (_n())
+ | (2106) -> (
+ (let _x157 = (_ps())
  in (
- (let _x156 = (_n())
+ (let _x156 = (_ps())
  in (
  (let x = (Yak.YkBuf.get_string _x157 _x156 ykinput)
  in (Text_directive (Ocamllex x))
 ))
 ))
 ))
- | _(*2231*) -> (
- (let _x159 = (_n())
+ | _(*2119*) -> (
+ (let _x159 = (_ps())
  in (
- (let _x158 = (_n())
+ (let _x158 = (_ps())
  in (
  (let x = (Yak.YkBuf.get_string _x159 _x158 ykinput)
  in (Text_directive (Dypgenlex x))
@@ -1313,38 +1314,38 @@ _r_prologue(_n,ykinput) = (
 ))
 
  and
-_r_epilogue(_n,ykinput) = (
+_r_epilogue(_n,_ps,ykinput) = (
  (let _x169 = (
  (let rec _x193 _x169 = 
  (match _n() with
- | (2247) -> (_x169)
- | _(*2248*) -> (_x193(
+ | (2133) -> (_x169)
+ | _(*2134*) -> (_x193(
  (let _x168 = 
  (match _n() with
- | (2252) -> (
- (let _x163 = (_n())
+ | (2138) -> (
+ (let _x163 = (_ps())
  in (
- (let _x162 = (_n())
+ (let _x162 = (_ps())
  in (
  (let x = (Yak.YkBuf.get_string _x163 _x162 ykinput)
  in (Ocaml x)
 ))
 ))
 ))
- | (2267) -> (
- (let _x165 = (_n())
+ | (2151) -> (
+ (let _x165 = (_ps())
  in (
- (let _x164 = (_n())
+ (let _x164 = (_ps())
  in (
  (let x = (Yak.YkBuf.get_string _x165 _x164 ykinput)
  in (Ocaml x)
 ))
 ))
 ))
- | _(*2282*) -> (
- (let _x167 = (_n())
+ | _(*2164*) -> (
+ (let _x167 = (_ps())
  in (
- (let _x166 = (_n())
+ (let _x166 = (_ps())
  in (
  (let x = (Yak.YkBuf.get_string _x167 _x166 ykinput)
  in (Ocamllex x)
@@ -1358,10 +1359,10 @@ _r_epilogue(_n,ykinput) = (
 ))
 
  and
-_r_directive(_n,ykinput) = (
- (let _x171 = (_n())
+_r_directive(_n,_ps,ykinput) = (
+ (let _x171 = (_ps())
  in (
- (let _x170 = (_n())
+ (let _x170 = (_ps())
  in (
  (let x = (Yak.YkBuf.get_string _x171 _x170 ykinput)
  in ( Variables.counter := (int_of_string x))
@@ -1477,8 +1478,8 @@ let _dnext x p = function (*TJIM: same as _d without p *)
   | _ -> failwith "_dnext"
 (* History transformers *)
 let _p x p = (fun(v,h)->(v,h#push p ((x),p)))
-let _p_pos x p = (fun(v,h)->(v,(h#push p ((x),p))#push p ((p),p)))
-let _p_pos_only x p = (fun(v,h)->(v,h#push p ((p),p)))
+let _p_pos x p = (fun(v,h)->(v,(h#push p ((x),p))#push p ((x),p)))
+let _p_pos_only x p = (fun(v,h)->(v,h#push p ((x),p)))
 let _m x p = (fun(v1,h1)->fun(_,h2)-> (v1,h1#merge p ((x),p) h2))
 
 let sv_eq x y = sv_compare x y = 0
@@ -1500,312 +1501,312 @@ let _x197 =
  (fun pos_ -> _x196 (_x5+1) )) in _x196 (0) )),_x194))
 let __default_call _ _ = sv0;;
 let __default_ret _ v1 _ = v1;;
-let __a118 = _p 1942;;
-let __a42 = _p_pos_only 1486;;
-let __a61 = fun p v -> _p_pos_only 1421 p (_p 1420 p (v));;
-let __a55 = _p 1159;;
-let __a187 = _p_pos_only 2272;;
-let __a119 = _p 1947;;
-let __a129 = _p_pos_only 1265;;
-let __a212 = _p_pos_only 2050;;
-let __a68 = _p 1836;;
-let __a82 = _p_pos_only 1043;;
-let __a65 = _p 1502;;
-let __a146 = _p_pos_only 1269;;
-let __a153 = _p 1381;;
-let __a215 = fun p v -> _p 2120 p (_p 2114 p (v));;
-let __a192 = _p_pos_only 1723;;
-let __a14 = _p 1496;;
-let __a66 = _p 1508;;
-let __a193 = _p_pos_only 1613;;
-let __a142 = fun p v -> _p_pos_only 1334 p (_p 1333 p (v));;
-let __a64 = _p_pos_only 1490;;
-let __a93 = _p 1162;;
-let __a92 = _p 1163;;
-let __a196 = _p_pos_only 1727;;
-let __a95 = _p 1276;;
-let __a197 = _p_pos_only 1617;;
-let __a147 = fun p v -> _p_pos_only 1211 p (_p 1210 p (v));;
-let __a21 = _p 1841;;
-let __a29 = _p 2177;;
-let __a80 = _p 2065;;
-let __a27 = _p 2178;;
-let __a0 = _p_pos_only 1050;;
-let __a78 = _p 2067;;
+let __a157 = _p_pos_only 1595;;
+let __a97 = _p_pos_only 1372;;
+let __a171 = _p_pos_only 1598;;
+let __a198 = _p_pos_only 1940;;
+let __a26 = _p_pos_only 2050;;
+let __a70 = _p 1724;;
+let __a82 = _p_pos_only 1042;;
+let __a168 = fun p v -> _p 1334 p (_p_pos_only 1325 p (v));;
+let __a62 = _p_pos_only 1268;;
+let __a201 = _p_pos_only 1943;;
+let __a81 = _p_pos_only 2053;;
+let __a60 = fun p v -> _p_pos_only 1379 p (_p 1378 p (v));;
+let __a19 = _p 1728;;
+let __a195 = _p_pos_only 2168;;
+let __a0 = _p_pos_only 1048;;
+let __a41 = fun p v -> _p 1414 p (_p 1408 p (v));;
+let __a160 = _p_pos_only 1501;;
+let __a131 = _p_pos_only 1614;;
+let __a107 = _p 1275;;
+let __a91 = _p 1163;;
+let __a143 = _p_pos_only 1839;;
+let __a174 = _p_pos_only 1504;;
+let __a162 = fun p v -> _p_pos_only 1476 p (_p 1475 p (v));;
+let __a104 = _p_pos_only 1382;;
+let __a135 = _p_pos_only 1495;;
+let __a34 = _p 1168;;
 let __a125 = fun p v -> _p 1016 p (_p 1011 p (v));;
-let __a22 = _p 1846;;
-let __a79 = _p 2069;;
-let __a164 = _p_pos_only 1952;;
-let __a43 = _p 1848;;
-let __a48 = _p_pos_only 1054;;
-let __a195 = _p_pos_only 2287;;
-let __a154 = _p 1392;;
-let __a183 = _p_pos_only 1956;;
-let __a202 = _p_pos_only 1734;;
-let __a203 = _p_pos_only 1624;;
-let __a191 = fun p v -> _p_pos_only 2232 p (_p 2231 p (v));;
-let __a91 = _p 1173;;
-let __a97 = _p_pos_only 1401;;
-let __a205 = _p_pos_only 1738;;
-let __a206 = _p_pos_only 1628;;
+let __a48 = _p_pos_only 1051;;
+let __a210 = _p_pos_only 1952;;
+let __a151 = _p_pos_only 1278;;
+let __a96 = _p 1400;;
+let __a111 = fun p v -> _p_pos_only 1586 p (_p 1585 p (v));;
+let __a163 = _p_pos_only 1842;;
+let __a20 = _p 1738;;
+let __a103 = _p 1402;;
+let __a212 = _p_pos_only 1955;;
+let __a1 = _p_pos_only 1057;;
+let __a181 = _p_pos_only 2178;;
+let __a156 = _p_pos_only 1620;;
+let __a39 = _p 1404;;
+let __a61 = fun p v -> _p_pos_only 1389 p (_p 1388 p (v));;
+let __a38 = _p 1406;;
+let __a170 = _p_pos_only 1623;;
+let __a35 = _p 1172;;
+let __a105 = _p 1398;;
+let __a29 = _p 2071;;
+let __a27 = _p 2072;;
+let __a106 = _p_pos_only 1392;;
+let __a108 = _p 1288;;
+let __a36 = _p 1176;;
+let __a215 = fun p v -> _p 2020 p (_p 2014 p (v));;
+let __a169 = _p_pos_only 1281;;
 let __p139 = _dwhen 1028;;
-let __a190 = fun p v -> _p_pos_only 2283 p (_p 2282 p (v));;
-let __a34 = _p 1178;;
-let __a182 = _p_pos_only 1518;;
-let __a188 = _p_pos_only 2302;;
-let __a44 = _p 1854;;
-let __a1 = _p_pos_only 1061;;
-let __a71 = _p 1856;;
+let __a189 = fun p v -> _p_pos_only 2107 p (_p 2106 p (v));;
+let __a142 = fun p v -> _p_pos_only 1312 p (_p 1311 p (v));;
+let __a49 = _p_pos_only 1060;;
+let __a188 = _p_pos_only 2181;;
 let __a124 = fun p v -> _p 1012 p (_p 1011 p (v));;
-let __a24 = fun p v -> _p_pos_only 1962 p (_p 1961 p (v));;
-let __a62 = _p_pos_only 1287;;
-let __a49 = _p_pos_only 1065;;
-let __a15 = _p 1748;;
-let __a181 = _p_pos_only 2298;;
-let __a189 = fun p v -> _p_pos_only 2217 p (_p 2216 p (v));;
-let __a185 = _p_pos_only 2187;;
-let __a76 = _p_pos_only 1966;;
-let __a35 = _p 1182;;
-let __a107 = _p 1295;;
-let __a180 = fun p v -> _p_pos_only 2268 p (_p 2267 p (v));;
-let __a111 = fun p v -> _p_pos_only 1642 p (_p 1641 p (v));;
-let __a120 = _p 1972;;
-let __a104 = _p_pos_only 1413;;
-let __a36 = _p 1186;;
-let __a169 = _p_pos_only 1302;;
-let __a114 = fun p v -> _p_pos_only 1532 p (_p 1531 p (v));;
-let __a167 = fun p v -> _p 1355 p (_p_pos_only 1350 p (v));;
-let __a72 = _p 1862;;
+let __a112 = fun p v -> _p_pos_only 1636 p (_p 1635 p (v));;
+let __a80 = _p 1969;;
+let __a118 = _p 1858;;
+let __a33 = fun p v -> _p_pos_only 1111 p (_p 1110 p (v));;
+let __a152 = fun p v -> _p_pos_only 2139 p (_p 2138 p (v));;
+let __a2 = _p_pos_only 1066;;
+let __a75 = _p_pos_only 1853;;
+let __a8 = _p 1290;;
+let __a11 = _p 1302;;
+let __a50 = _p_pos_only 1069;;
+let __a134 = _p_pos_only 1520;;
+let __a9 = _p 1294;;
+let __a12 = _p 1306;;
+let __a78 = _p 1971;;
+let __a10 = _p 1298;;
+let __a159 = _p_pos_only 1526;;
+let __a79 = _p 1973;;
+let __a56 = _p 1187;;
+let __a133 = _p_pos_only 1639;;
+let __a51 = _p 1076;;
+let __a119 = _p 1863;;
 let __a126 = fun p v -> _p 1020 p (_p 1011 p (v));;
-let __a16 = _p 1752;;
-let __a121 = _p 1977;;
-let __a186 = _p_pos_only 2202;;
-let __a200 = _p_pos_only 2080;;
-let __a2 = _p_pos_only 1072;;
-let __a151 = _p_pos_only 1298;;
-let __a177 = fun p v -> _p_pos_only 2183 p (_p 2182 p (v));;
-let __a204 = _p_pos_only 2084;;
-let __a50 = _p_pos_only 1076;;
-let __a108 = _p 1310;;
-let __a8 = _p 1312;;
-let __a73 = _p_pos_only 1866;;
-let __a9 = _p 1316;;
+let __a173 = _p_pos_only 1529;;
+let __a113 = fun p v -> _p_pos_only 1517 p (_p 1516 p (v));;
+let __a67 = _p 1754;;
+let __a185 = _p_pos_only 2080;;
+let __a114 = fun p v -> _p_pos_only 1492 p (_p 1491 p (v));;
+let __a13 = _p 1427;;
 let __a144 = _d 1026;;
-let __a57 = _p 1205;;
-let __a208 = _p 2091;;
-let __a132 = _p_pos_only 1646;;
-let __a207 = _p 2092;;
-let __a51 = _p 1084;;
-let __a56 = _p 1197;;
-let __a135 = _p_pos_only 1536;;
-let __a168 = fun p v -> _p 1360 p (_p_pos_only 1350 p (v));;
-let __a106 = _p_pos_only 1425;;
-let __a17 = _p 1760;;
-let __a40 = fun p v -> _p 1443 p (_p 1442 p (v));;
-let __a148 = fun p v -> _p 1374 p (_p_pos_only 1369 p (v));;
-let __a33 = fun p v -> _p_pos_only 1119 p (_p 1118 p (v));;
-let __a214 = fun p v -> _p 2115 p (_p 2114 p (v));;
-let __a116 = _p_pos_only 1870;;
-let __a77 = _p_pos_only 1984;;
-let __a105 = _p 1432;;
-let __a10 = _p 1320;;
-let __a211 = _p_pos_only 2095;;
-let __a96 = _p 1434;;
-let __a113 = fun p v -> _p_pos_only 1561 p (_p 1560 p (v));;
-let __a103 = _p 1436;;
-let __a11 = _p 1324;;
-let __a213 = _p_pos_only 2099;;
-let __a157 = _p_pos_only 1653;;
-let __a209 = _p 2110;;
-let __a98 = _p_pos_only 1878;;
-let __a39 = _p 1438;;
-let __a86 = _p 1102;;
-let __a83 = _p 1091;;
-let __a160 = _p_pos_only 1543;;
-let __a122 = _p 1990;;
-let __a85 = _p 1103;;
-let __a12 = _p 1328;;
-let __a115 = fun p v -> _p_pos_only 1590 p (_p 1589 p (v));;
-let __a171 = _p_pos_only 1657;;
-let __a174 = _p_pos_only 1547;;
-let __a162 = fun p v -> _p_pos_only 1514 p (_p 1513 p (v));;
-let __a18 = _p 1770;;
-let __a110 = fun p v -> _p_pos_only 1671 p (_p 1670 p (v));;
-let __a123 = _p 1995;;
-let __a194 = _p_pos_only 2221;;
-let __a52 = _p 1099;;
-let __a166 = _p_pos_only 1215;;
-let __a176 = _p_pos_only 2001;;
-let __a38 = _p 1440;;
-let __a137 = _p_pos_only 1882;;
-let __a184 = _p_pos_only 2005;;
-let __a165 = _p 1222;;
-let __a6 = _p 1223;;
-let __a3 = _p 1224;;
-let __a84 = _p 1113;;
+let __a164 = _p_pos_only 1868;;
+let __a158 = _p_pos_only 1645;;
+let __a109 = _p_pos_only 1421;;
+let __a57 = _p 1195;;
+let __a83 = _p 1083;;
+let __a150 = fun p v -> _p_pos_only 1322 p (_p 1321 p (v));;
+let __a172 = _p_pos_only 1648;;
+let __a155 = _p_pos_only 1315;;
+let __a115 = fun p v -> _p_pos_only 1542 p (_p 1541 p (v));;
+let __a177 = fun p v -> _p_pos_only 2077 p (_p 2076 p (v));;
+let __a166 = _p_pos_only 1204;;
+let __a68 = _p 1764;;
+let __a191 = fun p v -> _p_pos_only 2120 p (_p 2119 p (v));;
+let __a40 = fun p v -> _p 1409 p (_p 1408 p (v));;
+let __a186 = _p_pos_only 2093;;
+let __a183 = _p_pos_only 1871;;
+let __a200 = _p_pos_only 1984;;
+let __a130 = fun p v -> _p_pos_only 1339 p (_p 1338 p (v));;
+let __a21 = _p 1769;;
+let __a165 = _p 1210;;
+let __a204 = _p_pos_only 1987;;
+let __a6 = _p 1211;;
+let __a3 = _p 1212;;
+let __a52 = _p 1091;;
+let __a192 = _p_pos_only 1655;;
+let __a76 = _p_pos_only 1879;;
+let __a23 = fun p v -> _p_pos_only 1850 p (_p 1849 p (v));;
+let __a4 = _p 1216;;
+let __a136 = _p_pos_only 1545;;
+let __a84 = _p 1105;;
+let __a86 = _p 1094;;
+let __a208 = _p 1993;;
+let __a196 = _p_pos_only 1658;;
+let __a85 = _p 1095;;
+let __a207 = _p 1994;;
+let __a120 = _p 1884;;
+let __a194 = _p_pos_only 2110;;
+let __a22 = _p 1774;;
+let __a213 = _p_pos_only 2000;;
+let __a43 = _p 1776;;
+let __a121 = _p 1889;;
+let __a24 = fun p v -> _p_pos_only 1876 p (_p 1875 p (v));;
+let __a110 = fun p v -> _p_pos_only 1611 p (_p 1610 p (v));;
+let __a211 = _p_pos_only 1997;;
+let __a214 = fun p v -> _p 2015 p (_p 2014 p (v));;
+let __a161 = _p_pos_only 1551;;
+let __a202 = _p_pos_only 1664;;
+let __a209 = _p 2010;;
 let __a128 = _d_and_push 1010;;
-let __a28 = fun p v -> _p 2209 p (_p 2178 p (v));;
-let __a4 = _p 1228;;
+let __a175 = _p_pos_only 1554;;
+let __a122 = _p 1900;;
+let __a205 = _p_pos_only 1667;;
+let __a5 = _p 1228;;
+let __a148 = fun p v -> _p 1346 p (_p_pos_only 1342 p (v));;
+let __a190 = fun p v -> _p_pos_only 2165 p (_p 2164 p (v));;
+let __a101 = _p_pos_only 1221;;
 let __p138 = _dnext 1029;;
-let __a216 = _p_pos_only 2122;;
-let __a47 = _p 2018;;
-let __a155 = _p_pos_only 1338;;
-let __a46 = _p 2019;;
-let __a74 = _p_pos_only 1890;;
-let __a69 = _p 1786;;
-let __a199 = _p_pos_only 2236;;
-let __a45 = _p_pos_only 1902;;
-let __a112 = fun p v -> _p_pos_only 1700 p (_p 1699 p (v));;
-let __a217 = _p_pos_only 2126;;
-let __a117 = _p_pos_only 1894;;
-let __a99 = _p_pos_only 1906;;
-let __a7 = fun p v -> _p_pos_only 1283 p (_p 1282 p (v));;
-let __a131 = _p_pos_only 1675;;
+let __a180 = fun p v -> _p_pos_only 2152 p (_p 2151 p (v));;
+let __a123 = _p 1905;;
+let __a44 = _p 1782;;
+let __a140 = _p_pos_only 1224;;
+let __a71 = _p 1784;;
+let __a53 = _p_pos_only 1114;;
+let __a199 = _p_pos_only 2123;;
+let __a15 = _p 1676;;
+let __a178 = fun p v -> _p_pos_only 2090 p (_p 2089 p (v));;
+let __a77 = _p_pos_only 1895;;
+let __a58 = _p 1232;;
+let __a193 = _p_pos_only 1561;;
+let __a42 = _p_pos_only 1450;;
+let __a14 = _p 1458;;
+let __a87 = _p 1122;;
 let __a127 = _p 1011;;
-let __a219 = _p 2133;;
-let __a134 = _p_pos_only 1565;;
-let __a218 = _p 2134;;
-let __a19 = _p 1800;;
-let __a31 = _p 2247;;
-let __a30 = _p 2248;;
-let __a109 = _p_pos_only 1456;;
-let __a101 = _p_pos_only 1233;;
-let __a53 = _p_pos_only 1123;;
-let __a140 = _p_pos_only 1237;;
-let __a70 = _p 1796;;
+let __a197 = _p_pos_only 1564;;
+let __a31 = _p 2133;;
+let __a64 = _p_pos_only 1453;;
+let __a30 = _p 2134;;
+let __a72 = _p 1790;;
+let __a54 = _p 1127;;
+let __a16 = _p 1680;;
+let __a102 = _p_pos_only 1235;;
+let __a176 = _p_pos_only 1911;;
 let __a100 = fun p v -> _d 1009 p (_d 1008 p (v));;
-let __a63 = fun p v -> _p_pos_only 1452 p (_p 1451 p (v));;
-let __a13 = _p 1463;;
-let __a220 = _p_pos_only 2137;;
-let __a23 = fun p v -> _p_pos_only 1932 p (_p 1931 p (v));;
-let __a150 = fun p v -> _p_pos_only 1346 p (_p 1345 p (v));;
-let __a156 = _p_pos_only 1682;;
-let __a5 = _p 1242;;
-let __a143 = _p_pos_only 1919;;
-let __a159 = _p_pos_only 1572;;
-let __a87 = _p 1132;;
-let __a37 = fun p v -> _p_pos_only 1397 p (_p 1396 p (v));;
-let __a170 = _p_pos_only 1686;;
-let __a152 = fun p v -> _p_pos_only 2253 p (_p 2252 p (v));;
-let __a58 = _p 1246;;
-let __a173 = _p_pos_only 1576;;
-let __a20 = _p 1810;;
-let __a130 = fun p v -> _p_pos_only 1365 p (_p 1364 p (v));;
-let __a54 = _p 1137;;
+let __a216 = _p_pos_only 2022;;
+let __a141 = _p_pos_only 1238;;
+let __a184 = _p_pos_only 1914;;
+let __a217 = _p_pos_only 2025;;
+let __a17 = _p 1688;;
+let __a65 = _p 1464;;
+let __a98 = _p_pos_only 1804;;
+let __a63 = fun p v -> _p_pos_only 1418 p (_p 1417 p (v));;
+let __a149 = fun p v -> _p 1351 p (_p_pos_only 1342 p (v));;
+let __a153 = _p 1353;;
+let __a203 = _p_pos_only 1570;;
+let __a73 = _p_pos_only 1794;;
+let __a90 = _p 1130;;
+let __a89 = _p 1131;;
+let __a137 = _p_pos_only 1807;;
+let __a59 = _p 1244;;
+let __a206 = _p_pos_only 1573;;
+let __a116 = _p_pos_only 1797;;
+let __a94 = _p 1246;;
+let __a25 = fun p v -> _p_pos_only 1892 p (_p 1891 p (v));;
+let __a219 = _p 2031;;
+let __a218 = _p 2032;;
 let __a145 = _p 1025;;
-let __a41 = fun p v -> _p 1448 p (_p 1442 p (v));;
-let __a221 = _p_pos_only 2141;;
-let __a25 = fun p v -> _p_pos_only 1980 p (_p 1979 p (v));;
-let __a60 = fun p v -> _p_pos_only 1409 p (_p 1408 p (v));;
-let __a178 = fun p v -> _p_pos_only 2198 p (_p 2197 p (v));;
-let __a198 = _p_pos_only 2032;;
-let __a102 = _p_pos_only 1249;;
-let __a179 = _p_pos_only 2257;;
-let __a163 = _p_pos_only 1923;;
-let __a201 = _p_pos_only 2036;;
-let __a90 = _p 1140;;
-let __a89 = _p 1141;;
-let __a133 = _p_pos_only 1704;;
-let __a141 = _p_pos_only 1253;;
-let __a67 = _p 1826;;
-let __a26 = _p_pos_only 2154;;
-let __a158 = _p_pos_only 1711;;
-let __a59 = _p 1260;;
-let __a210 = _p_pos_only 2046;;
-let __a149 = fun p v -> _p 1379 p (_p_pos_only 1369 p (v));;
-let __a81 = _p_pos_only 2158;;
-let __a75 = _p_pos_only 1936;;
-let __a161 = _p_pos_only 1601;;
+let __a28 = fun p v -> _p 2099 p (_p 2072 p (v));;
+let __a47 = _p 1926;;
+let __a46 = _p 1927;;
+let __a179 = _p_pos_only 2142;;
+let __a66 = _p 1470;;
+let __a129 = _p_pos_only 1249;;
+let __a220 = _p_pos_only 2035;;
+let __a18 = _p 1698;;
+let __a74 = _p_pos_only 1814;;
+let __a154 = _p 1364;;
+let __a37 = fun p v -> _p_pos_only 1369 p (_p 1368 p (v));;
+let __a221 = _p_pos_only 2038;;
+let __a88 = _p 1141;;
+let __a117 = _p_pos_only 1817;;
+let __a95 = _p 1258;;
+let __a146 = _p_pos_only 1252;;
+let __a55 = _p 1149;;
+let __a132 = _p_pos_only 1589;;
+let __a147 = fun p v -> _p_pos_only 1201 p (_p 1200 p (v));;
+let __a182 = _p_pos_only 1479;;
+let __a69 = _p 1714;;
+let __a167 = fun p v -> _p 1329 p (_p_pos_only 1325 p (v));;
+let __a7 = fun p v -> _p_pos_only 1265 p (_p 1264 p (v));;
+let __a187 = _p_pos_only 2155;;
+let __a45 = _p_pos_only 1824;;
 let __a32 = _p_pos_only 1039;;
-let __a94 = _p 1262;;
-let __a88 = _p 1151;;
-let __a172 = _p_pos_only 1715;;
-let __a175 = _p_pos_only 1605;;
-let __a136 = _p_pos_only 1594;;
+let __a99 = _p_pos_only 1827;;
+let __a93 = _p 1152;;
+let __a92 = _p 1153;;
 let __binder0 = __default_ret;;
-let __binder1 = _m 1192;;
-let __binder2 = _m 1466;;
-let __binder3 = _m 2014;;
-let __binder4 = _m 1098;;
-let __binder5 = _m 1136;;
-let __binder6 = _m 1158;;
-let __binder7 = _m 1195;;
-let __binder8 = _m 1226;;
-let __binder9 = _m 1230;;
-let __binder10 = _m 1244;;
-let __binder11 = _m 1314;;
-let __binder12 = _m 1318;;
-let __binder13 = _m 1322;;
-let __binder14 = _m 1326;;
-let __binder15 = _m 1330;;
-let __binder16 = _m 1498;;
-let __binder17 = _m 1750;;
-let __binder18 = _m 1754;;
-let __binder19 = _m 1762;;
-let __binder20 = _m 1772;;
-let __binder21 = _m 1802;;
-let __binder22 = _m 1812;;
-let __binder23 = _m 1843;;
-let __binder24 = _m 2211;;
+let __binder1 = _m 1182;;
+let __binder2 = _m 1430;;
+let __binder3 = _m 1922;;
+let __binder4 = _m 1090;;
+let __binder5 = _m 1126;;
+let __binder6 = _m 1148;;
+let __binder7 = _m 1185;;
+let __binder8 = _m 1214;;
+let __binder9 = _m 1218;;
+let __binder10 = _m 1230;;
+let __binder11 = _m 1292;;
+let __binder12 = _m 1296;;
+let __binder13 = _m 1300;;
+let __binder14 = _m 1304;;
+let __binder15 = _m 1308;;
+let __binder16 = _m 1460;;
+let __binder17 = _m 1678;;
+let __binder18 = _m 1682;;
+let __binder19 = _m 1690;;
+let __binder20 = _m 1700;;
+let __binder21 = _m 1730;;
+let __binder22 = _m 1740;;
+let __binder23 = _m 1771;;
+let __binder24 = _m 2101;;
 let __binder25 = _m 1005;;
-let __binder26 = _m 1180;;
-let __binder27 = _m 1184;;
-let __binder28 = _m 1188;;
-let __binder29 = _m 1445;;
-let __binder30 = _m 1472;;
-let __binder31 = _m 1480;;
-let __binder32 = _m 1086;;
-let __binder33 = _m 1293;;
-let __binder34 = _m 1504;;
-let __binder35 = _m 1510;;
-let __binder36 = _m 1828;;
-let __binder37 = _m 1838;;
-let __binder38 = _m 1788;;
-let __binder39 = _m 1798;;
-let __binder40 = _m 1758;;
-let __binder41 = _m 1851;;
-let __binder42 = _m 2164;;
-let __binder43 = _m 1093;;
-let __binder44 = _m 1115;;
-let __binder45 = _m 1153;;
-let __binder46 = _m 1175;;
-let __binder47 = _m 1201;;
-let __binder48 = _m 1859;;
-let __binder49 = _m 1107;;
-let __binder50 = _m 1145;;
-let __binder51 = _m 1167;;
-let __binder52 = _m 1280;;
-let __binder53 = _m 1832;;
-let __binder54 = _m 1792;;
-let __binder55 = _m 1768;;
-let __binder56 = _m 1778;;
-let __binder57 = _m 1808;;
-let __binder58 = _m 1818;;
-let __binder59 = _m 1944;;
-let __binder60 = _m 1974;;
-let __binder61 = _m 1992;;
-let __binder62 = _m 2024;;
+let __binder26 = _m 1170;;
+let __binder27 = _m 1174;;
+let __binder28 = _m 1178;;
+let __binder29 = _m 1411;;
+let __binder30 = _m 1436;;
+let __binder31 = _m 1444;;
+let __binder32 = _m 1078;;
+let __binder33 = _m 1273;;
+let __binder34 = _m 1466;;
+let __binder35 = _m 1472;;
+let __binder36 = _m 1756;;
+let __binder37 = _m 1766;;
+let __binder38 = _m 1716;;
+let __binder39 = _m 1726;;
+let __binder40 = _m 1686;;
+let __binder41 = _m 1779;;
+let __binder42 = _m 2058;;
+let __binder43 = _m 1085;;
+let __binder44 = _m 1107;;
+let __binder45 = _m 1143;;
+let __binder46 = _m 1165;;
+let __binder47 = _m 1191;;
+let __binder48 = _m 1787;;
+let __binder49 = _m 1099;;
+let __binder50 = _m 1135;;
+let __binder51 = _m 1157;;
+let __binder52 = _m 1262;;
+let __binder53 = _m 1760;;
+let __binder54 = _m 1720;;
+let __binder55 = _m 1696;;
+let __binder56 = _m 1706;;
+let __binder57 = _m 1736;;
+let __binder58 = _m 1746;;
+let __binder59 = _m 1860;;
+let __binder60 = _m 1886;;
+let __binder61 = _m 1902;;
+let __binder62 = _m 1932;;
 let __binder63 = _m 1014;;
 let __binder64 = _m 1018;;
 let __binder65 = _m 1022;;
 let __binder66 = _m 1033;;
-let __binder67 = _m 1782;;
-let __binder68 = _m 1822;;
-let __binder69 = _m 2170;;
-let __binder70 = _m 1376;;
-let __binder71 = _m 1357;;
-let __binder72 = _m 1387;;
-let __binder73 = _m 1694;;
-let __binder74 = _m 1665;;
-let __binder75 = _m 1584;;
-let __binder76 = _m 1555;;
-let __binder77 = _m 1526;;
-let __binder78 = _m 2077;;
-let __binder79 = _m 2043;;
-let __binder80 = _m 1746;;
-let __binder81 = _m 1636;;
-let __binder82 = _m 2117;;
-let __binder83 = _m 2059;;
+let __binder67 = _m 1710;;
+let __binder68 = _m 1750;;
+let __binder69 = _m 2064;;
+let __binder70 = _m 1348;;
+let __binder71 = _m 1331;;
+let __binder72 = _m 1359;;
+let __binder73 = _m 1630;;
+let __binder74 = _m 1605;;
+let __binder75 = _m 1536;;
+let __binder76 = _m 1511;;
+let __binder77 = _m 1486;;
+let __binder78 = _m 1981;;
+let __binder79 = _m 1949;;
+let __binder80 = _m 1674;;
+let __binder81 = _m 1580;;
+let __binder82 = _m 2017;;
+let __binder83 = _m 1963;;
 let binders : (sv -> sv -> sv) array = [| |]
 let num_symbols = 75
 
@@ -2087,7 +2088,7 @@ and nullable_LF __lookahead _p0_ _x0_ = None
 
 and nullable_directive __lookahead _p0_ _x0_ = None
 
-and nullable_prologue __lookahead _p0_ _x0_ = (Some (((_p 2177) ((Yak.YkBuf.get_offset) _p0_)) _x0_))
+and nullable_prologue __lookahead _p0_ _x0_ = (Some (((_p 2071) ((Yak.YkBuf.get_offset) _p0_)) _x0_))
 
 and nullable_BIT __lookahead _p0_ _x0_ = None
 
@@ -2129,7 +2130,7 @@ and nullable_rulelist __lookahead _p0_ _x0_ = ((((Pred.andc (let symb_pred = nul
      let p = Yak.YkBuf.get_offset ykb in
      match symb_pred la ykb (f_call p v) with
         None -> None
-      | Some v2 -> Some (f_ret p v v2)) _x7_) _x8_) ((((_m 1033) ((Yak.YkBuf.get_offset) _x8_)) _x9_) (((_p 2247) ((Yak.YkBuf.get_offset) _x8_)) (sv0)))))) _x4_) _x5_) (((_d_and_push 1010) ((Yak.YkBuf.get_offset) _x5_)) (((fun p v -> _d 1009 p (_d 1008 p (v))) ((Yak.YkBuf.get_offset) _x5_)) _x6_))))) _x1_) _x2_) ((((_m 1005) ((Yak.YkBuf.get_offset) _x2_)) _x3_) (((_p 2177) ((Yak.YkBuf.get_offset) _x2_)) (sv0)))))) __lookahead) _p0_) (((_x197) ((Yak.YkBuf.get_offset) _p0_)) _x0_))
+      | Some v2 -> Some (f_ret p v v2)) _x7_) _x8_) ((((_m 1033) ((Yak.YkBuf.get_offset) _x8_)) _x9_) (((_p 2133) ((Yak.YkBuf.get_offset) _x8_)) (sv0)))))) _x4_) _x5_) (((_d_and_push 1010) ((Yak.YkBuf.get_offset) _x5_)) (((fun p v -> _d 1009 p (_d 1008 p (v))) ((Yak.YkBuf.get_offset) _x5_)) _x6_))))) _x1_) _x2_) ((((_m 1005) ((Yak.YkBuf.get_offset) _x2_)) _x3_) (((_p 2071) ((Yak.YkBuf.get_offset) _x2_)) (sv0)))))) __lookahead) _p0_) (((_x197) ((Yak.YkBuf.get_offset) _p0_)) _x0_))
 
 and nullable_string __lookahead _p0_ _x0_ = None
 
@@ -2157,13 +2158,13 @@ and nullable_WSP __lookahead _p0_ _x0_ = None
 
 and nullable_u __lookahead _p0_ _x0_ = None
 
-and nullable_prec_dir_opt __lookahead _p0_ _x0_ = (Some (((_p 1223) ((Yak.YkBuf.get_offset) _p0_)) _x0_))
+and nullable_prec_dir_opt __lookahead _p0_ _x0_ = (Some (((_p 1211) ((Yak.YkBuf.get_offset) _p0_)) _x0_))
 
 and nullable_not_line_end __lookahead _p0_ _x0_ = None
 
 and nullable_DIGIT __lookahead _p0_ _x0_ = None
 
-and nullable_epilogue __lookahead _p0_ _x0_ = (Some (((_p 2247) ((Yak.YkBuf.get_offset) _p0_)) _x0_))
+and nullable_epilogue __lookahead _p0_ _x0_ = (Some (((_p 2133) ((Yak.YkBuf.get_offset) _p0_)) _x0_))
 
 and nullable_braces_text __lookahead _p0_ _x0_ = None
 
@@ -2207,7 +2208,7 @@ and nullable_CR __lookahead _p0_ _x0_ = None
 
 and nullable_inside __lookahead _p0_ _x0_ = None
 
-and nullable_params __lookahead _p0_ _x0_ = (Some (((_p 1463) ((Yak.YkBuf.get_offset) _p0_)) _x0_))
+and nullable_params __lookahead _p0_ _x0_ = (Some (((_p 1427) ((Yak.YkBuf.get_offset) _p0_)) _x0_))
 
 and nullable_dec_val __lookahead _p0_ _x0_ = None
 
@@ -2225,7 +2226,7 @@ and nullable_ID __lookahead _p0_ _x0_ = None
 
 and nullable_bin_val __lookahead _p0_ _x0_ = None
 
-and nullable_typestuff __lookahead _p0_ _x0_ = (Some (((_p 1862) ((Yak.YkBuf.get_offset) _p0_)) (((_p 1854) ((Yak.YkBuf.get_offset) _p0_)) (((_p 1846) ((Yak.YkBuf.get_offset) _p0_)) _x0_))))
+and nullable_typestuff __lookahead _p0_ _x0_ = (Some (((_p 1790) ((Yak.YkBuf.get_offset) _p0_)) (((_p 1782) ((Yak.YkBuf.get_offset) _p0_)) (((_p 1774) ((Yak.YkBuf.get_offset) _p0_)) _x0_))))
 
 and nullable_rulename __lookahead _p0_ _x0_ = None
 
@@ -3015,7 +3016,8 @@ let parse = Yak.Pami.Wfe.mk_parse P2__.parse _wfe_data_ sv0
     (fun ykinput (_,h) ->
       let _o = (h#traverse_postfix) in
       let _n() = (let (x,_) = _o#next() in x) in
-      _r_rulelist(_n,ykinput)
+      let _ps() = (let (_,p) = _o#next() in p) in
+      _r_rulelist(_n,_ps,ykinput)
     )
 
 let visualize = parse
@@ -3025,4 +3027,3 @@ let visualize_string = Yak.Pami.Simple.parse_string visualize
 let parse_file = Yak.Pami.Simple.parse_file parse
 let parse_string = Yak.Pami.Simple.parse_string parse
 ;;
-Yk_History.memoize := false;;

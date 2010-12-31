@@ -26,19 +26,20 @@ module Yk_Hashed = struct
   type t = hv * int
   let compare i j = compare i j
   let hash i = Hashtbl.hash i
+  let memoize = false
 end
 module Yk_History = Yak.History.Make(Yk_Hashed)
 
 (*REPLAY PROLOGUE*)
 let rec
-_r_rfc(_n,ykinput) = (
+_r_rfc(_n,_ps,ykinput) = (
  (let rec _x28 _x26 = 
  (match _n() with
  | (1003) -> (_x26)
  | (1004) -> (_x28(
- (let _x4 = (_n())
+ (let _x4 = (_ps())
  in (
- (let _x3 = (_n())
+ (let _x3 = (_ps())
  in (
  (let x = (Yak.YkBuf.get_string _x4 _x3 ykinput)
  in (
@@ -47,7 +48,7 @@ _r_rfc(_n,ykinput) = (
 ))
 ))
 )))
- | _(*1015*) -> (_x28(
+ | _(*1013*) -> (_x28(
  (let _x29 = (())
  in ())))
  ) in _x28(())))
@@ -160,8 +161,8 @@ let _dnext x p = function (*TJIM: same as _d without p *)
   | _ -> failwith "_dnext"
 (* History transformers *)
 let _p x p = (fun(v,h)->(v,h#push p ((x),p)))
-let _p_pos x p = (fun(v,h)->(v,(h#push p ((x),p))#push p ((p),p)))
-let _p_pos_only x p = (fun(v,h)->(v,h#push p ((p),p)))
+let _p_pos x p = (fun(v,h)->(v,(h#push p ((x),p))#push p ((x),p)))
+let _p_pos_only x p = (fun(v,h)->(v,h#push p ((x),p)))
 let _m x p = (fun(v1,h1)->fun(_,h2)-> (v1,h1#merge p ((x),p) h2))
 
 let sv_eq x y = sv_compare x y = 0
@@ -172,231 +173,231 @@ let key_hash (i,v) = i lxor (sv_hash v)
 module TDHashtable = Hashtbl.Make(struct type t = int * sv let equal = key_eq let hash = key_hash end)
 
 let _x42 =
- (fun _(*pos*) (_,_x31)(*arg of rule*) -> (_t(fun _(*1018*) pos_ -> let _x32 n  = _t(fun _(*1024*) pos_ -> let _x36 _x35  = _t(fun _(*1028*) pos_ -> let _x39 _x38  = _t(function
- | 1032 ->
+ (fun _(*pos*) (_,_x31)(*arg of rule*) -> (_t(fun _(*1016*) pos_ -> let _x32 n  = _t(fun _(*1022*) pos_ -> let _x36 _x35  = _t(fun _(*1026*) pos_ -> let _x39 _x38  = _t(function
+ | 1030 ->
  (fun pos_ -> Yk_done(Yk_x14((n))))
- | _(*1033*) ->
- (fun pos_ -> Yk_bind(function Yk_done(_x41) -> Yk_done(ignore(ignore(_x41);_wv0);_wv0) | _ -> failwith "bind-1033"))) in _t(function
- | 1029 ->
+ | _(*1031*) ->
+ (fun pos_ -> Yk_bind(function Yk_done(_x41) -> Yk_done(ignore(ignore(_x41);_wv0);_wv0) | _ -> failwith "bind-1031"))) in _t(function
+ | 1027 ->
  (fun pos_ -> Yk_done(Yk_x14((n))))
- | _(*1030*) ->
- (fun pos_ -> Yk_bind(function Yk_done(_x40) -> _x39 (_x40)  | _ -> failwith "bind-1030")))) in _t(function
- | 1025 ->
+ | _(*1028*) ->
+ (fun pos_ -> Yk_bind(function Yk_done(_x40) -> _x39 (_x40)  | _ -> failwith "bind-1028")))) in _t(function
+ | 1023 ->
  (fun pos_ -> Yk_done(Yk_x14((n))))
- | _(*1026*) ->
- (fun pos_ -> Yk_bind(function Yk_done(_x37) -> _x36 (_x37)  | _ -> failwith "bind-1026")))) in _t(fun _(*1019*) pos_ -> let _x33 _x15  = _t(fun _(*1022*) pos_ -> _x32 ((match _x15 with Yk_x14(y) -> y | _ -> failwith "projection")) ) in _t(fun _(*1021*) pos_ -> Yk_bind(function Yk_done(_x34) -> _x33 (_x34)  | _ -> failwith "bind=1021")))),_x31))
+ | _(*1024*) ->
+ (fun pos_ -> Yk_bind(function Yk_done(_x37) -> _x36 (_x37)  | _ -> failwith "bind-1024")))) in _t(fun _(*1017*) pos_ -> let _x33 _x15  = _t(fun _(*1020*) pos_ -> _x32 ((match _x15 with Yk_x14(y) -> y | _ -> failwith "projection")) ) in _t(fun _(*1019*) pos_ -> Yk_bind(function Yk_done(_x34) -> _x33 (_x34)  | _ -> failwith "bind=1019")))),_x31))
 let _x47 =
- (fun _(*pos*) (_,_x43)(*arg of rule-indent*) -> (_t(fun _(*1034*) pos_ -> let _x44 _x16  = _t(fun _(*1045*) pos_ -> Yk_done(Yk_x14(_x16))) in _t(fun _(*1036*) pos_ -> let _x45 left  = _t(fun _(*1041*) pos_ -> let _x46 right  = _t(fun _(*1044*) pos_ -> _x44 (right - left) ) in _t(fun _(*1042*) pos_ -> _x46 (pos_) )) in _t(fun _(*1037*) pos_ -> _x45 (pos_) ))),_x43))
+ (fun _(*pos*) (_,_x43)(*arg of rule-indent*) -> (_t(fun _(*1032*) pos_ -> let _x44 _x16  = _t(fun _(*1041*) pos_ -> Yk_done(Yk_x14(_x16))) in _t(fun _(*1034*) pos_ -> let _x45 left  = _t(fun _(*1038*) pos_ -> let _x46 right  = _t(fun _(*1040*) pos_ -> _x44 (right - left) ) in _t(fun _(*1039*) pos_ -> _x46 (pos_) )) in _t(fun _(*1035*) pos_ -> _x45 (pos_) ))),_x43))
 let _x55 =
- (fun _(*pos*) -> (function (Yk_done(_x17:_yk_t),_x48) -> (_t(fun _(*1047*) pos_ -> let _x49 _x5  = _t(fun _(*1049*) pos_ -> let _x51 _x50 n = _t(fun _(*1053*) pos_ -> let _x53 left  = _t(fun _(*1058*) pos_ -> let _x54 right  = _t(function
- | 1061 ->
+ (fun _(*pos*) -> (function (Yk_done(_x17:_yk_t),_x48) -> (_t(fun _(*1043*) pos_ -> let _x49 _x5  = _t(fun _(*1045*) pos_ -> let _x51 _x50 n = _t(fun _(*1049*) pos_ -> let _x53 left  = _t(fun _(*1053*) pos_ -> let _x54 right  = _t(function
+ | 1055 ->
  (fun pos_ -> Yk_when(right - left > n))
- | _(*1062*) ->
- (fun pos_ -> Yk_done(ignore((_wv0));_wv0))) in _t(fun _(*1059*) pos_ -> _x54 (pos_) )) in _t(fun _(*1054*) pos_ -> _x53 (pos_) )) in _t(fun _(*1050*) pos_ -> let _x52 n = _x51 ((_wv0)) n in _t(fun _(*1051*) pos_ -> _x52((match _x5 with (n) -> n))))) in _t(fun _(*1048*) pos_ -> _x49 ((match _x17 with Yk_x14(y) -> y | _ -> failwith "projection")) )),_x48)
+ | _(*1056*) ->
+ (fun pos_ -> Yk_done(ignore((_wv0));_wv0))) in _t(fun _(*1054*) pos_ -> _x54 (pos_) )) in _t(fun _(*1050*) pos_ -> _x53 (pos_) )) in _t(fun _(*1046*) pos_ -> let _x52 n = _x51 ((_wv0)) n in _t(fun _(*1047*) pos_ -> _x52((match _x5 with (n) -> n))))) in _t(fun _(*1044*) pos_ -> _x49 ((match _x17 with Yk_x14(y) -> y | _ -> failwith "projection")) )),_x48)
 | _ -> failwith "indent"))
 let _x62 =
- (fun _(*pos*) -> (function (Yk_done(_x18:_yk_t),_x56) -> (_t(fun _(*1064*) pos_ -> let _x57 _x6  = _t(fun _(*1066*) pos_ -> let _x59 _x58 n = _t(function
- | 1072 ->
+ (fun _(*pos*) -> (function (Yk_done(_x18:_yk_t),_x56) -> (_t(fun _(*1058*) pos_ -> let _x57 _x6  = _t(fun _(*1060*) pos_ -> let _x59 _x58 n = _t(function
+ | 1066 ->
  (fun pos_ -> Yk_done(Yk_x14((n))))
- | 1073 ->
- (fun pos_ -> Yk_bind(function Yk_done(_x61) -> Yk_done(ignore(ignore(_x61);_wv0);_wv0) | _ -> failwith "bind-1073"))
- | _(*1075*) ->
- (fun pos_ -> Yk_done(ignore(ignore(ignore(());_wv0);_wv0);_wv0))) in _t(fun _(*1067*) pos_ -> let _x60 n = _x59 ((_wv0)) n in _t(fun _(*1068*) pos_ -> _x60((match _x6 with (n) -> n))))) in _t(fun _(*1065*) pos_ -> _x57 ((match _x18 with Yk_x14(y) -> y | _ -> failwith "projection")) )),_x56)
+ | 1067 ->
+ (fun pos_ -> Yk_bind(function Yk_done(_x61) -> Yk_done(ignore(ignore(_x61);_wv0);_wv0) | _ -> failwith "bind-1067"))
+ | _(*1069*) ->
+ (fun pos_ -> Yk_done(ignore(ignore(ignore(());_wv0);_wv0);_wv0))) in _t(fun _(*1061*) pos_ -> let _x60 n = _x59 ((_wv0)) n in _t(fun _(*1062*) pos_ -> _x60((match _x6 with (n) -> n))))) in _t(fun _(*1059*) pos_ -> _x57 ((match _x18 with Yk_x14(y) -> y | _ -> failwith "projection")) )),_x56)
 | _ -> failwith "o"))
 let _x69 =
- (fun _(*pos*) -> (function (Yk_done(_x19:_yk_t),_x63) -> (_t(fun _(*1077*) pos_ -> let _x64 _x7  = _t(fun _(*1079*) pos_ -> let _x66 _x65 n = _t(function
- | 1082 ->
+ (fun _(*pos*) -> (function (Yk_done(_x19:_yk_t),_x63) -> (_t(fun _(*1071*) pos_ -> let _x64 _x7  = _t(fun _(*1073*) pos_ -> let _x66 _x65 n = _t(function
+ | 1076 ->
  (fun pos_ -> Yk_done(Yk_x14((n))))
- | _(*1083*) ->
- (fun pos_ -> Yk_bind(function Yk_done(_x68) -> Yk_done(ignore(_x68);_wv0) | _ -> failwith "bind-1083"))) in _t(fun _(*1080*) pos_ -> let _x67 n = _x66 ((_wv0)) n in _t(fun _(*1081*) pos_ -> _x67((match _x7 with (n) -> n))))) in _t(fun _(*1078*) pos_ -> _x64 ((match _x19 with Yk_x14(y) -> y | _ -> failwith "projection")) )),_x63)
+ | _(*1077*) ->
+ (fun pos_ -> Yk_bind(function Yk_done(_x68) -> Yk_done(ignore(_x68);_wv0) | _ -> failwith "bind-1077"))) in _t(fun _(*1074*) pos_ -> let _x67 n = _x66 ((_wv0)) n in _t(fun _(*1075*) pos_ -> _x67((match _x7 with (n) -> n))))) in _t(fun _(*1072*) pos_ -> _x64 ((match _x19 with Yk_x14(y) -> y | _ -> failwith "projection")) )),_x63)
 | _ -> failwith "elements"))
 let _x85 =
- (fun _(*pos*) -> (function (Yk_done(_x20:_yk_t),_x70) -> (_t(fun _(*1085*) pos_ -> let _x71 _x8  = _t(fun _(*1087*) pos_ -> let _x73 _x72 n = _t(fun _(*1090*) pos_ -> let _x76 _x75  = _t(function
- | 1093 ->
- (fun pos_ -> let _x79 _x78  = _t(fun _(*1097*) pos_ -> let _x82 _x81  = _t(function
- | 1100 ->
- (fun pos_ -> Yk_done(Yk_x14((n))))
- | _(*1101*) ->
- (fun pos_ -> Yk_bind(function Yk_done(_x84) -> Yk_done(ignore(_x84);_wv0) | _ -> failwith "bind-1101"))) in _t(function
- | 1098 ->
- (fun pos_ -> Yk_done(Yk_x14((n))))
- | _(*1099*) ->
- (fun pos_ -> Yk_bind(function Yk_done(_x83) -> _x82 (_x83)  | _ -> failwith "bind-1099")))) in _t(function
+ (fun _(*pos*) -> (function (Yk_done(_x20:_yk_t),_x70) -> (_t(fun _(*1079*) pos_ -> let _x71 _x8  = _t(fun _(*1081*) pos_ -> let _x73 _x72 n = _t(fun _(*1084*) pos_ -> let _x76 _x75  = _t(function
+ | 1087 ->
+ (fun pos_ -> let _x79 _x78  = _t(fun _(*1091*) pos_ -> let _x82 _x81  = _t(function
  | 1094 ->
  (fun pos_ -> Yk_done(Yk_x14((n))))
  | _(*1095*) ->
- (fun pos_ -> Yk_bind(function Yk_done(_x80) -> _x79 (_x80)  | _ -> failwith "bind-1095"))))
- | _(*1103*) ->
- (fun pos_ -> Yk_done(ignore(ignore(());_wv0);_wv0))) in _t(function
- | 1091 ->
+ (fun pos_ -> Yk_bind(function Yk_done(_x84) -> Yk_done(ignore(_x84);_wv0) | _ -> failwith "bind-1095"))) in _t(function
+ | 1092 ->
  (fun pos_ -> Yk_done(Yk_x14((n))))
- | _(*1092*) ->
- (fun pos_ -> Yk_bind(function Yk_done(_x77) -> _x76 (_x77)  | _ -> failwith "bind-1092")))) in _t(fun _(*1088*) pos_ -> let _x74 n = _x73 ((_wv0)) n in _t(fun _(*1089*) pos_ -> _x74((match _x8 with (n) -> n))))) in _t(fun _(*1086*) pos_ -> _x71 ((match _x20 with Yk_x14(y) -> y | _ -> failwith "projection")) )),_x70)
+ | _(*1093*) ->
+ (fun pos_ -> Yk_bind(function Yk_done(_x83) -> _x82 (_x83)  | _ -> failwith "bind-1093")))) in _t(function
+ | 1088 ->
+ (fun pos_ -> Yk_done(Yk_x14((n))))
+ | _(*1089*) ->
+ (fun pos_ -> Yk_bind(function Yk_done(_x80) -> _x79 (_x80)  | _ -> failwith "bind-1089"))))
+ | _(*1097*) ->
+ (fun pos_ -> Yk_done(ignore(ignore(());_wv0);_wv0))) in _t(function
+ | 1085 ->
+ (fun pos_ -> Yk_done(Yk_x14((n))))
+ | _(*1086*) ->
+ (fun pos_ -> Yk_bind(function Yk_done(_x77) -> _x76 (_x77)  | _ -> failwith "bind-1086")))) in _t(fun _(*1082*) pos_ -> let _x74 n = _x73 ((_wv0)) n in _t(fun _(*1083*) pos_ -> _x74((match _x8 with (n) -> n))))) in _t(fun _(*1080*) pos_ -> _x71 ((match _x20 with Yk_x14(y) -> y | _ -> failwith "projection")) )),_x70)
 | _ -> failwith "alternation"))
 let _x100 =
- (fun _(*pos*) -> (function (Yk_done(_x21:_yk_t),_x86) -> (_t(fun _(*1105*) pos_ -> let _x87 _x9  = _t(fun _(*1107*) pos_ -> let _x89 _x88 n = _t(fun _(*1110*) pos_ -> let _x92 _x91  = _t(fun _(*1114*) pos_ -> let rec _x95 _x94  = _t(function
- | 1115 ->
+ (fun _(*pos*) -> (function (Yk_done(_x21:_yk_t),_x86) -> (_t(fun _(*1099*) pos_ -> let _x87 _x9  = _t(fun _(*1101*) pos_ -> let _x89 _x88 n = _t(fun _(*1104*) pos_ -> let _x92 _x91  = _t(fun _(*1108*) pos_ -> let rec _x95 _x94  = _t(function
+ | 1109 ->
  (fun pos_ -> Yk_done(ignore(_x94);_wv0))
- | _(*1116*) ->
+ | _(*1110*) ->
  (fun pos_ -> let _x97 _x96  = _t(function
- | 1119 ->
+ | 1113 ->
  (fun pos_ -> Yk_done(Yk_x14((n))))
- | _(*1120*) ->
- (fun pos_ -> Yk_bind(function Yk_done(_x99) -> _x95 (_x99)  | _ -> failwith "bind-1120"))) in _t(function
- | 1117 ->
- (fun pos_ -> Yk_done(Yk_x14((n))))
- | _(*1118*) ->
- (fun pos_ -> Yk_bind(function Yk_done(_x98) -> _x97 (_x98)  | _ -> failwith "bind-1118"))))) in _x95 (_wv0) ) in _t(function
+ | _(*1114*) ->
+ (fun pos_ -> Yk_bind(function Yk_done(_x99) -> _x95 (_x99)  | _ -> failwith "bind-1114"))) in _t(function
  | 1111 ->
  (fun pos_ -> Yk_done(Yk_x14((n))))
  | _(*1112*) ->
- (fun pos_ -> Yk_bind(function Yk_done(_x93) -> _x92 (_x93)  | _ -> failwith "bind-1112")))) in _t(fun _(*1108*) pos_ -> let _x90 n = _x89 ((_wv0)) n in _t(fun _(*1109*) pos_ -> _x90((match _x9 with (n) -> n))))) in _t(fun _(*1106*) pos_ -> _x87 ((match _x21 with Yk_x14(y) -> y | _ -> failwith "projection")) )),_x86)
+ (fun pos_ -> Yk_bind(function Yk_done(_x98) -> _x97 (_x98)  | _ -> failwith "bind-1112"))))) in _x95 (_wv0) ) in _t(function
+ | 1105 ->
+ (fun pos_ -> Yk_done(Yk_x14((n))))
+ | _(*1106*) ->
+ (fun pos_ -> Yk_bind(function Yk_done(_x93) -> _x92 (_x93)  | _ -> failwith "bind-1106")))) in _t(fun _(*1102*) pos_ -> let _x90 n = _x89 ((_wv0)) n in _t(fun _(*1103*) pos_ -> _x90((match _x9 with (n) -> n))))) in _t(fun _(*1100*) pos_ -> _x87 ((match _x21 with Yk_x14(y) -> y | _ -> failwith "projection")) )),_x86)
 | _ -> failwith "concatenation"))
 let _x107 =
- (fun _(*pos*) -> (function (Yk_done(_x22:_yk_t),_x101) -> (_t(fun _(*1122*) pos_ -> let _x102 _x10  = _t(fun _(*1124*) pos_ -> let _x104 _x103 n = _t(function
- | 1128 ->
+ (fun _(*pos*) -> (function (Yk_done(_x22:_yk_t),_x101) -> (_t(fun _(*1116*) pos_ -> let _x102 _x10  = _t(fun _(*1118*) pos_ -> let _x104 _x103 n = _t(function
+ | 1122 ->
  (fun pos_ -> Yk_done(Yk_x14((n))))
- | _(*1129*) ->
- (fun pos_ -> Yk_bind(function Yk_done(_x106) -> Yk_done(ignore(_x106);_wv0) | _ -> failwith "bind-1129"))) in _t(fun _(*1125*) pos_ -> let _x105 n = _x104 ((_wv0)) n in _t(fun _(*1126*) pos_ -> _x105((match _x10 with (n) -> n))))) in _t(fun _(*1123*) pos_ -> _x102 ((match _x22 with Yk_x14(y) -> y | _ -> failwith "projection")) )),_x101)
+ | _(*1123*) ->
+ (fun pos_ -> Yk_bind(function Yk_done(_x106) -> Yk_done(ignore(_x106);_wv0) | _ -> failwith "bind-1123"))) in _t(fun _(*1119*) pos_ -> let _x105 n = _x104 ((_wv0)) n in _t(fun _(*1120*) pos_ -> _x105((match _x10 with (n) -> n))))) in _t(fun _(*1117*) pos_ -> _x102 ((match _x22 with Yk_x14(y) -> y | _ -> failwith "projection")) )),_x101)
 | _ -> failwith "repetition"))
 let _x119 =
- (fun _(*pos*) -> (function (Yk_done(_x23:_yk_t),_x108) -> (_t(fun _(*1131*) pos_ -> let _x109 _x11  = _t(fun _(*1133*) pos_ -> let _x111 _x110 n = _t(function
- | 1137 ->
+ (fun _(*pos*) -> (function (Yk_done(_x23:_yk_t),_x108) -> (_t(fun _(*1125*) pos_ -> let _x109 _x11  = _t(fun _(*1127*) pos_ -> let _x111 _x110 n = _t(function
+ | 1131 ->
  (fun pos_ -> Yk_done(ignore(ignore(());_wv0);_wv0))
- | 1138 ->
+ | 1132 ->
  (fun pos_ -> Yk_done(Yk_x14((n))))
- | 1139 ->
- (fun pos_ -> Yk_bind(function Yk_done(_x118) -> Yk_done(ignore(_x118);_wv0) | _ -> failwith "bind-1139"))
- | 1140 ->
+ | 1133 ->
+ (fun pos_ -> Yk_bind(function Yk_done(_x118) -> Yk_done(ignore(_x118);_wv0) | _ -> failwith "bind-1133"))
+ | 1134 ->
  (fun pos_ -> Yk_done(Yk_x14((n))))
- | 1141 ->
- (fun pos_ -> Yk_bind(function Yk_done(_x117) -> Yk_done(ignore(_x117);_wv0) | _ -> failwith "bind-1141"))
- | _(*1142*) ->
+ | 1135 ->
+ (fun pos_ -> Yk_bind(function Yk_done(_x117) -> Yk_done(ignore(_x117);_wv0) | _ -> failwith "bind-1135"))
+ | _(*1136*) ->
  (fun pos_ -> let _x114 _x113  = _t(function
- | 1145 ->
+ | 1139 ->
  (fun pos_ -> Yk_done(ignore(ignore(());_wv0);_wv0))
- | _(*1146*) ->
+ | _(*1140*) ->
  (fun pos_ -> let _x116 _x115  = _t(function
- | 1149 ->
+ | 1143 ->
  (fun pos_ -> Yk_done(ignore(ignore(());_wv0);_wv0))
- | _(*1151*) ->
- (fun pos_ -> Yk_done(ignore(ignore(());_wv0);_wv0))) in _t(fun _(*1147*) pos_ -> _x116 (()) ))) in _t(fun _(*1143*) pos_ -> _x114 (()) ))) in _t(fun _(*1134*) pos_ -> let _x112 n = _x111 ((_wv0)) n in _t(fun _(*1135*) pos_ -> _x112((match _x11 with (n) -> n))))) in _t(fun _(*1132*) pos_ -> _x109 ((match _x23 with Yk_x14(y) -> y | _ -> failwith "projection")) )),_x108)
+ | _(*1145*) ->
+ (fun pos_ -> Yk_done(ignore(ignore(());_wv0);_wv0))) in _t(fun _(*1141*) pos_ -> _x116 (()) ))) in _t(fun _(*1137*) pos_ -> _x114 (()) ))) in _t(fun _(*1128*) pos_ -> let _x112 n = _x111 ((_wv0)) n in _t(fun _(*1129*) pos_ -> _x112((match _x11 with (n) -> n))))) in _t(fun _(*1126*) pos_ -> _x109 ((match _x23 with Yk_x14(y) -> y | _ -> failwith "projection")) )),_x108)
 | _ -> failwith "element"))
 let _x132 =
- (fun _(*pos*) -> (function (Yk_done(_x24:_yk_t),_x120) -> (_t(fun _(*1153*) pos_ -> let _x121 _x12  = _t(fun _(*1155*) pos_ -> let _x123 _x122 n = _t(fun _(*1159*) pos_ -> let _x126 _x125  = _t(fun _(*1162*) pos_ -> let _x129 _x128  = _t(function
- | 1166 ->
- (fun pos_ -> Yk_done(Yk_x14((n))))
- | _(*1167*) ->
- (fun pos_ -> Yk_bind(function Yk_done(_x131) -> Yk_done(ignore(ignore(_x131);_wv0);_wv0) | _ -> failwith "bind-1167"))) in _t(function
- | 1163 ->
- (fun pos_ -> Yk_done(Yk_x14((n))))
- | _(*1164*) ->
- (fun pos_ -> Yk_bind(function Yk_done(_x130) -> _x129 (_x130)  | _ -> failwith "bind-1164")))) in _t(function
+ (fun _(*pos*) -> (function (Yk_done(_x24:_yk_t),_x120) -> (_t(fun _(*1147*) pos_ -> let _x121 _x12  = _t(fun _(*1149*) pos_ -> let _x123 _x122 n = _t(fun _(*1153*) pos_ -> let _x126 _x125  = _t(fun _(*1156*) pos_ -> let _x129 _x128  = _t(function
  | 1160 ->
  (fun pos_ -> Yk_done(Yk_x14((n))))
  | _(*1161*) ->
- (fun pos_ -> Yk_bind(function Yk_done(_x127) -> _x126 (_x127)  | _ -> failwith "bind-1161")))) in _t(fun _(*1156*) pos_ -> let _x124 n = _x123 ((_wv0)) n in _t(fun _(*1157*) pos_ -> _x124((match _x12 with (n) -> n))))) in _t(fun _(*1154*) pos_ -> _x121 ((match _x24 with Yk_x14(y) -> y | _ -> failwith "projection")) )),_x120)
+ (fun pos_ -> Yk_bind(function Yk_done(_x131) -> Yk_done(ignore(ignore(_x131);_wv0);_wv0) | _ -> failwith "bind-1161"))) in _t(function
+ | 1157 ->
+ (fun pos_ -> Yk_done(Yk_x14((n))))
+ | _(*1158*) ->
+ (fun pos_ -> Yk_bind(function Yk_done(_x130) -> _x129 (_x130)  | _ -> failwith "bind-1158")))) in _t(function
+ | 1154 ->
+ (fun pos_ -> Yk_done(Yk_x14((n))))
+ | _(*1155*) ->
+ (fun pos_ -> Yk_bind(function Yk_done(_x127) -> _x126 (_x127)  | _ -> failwith "bind-1155")))) in _t(fun _(*1150*) pos_ -> let _x124 n = _x123 ((_wv0)) n in _t(fun _(*1151*) pos_ -> _x124((match _x12 with (n) -> n))))) in _t(fun _(*1148*) pos_ -> _x121 ((match _x24 with Yk_x14(y) -> y | _ -> failwith "projection")) )),_x120)
 | _ -> failwith "group"))
 let _x145 =
- (fun _(*pos*) -> (function (Yk_done(_x25:_yk_t),_x133) -> (_t(fun _(*1169*) pos_ -> let _x134 _x13  = _t(fun _(*1171*) pos_ -> let _x136 _x135 n = _t(fun _(*1175*) pos_ -> let _x139 _x138  = _t(fun _(*1178*) pos_ -> let _x142 _x141  = _t(function
- | 1182 ->
- (fun pos_ -> Yk_done(Yk_x14((n))))
- | _(*1183*) ->
- (fun pos_ -> Yk_bind(function Yk_done(_x144) -> Yk_done(ignore(ignore(_x144);_wv0);_wv0) | _ -> failwith "bind-1183"))) in _t(function
- | 1179 ->
- (fun pos_ -> Yk_done(Yk_x14((n))))
- | _(*1180*) ->
- (fun pos_ -> Yk_bind(function Yk_done(_x143) -> _x142 (_x143)  | _ -> failwith "bind-1180")))) in _t(function
+ (fun _(*pos*) -> (function (Yk_done(_x25:_yk_t),_x133) -> (_t(fun _(*1163*) pos_ -> let _x134 _x13  = _t(fun _(*1165*) pos_ -> let _x136 _x135 n = _t(fun _(*1169*) pos_ -> let _x139 _x138  = _t(fun _(*1172*) pos_ -> let _x142 _x141  = _t(function
  | 1176 ->
  (fun pos_ -> Yk_done(Yk_x14((n))))
  | _(*1177*) ->
- (fun pos_ -> Yk_bind(function Yk_done(_x140) -> _x139 (_x140)  | _ -> failwith "bind-1177")))) in _t(fun _(*1172*) pos_ -> let _x137 n = _x136 ((_wv0)) n in _t(fun _(*1173*) pos_ -> _x137((match _x13 with (n) -> n))))) in _t(fun _(*1170*) pos_ -> _x134 ((match _x25 with Yk_x14(y) -> y | _ -> failwith "projection")) )),_x133)
+ (fun pos_ -> Yk_bind(function Yk_done(_x144) -> Yk_done(ignore(ignore(_x144);_wv0);_wv0) | _ -> failwith "bind-1177"))) in _t(function
+ | 1173 ->
+ (fun pos_ -> Yk_done(Yk_x14((n))))
+ | _(*1174*) ->
+ (fun pos_ -> Yk_bind(function Yk_done(_x143) -> _x142 (_x143)  | _ -> failwith "bind-1174")))) in _t(function
+ | 1170 ->
+ (fun pos_ -> Yk_done(Yk_x14((n))))
+ | _(*1171*) ->
+ (fun pos_ -> Yk_bind(function Yk_done(_x140) -> _x139 (_x140)  | _ -> failwith "bind-1171")))) in _t(fun _(*1166*) pos_ -> let _x137 n = _x136 ((_wv0)) n in _t(fun _(*1167*) pos_ -> _x137((match _x13 with (n) -> n))))) in _t(fun _(*1164*) pos_ -> _x134 ((match _x25 with Yk_x14(y) -> y | _ -> failwith "projection")) )),_x133)
 | _ -> failwith "option"))
 let __default_call _ _ = sv0;;
 let __default_ret _ v1 _ = v1;;
-let __a49 = _d 1097;;
-let __a42 = fun p v -> _d 1059 p (_d 1058 p (v));;
-let __a9 = fun p v -> _d 1135 p (_d 1134 p (_d 1133 p (_d 1132 p (_d 1131 p (_x119 p (v))))));;
-let __a8 = fun p v -> _d 1137 p (_d 1135 p (_d 1134 p (_d 1133 p (_d 1132 p (_d 1131 p (_x119 p (v)))))));;
-let __a34 = _p_pos_only 1009;;
-let __a26 = _d 1022;;
-let __a14 = fun p v -> _d 1173 p (_d 1172 p (_d 1171 p (_d 1170 p (_d 1169 p (_x145 p (v))))));;
-let __p48 = _dwhen 1061;;
-let __a32 = _d 1159;;
-let __a40 = _d 1024;;
-let __a19 = _d 1075;;
-let __a3 = fun p v -> _d 1068 p (_d 1067 p (_d 1066 p (_d 1065 p (_d 1064 p (_x62 p (v))))));;
-let __a28 = fun p v -> _d 1054 p (_d 1053 p (v));;
-let __a56 = _d 1028;;
-let __a5 = fun p v -> _d 1090 p (_d 1089 p (_d 1088 p (_d 1087 p (_d 1086 p (_d 1085 p (_x85 p (v)))))));;
-let __a16 = _p 1015;;
-let __g39 = _darg 1176;;
-let __g21 = _darg 1091;;
-let __a12 = fun p v -> _d 1151 p (_d 1147 p (_d 1146 p (_d 1143 p (_d 1142 p (_d 1135 p (_d 1134 p (_d 1133 p (_d 1132 p (_d 1131 p (_x119 p (v)))))))))));;
-let __g23 = _darg 1128;;
-let __g57 = _darg 1100;;
-let __a10 = fun p v -> _d 1145 p (_d 1143 p (_d 1142 p (_d 1135 p (_d 1134 p (_d 1133 p (_d 1132 p (_d 1131 p (_x119 p (v)))))))));;
-let __g52 = _darg 1179;;
-let __g35 = _darg 1094;;
-let __a44 = _d 1162;;
-let __a31 = _d 1114;;
-let __a37 = _d 1115;;
-let __g53 = _darg 1098;;
-let __a36 = _d 1116;;
-let __a4 = fun p v -> _d 1081 p (_d 1080 p (_d 1079 p (_d 1078 p (_d 1077 p (_x69 p (v))))));;
-let __g18 = _darg 1072;;
-let __g46 = _darg 1025;;
-let __g55 = _darg 1182;;
-let __a1 = fun p v -> _d 1034 p (_x47 p (v));;
-let __g58 = _darg 1029;;
-let __p47 = _dnext 1062;;
+let __a30 = _d 1097;;
+let __g35 = _darg 1088;;
+let __a26 = _d 1020;;
+let __a5 = fun p v -> _d 1084 p (_d 1083 p (_d 1082 p (_d 1081 p (_d 1080 p (_d 1079 p (_x85 p (v)))))));;
+let __a34 = _p_pos_only 1008;;
+let __a44 = _d 1156;;
+let __a12 = fun p v -> _d 1145 p (_d 1141 p (_d 1140 p (_d 1137 p (_d 1136 p (_d 1129 p (_d 1128 p (_d 1127 p (_d 1126 p (_d 1125 p (_x119 p (v)))))))))));;
+let __a31 = _d 1108;;
+let __a40 = _d 1022;;
+let __a9 = fun p v -> _d 1129 p (_d 1128 p (_d 1127 p (_d 1126 p (_d 1125 p (_x119 p (v))))));;
+let __a37 = _d 1109;;
+let __a4 = fun p v -> _d 1075 p (_d 1074 p (_d 1073 p (_d 1072 p (_d 1071 p (_x69 p (v))))));;
+let __a11 = fun p v -> _d 1143 p (_d 1141 p (_d 1140 p (_d 1137 p (_d 1136 p (_d 1129 p (_d 1128 p (_d 1127 p (_d 1126 p (_d 1125 p (_x119 p (v)))))))))));;
+let __g39 = _darg 1170;;
+let __a56 = _d 1026;;
+let __g23 = _darg 1122;;
+let __a42 = fun p v -> _d 1054 p (_d 1053 p (v));;
+let __g18 = _darg 1066;;
+let __a2 = fun p v -> _d 1047 p (_d 1046 p (_d 1045 p (_d 1044 p (_d 1043 p (_x55 p (v))))));;
+let __a27 = fun p v -> _d 1035 p (_d 1034 p (v));;
+let __a16 = _p 1013;;
+let __g52 = _darg 1173;;
+let __a8 = fun p v -> _d 1131 p (_d 1129 p (_d 1128 p (_d 1127 p (_d 1126 p (_d 1125 p (_x119 p (v)))))));;
+let __g55 = _darg 1176;;
+let __a14 = fun p v -> _d 1167 p (_d 1166 p (_d 1165 p (_d 1164 p (_d 1163 p (_x145 p (v))))));;
+let __g53 = _darg 1092;;
+let __p47 = _dnext 1056;;
+let __a28 = fun p v -> _d 1050 p (_d 1049 p (v));;
+let __a36 = _d 1110;;
+let __a10 = fun p v -> _d 1139 p (_d 1137 p (_d 1136 p (_d 1129 p (_d 1128 p (_d 1127 p (_d 1126 p (_d 1125 p (_x119 p (v)))))))));;
+let __g57 = _darg 1094;;
+let __g38 = _darg 1154;;
+let __g22 = _darg 1105;;
+let __g51 = _darg 1157;;
+let __g46 = _darg 1023;;
+let __a33 = _d 1169;;
+let __a3 = fun p v -> _d 1062 p (_d 1061 p (_d 1060 p (_d 1059 p (_d 1058 p (_x62 p (v))))));;
+let __g24 = _darg 1132;;
+let __g58 = _darg 1027;;
+let __a1 = fun p v -> _d 1032 p (_x47 p (v));;
+let __g20 = _darg 1076;;
+let __g25 = _darg 1134;;
+let __a29 = _d 1087;;
+let __a6 = fun p v -> _d 1104 p (_d 1103 p (_d 1102 p (_d 1101 p (_d 1100 p (_d 1099 p (_x100 p (v)))))));;
 let __a15 = fun p v -> _p_pos_only 1005 p (_p 1004 p (v));;
-let __g24 = _darg 1138;;
-let __a6 = fun p v -> _d 1110 p (_d 1109 p (_d 1108 p (_d 1107 p (_d 1106 p (_d 1105 p (_x100 p (v)))))));;
-let __a7 = fun p v -> _d 1126 p (_d 1125 p (_d 1124 p (_d 1123 p (_d 1122 p (_x107 p (v))))));;
-let __g38 = _darg 1160;;
-let __g22 = _darg 1111;;
-let __a27 = fun p v -> _d 1037 p (_d 1036 p (v));;
+let __a41 = fun p v -> _d 1041 p (_d 1040 p (_d 1039 p (_d 1038 p (v))));;
+let __g54 = _darg 1160;;
+let __g43 = _darg 1111;;
+let __g50 = _darg 1113;;
 let __a17 = _p 1003;;
-let __g51 = _darg 1163;;
-let __a33 = _d 1175;;
-let __g54 = _darg 1166;;
-let __g43 = _darg 1117;;
-let __a2 = fun p v -> _d 1051 p (_d 1050 p (_d 1049 p (_d 1048 p (_d 1047 p (_x55 p (v))))));;
-let __g59 = _darg 1032;;
-let __g50 = _darg 1119;;
-let __a11 = fun p v -> _d 1149 p (_d 1147 p (_d 1146 p (_d 1143 p (_d 1142 p (_d 1135 p (_d 1134 p (_d 1133 p (_d 1132 p (_d 1131 p (_x119 p (v)))))))))));;
-let __a45 = _d 1178;;
-let __g20 = _darg 1082;;
-let __g25 = _darg 1140;;
-let __a29 = _d 1093;;
-let __a41 = fun p v -> _d 1045 p (_d 1044 p (_d 1042 p (_d 1041 p (v))));;
-let __a13 = fun p v -> _d 1157 p (_d 1156 p (_d 1155 p (_d 1154 p (_d 1153 p (_x132 p (v))))));;
-let __a30 = _d 1103;;
-let __a0 = fun p v -> _d 1019 p (_d 1018 p (_x42 p (v)));;
+let __a45 = _d 1172;;
+let __p48 = _dwhen 1055;;
+let __a13 = fun p v -> _d 1151 p (_d 1150 p (_d 1149 p (_d 1148 p (_d 1147 p (_x132 p (v))))));;
+let __g59 = _darg 1030;;
+let __a19 = _d 1069;;
+let __a0 = fun p v -> _d 1017 p (_d 1016 p (_x42 p (v)));;
+let __a49 = _d 1091;;
+let __a7 = fun p v -> _d 1120 p (_d 1119 p (_d 1118 p (_d 1117 p (_d 1116 p (_x107 p (v))))));;
+let __g21 = _darg 1085;;
+let __a32 = _d 1153;;
 let __binder0 = __default_ret;;
-let __binder1 = _dret 1021;;
-let __binder2 = _dret 1073;;
-let __binder3 = _dret 1083;;
-let __binder4 = _dret 1092;;
-let __binder5 = _dret 1112;;
-let __binder6 = _dret 1129;;
-let __binder7 = _dret 1139;;
-let __binder8 = _dret 1141;;
-let __binder9 = _dret 1095;;
-let __binder10 = _dret 1161;;
-let __binder11 = _dret 1177;;
-let __binder12 = _dret 1118;;
-let __binder13 = _dret 1026;;
-let __binder14 = _dret 1120;;
-let __binder15 = _dret 1164;;
-let __binder16 = _dret 1180;;
-let __binder17 = _dret 1099;;
-let __binder18 = _dret 1167;;
-let __binder19 = _dret 1183;;
-let __binder20 = _dret 1101;;
-let __binder21 = _dret 1030;;
-let __binder22 = _dret 1033;;
+let __binder1 = _dret 1019;;
+let __binder2 = _dret 1067;;
+let __binder3 = _dret 1077;;
+let __binder4 = _dret 1086;;
+let __binder5 = _dret 1106;;
+let __binder6 = _dret 1123;;
+let __binder7 = _dret 1133;;
+let __binder8 = _dret 1135;;
+let __binder9 = _dret 1089;;
+let __binder10 = _dret 1155;;
+let __binder11 = _dret 1171;;
+let __binder12 = _dret 1112;;
+let __binder13 = _dret 1024;;
+let __binder14 = _dret 1114;;
+let __binder15 = _dret 1158;;
+let __binder16 = _dret 1174;;
+let __binder17 = _dret 1093;;
+let __binder18 = _dret 1161;;
+let __binder19 = _dret 1177;;
+let __binder20 = _dret 1095;;
+let __binder21 = _dret 1028;;
+let __binder22 = _dret 1031;;
 let binders : (sv -> sv -> sv) array = [| |]
 let num_symbols = 49
 
@@ -614,7 +615,7 @@ and nullable_HTAB __lookahead _p0_ _x0_ = None
 
 and nullable_string __lookahead _p0_ _x0_ = None
 
-and nullable_o __lookahead _p0_ _x0_ = ((((Pred.full_lookaheadc false 283 20) __lookahead) _p0_) (((_d 1075) ((Yak.YkBuf.get_offset) _p0_)) (((fun p v -> _d 1068 p (_d 1067 p (_d 1066 p (_d 1065 p (_d 1064 p (_x62 p (v))))))) ((Yak.YkBuf.get_offset) _p0_)) _x0_)))
+and nullable_o __lookahead _p0_ _x0_ = ((((Pred.full_lookaheadc false 283 20) __lookahead) _p0_) (((_d 1069) ((Yak.YkBuf.get_offset) _p0_)) (((fun p v -> _d 1062 p (_d 1061 p (_d 1060 p (_d 1059 p (_d 1058 p (_x62 p (v))))))) ((Yak.YkBuf.get_offset) _p0_)) _x0_)))
 
 and nullable_prose_val __lookahead _p0_ _x0_ = None
 
@@ -896,7 +897,8 @@ let parse = Yak.Pami.Wfe.mk_parse P2__.parse _wfe_data_ sv0
     (fun ykinput (_,h) ->
       let _o = (h#traverse_postfix) in
       let _n() = (let (x,_) = _o#next() in x) in
-      _r_rfc(_n,ykinput)
+      let _ps() = (let (_,p) = _o#next() in p) in
+      _r_rfc(_n,_ps,ykinput)
     )
 
 let visualize = parse
@@ -906,7 +908,6 @@ let visualize_string = Yak.Pami.Simple.parse_string visualize
 let parse_file = Yak.Pami.Simple.parse_file parse
 let parse_string = Yak.Pami.Simple.parse_string parse
 ;;
-Yk_History.memoize := false;;
 
 let extract ch file =
   begin

@@ -68,26 +68,27 @@ module Yk_Hashed = struct
   type t = hv * int
   let compare i j = compare i j
   let hash i = Hashtbl.hash i
+  let memoize = false
 end
 module Yk_History = Yak.History.Make(Yk_Hashed)
 
 (*REPLAY PROLOGUE*)
 let rec
-_r_cmd_line_args(_n,ykinput) = (
- (let c = (_r_command(_n,ykinput))
+_r_cmd_line_args(_n,_ps,ykinput) = (
+ (let c = (_r_command(_n,_ps,ykinput))
  in (
  (let _x19 = (
  (let rec _x22 _x20 = 
  (match _n() with
  | (1006) -> (_x20)
- | _(*1007*) -> (_x22(_r_args(_n,ykinput)))
+ | _(*1007*) -> (_x22(_r_args(_n,_ps,ykinput)))
  ) in _x22(())))
  in ( cmd := c )
 ))
 ))
 
  and
-_r_phases(_n,ykinput) = 
+_r_phases(_n,_ps,ykinput) = 
  (match _n() with
  | (1013) -> ( Attributes_cmd )
  | (1016) -> ( Close_under_core_cmd )
@@ -104,10 +105,10 @@ _r_phases(_n,ykinput) =
  | _(*1049*) -> ( Wrap_cmd )
  )
  and
-_r_command(_n,ykinput) = 
+_r_command(_n,_ps,ykinput) = 
  (match _n() with
  | (1050) -> (
- (let p = (_r_phases(_n,ykinput))
+ (let p = (_r_phases(_n,_ps,ykinput))
  in ( (match p with
                                                Inline_regular_cmd -> Compileopt.inline_regular := true
                                              | Unroll_star_cmd -> if !Compileopt.unroll_star_n<1 then Compileopt.unroll_star_n := 1
@@ -118,9 +119,9 @@ _r_command(_n,ykinput) =
  | (1059) -> ( Dispatch_cmd )
  | (1062) -> ( Dot_cmd )
  | (1065) -> (
- (let _x4 = (_n())
+ (let _x4 = (_ps())
  in (
- (let _x3 = (_n())
+ (let _x3 = (_ps())
  in (
  (let f = (Yak.YkBuf.get_string _x4 _x3 ykinput)
  in (
@@ -128,12 +129,12 @@ _r_command(_n,ykinput) =
  (let _x8 = (
  (let rec _x24 _x8 = 
  (match _n() with
- | (1077) -> (_x8)
- | _(*1078*) -> (_x24(
+ | (1075) -> (_x8)
+ | _(*1076*) -> (_x24(
  (let _x7 = (
- (let _x6 = (_n())
+ (let _x6 = (_ps())
  in (
- (let _x5 = (_n())
+ (let _x5 = (_ps())
  in (
  (let x = (Yak.YkBuf.get_string _x6 _x5 ykinput)
  in (x)
@@ -150,61 +151,61 @@ _r_command(_n,ykinput) =
 ))
 ))
 ))
- | (1096) -> ( Extract_cmd )
- | (1099) -> ( Compileopt.coalesce := true; Fuse_cmd )
- | (1102) -> ( Info_cmd )
- | (1105) -> ( Lookahead_analysis_cmd )
- | (1108) -> ( Lr1_lookahead_cmd )
- | (1111) -> ( Precedence_analysis_cmd )
- | (1114) -> ( Print_gul_cmd )
- | (1117) -> ( Print_gil_cmd )
- | (1120) -> ( Print_npreds_cmd )
- | (1123) -> ( Print_npreds_cmd )
- | (1126) -> ( Print_relevance_cmd )
- | (1128) -> (
- (let _x10 = (_n())
+ | (1092) -> ( Extract_cmd )
+ | (1095) -> ( Compileopt.coalesce := true; Fuse_cmd )
+ | (1098) -> ( Info_cmd )
+ | (1101) -> ( Lookahead_analysis_cmd )
+ | (1104) -> ( Lr1_lookahead_cmd )
+ | (1107) -> ( Precedence_analysis_cmd )
+ | (1110) -> ( Print_gul_cmd )
+ | (1113) -> ( Print_gil_cmd )
+ | (1116) -> ( Print_npreds_cmd )
+ | (1119) -> ( Print_npreds_cmd )
+ | (1122) -> ( Print_relevance_cmd )
+ | (1124) -> (
+ (let _x10 = (_ps())
  in (
- (let _x9 = (_n())
+ (let _x9 = (_ps())
  in (
  (let n = (Yak.YkBuf.get_string _x10 _x9 ykinput)
  in ( try rfc_num := int_of_string n; Rfc_cmd with _ -> failwith "Invalid RFC number" )
 ))
 ))
 ))
- | (1141) -> ( Strip_late_actions_cmd )
- | (1144) -> ( Translate_dypgen_cmd )
- | _(*1147*) -> ( Translate_dypgen_scannerless_cmd )
+ | (1135) -> ( Strip_late_actions_cmd )
+ | (1138) -> ( Translate_dypgen_cmd )
+ | _(*1141*) -> ( Translate_dypgen_scannerless_cmd )
  )
  and
-_r_args(_n,ykinput) = 
+_r_args(_n,_ps,ykinput) = 
  (match _n() with
- | (1150) -> (
- (let p = (_r_phases(_n,ykinput))
+ | (1144) -> (
+ (let p = (_r_phases(_n,_ps,ykinput))
  in (
  (let _x43 = ( after := Some p )
  in ()))
 ))
- | (1157) -> (
+ | (1151) -> (
  (let b = 
  (match _n() with
- | (1159) -> (Fun_BE)
- | (1161) -> (Trans_BE)
- | (1163) -> (Peg_BE false)
- | _(*1165*) -> (Peg_BE true)
+ | (1153) -> (Fun_BE)
+ | (1155) -> (Trans_BE)
+ | (1157) -> (Peg_BE false)
+ | _(*1159*) -> (Peg_BE true)
  ) in (
  (let _x42 = ( backend := b )
  in ()))
 ))
- | (1171) -> (
+ | (1165) -> (
  (let _x41 = ( Compileopt.case_sensitive := false )
  in ()))
- | (1175) -> (
+ | (1169) -> (
  (let _x40 = ( Compileopt.check_labels := true )
  in ()))
- | (1179) -> (
- (let _x12 = (_n())
+ | (1173) -> (
+ (let _x12 = (_ps())
  in (
- (let _x11 = (_n())
+ (let _x11 = (_ps())
  in (
  (let n = (Yak.YkBuf.get_string _x12 _x11 ykinput)
  in (
@@ -213,40 +214,40 @@ _r_args(_n,ykinput) =
 ))
 ))
 ))
- | (1193) -> (
+ | (1185) -> (
  (let _x38 = ( Compileopt.inline_cs := true )
  in ()))
- | (1197) -> (
+ | (1189) -> (
  (let _x37 = ( Compileopt.inline_regular := true )
  in ()))
- | (1201) -> (
+ | (1193) -> (
  (let _x36 = ( Compileopt.memoize_history := true )
  in ()))
- | (1205) -> (
+ | (1197) -> (
  (let _x35 = ( Compileopt.memoize_history := false )
  in ()))
- | (1209) -> (
+ | (1201) -> (
  (let _x34 = ( Compileopt.unit_history := true )
  in ()))
- | (1213) -> (
+ | (1205) -> (
  (let _x33 = ( Compileopt.skip_opt := false )
  in ()))
- | (1217) -> (
+ | (1209) -> (
  (let _x32 = ( Compileopt.repress_replay := true )
  in ()))
- | (1221) -> (
+ | (1213) -> (
  (let _x31 = ( Compileopt.lookahead := true )
  in ()))
- | (1225) -> (
+ | (1217) -> (
  (let _x30 = ( Compileopt.coalesce := false )
  in ()))
- | (1229) -> (
+ | (1221) -> (
  (let _x29 = ( only := true )
  in ()))
- | (1233) -> (
- (let _x14 = (_n())
+ | (1225) -> (
+ (let _x14 = (_ps())
  in (
- (let _x13 = (_n())
+ (let _x13 = (_ps())
  in (
  (let x = (Yak.YkBuf.get_string _x14 _x13 ykinput)
  in (
@@ -255,10 +256,10 @@ _r_args(_n,ykinput) =
 ))
 ))
 ))
- | (1247) -> (
- (let _x16 = (_n())
+ | (1237) -> (
+ (let _x16 = (_ps())
  in (
- (let _x15 = (_n())
+ (let _x15 = (_ps())
  in (
  (let n = (Yak.YkBuf.get_string _x16 _x15 ykinput)
  in (
@@ -267,13 +268,13 @@ _r_args(_n,ykinput) =
 ))
 ))
 ))
- | (1261) -> (
+ | (1249) -> (
  (let _x26 = ( Yak.Logging.add_features Yak.Logging.Features.verbose )
  in ()))
- | _(*1263*) -> (
- (let _x18 = (_n())
+ | _(*1251*) -> (
+ (let _x18 = (_ps())
  in (
- (let _x17 = (_n())
+ (let _x17 = (_ps())
  in (
  (let f = (Yak.YkBuf.get_string _x18 _x17 ykinput)
  in (
@@ -294,8 +295,8 @@ let sv_hash = Yk_History.hash
 
 (* History transformers *)
 let _p x p = (fun h->h#push p ((x),p))
-let _p_pos x p = (fun h->(h#push p ((x),p))#push p ((p),p))
-let _p_pos_only x p = (fun h->h#push p ((p),p))
+let _p_pos x p = (fun h->(h#push p ((x),p))#push p ((x),p))
+let _p_pos_only x p = (fun h->h#push p ((x),p))
 let _m x p = (fun h1 h2-> h1#merge p ((x),p) h2)
 
 let sv_eq x y = sv_compare x y = 0
@@ -307,79 +308,79 @@ module TDHashtable = Hashtbl.Make(struct type t = int * sv let equal = key_eq le
 
 let __default_call _ _ = sv0;;
 let __default_ret _ v1 _ = v1;;
+let __a51 = _p 1169;;
 let __a13 = _p 1034;;
-let __a62 = _p 1141;;
-let __a49 = fun p v -> _p_pos_only 1248 p (_p 1247 p (v));;
-let __a18 = _p 1229;;
+let __a67 = _p 1141;;
 let __a17 = _p 1037;;
-let __a59 = _p 1201;;
-let __a57 = _p 1144;;
-let __a38 = _p 1193;;
-let __a33 = _p_pos_only 1081;;
-let __a67 = _p 1147;;
-let __a65 = _p 1205;;
-let __a56 = _p 1197;;
+let __a59 = _p 1193;;
+let __a52 = _p 1201;;
+let __a22 = _p 1144;;
+let __a41 = _p_pos_only 1082;;
+let __a65 = _p 1197;;
+let __a48 = _p 1205;;
 let __a7 = _p 1062;;
 let __a35 = _p 1013;;
-let __a44 = _p 1120;;
-let __a32 = fun p v -> _p_pos_only 1180 p (_p 1179 p (v));;
-let __a41 = _p_pos_only 1085;;
-let __a60 = _p 1171;;
 let __a58 = _p 1016;;
-let __a66 = _p 1123;;
-let __a52 = _p 1209;;
-let __a54 = _p_pos_only 1252;;
+let __a55 = _p 1122;;
+let __a28 = _p_pos_only 1229;;
+let __a40 = _p 1209;;
 let __a30 = _p 1019;;
-let __a55 = _p 1126;;
-let __a51 = _p 1175;;
 let __a36 = _p 1040;;
 let __a8 = fun p v -> _p_pos_only 1066 p (_p 1065 p (v));;
+let __a4 = _p_pos_only 1255;;
+let __a26 = _p 1092;;
 let __a21 = _p 1043;;
-let __a22 = _p 1150;;
-let __a10 = _p 1102;;
+let __a61 = _p 1101;;
+let __a31 = _p 1151;;
+let __a9 = _p 1095;;
 let __a42 = _p 1046;;
-let __a26 = _p 1096;;
-let __a61 = _p 1105;;
+let __a50 = _p 1104;;
+let __a45 = _p 1153;;
+let __a20 = _p_pos_only 1069;;
 let __a14 = _p 1049;;
-let __a6 = _p 1261;;
-let __a48 = _p 1213;;
-let __a9 = _p 1099;;
-let __a50 = _p 1108;;
-let __a31 = _p 1157;;
+let __a43 = _p 1155;;
+let __a10 = _p 1098;;
+let __a63 = _p 1107;;
+let __a39 = _p 1213;;
+let __a37 = _p_pos_only 1177;;
+let __a11 = _p_pos_only 1128;;
+let __a64 = _p 1157;;
 let __a27 = _p 1022;;
-let __a45 = _p 1159;;
-let __a40 = _p 1217;;
-let __a28 = _p_pos_only 1238;;
+let __a49 = fun p v -> _p_pos_only 1238 p (_p 1237 p (v));;
+let __a46 = _p 1159;;
+let __a32 = fun p v -> _p_pos_only 1174 p (_p 1173 p (v));;
+let __a47 = _p 1217;;
 let __a12 = _p 1025;;
-let __a5 = fun p v -> _p_pos_only 1129 p (_p 1128 p (v));;
+let __a25 = _p 1075;;
+let __a24 = _p 1076;;
 let __a53 = _p 1028;;
-let __a25 = _p 1077;;
-let __a19 = fun p v -> _p_pos_only 1234 p (_p 1233 p (v));;
-let __a24 = _p 1078;;
-let __a20 = _p_pos_only 1070;;
+let __a62 = _p 1135;;
+let __a38 = _p 1185;;
 let __a0 = _p 1050;;
-let __a63 = _p 1111;;
-let __a1 = fun p v -> _p_pos_only 1264 p (_p 1263 p (v));;
-let __a43 = _p 1161;;
-let __a11 = _p_pos_only 1133;;
+let __a5 = fun p v -> _p_pos_only 1125 p (_p 1124 p (v));;
+let __a1 = fun p v -> _p_pos_only 1252 p (_p 1251 p (v));;
+let __a57 = _p 1138;;
+let __a15 = _p 1110;;
+let __a56 = _p 1189;;
+let __a19 = fun p v -> _p_pos_only 1226 p (_p 1225 p (v));;
 let __a3 = _p 1006;;
-let __a4 = _p_pos_only 1268;;
+let __a34 = _p 1113;;
 let __a23 = _p 1056;;
 let __a2 = _p 1007;;
-let __a64 = _p 1163;;
-let __a15 = _p 1114;;
-let __a37 = _p_pos_only 1184;;
-let __a39 = _p 1221;;
+let __a54 = _p_pos_only 1241;;
+let __a6 = _p 1249;;
+let __a33 = _p_pos_only 1079;;
+let __a18 = _p 1221;;
+let __a60 = _p 1165;;
 let __a29 = _p 1059;;
-let __a46 = _p 1165;;
+let __a44 = _p 1116;;
 let __a16 = _p 1031;;
-let __a34 = _p 1117;;
-let __a47 = _p 1225;;
+let __a66 = _p 1119;;
 let __binder0 = __default_ret;;
 let __binder1 = _m 1002;;
 let __binder2 = _m 1052;;
 let __binder3 = _m 1008;;
-let __binder4 = _m 1152;;
+let __binder4 = _m 1146;;
 let binders : (sv -> sv -> sv) array = [| |]
 let num_symbols = 11
 
@@ -1016,7 +1017,8 @@ let parse = Yak.Pami.Wfe.mk_parse P2__.parse _wfe_data_ sv0
     (fun ykinput h ->
       let _o = (h#traverse_postfix) in
       let _n() = (let (x,_) = _o#next() in x) in
-      _r_cmd_line_args(_n,ykinput)
+      let _ps() = (let (_,p) = _o#next() in p) in
+      _r_cmd_line_args(_n,_ps,ykinput)
     )
 
 let visualize = parse
@@ -1026,7 +1028,6 @@ let visualize_string = Yak.Pami.Simple.parse_string visualize
 let parse_file = Yak.Pami.Simple.parse_file parse
 let parse_string = Yak.Pami.Simple.parse_string parse
 ;;
-Yk_History.memoize := false;;
 
 
 let args_ykbuf = Yak.YkBuf.strings2buf Sys.argv 1

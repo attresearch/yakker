@@ -21,18 +21,18 @@ class type ['a] postfix =
 
 class type ['a,'lbl] history =
       object ('b)
-        method empty : int -> 'b
-        method merge : int -> 'a -> 'b -> 'b
-        method push : int -> 'a -> 'b
+        method empty : 'lbl -> 'b
+        method merge : 'lbl -> 'a -> 'b -> 'b
+        method push : 'lbl -> 'a -> 'b
 
-	method traverse_postfix : 'a postfix
-        method get_root : ('a,'lbl) root 
-	  (** would prefer to hide this method, but we can't. instead,
-	  we simply make it nearly useless by hiding the root
-	  type. this is the "friend" pattern. *)
+        method traverse_postfix : 'a postfix
+        method get_root : ('a,'lbl) root
+          (** would prefer to hide this method, but we can't. instead,
+          we simply make it nearly useless by hiding the root
+          type. this is the "friend" pattern. *)
       end
 
-type label
+type label = int
 
 module type HV = sig
   type t
@@ -49,10 +49,10 @@ module Make (Hv : HV) :
 
       module Root_id_set : Set.S
       val get_id_set : (Hv.t, label) root -> Root_id_set.t
-	(** Get the set of (unique) identifiers reachable from the given root. *)
+        (** Get the set of (unique) identifiers reachable from the given root. *)
       val add_id_set : (Hv.t, label) root -> Root_id_set.t -> Root_id_set.t
-	(** Add the set of (unique) identifiers reachable from the given root to the given id set. *)
-	
+        (** Add the set of (unique) identifiers reachable from the given root to the given id set. *)
+
       val dot_show : (Hv.t -> string) -> (Hv.t, label) history -> unit
       val dot_show_pretty : (Hv.t -> string) -> (Hv.t, label) history -> unit
     end

@@ -42,9 +42,9 @@ class type ['a] postfix =
 
 class type ['a,'lbl] history =
       object ('h)
-        method empty : int -> 'h
-        method merge : int -> 'a -> 'h -> 'h
-        method push : int -> 'a -> 'h
+        method empty : 'lbl -> 'h
+        method merge : 'lbl -> 'a -> 'h -> 'h
+        method push : 'lbl -> 'a -> 'h
         method get_root : ('a,'lbl) root
 
         method traverse_postfix : 'a postfix
@@ -75,7 +75,6 @@ class ['a] postfix_impl (r_init: ('a,'lbl) root) =
           | Root{v=v;branchings=[]} -> impossible())
   end
 
-
 (* The base history class.  uniq should be a memoizing function, use id for no memoization *)
 class ['a, 'lbl] history_impl (uniq: ('a,'lbl) info -> ('a,'lbl) info) =
   let mk_info k (v:'a) = (* memoized *)
@@ -85,7 +84,7 @@ class ['a, 'lbl] history_impl (uniq: ('a,'lbl) info -> ('a,'lbl) info) =
 
     method get_root = root
 
-    method empty (p:int) =
+    method empty (p:'lbl) =
       {< root = Empty >}
 
     method push p v =

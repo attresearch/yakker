@@ -180,6 +180,24 @@ module Make (Hv : HV) = struct
       Visualization functions.
   *)
 
+
+  (** Info, with physical equality. The point of the hashtable is to
+      avoid revisiting nodes in a data structure, so physical equality
+      makes the most sense. Corresponds to marking a bit in the actual
+      node. *)
+  module Info2 = struct
+    type t = (Hv.t,label) info
+
+    let equal = (==)
+
+    let compare {label=k1; v=v1} {label=k2; v=v2} =
+      let c = Label.compare k1 k2 in
+      if c <> 0 then c else Hv.compare v1 v2
+
+    let hash {label=k; v=v} = (Label.hash k) lxor (Hv.hash v)
+  end
+  module Hash_info = Hashtbl.Make(Info2)
+
   module Edge = struct
     type t = (Hv.t,label) branching
 
@@ -199,8 +217,6 @@ module Make (Hv : HV) = struct
 
     let from_list xs = List.fold_left (fun s e -> add e s) empty xs
   end
-
-  module Hash_info = Hashtbl.Make(Info)
 
   (** returns r and its left siblings. *)
   let get_left_siblings r =
@@ -265,7 +281,7 @@ module Make (Hv : HV) = struct
   let dot_show string_of_atom h =
     let tbl = Hash_info.create 11 in
 
-    (* Printf.print edges in the reverse order in which we encounter them,
+    (* Print edges in the reverse order in which we encounter them,
        so that dot displays them in left-to-right order wrt the input *)
     let edges = ref [] in
     let cedges = ref [] in
@@ -289,15 +305,14 @@ module Make (Hv : HV) = struct
             child_edge n_v n3;
             let (n2,n_final) = dot_show_tree n_cur r2 in
             edge n_v n2;
-            n_final
-      in
+            n_final in
       (** returns: last used n *)
       let dot_show_packed n_parent e n_last =
         let n = n_last + 1 in
         Printf.printf "%i [label=\"\" shape = circle width = 0.15];\n" n;
         edge n_parent n;
-        dot_show_edge n e
-      in
+        dot_show_edge n e in
+
       match root with
       | Empty -> 0, n_last
       | Root ({v = v} as t) ->
@@ -315,7 +330,7 @@ module Make (Hv : HV) = struct
                   | edges ->
                       if Logging.activated then
                         Logging.log Logging.Features.sppf
-                          "Encountered node with non-singular edge set. (%s)." (string_of_atom v);
+                          "Encountered node with non-singular edge set. (%s:%s)." (string_of_atom v) (Label.to_string t.label);
                       let edgeset = Edge_set.from_list edges in
                       if Edge_set.cardinal edgeset > 1 then
                         Edge_set.fold (dot_show_packed n) edgeset n

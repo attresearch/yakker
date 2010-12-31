@@ -359,3 +359,60 @@ traverse z
 (* should print 1 2 3 4 5 *)
 ;;
 *)
+
+
+
+(*
+Alternative: (in progress). would remove need for two labels on nonterminals.
+
+type 'a, node =
+  | Empty_node
+  | Sibling_node of 'a sibling
+
+and 'a sibling = {left : int; v:'a;
+                  mutable links :'a sibling_links ;}
+
+and 'a sibling_links =
+  | Trivial
+  | Simple of 'a node set
+  | Complex of 'a node set * 'a node set  (* sets are very important because two fields are independent. *)
+
+let get_left p = function Empty_node -> p | Sibling {left=p1} -> p1
+
+(* The base history class.  uniq should be a memoizing function, use id for no memoization *)
+class ['a, 'lbl] history_impl2 (uniq: ('a,'lbl) sibling -> ('a,'lbl) sibling) =
+  let mk_sibling l v = (* memoized *)
+    uniq ({label=l; v=v; links=Trivial}) in
+  object (self:'b)
+    val root = Empty_node
+
+    method get_root = root
+
+    method empty (p:'lbl) =
+      {< root = Empty >}
+
+    method push p v =
+      let s = mk_sibling (get_start p root) v in
+      (match s.links with
+         | Trivial -> s.links <- Simple [root]
+         | Simple ns -> s.links <- Simple (root :: ns)
+         | Complex _ -> impossible ());
+      {< root = Root s >} (* copy of self with new root *)
+
+    method merge p v (h2:'b) =
+      let s = mk_sibling (get_start p root) v in
+      (match s.links with
+         | Simple _ -> impossible ()
+         | Trivial -> s.links <- Complex ...
+         | Complex (ns1, ns2) -> ...
+      {< root = Root s >} (* copy of self with new root *)
+
+
+      let ({branchings=b;} as inf) = mk_info (get_label p root) v in
+      inf.branchings <- (Two(root,h2#get_root))::b;
+      {< root = Root inf >} (* copy of self with new root *)
+
+    method traverse_postfix = new postfix_impl root
+  end
+
+  *)

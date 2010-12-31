@@ -165,7 +165,8 @@ let parse = Yak.Pami.mk_parse_fun __parse %s
     (fun ykinput %s ->
       let _o = (h#traverse_postfix) in
       let _n() = (let (x,_) = _o#next() in x) in
-      _r_%s(_n,ykinput)
+      let _ps() = (let (_,p) = _o#next() in p) in
+      _r_%s(_n,_ps,ykinput)
     )
 "
         patt

@@ -35,8 +35,8 @@ let _p_pos_only x p v = v
 let _m x p v v1 = v\n"
     else
       Printf.sprintf "let _p x p = (fun(v,h)->(v,h#push p (%s(x),p)))
-let _p_pos x p = (fun(v,h)->(v,(h#push p (%s(x),p))#push p (%s(p),p)))
-let _p_pos_only x p = (fun(v,h)->(v,h#push p (%s(p),p)))
+let _p_pos x p = (fun(v,h)->(v,(h#push p (%s(x),p))#push p (%s(x),p)))
+let _p_pos_only x p = (fun(v,h)->(v,h#push p (%s(x),p)))
 let _m x p = (fun(v1,h1)->fun(_,h2)-> (v1,h1#merge p (%s(x),p) h2))\n" hproj hproj hproj hproj hproj in
   add_to_prologue gr (Printf.sprintf
   "
@@ -218,8 +218,8 @@ let _p_pos_only x p h = h
 let _m x p h h1 = h\n"
     else
       Printf.sprintf "let _p x p = (fun h->h#push p (%s(x),p))
-let _p_pos x p = (fun h->(h#push p (%s(x),p))#push p (%s(p),p))
-let _p_pos_only x p = (fun h->h#push p (%s(p),p))
+let _p_pos x p = (fun h->(h#push p (%s(x),p))#push p (%s(x),p))
+let _p_pos_only x p = (fun h->h#push p (%s(x),p))
 let _m x p = (fun h1 h2-> h1#merge p (%s(x),p) h2)\n" hproj hproj hproj hproj hproj in
   add_to_prologue gr (Printf.sprintf
   "

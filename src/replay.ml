@@ -67,9 +67,9 @@ let transform gr =
       | Action (_,Some e) ->
           [(pre,e)]
       | Symb(n,_,_,Some e) -> (* TODO: attributes *)
-          [(pre,Printf.sprintf "_r_%s(_n,ykinput,%s)" (Variables.bnf2ocaml n) e)]
+          [(pre,Printf.sprintf "_r_%s(_n,_ps,ykinput,%s)" (Variables.bnf2ocaml n) e)]
       | Symb(n,_,_,None) -> (* TODO: attributes *)
-          [(pre,Printf.sprintf "_r_%s(_n,ykinput)" (Variables.bnf2ocaml n))]
+          [(pre,Printf.sprintf "_r_%s(_n,_ps,ykinput)" (Variables.bnf2ocaml n))]
       | When _
       | Box _ ->
           (* Impossible: not late relevant *)
@@ -77,7 +77,7 @@ let transform gr =
       | Delay _ ->
           [(pre,"_n()")]
       | Position false ->
-          [(pre,"_n()")]
+          [(pre,"_ps()")]
       | Opt r1 ->
           rp r1
       | Alt(r1,r2) ->
@@ -169,7 +169,7 @@ let transform gr =
       if r.a.late_relevant then begin
         let replay_body = match_cases (rp r) in
         add_to_prologue gr
-          (Printf.sprintf "%s_r_%s(_n,ykinput%s) = %s\n "
+          (Printf.sprintf "%s_r_%s(_n,_ps,ykinput%s) = %s\n "
              (if !first then "let rec\n" else "and\n")
              (Variables.bnf2ocaml n)
              (match a.Attr.late_params with None -> "" | Some x -> ","^x)

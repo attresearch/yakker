@@ -441,6 +441,8 @@ endif
 ##   Tests
 ########################################################################
 
+t006.ml : YOPTS+=-memoize-history
+
 $(TESTS_OPT_EXE): %-parser.opt: yak.cmxa %.cmx
 	@echo "--x> " $@
 	@$(OCAMLOPT) $^ -package unix -linkpkg -o $@
@@ -486,6 +488,7 @@ $(EXAMPLES_PCOMB_EXE): %-pcomb-parser: yak.cma %_pcomb.cmo
 	@$(OCAMLC) $(OCAML_FLAGS) $^ -g -package unix -linkpkg -o $@
 
 $(EXAMPLES_ICS_ML): YOPTS+=-inline-cs
+ocamlparser_regular: YOPTS+=-memoize-history
 
 $(EXAMPLES_ML): %.ml : examples/$$*/$$*.bnf yakker
 	@echo "x--> " $@

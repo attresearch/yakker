@@ -81,11 +81,11 @@ end
 
 module Distributions = struct
 
-  (** not used yet. plan is to store values in vals until val_count crosses 
+  (** not used yet. plan is to store values in vals until val_count crosses
       a threshold and then to calculate the distro and discard the vals. *)
   type 'a distro = { distro : ('a (* value *) * int (* count *)) list;
-		     val_count : int;
-		     vals : 'a list; }		     
+                     val_count : int;
+                     vals : 'a list; }
 
   let table : (string, int list) Hashtbl.t = Hashtbl.create 11
 
@@ -102,19 +102,19 @@ module Distributions = struct
     match List.sort (-) vs with
       | [] -> []
       | x::xs ->
-	  let v, n, d = List.fold_left
-	    (fun (v_last, n, dis) v ->
-	       if v = v_last then (v_last, n + 1, dis)
-	       else (v, 1, (v_last, n)::dis)) (x, 1, []) xs in
-	  List.rev ((v,n)::d)
+          let v, n, d = List.fold_left
+            (fun (v_last, n, dis) v ->
+               if v = v_last then (v_last, n + 1, dis)
+               else (v, 1, (v_last, n)::dis)) (x, 1, []) xs in
+          List.rev ((v,n)::d)
 
   let log_distro =
     List.iter (fun (v, n) -> log Features.stats " %d, %d |" v n)
 
   let report () =
     Hashtbl.iter (fun k vs ->
-		      let distribution = calculate vs in
-		      log Features.stats "%s:" k;
-		      log_distro distribution;
-		      log Features.stats "\n") table
+                      let distribution = calculate vs in
+                      log Features.stats "%s:" k;
+                      log_distro distribution;
+                      log Features.stats "\n") table
 end

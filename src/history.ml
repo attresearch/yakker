@@ -20,7 +20,7 @@
 (** parameterize the root type by the label type. Then,
     different history mechanisms can choose different keys. *)
 type ('a,'lbl) root =
-  | Empty
+  | Empty of 'lbl
   | Root of ('a,'lbl) info
 and ('a,'lbl) info = {label : 'lbl; v:'a;
                mutable branchings:('a,'lbl) branching list; (* NB we aren't compacting
@@ -31,7 +31,7 @@ and ('a,'lbl) branching =
   | One of ('a,'lbl) root
   | Two of ('a,'lbl) root * ('a,'lbl) root
 
-let get_label p = function Empty -> p | Root {label=p1} -> p1
+let get_label = function Empty p -> p | Root {label=p} -> p
 
 let impossible() = failwith "History.impossible"
 
@@ -80,20 +80,20 @@ class ['a, 'lbl] history_impl (uniq: ('a,'lbl) info -> ('a,'lbl) info) =
   let mk_info k (v:'a) = (* memoized *)
     uniq ({label=k; v=v; branchings=[]}) in
   object (self:'b)
-    val root = Empty
+    val root = Empty 0
 
     method get_root = root
 
     method empty (p:'lbl) =
-      {< root = Empty >}
+      {< root = Empty p>}
 
-    method push p v =
-      let ({branchings=b;} as inf) = mk_info (get_label p root) v in
+    method push (_:'lbl) v =
+      let ({branchings=b;} as inf) = mk_info (get_label root) v in
       inf.branchings <- (One root)::b;
       {< root = Root inf >} (* copy of self with new root *)
 
-    method merge p v (h2:'b) =
-      let ({branchings=b;} as inf) = mk_info (get_label p root) v in
+    method merge (_:'lbl) v (h2:'b) =
+      let ({branchings=b;} as inf) = mk_info (get_label root) v in
       inf.branchings <- (Two(root,h2#get_root))::b;
       {< root = Root inf >} (* copy of self with new root *)
 
@@ -139,16 +139,16 @@ module Make (Hv : HV) = struct
 
   let compare_root r1 r2 =
     match r1, r2 with
-        Empty, Empty -> 0
-      | Empty, _ -> -1
-      | _, Empty -> 1
+        Empty l1, Empty l2 -> Label.compare l1 l2
+      | Empty _, _ -> -1
+      | _, Empty _ -> 1
       | Root inf1, Root inf2 -> Info.compare inf1 inf2
 
   let compare h1 h2 = compare_root h1#get_root h2#get_root
 
   module Weak_info = Weak.Make(Info)
 
-  let hash h = match (h#get_root) with Empty -> 0 | Root inf -> Info.hash inf
+  let hash h = match (h#get_root) with Empty l -> Label.hash l | Root inf -> Info.hash inf
   let memoize = Hv.memoize
 
   let new_history () =
@@ -175,7 +175,7 @@ module Make (Hv : HV) = struct
 
   let add_id_set r ris =
     let rec recur_root ris = function
-      | Empty -> ris
+      | Empty _ -> ris
       | Root info -> (* Add the current root and then add the children, if the root has not yet been visited. *)
           if Root_id_set.mem info ris then ris
           else
@@ -226,7 +226,7 @@ module Make (Hv : HV) = struct
   (** returns r and its left siblings. *)
   let get_left_siblings r =
     let rec loop rs r = match r with
-    | Empty -> rs
+    | Empty _ -> rs
     | Root {branchings = [One r2]}
     | Root {branchings = [Two(r2,_)]} ->
         loop (r::rs) r2
@@ -261,7 +261,7 @@ module Make (Hv : HV) = struct
 
     (** returns: last used n *)
     and dot_show_tree n_last = function
-      | Empty -> 0, n_last
+      | Empty _ -> 0, n_last
       | Root ({v = v} as t) ->
           let n_opt = try Some (Hash_info.find tbl t) with Not_found -> None in
           match n_opt with
@@ -319,7 +319,7 @@ module Make (Hv : HV) = struct
         dot_show_edge n e in
 
       match root with
-      | Empty -> 0, n_last
+      | Empty _ -> 0, n_last
       | Root ({v = v} as t) ->
           let n_opt = try Some (Hash_info.find tbl t) with Not_found -> None in
           match n_opt with

@@ -160,6 +160,7 @@ let _dnext x p = function (*TJIM: same as _d without p *)
     (Yk_more(_,t),h) -> (t x p,h)
   | _ -> failwith "_dnext"
 (* History transformers *)
+let _e p (_,h) = (Yk_done _wv0, h#empty p)
 let _p x p = (fun(v,h)->(v,h#push p ((x),p)))
 let _p_pos x p = (fun(v,h)->(v,(h#push p ((x),p))#push p ((x),p)))
 let _p_pos_only x p = (fun(v,h)->(v,h#push p ((x),p)))

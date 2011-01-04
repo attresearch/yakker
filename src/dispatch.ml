@@ -29,12 +29,14 @@ let add_early_late_prologue gr =
   (* history transformers *)
   let h_txs =
     if !Compileopt.unit_history then
-      "let _p x p v = v
+      "let _e p (_,h) = (Yk_done _wv0, h)
+let _p x p v = v
 let _p_pos x p v = v
 let _p_pos_only x p v = v
 let _m x p v v1 = v\n"
     else
-      Printf.sprintf "let _p x p = (fun(v,h)->(v,h#push p (%s(x),p)))
+      Printf.sprintf "let _e p (_,h) = (Yk_done _wv0, h#empty p)
+let _p x p = (fun(v,h)->(v,h#push p (%s(x),p)))
 let _p_pos x p = (fun(v,h)->(v,(h#push p (%s(x),p))#push p (%s(x),p)))
 let _p_pos_only x p = (fun(v,h)->(v,h#push p (%s(x),p)))
 let _m x p = (fun(v1,h1)->fun(_,h2)-> (v1,h1#merge p (%s(x),p) h2))\n" hproj hproj hproj hproj hproj in
@@ -212,12 +214,14 @@ let add_late_prologue gr =
 (* make history transformers *)
   let h_txs =
     if !Compileopt.unit_history then
-      "let _p x p h = h
+      "let _e p h = h
+let _p x p h = h
 let _p_pos x p h = h
 let _p_pos_only x p h = h
 let _m x p h h1 = h\n"
     else
-      Printf.sprintf "let _p x p = (fun h->h#push p (%s(x),p))
+      Printf.sprintf "let _e p h = h#empty p
+let _p x p = (fun h->h#push p (%s(x),p))
 let _p_pos x p = (fun h->(h#push p (%s(x),p))#push p (%s(x),p))
 let _p_pos_only x p = (fun h->h#push p (%s(x),p))
 let _m x p = (fun h1 h2-> h1#merge p (%s(x),p) h2)\n" hproj hproj hproj hproj hproj in
@@ -286,8 +290,9 @@ let transform gr skipped_labels =
       Gil.Action(Printf.sprintf "_ddelay_only %d" l)
     else
       Gil.Action(Printf.sprintf "_ddelay %d" l) in
+  let hist_empty = "_e" in
 
-  (* Translate irrelevant Gul right-parts to Gil. *)
+  (** Translate IRRELEVANT Gul right-parts to Gil. *)
   let rec gul2gil r = (* should only be called by dispatch, so invariants are satisfied *)
     match r.r with
     | CharRange(x, y) -> Gil.CharRange(x, y)
@@ -316,6 +321,8 @@ let transform gr skipped_labels =
     | Rcount _    -> Util.impossible "Dispatch.gul2gil.Rcount"
     | Minus _     -> Util.impossible "Dispatch.gul2gil.Minus"
     | Prose _     -> Util.impossible "Dispatch.gul2gil.Prose"
+
+  (** Translate RELEVANT Gul right-parts to Gil. *)
   and d r =
     if not(r.a.early_relevant || r.a.late_relevant) then gul2gil r else
     let (pre,post) = (r.a.pre,r.a.post) in
@@ -329,16 +336,18 @@ let transform gr skipped_labels =
       | Action (None,None) ->
           Util.impossible "Dispatch.transform.d.Action(None,None)"
       | Symb(n,early_arg_opt,_,_) -> (* TODO: attributes *)
-          let f_arg = if early_arg_opt=None then None else Some(disp_arg(pre)) in
+          let f_arg l_arg =
+            if early_arg_opt = None then l_arg
+            else Some (disp_arg pre) in
           (match r.a.early_relevant,r.a.late_relevant with
           | true,true ->
               Gil.Seq(push(pre),
-                      Gil.Symb(n,f_arg,Some(disp_merge(post))))
+                      Gil.Symb(n,f_arg (Some hist_empty),Some(disp_merge(post))))
           | true,false ->
-              Gil.Symb(n,f_arg,Some(disp_ret(post)))
+              Gil.Symb(n, f_arg None, Some (disp_ret post))
           | false,true ->
               Gil.Seq(push(pre),
-                      Gil.Symb(n,None,Some(merge(post))))
+                      Gil.Symb(n, Some hist_empty, Some (merge post)))
           | false,false ->
               (* impossible, would have been caught above *)
               gul2gil r)

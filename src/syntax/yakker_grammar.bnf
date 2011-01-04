@@ -136,6 +136,10 @@ inside
 inside-text = *inside .
 braces-text = "{" inside-text$x "}" {x}.
 
+; Allow a simple identifier syntax w/o any lexical demarcation. If you
+; want/need something fancier, use parens.
+closed-text = ID$x {x} | "(" inside-text$x ")" {x}.
+
 id-body = ALPHA|DIGIT|"_".
 ID = (ALPHA|"_") *(ALPHA|DIGIT|"_") !id-body.
 wsp = WSP|comment|LF|CR.
@@ -203,6 +207,8 @@ element
   | "@when(" inside-text$x ")" { mkWHEN x }
   | "@delay(" inside-text$x [return-type]$y ")" { mkDELAY(x,y) }
   | "@box(" inside-text$x [return-type]$y [o "," o boxnull$z o {z}]$z ")" { mkBOX(x,y,match z with None -> Runbox_null | Some w -> w) }
+  | "@box2" [o early-return]$y [o boxnull]$z o "(" inside-text$x ")" { mkBOX(x,y,match z with None -> Runbox_null | Some w -> w) }
+  | "@box3" [o boxnull]$z o "(" closed-text$x [o ":" o inside-text$t {t}]$y ")" { mkBOX(x,y,match z with None -> Runbox_null | Some w -> w) }
   | "{" inside-text$x "}" { mkACTION2(None,Some x) }
   | "${" inside-text$x "}" { mkACTION2(None, Some x) }
   | "@{" inside-text$x "}" { mkACTION2(Some x,None) }
@@ -299,6 +305,8 @@ late-inputs =
 ; TODO: change lexer declarations and blackbox/delay to reflect new
 ; return type syntax (early-return)
 return-type = "{" inside-text$y "}" {y}
+.
+early-return = ">@(" inside-text$t ")" {t}
 .
 rettype = "@" o "(" o "{" o inside-text$t "}" o ")" {t}
 .

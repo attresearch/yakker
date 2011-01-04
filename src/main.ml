@@ -286,7 +286,9 @@ let do_phases gr =
             Analyze.relevance gr;
             if gr.grammar_early_relevant then begin
               Wrap.wrap gr; Analyze.relevance gr;
-              Wrap.force_alt_relevance gr; Analyze.relevance gr
+            end;
+            if gr.grammar_early_relevant || gr.grammar_late_relevant then begin
+              Wrap.force_alt_relevance gr; Analyze.relevance gr;
             end;
             Wrap.transform_history gr)
       | Print_relevance_cmd ->

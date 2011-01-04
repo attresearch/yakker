@@ -26,7 +26,7 @@ module Yk_Hashed = struct
   type t = hv * int
   let compare i j = compare i j
   let hash i = Hashtbl.hash i
-  let memoize = false
+  let memoize = true
 end
 module Yk_History = Yak.History.Make(Yk_Hashed)
 

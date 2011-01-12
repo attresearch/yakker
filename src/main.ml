@@ -384,7 +384,7 @@ let do_phases gr =
             Printf.fprintf !outch "%s\n%!" (Buffer.contents b))
       | Print_npreds_cmd ->
           do_phase "printing nullable predicates" (fun () ->
-            Nullable_pred.print_nullable_predicates gr !outch)
+            Nullable_pred.Gul.print_nullable_predicates gr !outch)
       | Precedence_analysis_cmd ->
           do_phase "lexer transform" (fun () ->
             Lexutil.transform gr;

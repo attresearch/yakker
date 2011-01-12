@@ -165,21 +165,6 @@ struct
 
   let is_closed = check_free_at_most 0
 
-  let rec to_string_raw c = function
-    | Lam f ->
-        Printf.sprintf "(lam. %s)" (to_string_raw (c+1) f)
-    | Var x -> if x < c then Printf.sprintf "%d" x else Printf.sprintf "'%d" x
-    | App (e1,e2) -> Printf.sprintf "(%s %s)" (to_string_raw c e1) (to_string_raw c e2)
-    | NoneE -> "None"
-    | SomeE e -> Printf.sprintf "(Some %s)" (to_string_raw c e)
-    | AndE (e1,e2) -> Printf.sprintf "(Pred.andc %s %s)" (to_string_raw c e1) (to_string_raw c e2)
-    | OrE (e1,e2) -> Printf.sprintf "(Pred.orc %s %s)" (to_string_raw c e1) (to_string_raw c e2)
-    | CallE (nt,e1,e2) -> callc (mk_npname nt) (to_string_raw c e1) (to_string_raw c e2)
-    | InjectE s -> Printf.sprintf "(%s)" s
-    | CfgLookaheadE (b,n) -> Printf.sprintf "(Pred.lookaheadc %B 0 %s)" b n
-    | CsLookaheadE (b,cs) -> Printf.sprintf "(Pred.lookaheadc %B 0 %s)" b (Cs.to_nice_string cs)
-
-
   (** Note any called nonterminals *)
   let rec note_called s = function
     | InjectE _
@@ -194,9 +179,30 @@ struct
     | App (e1, e2) -> note_called (note_called s e1) e2
     | CallE (nt,_,_) -> PSet.add nt s
 
-  (**
-      Predicate-specific machinery
-  *)
+end
+
+module DBL = DB_levels
+
+(**
+   Gul-predicate specific machinery. Likely bitrotted by now.
+*)
+module Expr_gul = struct
+
+  open DBL
+
+  let rec to_string_raw c = function
+    | Lam f ->
+        Printf.sprintf "(lam. %s)" (to_string_raw (c+1) f)
+    | Var x -> if x < c then Printf.sprintf "%d" x else Printf.sprintf "'%d" x
+    | App (e1,e2) -> Printf.sprintf "(%s %s)" (to_string_raw c e1) (to_string_raw c e2)
+    | NoneE -> "None"
+    | SomeE e -> Printf.sprintf "(Some %s)" (to_string_raw c e)
+    | AndE (e1,e2) -> Printf.sprintf "(Pred.andc %s %s)" (to_string_raw c e1) (to_string_raw c e2)
+    | OrE (e1,e2) -> Printf.sprintf "(Pred.orc %s %s)" (to_string_raw c e1) (to_string_raw c e2)
+    | CallE (nt,e1,e2) -> callc (mk_npname nt) (to_string_raw c e1) (to_string_raw c e2)
+    | InjectE s -> Printf.sprintf "(%s)" s
+    | CfgLookaheadE (b,n) -> Printf.sprintf "(Pred.lookaheadc %B 0 %s)" b n
+    | CsLookaheadE (b,cs) -> Printf.sprintf "(Pred.lookaheadc %B 0 %s)" b (Cs.to_nice_string cs)
 
   let false_e = Lam (Lam NoneE)
 
@@ -391,9 +397,6 @@ struct
 
 end
 
-
-module DBL = DB_levels
-
 (*****************************************)
 (* PHOAS *)
 module PHOAS = struct
@@ -522,10 +525,14 @@ module PHOAS = struct
 end
 
 (******************************************************************************)
+
+(**
+   Gil-predicate specific machinery.
+*)
 module Expr_gil = struct
 
   open DBL
-  module P = PHOAS
+(*   module P = PHOAS *)
 
   (** Convert to a string for reading/debugging. Does not generate real code. *)
   let rec to_string_raw c = function
@@ -718,162 +725,167 @@ let get_symbol_nullability preds_tbl nt =
 
 (******************************************************************************)
 
-let true_e () = lam2 (fun la v -> SomeE (Var v))
-let false_e () = lam2 (fun la v -> NoneE)
+(** Gul null. preds. *)
+module Gul = struct
 
-(* invariant: branches return an npred, which now includes lookahead arg. *)
-let rec trans' r = match r.Gul.r with
-| Gul.When e -> Lam (fun la -> InjectE e)
-| Gul.Action(Some e,_) ->
-    lam2 (fun la v -> SomeE (App (InjectE e, Var v)))
-| Gul.Action _ -> true_e ()
-| Gul.Symb (nt, None, _, None) -> (* TODO: attributes *)
-    CallE (nt, ignore_call_e, ignore_binder_e)
-| Gul.Symb (nt, Some action, _, None) -> (* TODO: attributes *)
-    CallE (nt, InjectE action, ignore_binder_e)
-| Gul.Symb (nt, None, _, Some binder) -> (* TODO: attributes *)
-    CallE (nt, ignore_call_e, InjectE binder)
-| Gul.Symb (nt, Some call_action, _, Some binder) -> (* TODO: attributes *)
-    CallE (nt, InjectE call_action, InjectE binder)
-| Gul.CharRange _ -> false_e ()
-| Gul.Lit (_,"") | Gul.Opt _ -> true_e ()
-| Gul.Lit (_,_) -> false_e ()
-| Gul.Alt (r1,r2) -> OrE (trans' r1, trans' r2)
-| Gul.Seq (r1,_,_,r2) -> AndE (trans' r1, trans' r2)
-| Gul.Assign (r1,_,_) -> trans' r1
-| Gul.Star (Gul.Bounds (0,_),_) -> true_e ()
-| Gul.Star (Gul.Bounds (_,_),r1) -> trans' r1  (* TODO: this will be problematic
-                                                  if r1 is nullable and modifies the semval.*)
-    (* should instead be some recursive function *)
-| Gul.Lookahead (b, {Gul.r=Gul.Symb(nt,None,_,None)}) -> CfgLookaheadE(b,nt) (* TODO: attributes *)
-| Gul.Box (_, _, Gil.Always_null) -> true_e ()
-| Gul.Box (_, _, Gil.Never_null) -> false_e ()
-| Gul.Box (e, _, Gil.Runbox_null) -> InjectE("Pred3.boxc (" ^ e ^ ")")
-| Gul.Box (_, _, Gil.Runpred_null e) -> InjectE ("let p = " ^ e ^ " in fun _ _ -> p")
-| Gul.Lookahead _
-| Gul.Star _ | Gul.Rcount _ | Gul.Hash _
-| Gul.Delay _
-| Gul.Prose _ | Gul.Position _ | Gul.Minus _ ->
-    Printf.eprintf "Should have desugared %s\n" (Pr.rule2string r); false_e()
+  let true_e () = lam2 (fun la v -> SomeE (Var v))
+  let false_e () = lam2 (fun la v -> NoneE)
 
-let trans r = {e = fun () -> trans' r}
+  (* invariant: branches return an npred, which now includes lookahead arg. *)
+  let rec trans' r = match r.Gul.r with
+  | Gul.When e -> Lam (fun la -> InjectE e)
+  | Gul.Action(Some e,_) ->
+      lam2 (fun la v -> SomeE (App (InjectE e, Var v)))
+  | Gul.Action _ -> true_e ()
+  | Gul.Symb (nt, None, _, None) -> (* TODO: attributes *)
+      CallE (nt, ignore_call_e, ignore_binder_e)
+  | Gul.Symb (nt, Some action, _, None) -> (* TODO: attributes *)
+      CallE (nt, InjectE action, ignore_binder_e)
+  | Gul.Symb (nt, None, _, Some binder) -> (* TODO: attributes *)
+      CallE (nt, ignore_call_e, InjectE binder)
+  | Gul.Symb (nt, Some call_action, _, Some binder) -> (* TODO: attributes *)
+      CallE (nt, InjectE call_action, InjectE binder)
+  | Gul.CharRange _ -> false_e ()
+  | Gul.Lit (_,"") | Gul.Opt _ -> true_e ()
+  | Gul.Lit (_,_) -> false_e ()
+  | Gul.Alt (r1,r2) -> OrE (trans' r1, trans' r2)
+  | Gul.Seq (r1,_,_,r2) -> AndE (trans' r1, trans' r2)
+  | Gul.Assign (r1,_,_) -> trans' r1
+  | Gul.Star (Gul.Bounds (0,_),_) -> true_e ()
+  | Gul.Star (Gul.Bounds (_,_),r1) -> trans' r1  (* TODO: this will be problematic
+                                                    if r1 is nullable and modifies the semval.*)
+      (* should instead be some recursive function *)
+  | Gul.Lookahead (b, {Gul.r=Gul.Symb(nt,None,_,None)}) -> CfgLookaheadE(b,nt) (* TODO: attributes *)
+  | Gul.Box (_, _, Gil.Always_null) -> true_e ()
+  | Gul.Box (_, _, Gil.Never_null) -> false_e ()
+  | Gul.Box (e, _, Gil.Runbox_null) -> InjectE("Pred3.boxc (" ^ e ^ ")")
+  | Gul.Box (_, _, Gil.Runpred_null e) -> InjectE ("let p = " ^ e ^ " in fun _ _ -> p")
+  | Gul.Lookahead _
+  | Gul.Star _ | Gul.Rcount _ | Gul.Hash _
+  | Gul.Delay _
+  | Gul.Prose _ | Gul.Position _ | Gul.Minus _ ->
+      Printf.eprintf "Should have desugared %s\n" (Pr.rule2string r); false_e()
 
-let compile_rule nt r =
-  let e = trans r in
-  let e_simp = DBL.simplify (convert_to_dB e) in
-  if false then
-    begin
-      (* Sanity check *)
-      if not (DBL.is_closed e_simp) then
-        Printf.eprintf "Nonterminal %s has open predicate: %s\n" nt (DBL.to_string_raw 0 e_simp)
-    end;
-  e_simp
+  let trans r = {e = fun () -> trans' r}
 
-(* None = The empty set
-   Some false = a non-empty set, which does not include epsilon
-   Some true = a non-empty set, which does include epsilon
-   Some e  = needs to be determined dynamically.
-*)
+  let compile_rule nt r =
+    let e = trans r in
+    let e_simp = DBL.simplify (convert_to_dB e) in
+    if false then
+      begin
+        (* Sanity check *)
+        if not (DBL.is_closed e_simp) then
+          Printf.eprintf "Nonterminal %s has open predicate: %s\n" nt (Expr_gul.to_string_raw 0 e_simp)
+      end;
+    e_simp
+
+  (* None = The empty set
+     Some false = a non-empty set, which does not include epsilon
+     Some true = a non-empty set, which does include epsilon
+     Some e  = needs to be determined dynamically.
+  *)
 
 
-let preds_from_grammar grm =
-  let preds_tbl = Hashtbl.create 11 in
-  let preds nt =
-    try Hashtbl.find preds_tbl nt with
-        Not_found ->
-          Printf.eprintf "Warning: symbol %s not defined. Assuming not nullable.\n" nt;
-          DBL.false_e
-  in
-  let init_nt = function Gul.RuleDef (n,_,_) -> Hashtbl.add preds_tbl n DBL.false_e | _ -> () in
-  let try_rewrite_nt = function
-      Gul.RuleDef (n,r,_) ->
-        if Logging.activated then
-          Logging.log Logging.Features.nullpred
-            "Attempting rewrite of symbol %s.\n" n;
-        let e_n = compile_rule n r in
-        let e_n_rw = DBL.rewrite preds e_n in
-        let e_n' = DBL.simplify e_n_rw in
-        if false then
-          begin
-            (* Sanity check *)
-            if not (DBL.is_closed e_n') then
-              Printf.eprintf "Nonterminal %s has open simpl-rewr predicate: \nbefore:   %s\nafter:  %s\n"
-                n (DBL.to_string_raw 0 e_n_rw) (DBL.to_string_raw 0 e_n');
-          end;
-        Hashtbl.replace preds_tbl n e_n'
-    | _ -> ()
-  in
-  (* Sort by dependency order so that we need only traverse the grammar rules once to get the
-     correct answers. *)
-  let ds_sorted = Gul.sort_definitions grm.Gul.ds in
-  List.iter init_nt ds_sorted;
-  List.iter try_rewrite_nt ds_sorted;
-  preds_tbl
-
-let process_grammar ch get_action get_start grm =
-  let preds =  preds_from_grammar grm in
-
-  (* Record which nonterminals are called from other nonterminals (including themselves). *)
-  let called_set = Hashtbl.fold (fun _ e s -> DBL.note_called s e) preds (PSet.create compare) in
-
-  let print_pred nt e_p first =
-    if first then
-      Printf.fprintf ch "let rec "
-    else
-      Printf.fprintf ch "and ";
-    (* To ensure "let rec" compatibility, we force everything to be a syntactic function.
-       We can special case functions, b/c they already meet the criterion, and eta-expand
-       everything else.
-    *)
-    let x = mk_var 0 in
-    let p = convert_from_dB e_p in
-    let body = match e_p with
-        DBL.Lam (DBL.Lam _) ->
-          (match p.e () with
-               Lam f ->
-                 (match f lookahead_name with
-                      Lam f2 -> f2 x
-                    | _ -> failwith "Internal error in module Nullable_pred: De Bruin and PHOAS representations out-of-sync.")
-             | _ -> failwith "Internal error in module Nullable_pred: De Bruin and PHOAS representations out-of-sync.")
-      | _ ->  app2 (p.e()) (Var lookahead_name) (Var x)
+  let preds_from_grammar grm =
+    let preds_tbl = Hashtbl.create 11 in
+    let preds nt =
+      try Hashtbl.find preds_tbl nt with
+          Not_found ->
+            Printf.eprintf "Warning: symbol %s not defined. Assuming not nullable.\n" nt;
+            Expr_gul.false_e
     in
-    if PSet.mem nt called_set && not (DBL.is_bool e_p) then
-      Printf.fprintf ch "%s = let __tbl = SV_hashtbl.create 11 in
-                       fun %s %s ->
-                          let __k = (%s,%s) in
-                          try SV_hashtbl.find __tbl __k
-                          with Not_found ->
-                            let x = %s in SV_hashtbl.add __tbl __k x; x\n\n"
-        (mk_npname nt) lookahead_name x lookahead_name x
-        (to_string' callc get_action get_start 1 body)
-    else
-      Printf.fprintf ch "%s %s %s = %s\n\n" (mk_npname nt) lookahead_name x (to_string' callc get_action get_start 1 body);
-    false
-  in
-  Printf.fprintf ch "module SV_hashtbl = Hashtbl.Make(struct
-                        type t = lookahead * sv
-                        let equal (la1,a) (la2,b) = (la1 == la2) && (sv_compare a b = 0)
-                        let hash = Hashtbl.hash end)\n";
-  ignore (Hashtbl.fold print_pred preds true)
+    let init_nt = function Gul.RuleDef (n,_,_) -> Hashtbl.add preds_tbl n Expr_gul.false_e | _ -> () in
+    let try_rewrite_nt = function
+        Gul.RuleDef (n,r,_) ->
+          if Logging.activated then
+            Logging.log Logging.Features.nullpred
+              "Attempting rewrite of symbol %s.\n" n;
+          let e_n = compile_rule n r in
+          let e_n_rw = Expr_gul.rewrite preds e_n in
+          let e_n' = DBL.simplify e_n_rw in
+          if false then
+            begin
+              (* Sanity check *)
+              if not (DBL.is_closed e_n') then
+                Printf.eprintf "Nonterminal %s has open simpl-rewr predicate: \nbefore:   %s\nafter:  %s\n"
+                  n (Expr_gul.to_string_raw 0 e_n_rw) (Expr_gul.to_string_raw 0 e_n');
+            end;
+          Hashtbl.replace preds_tbl n e_n'
+      | _ -> ()
+    in
+    (* Sort by dependency order so that we need only traverse the grammar rules once to get the
+       correct answers. *)
+    let ds_sorted = Gul.sort_definitions grm.Gul.ds in
+    List.iter init_nt ds_sorted;
+    List.iter try_rewrite_nt ds_sorted;
+    preds_tbl
 
-let print_nullable_predicates gr outch =
-  let tbl_ntnames = Hashtbl.create 11 in
-  let ntnum = ref 264 in
-  let add_nonterm nt =
-    begin
-      match Util.find_option tbl_ntnames nt with
-      | Some x -> x
-      | None ->
-          let num = !ntnum in
-          incr ntnum;
-          Hashtbl.add tbl_ntnames nt num;
-          num
-    end
-  in
-  (* use dummy get_start function because there is no transducer. *)
-  process_grammar outch add_nonterm (fun _ -> 0) gr
+  let process_grammar ch get_action get_start grm =
+    let preds =  preds_from_grammar grm in
+
+    (* Record which nonterminals are called from other nonterminals (including themselves). *)
+    let called_set = Hashtbl.fold (fun _ e s -> DBL.note_called s e) preds (PSet.create compare) in
+
+    let print_pred nt e_p first =
+      if first then
+        Printf.fprintf ch "let rec "
+      else
+        Printf.fprintf ch "and ";
+      (* To ensure "let rec" compatibility, we force everything to be a syntactic function.
+         We can special case functions, b/c they already meet the criterion, and eta-expand
+         everything else.
+      *)
+      let x = mk_var 0 in
+      let p = convert_from_dB e_p in
+      let body = match e_p with
+          DBL.Lam (DBL.Lam _) ->
+            (match p.e () with
+                 Lam f ->
+                   (match f lookahead_name with
+                        Lam f2 -> f2 x
+                      | _ -> failwith "Internal error in module Nullable_pred: De Bruin and PHOAS representations out-of-sync.")
+               | _ -> failwith "Internal error in module Nullable_pred: De Bruin and PHOAS representations out-of-sync.")
+        | _ ->  app2 (p.e()) (Var lookahead_name) (Var x)
+      in
+      if PSet.mem nt called_set && not (Expr_gul.is_bool e_p) then
+        Printf.fprintf ch "%s = let __tbl = SV_hashtbl.create 11 in
+                         fun %s %s ->
+                            let __k = (%s,%s) in
+                            try SV_hashtbl.find __tbl __k
+                            with Not_found ->
+                              let x = %s in SV_hashtbl.add __tbl __k x; x\n\n"
+          (mk_npname nt) lookahead_name x lookahead_name x
+          (to_string' callc get_action get_start 1 body)
+      else
+        Printf.fprintf ch "%s %s %s = %s\n\n" (mk_npname nt) lookahead_name x (to_string' callc get_action get_start 1 body);
+      false
+    in
+    Printf.fprintf ch "module SV_hashtbl = Hashtbl.Make(struct
+                          type t = lookahead * sv
+                          let equal (la1,a) (la2,b) = (la1 == la2) && (sv_compare a b = 0)
+                          let hash = Hashtbl.hash end)\n";
+    ignore (Hashtbl.fold print_pred preds true)
+
+  let print_nullable_predicates gr outch =
+    let tbl_ntnames = Hashtbl.create 11 in
+    let ntnum = ref 264 in
+    let add_nonterm nt =
+      begin
+        match Util.find_option tbl_ntnames nt with
+        | Some x -> x
+        | None ->
+            let num = !ntnum in
+            incr ntnum;
+            Hashtbl.add tbl_ntnames nt num;
+            num
+      end
+    in
+    (* use dummy get_start function because there is no transducer. *)
+    process_grammar outch add_nonterm (fun _ -> 0) gr
+end
 
 (******************************************************************************)
+
 module Gil = struct
 
   let true_e () = lam3 (fun la p v -> SomeE (Var v))

@@ -19,17 +19,17 @@ type boxnull =
   | Runbox_null          (* run box to determine if it accepts null *)
   | Runpred_null of expr (* run separate predicate to determine if box accepts null *)
 
-type rhs =
-    Symb of nonterminal * expr option * expr option
+type 'expr rhs =
+    Symb of nonterminal * 'expr option * 'expr option
   | Lit of bool * string              (* true iff case sensitive *)
   | CharRange of int * int
-  | Action of expr
-  | Box of expr * boxnull
-  | When of expr * expr
-  | Seq of rhs * rhs
-  | Alt of rhs * rhs
-  | Star of rhs
-  | Lookahead of bool * rhs
+  | Action of 'expr
+  | Box of 'expr * boxnull
+  | When of 'expr * 'expr
+  | Seq of 'expr rhs * 'expr rhs
+  | Alt of 'expr rhs * 'expr rhs
+  | Star of 'expr rhs
+  | Lookahead of bool * 'expr rhs
 
 let charrange2alt low high =
   let rec loop i alt =
@@ -38,18 +38,18 @@ let charrange2alt low high =
   loop (low + 1) (CharRange(low,low))
 
 (** Convert binary Alt representation to list of alternatives *)
-let alt2rules =
+let alt2rules r =
   let rec loop l = function
   | Alt(r2,r3) -> loop (loop l r3) r2
   | r -> r::l in
-  loop []
+  loop [] r
 
 (** Convert binary Seq representation to a list *)
-let seq2rules =
+let seq2rules r =
   let rec loop l = function
   | Seq(r2,r3) -> loop (loop l r3) r2
   | r -> r::l in
-  loop []
+  loop [] r
 
 (** Turn a list into a sequence. Not tail-recursive. *)
 let rec mkSEQ = function
@@ -67,9 +67,9 @@ let rec map f = function
   | ( Action _ | Symb _ | Box _
     | When _ | Lit _ | CharRange _ | Lookahead _)
       as r -> f r
-  | Alt (r1, r2) -> Alt (map f r2, map f r2) 
+  | Alt (r1, r2) -> Alt (map f r2, map f r2)
   | Star r1 -> Star (map f r1)
-  | Seq (r1, r2) -> Seq (map f r2, map f r2) 
+  | Seq (r1, r2) -> Seq (map f r2, map f r2)
 
 (** [ends_in_sem r] indicates whether [r] ends in a semantically relevant
     element: predicate, action, box, or symbol with binder. *)
@@ -134,7 +134,7 @@ let rec to_cs_rule = function
         let result = Cs.empty() in
         Cs.insert result lower;
         Cs.insert result upper;
-	result
+        result
   | CharRange(min,max) ->
       Cs.range min (max+1)
   | Alt(r2,r3) ->

@@ -43,7 +43,7 @@ type rhs = { mutable a: annot;
              mutable r: rhs0 }
 
 and rhs0 =
-    Symb of nonterminal 
+    Symb of nonterminal
       * expr option                (* early args *)
       * ((var * expr) list)        (* attributes *)
       * expr option                (* late args  *)
@@ -168,7 +168,7 @@ type grammar = {
         wrapped. *)
 
     mutable tokmap: (expr * (nonterminal * (nonterminal * expr option)) list) list;
-    mutable gildefs: (nonterminal * Gil.rhs) list;
+    mutable gildefs: (nonterminal * string Gil.rhs) list;
 
     mutable precs : (assoc * nonterminal list) array
   }
@@ -403,11 +403,11 @@ let remove_late_actions gr =
         let r3_rla = loop r3 in
         (match r3_rla.r with
            | Action (None, None) -> loop r2
-           | _ -> 
-	       let r2_rla = loop r2 in
-	       (match r2_rla.r, x with
-		  | Action (None, None), None -> r3_rla
-		  | _ -> mkSEQ2 (r2_rla, x, None, r3_rla)))
+           | _ ->
+               let r2_rla = loop r2 in
+               (match r2_rla.r, x with
+                  | Action (None, None), None -> r3_rla
+                  | _ -> mkSEQ2 (r2_rla, x, None, r3_rla)))
     | Assign(r2, x,  _) -> mkASSIGN(loop r2,x,None)
     | Star(Accumulate (Some _ as x, _), r2) -> mkSTAR2(Accumulate (x, None), loop r2)
     | Star(Accumulate (None, _), r2) -> mkSTAR(0, Infinity, loop r2)
@@ -424,9 +424,9 @@ let remove_late_actions gr =
   in
 
   let rla_def = function
-    | RuleDef (n,r,a) -> 
-	a.Attr.late_params <- None;
-	RuleDef (n, loop r, a)
+    | RuleDef (n,r,a) ->
+        a.Attr.late_params <- None;
+        RuleDef (n, loop r, a)
     | d -> d
   in
 

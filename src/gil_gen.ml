@@ -140,11 +140,11 @@ let nalt_w_lookahead_lex_bkt_str bktable tokendefs f =
           else begin
             bprintf f
 "           | %s _ -> (nalt [|" ocaml_constructor;
-	        Array.iter (fun i ->
-		                  bprintf f " ";
-		                  bprintf f "(Array.unsafe_get rs %d)" i;
-		                  bprintf f ";") rsil;
-	        bprintf f "|] k_s ykb v)
+                Array.iter (fun i ->
+                                  bprintf f " ";
+                                  bprintf f "(Array.unsafe_get rs %d)" i;
+                                  bprintf f ";") rsil;
+                bprintf f "|] k_s ykb v)
 "
           end
       | None ->
@@ -155,11 +155,11 @@ let nalt_w_lookahead_lex_bkt_str bktable tokendefs f =
           else begin
             bprintf f
 "           | %s -> (nalt [|" ocaml_constructor;
-	        Array.iter (fun i ->
-		                  bprintf f " ";
-		                  bprintf f "(Array.unsafe_get rs %d)" i;
-		                  bprintf f ";") rsil;
-	        bprintf f "|] k_s ykb v)
+                Array.iter (fun i ->
+                                  bprintf f " ";
+                                  bprintf f "(Array.unsafe_get rs %d)" i;
+                                  bprintf f ";") rsil;
+                bprintf f "|] k_s ykb v)
 "
           end
   in
@@ -185,11 +185,11 @@ let nalt_w_lookahead_bkt_str cstable f =
       " (List.hd rsil)
       else begin
         bprintf f "(nalt [|";
-	        List.iter (fun i ->
-		                  bprintf f " ";
-		                  bprintf f "(Array.unsafe_get rs %d)" i;
-		                  bprintf f ";") rsil;
-	        bprintf f "|] k_s ykb v)
+                List.iter (fun i ->
+                                  bprintf f " ";
+                                  bprintf f "(Array.unsafe_get rs %d)" i;
+                                  bprintf f ";") rsil;
+                bprintf f "|] k_s ykb v)
       "
       end
   in
@@ -243,12 +243,13 @@ let pr_gil_lex f use_refs r0 first_map follow_map n tokmap =
           bprintf f "(action (%s))" e
       | Gil.When(e1,e2) ->
           bprintf f "(pred (%s) (%s))" e1 e2
+      | Gil.When_special e -> invalid_arg "When_special not yet supported."
       | Gil.Box(e,_) ->
           bprintf f "(box (%s))"  e
       | Gil.Symb(x,y,z) ->
-	  if use_refs then
+          if use_refs then
             bprintf f "(rsymb %s" (symb_ref_name x)
-	  else
+          else
             bprintf f "(symb %s" (symb_fun_name x);
           (match y with
              | None -> bprintf f " _call_fresh"
@@ -256,15 +257,15 @@ let pr_gil_lex f use_refs r0 first_map follow_map n tokmap =
           (match z with
              | None -> bprintf f " _ignore_ret"
              | Some binder -> bprintf f " (%s)" binder);
-	  bprintf f ")"
+          bprintf f ")"
       | Gil.CharRange(low,high) ->
-	  if low = high then
+          if low = high then
             bprintf f "(term '%s')" (Char.escaped (Char.chr low))
-	  else
+          else
             bprintf f "(char_range %d %d)" low high
       | Gil.Lit(case_sensitive,x) ->
-	  if x = "" then bprintf f "eps"
-	  else if String.length x = 1 then bprintf f "(term '%s')" (Char.escaped x.[0])
+          if x = "" then bprintf f "eps"
+          else if String.length x = 1 then bprintf f "(term '%s')" (Char.escaped x.[0])
           else bprintf f "(terms \"%s\")" (String.escaped x)
       | Gil.Star(r2) ->
           if !Compileopt.lookahead then
@@ -280,45 +281,45 @@ let pr_gil_lex f use_refs r0 first_map follow_map n tokmap =
                   let fn = Variables.fresh () in
                     bprintf f "\n(let rec star_w_lookahead_lex_%s %s " fn (star_w_lookahead_lex_str ntl tokendefs fn);
                     bprintf f "(star_w_lookahead_lex_%s %s " fn tokenizer;
-	                loop r2 cur_fls;
-	                bprintf f "))"
+                        loop r2 cur_fls;
+                        bprintf f "))"
                 end
                 else begin
                   let fsstr,flsstr = Cs.to_code fscs,Cs.to_code flscs in
                     bprintf f "(star_w_lookahead (%s) " fsstr;
-	                loop r2 cur_fls;
-	                bprintf f ")"
+                        loop r2 cur_fls;
+                        bprintf f ")"
                 end
               end
               else begin
                 bprintf f "(star ";
-	            loop r2 cur_fls;
-	            bprintf f ")"
+                    loop r2 cur_fls;
+                    bprintf f ")"
               end
           else begin
             bprintf f "(star ";
-	        loop r2 cur_fls;
-	        bprintf f ")"
+                loop r2 cur_fls;
+                bprintf f ")"
           end
       | Gil.Lookahead(true,r2) ->
-	  (match r2 with
-	     | Gil.CharRange(low,high) ->
-		 bprintf f "(pos_cr_lookahead %d %d)" low high;
-	     | _ ->
-		 bprintf f "(pos_lookahead ";
-		 loop r2 cur_fls;
-		 bprintf f ")")
+          (match r2 with
+             | Gil.CharRange(low,high) ->
+                 bprintf f "(pos_cr_lookahead %d %d)" low high;
+             | _ ->
+                 bprintf f "(pos_lookahead ";
+                 loop r2 cur_fls;
+                 bprintf f ")")
       | Gil.Lookahead(false,r2) ->
-	  (match r2 with
-	     | Gil.CharRange(low,high) ->
-		 bprintf f "(neg_cr_lookahead %d %d)" low high;
-	     | _ ->
-		 bprintf f "(neg_lookahead ";
-		 loop r2 cur_fls;
-		 bprintf f ")")
+          (match r2 with
+             | Gil.CharRange(low,high) ->
+                 bprintf f "(neg_cr_lookahead %d %d)" low high;
+             | _ ->
+                 bprintf f "(neg_lookahead ";
+                 loop r2 cur_fls;
+                 bprintf f ")")
       | Gil.Seq _ when !use_arrays ->
-	      bprintf f "(nseq [|";
-	      let rs = Gil.seq2rules r in
+              bprintf f "(nseq [|";
+              let rs = Gil.seq2rules r in
             if !Compileopt.lookahead then begin
               let computeone r_i (this_fls,list) =
                 let fs = first_gil_lex r_i first_map in
@@ -340,12 +341,12 @@ let pr_gil_lex f use_refs r0 first_map follow_map n tokmap =
                 ()
             end
             else begin
-	          List.iter (fun r_i ->
-		                   bprintf f " ";
-		                   loop r_i cur_fls;
-		                   bprintf f ";") rs;
+                  List.iter (fun r_i ->
+                                   bprintf f " ";
+                                   loop r_i cur_fls;
+                                   bprintf f ";") rs;
             end;
-	        bprintf f "|])"
+                bprintf f "|])"
       | Gil.Seq (r2, r3) ->
           if !Compileopt.lookahead then begin
           let fs = first_gil_lex r3 first_map in
@@ -354,21 +355,21 @@ let pr_gil_lex f use_refs r0 first_map follow_map n tokmap =
               union_fls fs.nonempty cur_fls
             else fs.nonempty
           in
-	          bprintf f "(seq ";
-	          loop r2 new_fls;
-	          bprintf f " ";
-	          loop r3 cur_fls;
-	          bprintf f ")"
+                  bprintf f "(seq ";
+                  loop r2 new_fls;
+                  bprintf f " ";
+                  loop r3 cur_fls;
+                  bprintf f ")"
           end
           else begin
-	        bprintf f "(seq ";
-	        loop r2 cur_fls;
-	        bprintf f " ";
-	        loop r3 cur_fls;
-	        bprintf f ")"
+                bprintf f "(seq ";
+                loop r2 cur_fls;
+                bprintf f " ";
+                loop r3 cur_fls;
+                bprintf f ")"
           end
       | Gil.Alt _ when !use_arrays ->
-	      let rs = Gil.alt2rules r in
+              let rs = Gil.alt2rules r in
           if !Compileopt.lookahead then begin
             let fss = List.map (fun r_i -> first_gil_lex r_i first_map) rs in
             let fsl = List.map (fun fs -> fs.nonempty) fss in
@@ -383,11 +384,11 @@ let pr_gil_lex f use_refs r0 first_map follow_map n tokmap =
                         bprintf f "\n(let nalt_w_lookahead_lex_%s " fn;
                         nalt_w_lookahead_lex_str ntll tokendefs f;
                         bprintf f "(nalt_w_lookahead_lex_%s %s [|" fn tokenizer;
-	                    List.iter (fun r_i ->
-		                             bprintf f " ";
-		                             loop r_i cur_fls;
-		                             bprintf f ";") rs;
-	                    bprintf f "|]))"
+                            List.iter (fun r_i ->
+                                             bprintf f " ";
+                                             loop r_i cur_fls;
+                                             bprintf f ";") rs;
+                            bprintf f "|]))"
                     end
                     else begin
 (*
@@ -395,11 +396,11 @@ let pr_gil_lex f use_refs r0 first_map follow_map n tokmap =
                         bprintf f "\n(let nalt_w_lookahead_%s " fn;
                         nalt_w_lookahead_str0 fsl f;
                         bprintf f "(nalt_w_lookahead_%s [|" fn;
-	                    List.iter (fun r_i ->
-		                             bprintf f " ";
-		                             loop r_i cur_fls;
-		                             bprintf f ";") rs;
-	                    bprintf f " |]))";
+                            List.iter (fun r_i ->
+                                             bprintf f " ";
+                                             loop r_i cur_fls;
+                                             bprintf f ";") rs;
+                            bprintf f " |]))";
 *)
 (* The following code uses n if-then-else statements while the above uses a single ocaml match statement *)
                       let fs2code (fscs,fsts) =
@@ -412,11 +413,11 @@ let pr_gil_lex f use_refs r0 first_map follow_map n tokmap =
                         bprintf f "(nalt_w_lookahead [|";
                         List.iter (fun fsname -> bprintf f " %s;" fsname) fslist;
                         bprintf f "|] [|";
-	                    List.iter (fun r_i ->
-		                             bprintf f " ";
-		                             loop r_i cur_fls;
-		                             bprintf f ";") rs;
-	                    bprintf f "|])";
+                            List.iter (fun r_i ->
+                                             bprintf f " ";
+                                             loop r_i cur_fls;
+                                             bprintf f ";") rs;
+                            bprintf f "|])";
                         List.iter (fun _ ->  bprintf f ")") fsl
                     end
                   else if !use_bucket && one_tokenizer fsl then begin
@@ -438,11 +439,11 @@ let pr_gil_lex f use_refs r0 first_map follow_map n tokmap =
                       bprintf f "\n(let nalt_w_lookahead_lex_bkt_%s " fn;
                       nalt_w_lookahead_lex_bkt_str bktable tokendefs f;
                       bprintf f "(nalt_w_lookahead_lex_bkt_%s %s [|" fn tokenizer;
-	                  List.iter (fun r_i ->
-		                           bprintf f " ";
-		                           loop r_i cur_fls;
-		                           bprintf f ";") rs;
-	                  bprintf f "|]))"
+                          List.iter (fun r_i ->
+                                           bprintf f " ";
+                                           loop r_i cur_fls;
+                                           bprintf f ";") rs;
+                          bprintf f "|]))"
                   end
                   else if !use_bucket && all_char fsl then begin
                     let construct_cslist (i,list,orglist) (topcs,ts) =
@@ -478,43 +479,43 @@ let pr_gil_lex f use_refs r0 first_map follow_map n tokmap =
                       bprintf f "\n(let nalt_w_lookahead_bkt_%s " fn;
                       nalt_w_lookahead_bkt_str cstable f;
                       bprintf f "(nalt_w_lookahead_bkt_%s [|" fn;
-	                  List.iter (fun r_i ->
-		                           bprintf f " ";
-		                           loop r_i cur_fls;
-		                           bprintf f ";") rs;
-	                  bprintf f "|]))"
+                          List.iter (fun r_i ->
+                                           bprintf f " ";
+                                           loop r_i cur_fls;
+                                           bprintf f ";") rs;
+                          bprintf f "|]))"
                   end
                   else begin
-	                bprintf f "(nalt [|";
-	                List.iter (fun r_i ->
-		                         bprintf f " ";
-		                         loop r_i cur_fls;
-		                         bprintf f ";") rs;
-	                bprintf f "|])"
+                        bprintf f "(nalt [|";
+                        List.iter (fun r_i ->
+                                         bprintf f " ";
+                                         loop r_i cur_fls;
+                                         bprintf f ";") rs;
+                        bprintf f "|])"
                   end
               else begin
-	            bprintf f "(nalt [|";
-	            List.iter (fun r_i ->
-		                     bprintf f " ";
-		                     loop r_i cur_fls;
-		                     bprintf f ";") rs;
-	            bprintf f "|])"
+                    bprintf f "(nalt [|";
+                    List.iter (fun r_i ->
+                                     bprintf f " ";
+                                     loop r_i cur_fls;
+                                     bprintf f ";") rs;
+                    bprintf f "|])"
               end
           end
           else begin
-	        bprintf f "(nalt [|";
-	        List.iter (fun r_i ->
-		                 bprintf f " ";
-		                 loop r_i cur_fls;
-		                 bprintf f ";") rs;
-	        bprintf f "|])"
+                bprintf f "(nalt [|";
+                List.iter (fun r_i ->
+                                 bprintf f " ";
+                                 loop r_i cur_fls;
+                                 bprintf f ";") rs;
+                bprintf f "|])"
           end
       | Gil.Alt (r2, r3) ->
           let regular_alt () =
             bprintf f "(alt ";
-	        loop r2 cur_fls;
-	        bprintf f " ";
-	        loop r3 cur_fls;
+                loop r2 cur_fls;
+                bprintf f " ";
+                loop r3 cur_fls;
             bprintf f ")"
           in
           let alt_wlookahead fsstr2 fsstr3 =
@@ -531,10 +532,10 @@ let pr_gil_lex f use_refs r0 first_map follow_map n tokmap =
             let fn = Variables.fresh () in
               bprintf f "\n(let alt_w_lookahead_lex_%s %s" fn (alt_w_lookahead_lex_str ntl2 ntl3 tokendefs);
               bprintf f "(alt_w_lookahead_lex_%s %s " fn tokenizer;
-	          loop r2 cur_fls;
+                  loop r2 cur_fls;
               bprintf f " ";
               loop r3 cur_fls;
-	          bprintf f "))"
+                  bprintf f "))"
           in
           if !Compileopt.lookahead then begin
             let fs2,fs3 = first_gil_lex r2 first_map, first_gil_lex r3 first_map in
@@ -554,10 +555,10 @@ let pr_gil_lex f use_refs r0 first_map follow_map n tokmap =
                             let tokendefs = try List.assoc tokenizer tokmap with Not_found -> (Printf.eprintf "Warning: Unable to find %s" tokenizer; []) in
                               bprintf f "\n(let alt_w_lookahead_lex_%s %s" fn (alt_w_lookahead_lex_str0 ntl2 ntl3 tokendefs);
                               bprintf f "(alt_w_lookahead_lex_%s %s " fn tokenizer;
-	                          loop r2 cur_fls;
+                                  loop r2 cur_fls;
                               bprintf f " ";
                               loop r3 cur_fls;
-	                          bprintf f "))"
+                                  bprintf f "))"
                           end
                           else begin
                             let fsstr2,fsstr3 = Cs.to_code fs2cs,Cs.to_code fs3cs in
@@ -587,10 +588,10 @@ let pr_gil_lex f use_refs r0 first_map follow_map n tokmap =
                                 let fsname3 = Variables.fresh () in
                                   bprintf f "\n(let alt_w_lookahead_lex2_%s %s" fsname3 (alt_w_lookahead_lex_str2 ntl3 tokendefs);
                                   bprintf f "(alt_w_lookahead_lex2_%s %s " fsname3 tokenizer;
-	                              loop r3 cur_fls;
+                                      loop r3 cur_fls;
                                   bprintf f " ";
                                   loop r2 cur_fls;
-	                              bprintf f "))"
+                                      bprintf f "))"
                             end
                             else begin
                                 let fsstr3 = Cs.to_code fs3cs in
@@ -621,10 +622,10 @@ let pr_gil_lex f use_refs r0 first_map follow_map n tokmap =
                                 let fsname2 = Variables.fresh () in
                                   bprintf f "\n(let alt_w_lookahead_lex3_%s %s" fsname2 (alt_w_lookahead_lex_str2 ntl2 tokendefs);
                                   bprintf f "(alt_w_lookahead_lex3_%s %s " fsname2 tokenizer;
-	                              loop r2 cur_fls;
+                                      loop r2 cur_fls;
                                   bprintf f " ";
                                   loop r3 cur_fls;
-	                              bprintf f "))"
+                                      bprintf f "))"
                             end
                             else begin
                                 let fsstr2 = Cs.to_code fs2cs in
@@ -673,8 +674,8 @@ let pr_gil_definitions f start = function
       let follow_map = follow_gr_gil ds first_map in
       Printf.bprintf b "(*PARSER-COMBINATOR PROLOGUE*)
 module Memo_symb = Allp.Make(struct type semval = sv
-        			       module HT = TDHashtable
-			end)
+                                       module HT = TDHashtable
+                        end)
 let memo_symb = Memo_symb.memo_symb
 let _call_fresh = (fun _ -> sv0)
 let _ignore_ret = (fun p x y -> x)
@@ -687,14 +688,14 @@ open Allp\n\n";
       pr_gil b false false r1 first_map follow_map n1;
       Printf.bprintf b "  k_s i v)\n\n";
       List.iter
-	(fun (n,r_gil) ->
-	   let name = symb_fun_name n in
-	   Printf.bprintf b "and %s = \n" name;
-	   Printf.bprintf b "  let table = TDHashtable.create 11 in (fun k_s i v ->\n";
-	   Printf.bprintf b "  memo_symb table \n";
-	   pr_gil b false false r_gil first_map follow_map n;
-	   Printf.bprintf b "  k_s i v)\n\n")
-	ds;
+        (fun (n,r_gil) ->
+           let name = symb_fun_name n in
+           Printf.bprintf b "and %s = \n" name;
+           Printf.bprintf b "  let table = TDHashtable.create 11 in (fun k_s i v ->\n";
+           Printf.bprintf b "  memo_symb table \n";
+           pr_gil b false false r_gil first_map follow_map n;
+           Printf.bprintf b "  k_s i v)\n\n")
+        ds;
       Printf.fprintf f "%s\n" (Buffer.contents b);
       Printf.fprintf f "in Pami.Basic.mk_parse %s sv0\n\n%!" (symb_fun_name start)
 *)
@@ -709,8 +710,8 @@ let pr_gil_definitions2 f start tokmap = function
       let tcg = rec_graph ds first_map in
       Printf.bprintf b "(*PARSER-COMBINATOR PROLOGUE*)
 module Memo_symb = Allp.Make(struct type semval = sv
-			       module HT = TDHashtable
-			end)
+                               module HT = TDHashtable
+                        end)
 let memo_symb = Memo_symb.memo_symb
 let _call_fresh = (fun _ -> sv0)
 let _ignore_ret = (fun p x y -> x)
@@ -720,25 +721,25 @@ open YkBuf\n\n";
       Printf.bprintf b "\nlet __parse = \n";
 
       List.iter
-	(fun (n,_) -> Printf.bprintf b "let %s = ref eps in\n" (symb_ref_name n) )
-	ds;
+        (fun (n,_) -> Printf.bprintf b "let %s = ref eps in\n" (symb_ref_name n) )
+        ds;
 
       List.iter
-	(fun (n,r_gil) ->
-	   let name = symb_fun_name n in
-	   Printf.bprintf b "let %s = \n" name;
+        (fun (n,r_gil) ->
+           let name = symb_fun_name n in
+           Printf.bprintf b "let %s = \n" name;
          if !remove_memo && !Compileopt.lookahead &&
-	       not(is_rec n tcg)
+               not(is_rec n tcg)
            (*&& (is_ll1 r_gil first_map follow_map n tokmap) *)
-	     then ()
+             then ()
          else begin
-	       Printf.bprintf b "  let table = TDHashtable.create 11 in\n";
-	       Printf.bprintf b "  memo_symb table %S\n" n;
+               Printf.bprintf b "  let table = TDHashtable.create 11 in\n";
+               Printf.bprintf b "  memo_symb table %S\n" n;
          end;
-	   pr_gil_lex b true r_gil first_map follow_map n tokmap;
-	   Printf.bprintf b " in\n%s := %s;\n\n" (symb_ref_name n) name;
-	)
-	ds;
+           pr_gil_lex b true r_gil first_map follow_map n tokmap;
+           Printf.bprintf b " in\n%s := %s;\n\n" (symb_ref_name n) name;
+        )
+        ds;
 
       Printf.fprintf f "%s\n" (Buffer.contents b);
       Printf.fprintf f "Pami.Basic.mk_parse %s sv0\n\n%!" (symb_fun_name start)
@@ -755,12 +756,14 @@ let pr_gil f liberal use_refs use_arrays r0 =
           bprintf f "(action (%s))" e
       | Gil.When(e1,e2) ->
           bprintf f "(pred (%s) (%s))" e1 e2
+      | Gil.When_special e ->
+          invalid_arg "When_special not yet supported."
       | Gil.Box(e,_) ->
           bprintf f "(box (%s))"  e
       | Gil.Symb(x,y,z) ->
-	  if use_refs then
+          if use_refs then
             bprintf f "(rsymb %s" (symb_ref_name x)
-	  else
+          else
             bprintf f "(symb %s" (symb_fun_name x);
           (match y with
              | None -> bprintf f " _call_fresh"
@@ -768,60 +771,60 @@ let pr_gil f liberal use_refs use_arrays r0 =
           (match z with
              | None -> bprintf f " _ignore_ret"
              | Some binder -> bprintf f " (%s)" binder);
-	  bprintf f ")"
+          bprintf f ")"
       | Gil.CharRange(low,high) ->
-	  if low = high then
+          if low = high then
             bprintf f "(term '%s')" (Char.escaped (Char.chr low))
-	  else
+          else
             bprintf f "(char_range %d %d)" low high
       | Gil.Lit(case_sensitive,x) ->
-	  if x = "" then bprintf f "eps"
-	  else if String.length x = 1 then bprintf f "(term '%s')" (Char.escaped x.[0])
+          if x = "" then bprintf f "eps"
+          else if String.length x = 1 then bprintf f "(term '%s')" (Char.escaped x.[0])
           else bprintf f "(terms \"%s\")" (String.escaped x)
       | Gil.Star(r2) ->
           if liberal then
-	    bprintf f "(star "
-	  else
+            bprintf f "(star "
+          else
             bprintf f "(star_strict ";
-	  loop r2;
-	  bprintf f ")"
+          loop r2;
+          bprintf f ")"
       | Gil.Lookahead(true,r2) ->
           bprintf f "(pos_lookahead ";
-	  loop r2;
-	  bprintf f ")"
+          loop r2;
+          bprintf f ")"
       | Gil.Lookahead(false,r2) ->
           bprintf f "(neg_lookahead ";
-	  loop r2;
-	  bprintf f ")"
+          loop r2;
+          bprintf f ")"
       | Gil.Seq _ when use_arrays ->
-	  bprintf f "(seq [|";
-	  let rs = Gil.seq2rules r in
-	  List.iter (fun r_i ->
-		       bprintf f " ";
-		       loop r_i;
-		       bprintf f ";") rs;
-	  bprintf f "|])"
+          bprintf f "(seq [|";
+          let rs = Gil.seq2rules r in
+          List.iter (fun r_i ->
+                       bprintf f " ";
+                       loop r_i;
+                       bprintf f ";") rs;
+          bprintf f "|])"
       | Gil.Alt _ when use_arrays ->
-	  bprintf f "(alt [|";
-	  let rs = Gil.alt2rules r in
-	  List.iter (fun r_i ->
-		       bprintf f " ";
-		       loop r_i;
-		       bprintf f ";") rs;
-	  bprintf f "|])"
+          bprintf f "(alt [|";
+          let rs = Gil.alt2rules r in
+          List.iter (fun r_i ->
+                       bprintf f " ";
+                       loop r_i;
+                       bprintf f ";") rs;
+          bprintf f "|])"
 
       | Gil.Seq (r2, r3) ->
-	  bprintf f "(seq ";
-	  loop r2;
-	  bprintf f " ";
-	  loop r3;
-	  bprintf f ")"
+          bprintf f "(seq ";
+          loop r2;
+          bprintf f " ";
+          loop r3;
+          bprintf f ")"
       | Gil.Alt (r2, r3) ->
-	  bprintf f "(alt ";
-	  loop r2;
-	  bprintf f " ";
-	  loop r3;
-	  bprintf f ")"
+          bprintf f "(alt ";
+          loop r2;
+          bprintf f " ";
+          loop r3;
+          bprintf f ")"
   in loop r0
 
 
@@ -831,8 +834,8 @@ let pr_definitions f liberal start = function
       let b = Buffer.create 11 in
       Printf.bprintf b "(*PEG PARSER-COMBINATOR PROLOGUE*)
 module Memo_symb = Allp.Peg.Make(struct type semval = sv
-			       module HT = TDHashtable
-			end)
+                               module HT = TDHashtable
+                        end)
 let memo_symb = Memo_symb.memo_symb
 let _call_fresh = (fun _ -> sv0)
 let _ignore_ret = (fun p x y -> x)
@@ -841,19 +844,19 @@ open Allp.Peg\n\n";
       Printf.bprintf b "\nlet __parse = \n";
 
       List.iter
-	(fun (n,_) -> Printf.bprintf b "let %s = ref eps in\n" (symb_ref_name n) )
-	ds;
+        (fun (n,_) -> Printf.bprintf b "let %s = ref eps in\n" (symb_ref_name n) )
+        ds;
 
       List.iter
-	(fun (n,r_gil) ->
-	   let name = symb_fun_name n in
-	   Printf.bprintf b "let %s = \n" name;
-	   Printf.bprintf b "  let table = TDHashtable.create 11 in\n";
-	   Printf.bprintf b "  memo_symb table \n";
-	   pr_gil b liberal true false r_gil;
-	   Printf.bprintf b "\n in %s := %s;\n\n" (symb_ref_name n) name;
-	)
-	ds;
+        (fun (n,r_gil) ->
+           let name = symb_fun_name n in
+           Printf.bprintf b "let %s = \n" name;
+           Printf.bprintf b "  let table = TDHashtable.create 11 in\n";
+           Printf.bprintf b "  memo_symb table \n";
+           pr_gil b liberal true false r_gil;
+           Printf.bprintf b "\n in %s := %s;\n\n" (symb_ref_name n) name;
+        )
+        ds;
 
 
       Printf.fprintf f "%s\n" (Buffer.contents b);

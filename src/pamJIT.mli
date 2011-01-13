@@ -69,9 +69,9 @@ module NELR0 :
       | CsLA of Pam_internal.label array
 
     type multi_trans = {scans: Pam_internal.label array; (* [||] -> none *)
-			call: Pam_internal.label;        (* 0 -> none. *)
-			completes: Pam_internal.nonterm array; (* [||] -> none *)
-			ext_lookahead: lookahead_spec} (* NoLA -> none *)
+                        call: Pam_internal.label;        (* 0 -> none. *)
+                        completes: Pam_internal.nonterm array; (* [||] -> none *)
+                        ext_lookahead: lookahead_spec} (* NoLA -> none *)
 
     type det_trans = int
 
@@ -93,9 +93,9 @@ module NELR0 :
       | Complete_trans of Pam_internal.nonterm
 
       (* Nondeterministic transitions. We optimized the case of
-	 multiple completions. Multiple scans/calls are discouraged b/c
-	 they can be removed by determinizing the machine, so we don't
-	 optimize them. *)
+         multiple completions. Multiple scans/calls are discouraged b/c
+         they can be removed by determinizing the machine, so we don't
+         optimize them. *)
       | MComplete_trans of Pam_internal.nonterm array
       | Multi_trans of multi_trans (** Fixed collection of transitions. *)
       | Many_trans of trans array (** Arbitrary collection of transitions. *)
@@ -128,12 +128,12 @@ module DNELR :
       | Complete_trans of nonterm
 
       (* Nondeterministic transitions. We optimized the case of
-	 multiple completions. Multiple scans/calls are discouraged b/c
-	 they can be removed by determinizing the machine, so we don't
-	 optimize them. *)
+         multiple completions. Multiple scans/calls are discouraged b/c
+         they can be removed by determinizing the machine, so we don't
+         optimize them. *)
       | MComplete_trans of nonterm array
       | Many_trans of 'a trans array
-	  (** Arbitrary collection of transitions. *)
+          (** Arbitrary collection of transitions. *)
 
       (* Context-sensitive transitions. *)
       | Maybe_nullable_trans2 of nonterm * 'a Pam_internal.Pred3.t
@@ -142,7 +142,8 @@ module DNELR :
       | MComplete_p_trans of nonterm array
       | Action_trans of 'a Pam_internal.action2 * Pam_internal.label
       | When_trans of 'a Pam_internal.pred3 * 'a Pam_internal.next3
-	  * Pam_internal.label
+          * Pam_internal.label
+      | When2_trans of 'a Pam_internal.Pred3.t * Pam_internal.label  (** A more general "when". *)
       | Box_trans of 'a Pam_internal.blackbox * Pam_internal.label
 
     type 'a pnt_entry = {
@@ -172,22 +173,22 @@ module DNELR :
     val measure_percenti : 'a data -> (int -> 'a trans -> bool) -> float
     val call_targets : 'a trans array -> bool array
 
-    (** 
-	[refl_trans_closure term_table state]
+    (**
+        [refl_trans_closure term_table state]
 
-	Return the set of states reachable from [state] via action 
-	edges. *)
+        Return the set of states reachable from [state] via action
+        edges. *)
     val refl_trans_closure : 'a trans array -> Pam_internal.label -> Pam_internal.label list
 
-    (** 
-	[reachable_calls term_table state]
+    (**
+        [reachable_calls term_table state]
 
-	Return the set of call states reachable from [state] via action 
-	edges. *)
+        Return the set of call states reachable from [state] via action
+        edges. *)
     val reachable_calls : 'a trans array -> Pam_internal.label -> Pam_internal.label list
 
     val count_reachable_calls : 'a trans array -> Pam_internal.label -> int
-    val compute_integer_property : ('a trans array -> Pam_internal.label -> int) -> 
+    val compute_integer_property : ('a trans array -> Pam_internal.label -> int) ->
       'a trans array -> bool array -> (Pam_internal.label * int) list
 
     val compute_callee_reachable_calls : 'a trans array -> (Pam_internal.label * int) list

@@ -23,7 +23,7 @@ type 'a binder = 'a -> 'a -> 'a
 type 'a binder2 = pos -> 'a -> 'a -> 'a
 
 type 'a blackbox = 'a -> int -> YkBuf.t -> (int (* number of bytes consumed.*)
-					    * 'a)  option
+                                            * 'a)  option
 type 'a box = 'a blackbox
 
 type presence = bool
@@ -41,8 +41,8 @@ let min_nonterm = 264
 
 module Pred3 = struct
   type recog_fn = nonterm -> label -> YkBuf.t -> bool
-    (** A (transducer-based) recognition function. Given a 
-	nonterminal, start state and buffer, returns accept/reject. *)
+    (** A (transducer-based) recognition function. Given a
+        nonterminal, start state and buffer, returns accept/reject. *)
 
   type 'a t = recog_fn -> YkBuf.t -> 'a -> 'a option
 
@@ -59,7 +59,7 @@ module Pred3 = struct
     fun r ykb v ->
       if b = r nt target ykb then Some v else None
 
-  let boxc box r ykb v = 
+  let boxc box r ykb v =
     let cp = YkBuf.save ykb in
     let r = match box v (YkBuf.get_offset ykb) ykb with
       | Some (0, v2) -> Some v2
@@ -70,17 +70,17 @@ module Pred3 = struct
   let callc symb_pred action binder r ykb v =
     let p = YkBuf.get_offset ykb in
     match symb_pred r ykb (action p v) with
-	None -> None
+        None -> None
       | Some v2 -> Some (binder p v v2)
 
   let andc f g r ykb v =
-    match f r ykb v with 
-	None -> None
+    match f r ykb v with
+        None -> None
       | Some v2 -> g r ykb v2
-	  
+
   let orc f g r ykb v =
     match f r ykb v with
-	None -> g r ykb v
+        None -> g r ykb v
       | Some v2 -> Some v2
 end
 
@@ -92,6 +92,7 @@ type 'a instruction =
   | ALookaheadInstr of presence * lookahead_spec * label
   | ABlackboxInstr of 'a blackbox * label
   | AAction2Instr of 'a action2 * label
+  | SuperWhenInstr of 'a Pred3.t * label
   | AWhenInstr3 of 'a pred3 * 'a next3 * label
   | ASimpleCont2Instr of nonterm * 'a binder2 * label (** Parameterless continue. *)
   | AContInstr3 of nonterm * 'a action2 * 'a binder2 * label
@@ -116,6 +117,6 @@ let load_internal_program p =
   let p_arr = Array.make (max_label + 1) dummy_block in
   (* Put each block in its proper place. *)
   List.iter (fun (l,instrs) ->
-	       p_arr.(l) <- Array.of_list instrs) p;
+               p_arr.(l) <- Array.of_list instrs) p;
   p_arr
 

@@ -926,7 +926,7 @@ module Full_yakker (Sem_val : SEMVAL) = struct
   DEF3(`CALL_P_CODE', `target', `grow_callset', `call_act',`(
      IF_TRUE(grow_callset,`Pcs.add_call_state pre_cc s;')
      SOCVAS_ITER(`socvas_s', `(callset, sv, sv_arg)',
-       `let     curr_pos = current_callset.id in
+       `let curr_pos = current_callset.id in
         let arg = call_act curr_pos sv in
        IFE_TRUE(grow_callset,
        `(match insert_one i ol cs target (current_callset, arg, arg) with
@@ -934,8 +934,7 @@ module Full_yakker (Sem_val : SEMVAL) = struct
            | Process_elt -> Pcs.add_call_state pre_cc target)',
        `insert_one_ig i ol cs target current_callset arg arg');
 
-       (* Nullability check. We only check source state [s],
-          because there is no call-collapsing for parameterized calls. *)
+       (* Nullability check. *)
        match term_table.(target) with
          | PJDN.Maybe_nullable_trans2 (nt, p) ->
              (match p nplookahead_fn ykb arg with
@@ -1482,6 +1481,12 @@ module Full_yakker (Sem_val : SEMVAL) = struct
                SOCVAS_ITER(`socvas_s', `(callset, sv, sv_arg)',
                     `if p curr_pos sv then insert_one_ig i ol cs target callset (next curr_pos sv) sv_arg')
 
+           | PJDN.When2_trans (p, target) ->
+               SOCVAS_ITER(`socvas_s', `(callset, sv, sv_arg)',
+                    `(match p nplookahead_fn ykb sv with
+                        | None -> ()
+                        | Some new_sv -> insert_one_ig i ol cs target callset new_sv sv_arg)')
+
 (*         | PJDN.Action_trans (act, target) ->  *)
 (*                let curr_pos = current_callset.id in *)
 (*             let image = SOCVAS_MAP(`socvas_s', `(callset, sv, sv_arg)', `(callset, (act curr_pos sv), sv_arg)') in *)
@@ -1639,6 +1644,12 @@ module Full_yakker (Sem_val : SEMVAL) = struct
                  socvas_s Socvas.empty in
                if not (Socvas.is_empty new_s) then insert_many i ol cs target new_s)
 
+           | PJDN.When2_trans (p, target) ->
+               SOCVAS_ITER(`socvas_s', `(callset, sv, sv_arg)',
+                    `(match p nplookahead_fn ykb sv with
+                        | None -> ()
+                        | Some new_sv -> insert_one_ig i ol cs target callset new_sv sv_arg)')
+
            (* Only null boxes are okay now that we've reached EOF. *)
            | PJDN.Box_trans (box, target) ->
                (SOCVAS_ITER(`socvas_s', `(callset, sv, sv_arg)',
@@ -1683,6 +1694,8 @@ module Full_yakker (Sem_val : SEMVAL) = struct
       Imp_position.set_position 0
     end;
 
+    (* We initialize next_set, rather than current_set, because they
+       are swapped first-thing in the loop. *)
     let ns = !next_set in
     let cva0 = (start_callset, sv0, sv0) in
     insert_one_nc ns start_state cva0;
@@ -1772,7 +1785,7 @@ module Full_yakker (Sem_val : SEMVAL) = struct
             | PJDN.MComplete_trans _ | PJDN.MComplete_p_trans _ ->
                 do_check start_nt dcs.(j) term_table.(s)
             | PJDN.Many_trans txs -> iter_do_check start_nt dcs.(j) txs (Array.length txs) 0
-            | PJDN.Box_trans _ | PJDN.When_trans _| PJDN.Action_trans _
+            | PJDN.Box_trans _ | PJDN.When_trans _ | PJDN.When2_trans _ | PJDN.Action_trans _
             | PJDN.Call_p_trans _
             | PJDN.Maybe_nullable_trans2 _
             | PJDN.Call_trans _| PJDN.Det_multi_trans _
@@ -1974,7 +1987,7 @@ module Full_yakker (Sem_val : SEMVAL) = struct
           | PJDN.MComplete_trans _ | PJDN.MComplete_p_trans _ ->
               do_check dcs.(j) term_table.(s)
           | PJDN. Many_trans txs -> Array.iter (do_check dcs.(j)) txs
-          | PJDN.Box_trans _ | PJDN.When_trans _ | PJDN.Action_trans _
+          | PJDN.Box_trans _ | PJDN.When_trans _ | PJDN.When2_trans _ | PJDN.Action_trans _
           | PJDN.Call_p_trans _
           | PJDN.Maybe_nullable_trans2 _
           | PJDN.Call_trans _| PJDN.Det_multi_trans _

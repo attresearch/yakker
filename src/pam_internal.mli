@@ -16,7 +16,7 @@ type 'a action = 'a -> 'a
 type 'a pred = 'a -> 'a option
 type 'a binder = 'a -> 'a -> 'a
 type 'a blackbox = 'a -> pos -> YkBuf.t -> (int (* number of bytes consumed.*)
-					    * 'a)  option
+                                            * 'a)  option
 type 'a action2 = pos -> 'a -> 'a
 type 'a pred2 = 'a -> bool
 type 'a pred3 = pos -> 'a -> bool
@@ -41,8 +41,8 @@ val min_nonterm : nonterm
 module Pred3 : sig
 
   type recog_fn = nonterm -> label -> YkBuf.t -> bool
-    (** A (transducer-based) recognition function. Given a 
-	nonterminal, start state and buffer, returns accept/reject. *)
+    (** A (transducer-based) recognition function. Given a
+        nonterminal, start state and buffer, returns accept/reject. *)
 
   type 'a t = recog_fn -> YkBuf.t -> 'a -> 'a option
 
@@ -55,11 +55,11 @@ module Pred3 : sig
 
   val boxc : 'a blackbox -> 'a t
 
-  val callc : 'a t -> 'a action2 -> 'a binder2 -> 'a t 
+  val callc : 'a t -> 'a action2 -> 'a binder2 -> 'a t
 
-  val andc : 'a t -> 'a t -> 'a t 
+  val andc : 'a t -> 'a t -> 'a t
 
-  val orc : 'a t -> 'a t -> 'a t 
+  val orc : 'a t -> 'a t -> 'a t
 end
 
 type 'a instruction =
@@ -70,6 +70,7 @@ type 'a instruction =
   | ALookaheadInstr of presence * lookahead_spec * label
   | ABlackboxInstr of 'a blackbox * label
   | AAction2Instr of 'a action2 * label
+  | SuperWhenInstr of 'a Pred3.t * label
   | AWhenInstr3 of 'a pred3 * 'a next3 * label
   | ASimpleCont2Instr of nonterm * 'a binder2 * label (** Parameterless continue. *)
   | AContInstr3 of nonterm * 'a action2 * 'a binder2 * label

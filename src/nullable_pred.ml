@@ -183,6 +183,135 @@ end
 
 module DBL = DB_levels
 
+(******************************************************************************)
+
+module PHOAS = struct
+  type 'a exp =
+    Var of 'a
+  | App of 'a exp * 'a exp
+  | Lam of ('a -> 'a exp)
+  | NoneE
+  | SomeE of 'a exp
+  | CallE of string * 'a exp * 'a exp
+  | AndE of 'a exp * 'a exp
+  | OrE of 'a exp * 'a exp
+  | InjectE of string
+  | CfgLookaheadE of bool * string
+  | CsLookaheadE of bool * Cs.t
+
+  type hoas_exp = {e:'a. unit -> 'a exp}
+  type open1_hoas_exp = {e_open1:'a. 'a -> 'a exp}
+  type open2_hoas_exp = {e_open2:'a. 'a -> 'a -> 'a exp}
+  type open3_hoas_exp = {e_open3:'a. 'a -> 'a -> 'a -> 'a exp}
+
+  (** Sugar for a let expression. An alternative to actually applying.
+      Useful for promoting sharing of results (given the CBV semantics. *)
+  let let_e e1 e2 = App (e2, e1)
+
+  let rec to_dB level = function
+    | Var i -> DBL.Var i
+    | Lam f -> DBL.Lam (to_dB (level+1) (f level))
+    | App (e1, e2) -> DBL.App (to_dB level e1, to_dB level e2)
+    | NoneE -> DBL.NoneE
+    | SomeE e -> DBL.SomeE (to_dB level e)
+    | CallE (nt,e1,e2) -> DBL.CallE (nt, to_dB level e1, to_dB level e2)
+    | AndE (e1, e2) -> DBL.AndE (to_dB level e1, to_dB level e2)
+    | OrE (e1, e2) -> DBL.OrE (to_dB level e1, to_dB level e2)
+    | InjectE s -> DBL.InjectE s
+    | CfgLookaheadE (b,n) -> DBL.CfgLookaheadE (b,n)
+    | CsLookaheadE (b,cs) -> DBL.CsLookaheadE (b,cs)
+
+  (* val subst' : 'a exp exp -> 'a exp *)
+  let rec subst' = function
+    | Var e -> e
+    | Lam f -> Lam (fun x -> subst' (f (Var x)))
+    | App (e1, e2) -> App (subst' e1, subst' e2)
+    | NoneE -> NoneE
+    | SomeE e -> SomeE (subst' e)
+    | CallE (nt,e1,e2) -> CallE (nt, subst' e1, subst' e2)
+    | AndE (e1, e2) -> AndE (subst' e1, subst' e2)
+    | OrE (e1, e2) -> OrE (subst' e1, subst' e2)
+    | InjectE s -> InjectE s
+    | CfgLookaheadE (b,n) -> CfgLookaheadE (b, n)
+    | CsLookaheadE (b,cs) -> CsLookaheadE (b, cs)
+
+  let subst e1 e2 = {e = fun () -> subst' (e1.e_open1 (e2.e ()))}
+  let subst2 e1 e2 e3 = {e = fun () -> subst' ( e1.e_open2 (e2.e ()) (e3.e ()) )}
+
+  (** Close an open expression with a variable. Useful for lifting the
+      "openness" of an expression out into a surrounding expression. *)
+  let vsub e v = subst' (e.e_open1 (Var v))
+  let vsub2' e v1 v2 = subst' (e (Var v1) (Var v2))
+  let vsub2 e v1 v2 = vsub2' e.e_open2 v1 v2
+
+  let convert_to_dB {e=f} = to_dB 0 (f())
+
+  let get_var (n,elts) i = List.nth elts (n - i - 1)
+  let extend_ctxt (n,elts) x = (n+1,x::elts)
+  let empty_ctxt () = (0,[])
+
+  let rec from_dB ctxt = function
+    | DBL.Var i -> Var (get_var ctxt i)
+    | DBL.Lam f -> Lam (fun x -> from_dB (extend_ctxt ctxt x) f)
+    | DBL.App (e1, e2) -> App (from_dB ctxt e1, from_dB ctxt e2)
+    | DBL.NoneE -> NoneE
+    | DBL.SomeE e -> SomeE (from_dB ctxt e)
+    | DBL.CallE (nt,e1,e2) -> CallE (nt, from_dB ctxt e1, from_dB ctxt e2)
+    | DBL.AndE (e1, e2) -> AndE (from_dB ctxt e1, from_dB ctxt e2)
+    | DBL.OrE (e1, e2) -> OrE (from_dB ctxt e1, from_dB ctxt e2)
+    | DBL.InjectE s -> InjectE s
+    | DBL.CfgLookaheadE (b,n) -> CfgLookaheadE (b,n)
+    | DBL.CsLookaheadE (b,cs) -> CsLookaheadE (b,cs)
+
+  (** Convert a closed expression in DeBruijn levels
+      representation to PHOAS. *)
+  let convert_from_dB e_db =
+    {e = fun () -> from_dB (empty_ctxt ()) e_db}
+
+  let close e = {e = fun () -> Lam e.e_open1}
+
+  let open1' = function
+    | Lam f -> f
+    | _ -> invalid_arg "PHOAS.open1: expression is not function."
+
+  (** Convert a lambda to an open expression. *)
+  let open1 e = {e_open1 = fun x -> open1' (e.e ()) x}
+
+  let open2' e x =
+    match e with
+      | Lam f ->
+          (match f x with Lam f -> f
+             | _ -> invalid_arg "PHOAS.open3': expression is not function.")
+      | _ -> invalid_arg "PHOAS.open3': expression is not function."
+
+  (** Convert a double-lambda to a 2-variable open expression. *)
+  let open2 e = {e_open2 = fun x y -> open2' (e.e ()) x y}
+
+  let open3' e x y =
+    match e with
+      | Lam f ->
+          (match f x with Lam f ->
+             (match f y with Lam f -> f
+                | _ -> invalid_arg "PHOAS.open3': expression is not function.")
+             | _ -> invalid_arg "PHOAS.open3': expression is not function.")
+      | _ -> invalid_arg "PHOAS.open3': expression is not function."
+
+  (** Convert a triple-lambda to an 3-variable open expression. *)
+  let open3 e = {e_open3 = fun x y z -> open3' (e.e ()) x y z}
+
+  let apply_exp' e1 e2 =
+    match e1 with
+      | Lam f -> subst' (f e2)
+      | InjectE s -> App (InjectE s, e2)
+      | _ -> invalid_arg "PHOAS.apply: first argument is not function."
+
+  let apply_exp (e1 : hoas_exp) (e2 : hoas_exp) =
+    {e = fun () -> apply_exp' (e1.e ()) (e2.e())}
+
+end
+
+(******************************************************************************)
+
 (**
    Gul-predicate specific machinery. Likely bitrotted by now.
 *)
@@ -397,133 +526,6 @@ module Expr_gul = struct
 
 end
 
-(*****************************************)
-(* PHOAS *)
-module PHOAS = struct
-  type 'a exp =
-    Var of 'a
-  | App of 'a exp * 'a exp
-  | Lam of ('a -> 'a exp)
-  | NoneE
-  | SomeE of 'a exp
-  | CallE of string * 'a exp * 'a exp
-  | AndE of 'a exp * 'a exp
-  | OrE of 'a exp * 'a exp
-  | InjectE of string
-  | CfgLookaheadE of bool * string
-  | CsLookaheadE of bool * Cs.t
-
-  type hoas_exp = {e:'a. unit -> 'a exp}
-  type open1_hoas_exp = {e_open1:'a. 'a -> 'a exp}
-  type open2_hoas_exp = {e_open2:'a. 'a -> 'a -> 'a exp}
-  type open3_hoas_exp = {e_open3:'a. 'a -> 'a -> 'a -> 'a exp}
-
-  (** Sugar for a let expression. An alternative to actually applying.
-      Useful for promoting sharing of results (given the CBV semantics. *)
-  let let_e e1 e2 = App (e2, e1)
-
-  let rec to_dB level = function
-    | Var i -> DBL.Var i
-    | Lam f -> DBL.Lam (to_dB (level+1) (f level))
-    | App (e1, e2) -> DBL.App (to_dB level e1, to_dB level e2)
-    | NoneE -> DBL.NoneE
-    | SomeE e -> DBL.SomeE (to_dB level e)
-    | CallE (nt,e1,e2) -> DBL.CallE (nt, to_dB level e1, to_dB level e2)
-    | AndE (e1, e2) -> DBL.AndE (to_dB level e1, to_dB level e2)
-    | OrE (e1, e2) -> DBL.OrE (to_dB level e1, to_dB level e2)
-    | InjectE s -> DBL.InjectE s
-    | CfgLookaheadE (b,n) -> DBL.CfgLookaheadE (b,n)
-    | CsLookaheadE (b,cs) -> DBL.CsLookaheadE (b,cs)
-
-  (* val subst' : 'a exp exp -> 'a exp *)
-  let rec subst' = function
-    | Var e -> e
-    | Lam f -> Lam (fun x -> subst' (f (Var x)))
-    | App (e1, e2) -> App (subst' e1, subst' e2)
-    | NoneE -> NoneE
-    | SomeE e -> SomeE (subst' e)
-    | CallE (nt,e1,e2) -> CallE (nt, subst' e1, subst' e2)
-    | AndE (e1, e2) -> AndE (subst' e1, subst' e2)
-    | OrE (e1, e2) -> OrE (subst' e1, subst' e2)
-    | InjectE s -> InjectE s
-    | CfgLookaheadE (b,n) -> CfgLookaheadE (b, n)
-    | CsLookaheadE (b,cs) -> CsLookaheadE (b, cs)
-
-  let subst e1 e2 = {e = fun () -> subst' (e1.e_open1 (e2.e ()))}
-  let subst2 e1 e2 e3 = {e = fun () -> subst' ( e1.e_open2 (e2.e ()) (e3.e ()) )}
-
-  (** Close an open expression with a variable. Useful for lifting the
-      "openness" of an expression out into a surrounding expression. *)
-  let vsub e v = subst' (e.e_open1 (Var v))
-  let vsub2' e v1 v2 = subst' (e (Var v1) (Var v2))
-  let vsub2 e v1 v2 = vsub2' e.e_open2 v1 v2
-
-  let convert_to_dB {e=f} = to_dB 0 (f())
-
-  let get_var (n,elts) i = List.nth elts (n - i - 1)
-  let extend_ctxt (n,elts) x = (n+1,x::elts)
-  let empty_ctxt () = (0,[])
-
-  let rec from_dB ctxt = function
-    | DBL.Var i -> Var (get_var ctxt i)
-    | DBL.Lam f -> Lam (fun x -> from_dB (extend_ctxt ctxt x) f)
-    | DBL.App (e1, e2) -> App (from_dB ctxt e1, from_dB ctxt e2)
-    | DBL.NoneE -> NoneE
-    | DBL.SomeE e -> SomeE (from_dB ctxt e)
-    | DBL.CallE (nt,e1,e2) -> CallE (nt, from_dB ctxt e1, from_dB ctxt e2)
-    | DBL.AndE (e1, e2) -> AndE (from_dB ctxt e1, from_dB ctxt e2)
-    | DBL.OrE (e1, e2) -> OrE (from_dB ctxt e1, from_dB ctxt e2)
-    | DBL.InjectE s -> InjectE s
-    | DBL.CfgLookaheadE (b,n) -> CfgLookaheadE (b,n)
-    | DBL.CsLookaheadE (b,cs) -> CsLookaheadE (b,cs)
-
-  (** Convert a closed expression in DeBruijn levels
-      representation to PHOAS. *)
-  let convert_from_dB e_db =
-    {e = fun () -> from_dB (empty_ctxt ()) e_db}
-
-  let close e = {e = fun () -> Lam e.e_open1}
-
-  let open1' = function
-    | Lam f -> f
-    | _ -> invalid_arg "PHOAS.open1: expression is not function."
-
-  (** Convert a lambda to an open expression. *)
-  let open1 e = {e_open1 = fun x -> open1' (e.e ()) x}
-
-  let open2' e x =
-    match e with
-      | Lam f ->
-          (match f x with Lam f -> f
-             | _ -> invalid_arg "PHOAS.open3': expression is not function.")
-      | _ -> invalid_arg "PHOAS.open3': expression is not function."
-
-  (** Convert a double-lambda to a 2-variable open expression. *)
-  let open2 e = {e_open2 = fun x y -> open2' (e.e ()) x y}
-
-  let open3' e x y =
-    match e with
-      | Lam f ->
-          (match f x with Lam f ->
-             (match f y with Lam f -> f
-                | _ -> invalid_arg "PHOAS.open3': expression is not function.")
-             | _ -> invalid_arg "PHOAS.open3': expression is not function.")
-      | _ -> invalid_arg "PHOAS.open3': expression is not function."
-
-  (** Convert a triple-lambda to an 3-variable open expression. *)
-  let open3 e = {e_open3 = fun x y z -> open3' (e.e ()) x y z}
-
-  let apply_exp' e1 e2 =
-    match e1 with
-      | Lam f -> subst' (f e2)
-      | InjectE s -> App (InjectE s, e2)
-      | _ -> invalid_arg "PHOAS.apply: first argument is not function."
-
-  let apply_exp (e1 : hoas_exp) (e2 : hoas_exp) =
-    {e = fun () -> apply_exp' (e1.e ()) (e2.e())}
-
-end
-
 (******************************************************************************)
 
 (**
@@ -581,9 +583,10 @@ module Expr_gil = struct
           let e1 = rewrite' c e1 in
           let e2 = rewrite' c e2 in
           (match (e1,e2) with
-               (Lam (Lam (Lam (SomeE _))), _) -> e1
-             | (_, Lam (Lam (Lam (SomeE _)))) -> e2
-             | (Lam (Lam (Lam NoneE)), _) -> e2
+               (Lam Lam Lam (SomeE _), _) -> e1
+             | (_, Lam Lam Lam (SomeE _)) -> e2
+             | (Lam Lam Lam NoneE, _) -> e2
+             | (_, Lam Lam Lam NoneE) -> e1
              | _ -> OrE (e1, e2))
       | CallE (nt, e1, e2) as e_orig ->
           let nt_pred = preds nt in

@@ -83,3 +83,18 @@ let ocaml2bnf s_ocaml =
 (* Assume user doesn't use _ in front of their names *)
 let fresh() = bnf2ocaml (Printf.sprintf "_x%d" (postincr counter))
 let freshn base = bnf2ocaml (Printf.sprintf "_%s%d" base (postincr counter))
+
+(** Determine whether [s] is already a variable (rather than an
+    arbitrary expression).  This is a conservative approximation. *)
+let already_var s =
+  let is_digit c = '0' <= c && c <= '9' in
+  let is_lower c = 'a' <= c && c <= 'z' in
+  let is_upper c = 'A' <= c && c <= 'Z' in
+  let is_ok c = '_'=c || is_digit c || is_lower c || is_upper c in
+  try
+    for i = 0 to String.length s - 1 do
+      if not(is_ok(String.get s i)) then raise Exit
+    done;
+    true
+  with Exit ->
+    false

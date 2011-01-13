@@ -105,15 +105,18 @@ type earley_arc =
   | Call of expr option                  (* Call with arguments, possibly empty *)
   | Cont of nonterminal * expr option * expr option (* Continue for a nonterminal,argument,binder *)
   | ELookahead of bool * nonterminal      (* boolean value indicates whether or not following input should match
-					    specified nonterminal. *)
+                                            specified nonterminal. *)
   | ELookaheadCS of bool * Cs.t      (* boolean value indicates whether or not following input should be
-					     in the character set. *)
+                                             in the character set. *)
   | Final of nonterminal                 (* Source of arc is a final state for nonterminal; target is FSM final *)
   | MaybeFinal of nonterminal            (* Source of arc might be a final state for nonterminal -- predicate
-					    will need to be consulted dynamically; target is FSM final *)
+                                            will need to be consulted dynamically; target is FSM final *)
   | TxFinal                              (* Source of arc is a final state for the transducer; target is FSM final *)
   | EAction of expr                      (* Perform action and match epsilon *)
-  | EPred of expr * expr                 (* Predicate, if true, match epsilon, else match nothing; f_pred, f_next *)
+  | EPred of expr * expr                 (* Predicate, if true, match epsilon, else match nothing;
+                                            args: f_pred, f_next *)
+  | EPredSpecial of expr                 (* Predicate, if true, match epsilon, else match nothing;
+                                            argument is a nullability-predicate expression. *)
   | EBox of expr                         (* Call a blackbox parser; f_box *)
 
 let arc2string = function
@@ -135,6 +138,7 @@ let arc2string = function
   | TxFinal -> Printf.sprintf "TxFinal"
   | EAction a -> Printf.sprintf "EAction{%s}" a
   | EPred (f_pred, f_next) -> Printf.sprintf "EPred{%s,%s}" f_pred f_next
+  | EPredSpecial p -> Printf.sprintf "EPredSpecial{%s}" p
   | EBox (f_box) -> Printf.sprintf "EBox(%s)" f_box
 
 (*************************** GLOBAL STATE ***************************)
@@ -238,8 +242,8 @@ let mklit_fsm(case_sensitive, x) =
       if not case_sensitive then
         let y = Cs.singleton(Char.lowercase c) in
         let w =
-	  if (Char.lowercase c <> Char.uppercase c) then
-	    (Cs.insert y (Char.code (Char.uppercase c)); PROB(0.5))
+          if (Char.lowercase c <> Char.uppercase c) then
+            (Cs.insert y (Char.code (Char.uppercase c)); PROB(0.5))
           else ONE in
         cstrans(!a,b,y,w)
       else begin
@@ -291,6 +295,7 @@ let rec thompson =  function
   | Action f_act -> thompson_base (EAction f_act)
   | Box (f_box, _) ->  thompson_base (EBox (f_box))
   | When (f_pred, f_next) -> thompson_base (EPred (f_pred, f_next))
+  | When_special p -> thompson_base (EPredSpecial p)
 
   | Seq(r2,r3) ->
      (*
@@ -324,11 +329,11 @@ let rec thompson =  function
   | Lookahead (b, Symb(nt,None,None)) -> thompson_base (ELookahead (b, nt))
   | Lookahead (b, e) ->
       (match to_cs e with
-	 | Some cs -> thompson_base (ELookaheadCS (b, cs))
-	 | None ->
-	     Util.error Util.Sys_warn
-	       "lookahead limited to character sets or argument-free symbols.\n";
-	     thompson (Lit(true,"")))
+         | Some cs -> thompson_base (ELookaheadCS (b, cs))
+         | None ->
+             Util.error Util.Sys_warn
+               "lookahead limited to character sets or argument-free symbols.\n";
+             thompson (Lit(true,"")))
 
 (************************************************************************)
 (* convert an RHS to an NFA using the CALL-collapsing algorithm *)
@@ -369,6 +374,7 @@ let rec merge = function
       (s,f,e)
   | Action a -> merge_base (EAction a)
   | When (f_pred, f_next) -> merge_base (EPred (f_pred, f_next))
+  | When_special p -> merge_base (EPredSpecial p)
   | Box (f_box, _) -> merge_base (EBox (f_box))
   | Seq(r2,r3) ->
      (*     ~~~r2~~~~   ~~~~~ r3 ~~~~~~
@@ -426,19 +432,28 @@ let rec merge = function
   | Lookahead (b, Symb(nt,None,None)) -> merge_base (ELookahead (b, nt))
   | Lookahead (b, e) ->
       (match to_cs e with
-	 | Some cs -> merge_base (ELookaheadCS (b, cs))
-	 | None ->
-	     Util.error Util.Sys_warn
-	       "lookahead limited to character sets or argument-free symbols.\n";
-	     merge (Lit(true,"")))
+         | Some cs -> merge_base (ELookaheadCS (b, cs))
+         | None ->
+             Util.error Util.Sys_warn
+               "lookahead limited to character sets or argument-free symbols.\n";
+             merge (Lit(true,"")))
 
 (************************************************************************)
 
-let gen_maybe_empty gr = Nullable_pred.Gil.preds_from_grammar gr
+let gen_maybe_empty = Nullable_pred.Gil.preds_from_grammar
 
 (* Output an FSM transducer for a grammar *)
 let grammar_fsm ch gr =
   let npreds = gen_maybe_empty gr in (* what nonterminals are nullable? *)
+
+
+  let gr =
+    if !Compileopt.inline_nullable then
+      begin
+        Inline_nullable.inline npreds gr
+      end
+    else
+      gr in
 
   init_nfa ch;
 
@@ -469,22 +484,22 @@ let grammar_fsm ch gr =
      If n is nullable, sn0 needs to be marked as final as well.
   *)
   List.iter
-    (function
-       | (n,r) ->
+    (fun (n,r) ->
           let sn0 = nonterminal2fsm n in
-	  let (s,f,e) = merge r in
-	  atrans(sn0,s,Epsilon,ONE);
-	  let s_final = fresh1() in
-	  fsm_final s_final;
+          let (s,f,e) = merge r in
+          atrans(sn0,s,Epsilon,ONE);
+          let s_final = fresh1() in
+          fsm_final s_final;
 
-	  let arc_final = Final n in
-	  atrans(f,s_final,arc_final,ONE);
-	  atrans(e,s_final,arc_final,ONE);
-	  (match Nullable_pred.Gil.get_symbol_nullability npreds n with
-	     | Nullable_pred.No_n -> ()
-	     | Nullable_pred.Yes_n -> atrans(s, s_final,arc_final,ONE)
-	     | Nullable_pred.Maybe_n -> atrans(s, s_final, MaybeFinal n, ONE)
-	  )
+          let arc_final = Final n in
+          atrans(f,s_final,arc_final,ONE);
+          atrans(e,s_final,arc_final,ONE);
+          if not !Compileopt.inline_nullable then
+            match Nullable_pred.Gil.get_symbol_nullability npreds n with
+              | Nullable_pred.No_n -> ()
+              | Nullable_pred.Yes_n -> atrans(s, s_final,arc_final,ONE)
+              | Nullable_pred.Maybe_n -> atrans(s, s_final, MaybeFinal n, ONE)
+
     )
     gr;
 
@@ -592,27 +607,15 @@ let varnum = ref 0
 *)
 let varname prefix =
   (fun str ->
-    let already_var s =
-      let is_digit c = '0' <= c && c <= '9' in
-      let is_lower c = 'a' <= c && c <= 'z' in
-      let is_upper c = 'A' <= c && c <= 'Z' in
-      let is_ok c = '_'=c || is_digit c || is_lower c || is_upper c in
-      try
-        for i = 0 to String.length s - 1 do
-          if not(is_ok(String.get s i)) then raise Exit
-        done;
-        true
-      with Exit ->
-        false
-    in (match Util.find_option tbl_varnames str with Some x ->
-      x
-    | None ->
-        let v =
-          if already_var str then str else
-          let num = Util.postincr varnum in
-          Printf.sprintf "%s%d" prefix num in
-        Hashtbl.add tbl_varnames str v;
-        v))
+     match Util.find_option tbl_varnames str with
+       | Some x -> x
+       | None ->
+           let v =
+             if Variables.already_var str then str else
+               let num = Util.postincr varnum in
+               Printf.sprintf "%s%d" prefix num in
+           Hashtbl.add tbl_varnames str v;
+           v)
 
 let fsm_transducer gr inch outch =
 
@@ -643,13 +646,13 @@ let fsm_transducer gr inch outch =
   let binder = function
     | None -> Printf.sprintf "%s0" binder_prefix
     | Some str ->
-	let num = match Util.find_option tbl_binders str with
-	  | Some num -> num
+        let num = match Util.find_option tbl_binders str with
+          | Some num -> num
           | None ->
               let num = Util.postincr bindernum in
               Hashtbl.add tbl_binders str num;
               DynArray.add binders str;
-	      num in
+              num in
         Printf.sprintf "%s%d" binder_prefix num in
 
   let tbl_instrs = Hashtbl.create 11 in
@@ -679,28 +682,30 @@ let fsm_transducer gr inch outch =
           Tm x ->          add_eat "EatInstr(%d,%d)" x b
         | Cont(n,arg_tx,y) ->
             let n_num = add_nonterm n in
-	    if a = 0 then add_start n_num b;
-	    (match arg_tx with
-	       | None ->
-		   add_op "ASimpleCont2Instr(%d,%s,%d)" n_num (binder y) b
-	       | Some x ->
-		   add_op "AContInstr3(%d,%s,%s,%d)" n_num (arg_namer x) (binder y) b)
-	| ELookahead (is_next, n) ->
-	    let n_num = add_nonterm n in
-	    add_la a b is_next n_num
-	| ELookaheadCS (is_next, cs) ->
-	    add_op "ALookaheadInstr(%B, CsLA(%s), %d)" is_next (Cs.to_code cs) b
+            if a = 0 then add_start n_num b;
+            (match arg_tx with
+               | None ->
+                   add_op "ASimpleCont2Instr(%d,%s,%d)" n_num (binder y) b
+               | Some x ->
+                   add_op "AContInstr3(%d,%s,%s,%d)" n_num (arg_namer x) (binder y) b)
+        | ELookahead (is_next, n) ->
+            let n_num = add_nonterm n in
+            add_la a b is_next n_num
+        | ELookaheadCS (is_next, cs) ->
+            add_op "ALookaheadInstr(%B, CsLA(%s), %d)" is_next (Cs.to_code cs) b
         | Call x ->       add_op "ACallInstr3(%s,%d)" (arg x) b
         | Final n ->      add_op "CompleteInstr(%d)" (add_nonterm  n)
         | MaybeFinal n -> add_op "RCompleteInstr2(%d,%s)"
-				    (add_nonterm  n)
-				    (Nullable_pred.mk_npname n)
+                                    (add_nonterm  n)
+                                    (Nullable_pred.mk_npname n)
         | TxFinal ->     add_op "FinalInstr"  (* b is irrelevant in this fsm encoding *)
         | EAction x ->   add_op "AAction2Instr(%s,%d)" (action x) b
         | EPred (fpred, fnext) ->
-	    add_op "AWhenInstr3(%s,%s,%d)" (predicate fpred) (predicate fnext) b
+            add_op "AWhenInstr3(%s,%s,%d)" (predicate fpred) (predicate fnext) b
+        | EPredSpecial p ->
+            add_op "WhenSpecialInstr(%s,%d)" (predicate p) b
         | EBox (fbox) ->
-	    add_op "ABlackboxInstr(%s,%d)" (box fbox) b
+            add_op "ABlackboxInstr(%s,%d)" (box fbox) b
         | _ -> ())
     | Arc2(a,b,c) ->
         f(Arc1(a,b,c,0.0)) (* NB in FSM default weight is ZERO *)
@@ -711,17 +716,20 @@ let fsm_transducer gr inch outch =
 
   (* Process the lookahead instructions now that we have all the starts information. *)
   List.iter (fun (a,b,is_next,nt) ->
-	       let n_start = List.assoc nt !starts in
-	       let op = Printf.sprintf "ALookaheadInstr(%B,CfgLA (%d,%d),%d)" is_next n_start nt b in
+               let n_start = List.assoc nt !starts in
+               let op = Printf.sprintf "ALookaheadInstr(%B,CfgLA (%d,%d),%d)" is_next n_start nt b in
                let (eats_tl, ops_tl) = (try Hashtbl.find tbl_instrs a with _ -> ([],[]) ) in
                Hashtbl.replace tbl_instrs a (eats_tl, op::ops_tl))
     !lookaheads;
 
   (* The ignore set of transformers starts off calls with a fresh sv0 and ignores
-     returned semantic values, keeping the previous semval instead.
-  *)
+     returned semantic values, keeping the previous semval instead. *)
   Printf.fprintf outch "let __default_call _ _ = sv0;;\n";
   Printf.fprintf outch "let __default_ret _ v1 _ = v1;;\n";
+
+  (* Print the nullability predicates. *)
+  Printf.fprintf outch "module Pred3 = Yak.Pam_internal.Pred3\n";
+  Nullable_pred.Gil.process_grammar outch (Hashtbl.find tbl_ntnames) (fun nt -> List.assoc nt !starts) gr;
 
   Hashtbl.iter
     (fun defn v ->
@@ -756,8 +764,6 @@ let fsm_transducer gr inch outch =
   Printf.fprintf outch "  | _ -> raise Not_found\n\n";
 
   Printf.fprintf outch "open Yak.Pam_internal\n";
-
-  Nullable_pred.Gil.process_grammar outch (Hashtbl.find tbl_ntnames) (fun nt -> List.assoc nt !starts) gr;
 
   Printf.fprintf outch "let program : (int * sv instruction list) list = [\n";
   Hashtbl.iter

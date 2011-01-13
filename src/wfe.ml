@@ -1411,9 +1411,9 @@ module Full_yakker (Sem_val : SEMVAL) = struct
                  if CURRENT_CALLSET_GUARD then begin
                    let items = callset.data in
                    for l = 0 to Array.length items - 1 do
-                     let s_l, c_l = items.(l) in
+                     let s_l, socvas_l = items.(l) in
                      let t = PJ.lookup_trans_nt nonterm_table s_l nt in
-                     if t > 0 then insert_many i ol cs t c_l
+                     if t > 0 then insert_many i ol cs t socvas_l
                    done
                  end')
 
@@ -1430,11 +1430,11 @@ module Full_yakker (Sem_val : SEMVAL) = struct
                SOCVAS_ITER(`socvas_s', `(callset, sv, sv_arg)', `
                  let items = callset.data in
                  for l = 0 to Array.length items - 1 do
-                   let s_l, c_l = items.(l) in
+                   let s_l, socvas_l = items.(l) in
 
                    let t = PJ.lookup_trans_nt nonterm_table s_l nt in
                    if t > 0 then begin
-                     insert_many i ol cs t c_l;
+                     insert_many i ol cs t socvas_l;
                      LOG(
                        Logging.log Logging.Features.comp_ne "%d => %d [%d]\n" s_l t nt
                      );
@@ -1445,7 +1445,7 @@ module Full_yakker (Sem_val : SEMVAL) = struct
                    if t > 0 then begin
                      LOGp(comp_ne, "@%d: %d => %d [%d(_)]? " callset.id s_l t nt);
 
-                     SOCVAS_ITER(`c_l', `(callset_s_l, sv_s_l, sv_arg_s_l)', `
+                     SOCVAS_ITER(`socvas_l', `(callset_s_l, sv_s_l, sv_arg_s_l)', `
                                    if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
                                      LOGp(comp_ne, "Y");
                                      insert_one_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
@@ -1687,7 +1687,6 @@ module Full_yakker (Sem_val : SEMVAL) = struct
     let current_callset = ref start_callset in
 
     let futuresq = Ordered_queue.init () in
-(*     let nplookahead_fn = mk_lookahead term_table nonterm_table p_nonterm_table sv0 in *)
     let nplookahead_fn = mk_lookahead term_table nonterm_table p_nonterm_table sv0 in
 
     if Logging.activated then begin

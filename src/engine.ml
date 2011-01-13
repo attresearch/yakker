@@ -1620,18 +1620,18 @@ module Full_yakker (Sem_val : SEMVAL) = struct
                  if true then begin
                    let items = callset.data in
                    for l = 0 to Array.length items - 1 do
-                     let s_l, c_l = items.(l) in
+                     let s_l, socvas_l = items.(l) in
                      let t = PJ.lookup_trans_nt nonterm_table s_l nt in
-                     if t > 0 then insert_many i ol cs t c_l
+                     if t > 0 then insert_many i ol cs t socvas_l
                    done
                  end)
          | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, _, _) -> 
                  if true then begin
                    let items = callset.data in
                    for l = 0 to Array.length items - 1 do
-                     let s_l, c_l = items.(l) in
+                     let s_l, socvas_l = items.(l) in
                      let t = PJ.lookup_trans_nt nonterm_table s_l nt in
-                     if t > 0 then insert_many i ol cs t c_l
+                     if t > 0 then insert_many i ol cs t socvas_l
                    done
                  end) __s__)                         
 
@@ -1649,11 +1649,11 @@ module Full_yakker (Sem_val : SEMVAL) = struct
          | Socvas.Singleton (callset, sv, sv_arg) -> (
                  let items = callset.data in
                  for l = 0 to Array.length items - 1 do
-                   let s_l, c_l = items.(l) in
+                   let s_l, socvas_l = items.(l) in
 
                    let t = PJ.lookup_trans_nt nonterm_table s_l nt in
                    if t > 0 then begin
-                     insert_many i ol cs t c_l;
+                     insert_many i ol cs t socvas_l;
                                   if Logging.activated then begin Logging.log Logging.Features.comp_ne "%d => %d [%d]\n" s_l t nt
                       end             ;
                    end;
@@ -1664,7 +1664,7 @@ module Full_yakker (Sem_val : SEMVAL) = struct
                                      if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "@%d: %d => %d [%d(_)]? " callset.id s_l t nt end                 ;
 
-                                             (match c_l with
+                                             (match socvas_l with
          | Socvas.Empty -> ()
          | Socvas.Singleton (callset_s_l, sv_s_l, sv_arg_s_l) -> (
                                    if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
@@ -1687,11 +1687,11 @@ module Full_yakker (Sem_val : SEMVAL) = struct
          | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, sv, sv_arg) -> 
                  let items = callset.data in
                  for l = 0 to Array.length items - 1 do
-                   let s_l, c_l = items.(l) in
+                   let s_l, socvas_l = items.(l) in
 
                    let t = PJ.lookup_trans_nt nonterm_table s_l nt in
                    if t > 0 then begin
-                     insert_many i ol cs t c_l;
+                     insert_many i ol cs t socvas_l;
                                   if Logging.activated then begin Logging.log Logging.Features.comp_ne "%d => %d [%d]\n" s_l t nt
                       end             ;
                    end;
@@ -1702,7 +1702,7 @@ module Full_yakker (Sem_val : SEMVAL) = struct
                                      if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "@%d: %d => %d [%d(_)]? " callset.id s_l t nt end                 ;
 
-                                             (match c_l with
+                                             (match socvas_l with
          | Socvas.Empty -> ()
          | Socvas.Singleton (callset_s_l, sv_s_l, sv_arg_s_l) -> (
                                    if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
@@ -2437,7 +2437,6 @@ module Full_yakker (Sem_val : SEMVAL) = struct
     let current_callset = ref start_callset in
 
     let futuresq = Ordered_queue.init () in
-(*     let nplookahead_fn = mk_lookahead term_table nonterm_table p_nonterm_table sv0 in *)
     let nplookahead_fn = mk_lookahead term_table nonterm_table p_nonterm_table sv0 in
 
     if Logging.activated then begin

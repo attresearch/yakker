@@ -18,7 +18,12 @@ let case_sensitive = ref true
 let coalesce = ref true
 let memoize_history = ref true
 let check_labels = ref false
+
 let skip_opt = ref true
+  (** Perform the label-skipping optimization. *)
+
+let use_fsm = ref true
+  (** Use FSM toolkit to build transducer; use FST otherwise. *)
 
 (* testing-related *)
 let unit_history = ref false

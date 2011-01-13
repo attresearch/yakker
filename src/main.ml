@@ -124,9 +124,8 @@ let try_fst f gr = (* OpenFST version *)
     (fun w -> Fsm.grammar_fsm w gr)
     (fun r -> f gr r !outch)
 
-let use_fsm = true
 let gil_transducer,gil_dot =
-  if use_fsm then
+  if !Compileopt.use_fsm then
     (* FSM *)
     try_fsm Fsm.fsm_transducer,try_fsm Fsm.fsm_dot
   else

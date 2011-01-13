@@ -26,6 +26,7 @@ type 'expr rhs =
   | Action of 'expr
   | Box of 'expr * boxnull
   | When of 'expr * 'expr
+  | When_special of 'expr   (* Used for inlining nullability predicates. *)
   | Seq of 'expr rhs * 'expr rhs
   | Alt of 'expr rhs * 'expr rhs
   | Star of 'expr rhs
@@ -65,11 +66,11 @@ let rec mkSEQ_rev = function
 
 let rec map f = function
   | ( Action _ | Symb _ | Box _
-    | When _ | Lit _ | CharRange _ | Lookahead _)
+    | When _ | When_special _ | Lit _ | CharRange _ | Lookahead _)
       as r -> f r
-  | Alt (r1, r2) -> Alt (map f r2, map f r2)
+  | Alt (r1, r2) -> Alt (map f r1, map f r2)
   | Star r1 -> Star (map f r1)
-  | Seq (r1, r2) -> Seq (map f r2, map f r2)
+  | Seq (r1, r2) -> Seq (map f r1, map f r2)
 
 (** [ends_in_sem r] indicates whether [r] ends in a semantically relevant
     element: predicate, action, box, or symbol with binder. *)
@@ -77,7 +78,8 @@ let rec ends_in_sem = function
   | Action _
   | Symb (_, _, Some _)
   | Box _
-  | When _ -> true
+  | When _
+  | When_special _ -> true
   | Symb (_, _, None) | Lit _ | CharRange _ | Alt _ | Star _ | Lookahead _ -> false
   | Seq (_, r) -> ends_in_sem r
 
@@ -86,7 +88,7 @@ let dependency_graph ds =
     (* Add dependencies for n to a graph given definition r *)
   | Symb(x,_,_) ->
       Tgraph.add_edge (Tgraph.add_node g x) n x
-  | When _ | Action _ | Box _ | CharRange _ | Lit _ -> g
+  | When _ | When_special _ | Action _ | Box _ | CharRange _ | Lit _ -> g
   | Seq(r2,r3)
   | Alt(r2,r3) ->
       get_depend (get_depend g n r2) n r3
@@ -143,10 +145,22 @@ let rec to_cs_rule = function
       let result = Cs.dup x in
       Cs.union result y;
       result
-  | Symb _ | Action _ | Box _ | When _ | Seq _
+  | Symb _ | Action _ | Box _ | When _ | When_special _ | Seq _
   | Star _ | Lookahead _
       -> raise Not_character_set
 
 let to_cs r =
   try Some (to_cs_rule r) with
       Not_character_set -> None
+
+(*********************************************************************
+ * Under construction.
+ *********************************************************************)
+(* module Meta = struct *)
+
+(*   type rhs_phoas = Meta_prog.PHOAS.hoas_exp rhs *)
+(*   type rhs_dbl = Meta_prog.DB_levels.exp rhs *)
+
+
+
+(* end *)

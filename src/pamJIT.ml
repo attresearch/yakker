@@ -150,7 +150,7 @@ let convert_to_ELR0_table p start_symb start_state min_nonterm num_nonterms =
           fail_not_ELR0_msg s "Deprecated instructions"
 
       (* Non-ELR0 compatible instructions. *)
-      | PI.AAction2Instr _ | PI.AWhenInstr3 _ | PI.AContInstr3 _ | PI.SuperWhenInstr _
+      | PI.AAction2Instr _ | PI.AWhenInstr3 _ | PI.AContInstr3 _ | PI.WhenSpecialInstr _
       | PI.ALookaheadInstr _ -> fail_not_ELR0_msg s "Incompatible instructions"
     in
     Array.iter init_arrays blk
@@ -510,7 +510,7 @@ module NELR0 = struct
             fail_not_ELR0_msg s "Deprecated instructions"
 
         (* Non-ELR0 compatible instructions. *)
-        | PI.AAction2Instr _ | PI.AWhenInstr3 _ | PI.AContInstr3 _ | PI.SuperWhenInstr _
+        | PI.AAction2Instr _ | PI.AWhenInstr3 _ | PI.AContInstr3 _ | PI.WhenSpecialInstr _
         | PI.ALookaheadInstr _  -> fail_not_ELR0_msg s "Incompatible instructions"
       in
       Array.iter init_arrays blk
@@ -728,7 +728,7 @@ module DNELR = struct
 
       | PI.AAction2Instr (f, t) -> Action_trans (f, t)
       | PI.AWhenInstr3 (p, f, t) -> When_trans (p, f, t)
-      | PI.SuperWhenInstr (p, t) -> When2_trans (p, t)
+      | PI.WhenSpecialInstr (p, t) -> When2_trans (p, t)
       | PI.ABlackboxInstr (box, t) -> Box_trans (box, t)
 (*
       | PI.ABoxInstr (box, f, t) -> Box_trans ((fun sv p ykb -> match box sv p ykb with

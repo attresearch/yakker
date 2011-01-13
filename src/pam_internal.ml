@@ -92,7 +92,7 @@ type 'a instruction =
   | ALookaheadInstr of presence * lookahead_spec * label
   | ABlackboxInstr of 'a blackbox * label
   | AAction2Instr of 'a action2 * label
-  | SuperWhenInstr of 'a Pred3.t * label
+  | WhenSpecialInstr of 'a Pred3.t * label
   | AWhenInstr3 of 'a pred3 * 'a next3 * label
   | ASimpleCont2Instr of nonterm * 'a binder2 * label (** Parameterless continue. *)
   | AContInstr3 of nonterm * 'a action2 * 'a binder2 * label

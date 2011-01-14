@@ -274,6 +274,7 @@ module Gil = struct
     let prec = function
       | Gil.Action _    -> 3
       | Gil.When _      -> 3
+      | Gil.When_special _ -> 3
       | Gil.Box _       -> 3
       | Gil.Symb _      -> 3
       | Gil.CharRange _ -> 3
@@ -298,6 +299,8 @@ module Gil = struct
               bprintf f "{%s}" e
           | Gil.When(e1,e2) ->
               bprintf f "@when(%s,%s)" e1 e2
+          | Gil.When_special _ ->
+              invalid_arg "When_special does not have concrete syntax yet."
           | Gil.Box(e,boxnull) ->
               bprintf f "@box(%s%a)" e pr_boxnull boxnull
           | Gil.Symb(x,y,z) ->
@@ -579,6 +582,9 @@ let _appp dyp f = f %s dyp.Dyp.last_local_data
                        go isr r3)
           | Gil.Lookahead _ ->
               Util.warn Util.Sys_warn "Unsupported construct: lookahead"
+                (* raise Unsupported_construct*)
+          | Gil.When_special _ ->
+              Util.warn Util.Sys_warn "Unsupported construct: when_special"
                 (* raise Unsupported_construct*)
           | Gil.Box _ ->
               Util.warn Util.Sys_warn "Unsupported construct: box"

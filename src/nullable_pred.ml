@@ -920,6 +920,7 @@ module Gil = struct
   | Gil.When (f_pred, f_next) ->
       InjectE ("let p = " ^ f_pred ^ " and n = " ^ f_next ^ " in " ^
                "fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None")
+  | Gil.When_special p -> InjectE p
   | Gil.Seq (r1,r2) -> AndE (trans' r1, trans' r2)
   | Gil.Alt (r1,r2) -> OrE (trans' r1, trans' r2)
   | Gil.Star _ -> true_e ()

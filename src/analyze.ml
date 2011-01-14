@@ -1815,7 +1815,8 @@ let first_gr_gil_lex gr tokmap =
             let fs1 = PMap.find n1 first_map in
               (fs1, true)
           else  (empty(), false)
-          | Gil.When _
+      | Gil.When _
+      | Gil.When_special _
       | Gil.Lookahead _ -> if fv then (maybe_singleton r, false) else (maybe_singleton r, true)
       | Gil.Box _
       | Gil.Action _
@@ -1906,7 +1907,7 @@ let first_gil_lex r first_map =
       | Gil.Symb (n1, _, _) ->
           (try PMap.find n1 first_map with Not_found -> Printf.eprintf "Warning: Unable to compute %s's FIRST set." n1; empty ())
       | Gil.Box _
-          | Gil.When _
+      | Gil.When _ | Gil.When_special _
       | Gil.Lookahead _ -> maybe_singleton r
       | Gil.Action _
       | Gil.Lit (_, "") -> epsilon_singleton ()
@@ -1946,7 +1947,7 @@ let rec_graph gr first_map =
     | Gil.Box _
     | Gil.Lit _
     | Gil.CharRange _
-    | Gil.When _
+    | Gil.When _ | Gil.When_special _
     | Gil.Lookahead _ ->
         g
     | Gil.Seq(r1,r2)
@@ -1971,7 +1972,7 @@ let lrec_graph gr first_map =
     | Gil.Box _
     | Gil.Lit _
     | Gil.CharRange _
-    | Gil.When _
+    | Gil.When _ | Gil.When_special _
     | Gil.Lookahead _ ->
         g
     | Gil.Seq(r1,r2) ->
@@ -2033,7 +2034,7 @@ let follow_gr_gil_lex gr first_map =
           else
             PMap.add n1 cur_fls follow_map
       | Gil.Box _
-          | Gil.When _
+      | Gil.When _ | Gil.When_special _
       | Gil.Lookahead _
       | Gil.Action _
       | Gil.Lit _
@@ -2166,7 +2167,7 @@ let is_ll1 r first_map follow_map n tokmap =
   let rec loop r cur_fls =
     match r with
       | Gil.Action _
-      | Gil.When _
+      | Gil.When _ | Gil.When_special _
       | Gil.Box _
       | Gil.Symb _
       | Gil.CharRange _

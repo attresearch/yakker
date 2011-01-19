@@ -84,6 +84,8 @@ let ocaml2bnf s_ocaml =
 let fresh() = bnf2ocaml (Printf.sprintf "_x%d" (postincr counter))
 let freshn base = bnf2ocaml (Printf.sprintf "_%s%d" base (postincr counter))
 
+let fresh_nonterminal () = Printf.sprintf "_%d" (postincr counter)
+
 (** Determine whether [s] is already a variable (rather than an
     arbitrary expression).  This is a conservative approximation. *)
 let already_var s =

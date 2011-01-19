@@ -166,7 +166,7 @@ module Meta = struct
     | Always_null -> Always_null
     | Never_null -> Never_null
     | Runbox_null -> Runbox_null
-    | Runpred_null e -> Runpred_null {M.PHOAS.e = (fun () -> M.PHOAS.InjectE e)}
+    | Runpred_null e -> Runpred_null {M.PHOAS.e = fun () -> M.PHOAS.InjectE e}
 
   let boxnull_p2s = function
     | Always_null -> Always_null
@@ -174,7 +174,7 @@ module Meta = struct
     | Runbox_null -> Runbox_null
     | Runpred_null e -> Runpred_null (M.PHOAS.to_string e)
 
-  let rec to_string_repr r =
+  let rec phoas_to_string r =
     let p2s = M.PHOAS.to_string in
     let to_string = function
       | Action e -> Action (p2s e)
@@ -185,8 +185,23 @@ module Meta = struct
       | When_special e -> When_special (p2s e)
       | Lit (x,y) -> Lit (x,y)
       | CharRange (x,y) -> CharRange (x,y)
-      | Lookahead (x, r) -> Lookahead (x, to_string_repr r)
+      | Lookahead (x, r) -> Lookahead (x, phoas_to_string r)
       | (Alt _ | Star _ | Seq _) -> invalid_arg "structural recursion should be handled by Gil.map" in
     map to_string r
+
+  let rec string_to_phoas r =
+    let s2p x = {M.PHOAS.e = fun () -> M.PHOAS.InjectE x} in
+    let to_phoas = function
+      | Action e -> Action (s2p e)
+      | Symb (nt, x, y) ->
+          Symb (nt, Util.option_map s2p x,  Util.option_map s2p y)
+      | Box (e, bn) -> Box (s2p e, boxnull_s2p bn)
+      | When (e1, e2) -> When (s2p e1, s2p e2)
+      | When_special e -> When_special (s2p e)
+      | Lit (x,y) -> Lit (x,y)
+      | CharRange (x,y) -> CharRange (x,y)
+      | Lookahead (x, r) -> Lookahead (x, string_to_phoas r)
+      | (Alt _ | Star _ | Seq _) -> invalid_arg "structural recursion should be handled by Gil.map" in
+    map to_phoas r
 
 end

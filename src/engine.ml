@@ -651,58 +651,6 @@ module Full_yakker (Sem_val : SEMVAL) = struct
 
   let insert_future q j s cva = Ordered_queue.insert q j (s, cva)
 
-  let null_compl nonterm_table p_nonterm_table s i ol cs socvas_s curr_pos target sv0 current_callset is_new
-      nt new_sv =
-                    (
-         let t1 = PJ.lookup_trans_nt nonterm_table s nt in
-         if t1 > 0 then begin
-                        if Logging.activated then begin Logging.log Logging.Features.comp_ne "%d => %d [%d]\n" s t1 nt
-            end             ;
-           insert_many i ol cs t1 socvas_s;
-         end;
-
-         (* We can be sure the carg is irrelevant because the nonterminal is connected to
-            a parameterless call. (FIX: is this really true? how can we be sure that no
-            parametered calls share this state in the transducer?) *)
-   let {PJDN.ctarget = t1; carg = _; cbinder = binder} =
-     PJDN.lookup_trans_pnt p_nonterm_table s nt in
-   if t1 > 0 then begin
-                  if Logging.activated then begin Logging.log Logging.Features.comp_ne "%d => %d [%d(_)]\n" s t1 nt
-      end             ;
-                             (match socvas_s with
-         | Socvas.Empty -> ()
-         | Socvas.Singleton (callset, sv, sv_arg) -> (
-                    insert_one_ig i ol cs t1 callset (binder curr_pos sv new_sv) sv_arg)
-         | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, sv, sv_arg) -> 
-                    insert_one_ig i ol cs t1 callset (binder curr_pos sv new_sv) sv_arg) __s__)                         
-   end;
-
-   if is_new then begin
-     let t1 = PJ.lookup_trans_nt nonterm_table target nt in
-     if t1 > 0 then begin
-                    if Logging.activated then begin Logging.log Logging.Features.comp_ne "%d => %d [%d]\n" target t1 nt
-        end             ;
-       insert_one_ig i ol cs t1 current_callset sv0 sv0;
-     end;
-
-     let {PJDN.ctarget = t1; carg = _; cbinder = binder} =
-       PJDN.lookup_trans_pnt p_nonterm_table target nt in
-     if t1 > 0 then begin
-                    if Logging.activated then begin Logging.log Logging.Features.comp_ne "%d => %d [%d(_)]\n" target t1 nt
-        end             ;
-       (* We only consider one triple for t1, rather than a set of them, because
-          we reason that state t1 is only reachable by call/call_p edges. Hence,
-          each call will independently handle its own (newly created) triple.
-          FIX: verify the validity of this reasoning. *)
-       insert_one_ig i ol cs t1 current_callset (binder curr_pos sv0 new_sv) sv0
-     end
-   end
-)                 
-
-  
-
-  (* `NULL_COMPL(nt,new_sv)') *)
-
   
 
   
@@ -1368,7 +1316,6 @@ module Full_yakker (Sem_val : SEMVAL) = struct
 (*               epsilon_close_current xyz target socvas_s i term_table.(target) *)
            | PJDN.Call_trans t ->                 (
      Pcs.add_call_state pre_cc s;
-     let curr_pos = current_callset.id in
      let is_new =
        match insert_one i ol cs t (current_callset, sv0, sv0) with
          | Ignore_elt -> false
@@ -1387,88 +1334,6 @@ module Full_yakker (Sem_val : SEMVAL) = struct
          end;
        end
       end             ;
-
-
-   (* Nullability check. *)
-   (match term_table.(t) with
-      | PJDN.Maybe_nullable_trans2 (nt, p) ->
-          if Logging.activated then begin
-            Logging.log Logging.Features.calls_ne
-              "Checking maybe nullable (@%d)\n" t;
-          end;
-
-        (match p nplookahead_fn ykb sv0 with
-           | None -> ()
-           | Some new_sv ->                 (null_compl nonterm_table p_nonterm_table s i ol cs socvas_s curr_pos t sv0 current_callset is_new
-        nt new_sv)                 )
-
-      | PJDN.Complete_p_trans nt ->                 (null_compl nonterm_table p_nonterm_table s i ol cs socvas_s curr_pos t sv0 current_callset is_new
-        nt sv0)                 
-      | PJDN.MComplete_p_trans nts ->
-          for k = 0 to Array.length nts - 1 do
-            let nt = nts.(k) in
-                            (null_compl nonterm_table p_nonterm_table s i ol cs socvas_s curr_pos t sv0 current_callset is_new
-        nt sv0)                 
-          done
-
-      | PJDN.Complete_trans nt ->
-          let t1 = PJ.lookup_trans_nt nonterm_table s nt in
-          if t1 > 0 then insert_many i ol cs t1 socvas_s;
-          if is_new then
-            let t1 = PJ.lookup_trans_nt nonterm_table t nt in
-            if t1 > 0 then
-              insert_one_ig i ol cs t1 current_callset sv0 sv0
-      | PJDN.MComplete_trans nts ->
-          for k = 0 to Array.length nts - 1 do
-            let nt = nts.(k) in
-            let t1 = PJ.lookup_trans_nt nonterm_table s nt in
-            if t1 > 0 then insert_many i ol cs t1 socvas_s;
-            if is_new then
-              let t1 = PJ.lookup_trans_nt nonterm_table t nt in
-              if t1 > 0 then
-                insert_one_ig i ol cs t1 current_callset sv0 sv0
-          done
-      | PJDN.Many_trans txs ->
-          for j = 0 to Array.length txs - 1 do
-            match txs.(j) with
-              | PJDN.Maybe_nullable_trans2 (nt, p) ->
-                  if Logging.activated then begin
-                    Logging.log Logging.Features.calls_ne
-                      "Checking maybe nullable (@%d)\n" t;
-                  end;
-                  (match p nplookahead_fn ykb sv0 with
-                     | None -> ()
-                     | Some new_sv ->                 (null_compl nonterm_table p_nonterm_table s i ol cs socvas_s curr_pos t sv0 current_callset is_new
-        nt new_sv)                 )
-
-              | PJDN.Complete_p_trans nt ->                 (null_compl nonterm_table p_nonterm_table s i ol cs socvas_s curr_pos t sv0 current_callset is_new
-        nt sv0)                 
-              | PJDN.MComplete_p_trans nts ->
-                  for k = 0 to Array.length nts - 1 do
-                    let nt = nts.(k) in
-                                    (null_compl nonterm_table p_nonterm_table s i ol cs socvas_s curr_pos t sv0 current_callset is_new
-        nt sv0)                 
-                  done
-              | PJDN.Complete_trans nt ->
-                  let t1 = PJ.lookup_trans_nt nonterm_table s nt in
-                  if t1 > 0 then insert_many i ol cs t1 socvas_s;
-                  if is_new then
-                    let t1 = PJ.lookup_trans_nt nonterm_table t nt in
-                    if t1 > 0 then
-                      insert_one_ig i ol cs t1 current_callset sv0 sv0
-              | PJDN.MComplete_trans nts ->
-                  for k = 0 to Array.length nts - 1 do
-                    let nt = nts.(k) in
-                    let t1 = PJ.lookup_trans_nt nonterm_table s nt in
-                    if t1 > 0 then insert_many i ol cs t1 socvas_s;
-                    if is_new then
-                      let t1 = PJ.lookup_trans_nt nonterm_table t nt in
-                      if t1 > 0 then
-                        insert_one_ig i ol cs t1 current_callset sv0 sv0
-                  done
-              | _ -> ()
-          done
-      | _ -> ())
   )                 
            | PJDN.Call_p_trans (call_act, t) ->                         (
      Pcs.add_call_state pre_cc s;
@@ -1478,134 +1343,14 @@ module Full_yakker (Sem_val : SEMVAL) = struct
         let arg = call_act curr_pos sv in
        (match insert_one i ol cs t (current_callset, arg, arg) with
            | Ignore_elt | Reprocess_elt -> ()
-           | Process_elt -> Pcs.add_call_state pre_cc t);
-
-       (* Nullability check. *)
-       match term_table.(t) with
-         | PJDN.Maybe_nullable_trans2 (nt, p) ->
-             (match p nplookahead_fn ykb arg with
-                | None -> ()
-                | Some new_sv ->
-                    let {PJDN.ctarget = t1; carg = arg_act; cbinder = binder} =
-                      PJDN.lookup_trans_pnt p_nonterm_table s nt in
-                    if t1 > 0  && arg_act == call_act then begin
-                      (* Only need to check for physical equality
-                         of call_act and arg_act. if not equal, then there will be another
-                         call tagged with arg_act, which will be checked when it is invoked.  *)
-                      insert_one_ig i ol cs t1 callset (binder curr_pos sv new_sv) sv_arg
-                    end)
-         | PJDN.Complete_p_trans nt ->
-             let {PJDN.ctarget = t1; carg = arg_act; cbinder = binder} =
-               PJDN.lookup_trans_pnt p_nonterm_table s nt in
-             if t1 > 0  && arg_act == call_act then begin
-               insert_one_ig i ol cs t1 callset (binder curr_pos sv arg) sv_arg
-             end
-         | PJDN.MComplete_p_trans nts ->
-             for k = 0 to Array.length nts - 1 do
-               let nt = nts.(k) in
-               let {PJDN.ctarget = t1; carg = arg_act; cbinder = binder} =
-                 PJDN.lookup_trans_pnt p_nonterm_table s nt in
-               if t1 > 0  && arg_act == call_act then begin
-                 insert_one_ig i ol cs t1 callset (binder curr_pos sv arg) sv_arg
-               end
-             done
-         | PJDN.Many_trans trans ->
-             let n = Array.length trans in
-             for j = 0 to n-1 do
-               match trans.(j) with
-                 | PJDN.Maybe_nullable_trans2 (nt, p) ->
-                     (match p nplookahead_fn ykb arg with
-                        | None -> ()
-                        | Some new_sv ->
-                            let {PJDN.ctarget = t1; carg = arg_act; cbinder = binder} =
-                              PJDN.lookup_trans_pnt p_nonterm_table s nt in
-                            if t1 > 0  && arg_act == call_act then begin
-                              insert_one_ig i ol cs t1 callset (binder curr_pos sv new_sv) sv_arg
-                            end)
-                 | PJDN.Complete_p_trans nt ->
-                     let {PJDN.ctarget = t1; carg = arg_act; cbinder = binder} =
-                       PJDN.lookup_trans_pnt p_nonterm_table s nt in
-                     if t1 > 0  && arg_act == call_act then begin
-                       insert_one_ig i ol cs t1 callset (binder curr_pos sv arg) sv_arg
-                     end
-                 | PJDN.MComplete_p_trans nts ->
-                     for k = 0 to Array.length nts - 1 do
-                       let nt = nts.(k) in
-                       let {PJDN.ctarget = t1; carg = arg_act; cbinder = binder} =
-                         PJDN.lookup_trans_pnt p_nonterm_table s nt in
-                       if t1 > 0  && arg_act == call_act then begin
-                         insert_one_ig i ol cs t1 callset (binder curr_pos sv arg) sv_arg
-                       end
-                     done
-                 | _ -> ()
-             done
-         | _ -> () )
+           | Process_elt -> Pcs.add_call_state pre_cc t)
+     )
          | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, sv, sv_arg) -> let curr_pos = current_callset.id in
         let arg = call_act curr_pos sv in
        (match insert_one i ol cs t (current_callset, arg, arg) with
            | Ignore_elt | Reprocess_elt -> ()
-           | Process_elt -> Pcs.add_call_state pre_cc t);
-
-       (* Nullability check. *)
-       match term_table.(t) with
-         | PJDN.Maybe_nullable_trans2 (nt, p) ->
-             (match p nplookahead_fn ykb arg with
-                | None -> ()
-                | Some new_sv ->
-                    let {PJDN.ctarget = t1; carg = arg_act; cbinder = binder} =
-                      PJDN.lookup_trans_pnt p_nonterm_table s nt in
-                    if t1 > 0  && arg_act == call_act then begin
-                      (* Only need to check for physical equality
-                         of call_act and arg_act. if not equal, then there will be another
-                         call tagged with arg_act, which will be checked when it is invoked.  *)
-                      insert_one_ig i ol cs t1 callset (binder curr_pos sv new_sv) sv_arg
-                    end)
-         | PJDN.Complete_p_trans nt ->
-             let {PJDN.ctarget = t1; carg = arg_act; cbinder = binder} =
-               PJDN.lookup_trans_pnt p_nonterm_table s nt in
-             if t1 > 0  && arg_act == call_act then begin
-               insert_one_ig i ol cs t1 callset (binder curr_pos sv arg) sv_arg
-             end
-         | PJDN.MComplete_p_trans nts ->
-             for k = 0 to Array.length nts - 1 do
-               let nt = nts.(k) in
-               let {PJDN.ctarget = t1; carg = arg_act; cbinder = binder} =
-                 PJDN.lookup_trans_pnt p_nonterm_table s nt in
-               if t1 > 0  && arg_act == call_act then begin
-                 insert_one_ig i ol cs t1 callset (binder curr_pos sv arg) sv_arg
-               end
-             done
-         | PJDN.Many_trans trans ->
-             let n = Array.length trans in
-             for j = 0 to n-1 do
-               match trans.(j) with
-                 | PJDN.Maybe_nullable_trans2 (nt, p) ->
-                     (match p nplookahead_fn ykb arg with
-                        | None -> ()
-                        | Some new_sv ->
-                            let {PJDN.ctarget = t1; carg = arg_act; cbinder = binder} =
-                              PJDN.lookup_trans_pnt p_nonterm_table s nt in
-                            if t1 > 0  && arg_act == call_act then begin
-                              insert_one_ig i ol cs t1 callset (binder curr_pos sv new_sv) sv_arg
-                            end)
-                 | PJDN.Complete_p_trans nt ->
-                     let {PJDN.ctarget = t1; carg = arg_act; cbinder = binder} =
-                       PJDN.lookup_trans_pnt p_nonterm_table s nt in
-                     if t1 > 0  && arg_act == call_act then begin
-                       insert_one_ig i ol cs t1 callset (binder curr_pos sv arg) sv_arg
-                     end
-                 | PJDN.MComplete_p_trans nts ->
-                     for k = 0 to Array.length nts - 1 do
-                       let nt = nts.(k) in
-                       let {PJDN.ctarget = t1; carg = arg_act; cbinder = binder} =
-                         PJDN.lookup_trans_pnt p_nonterm_table s nt in
-                       if t1 > 0  && arg_act == call_act then begin
-                         insert_one_ig i ol cs t1 callset (binder curr_pos sv arg) sv_arg
-                       end
-                     done
-                 | _ -> ()
-             done
-         | _ -> () ) __s__)                         
+           | Process_elt -> Pcs.add_call_state pre_cc t)
+     ) __s__)                         
   )                         
 
            | PJDN.Complete_trans nt ->
@@ -1950,7 +1695,6 @@ module Full_yakker (Sem_val : SEMVAL) = struct
                  insert_many i ol cs target socvas_s
            | PJDN.Call_trans t ->                 (
      
-     let curr_pos = current_callset.id in
      let is_new =
        match insert_one i ol cs t (current_callset, sv0, sv0) with
          | Ignore_elt -> false
@@ -1969,88 +1713,6 @@ module Full_yakker (Sem_val : SEMVAL) = struct
          end;
        end
       end             ;
-
-
-   (* Nullability check. *)
-   (match term_table.(t) with
-      | PJDN.Maybe_nullable_trans2 (nt, p) ->
-          if Logging.activated then begin
-            Logging.log Logging.Features.calls_ne
-              "Checking maybe nullable (@%d)\n" t;
-          end;
-
-        (match p nplookahead_fn ykb sv0 with
-           | None -> ()
-           | Some new_sv ->                 (null_compl nonterm_table p_nonterm_table s i ol cs socvas_s curr_pos t sv0 current_callset is_new
-        nt new_sv)                 )
-
-      | PJDN.Complete_p_trans nt ->                 (null_compl nonterm_table p_nonterm_table s i ol cs socvas_s curr_pos t sv0 current_callset is_new
-        nt sv0)                 
-      | PJDN.MComplete_p_trans nts ->
-          for k = 0 to Array.length nts - 1 do
-            let nt = nts.(k) in
-                            (null_compl nonterm_table p_nonterm_table s i ol cs socvas_s curr_pos t sv0 current_callset is_new
-        nt sv0)                 
-          done
-
-      | PJDN.Complete_trans nt ->
-          let t1 = PJ.lookup_trans_nt nonterm_table s nt in
-          if t1 > 0 then insert_many i ol cs t1 socvas_s;
-          if is_new then
-            let t1 = PJ.lookup_trans_nt nonterm_table t nt in
-            if t1 > 0 then
-              insert_one_ig i ol cs t1 current_callset sv0 sv0
-      | PJDN.MComplete_trans nts ->
-          for k = 0 to Array.length nts - 1 do
-            let nt = nts.(k) in
-            let t1 = PJ.lookup_trans_nt nonterm_table s nt in
-            if t1 > 0 then insert_many i ol cs t1 socvas_s;
-            if is_new then
-              let t1 = PJ.lookup_trans_nt nonterm_table t nt in
-              if t1 > 0 then
-                insert_one_ig i ol cs t1 current_callset sv0 sv0
-          done
-      | PJDN.Many_trans txs ->
-          for j = 0 to Array.length txs - 1 do
-            match txs.(j) with
-              | PJDN.Maybe_nullable_trans2 (nt, p) ->
-                  if Logging.activated then begin
-                    Logging.log Logging.Features.calls_ne
-                      "Checking maybe nullable (@%d)\n" t;
-                  end;
-                  (match p nplookahead_fn ykb sv0 with
-                     | None -> ()
-                     | Some new_sv ->                 (null_compl nonterm_table p_nonterm_table s i ol cs socvas_s curr_pos t sv0 current_callset is_new
-        nt new_sv)                 )
-
-              | PJDN.Complete_p_trans nt ->                 (null_compl nonterm_table p_nonterm_table s i ol cs socvas_s curr_pos t sv0 current_callset is_new
-        nt sv0)                 
-              | PJDN.MComplete_p_trans nts ->
-                  for k = 0 to Array.length nts - 1 do
-                    let nt = nts.(k) in
-                                    (null_compl nonterm_table p_nonterm_table s i ol cs socvas_s curr_pos t sv0 current_callset is_new
-        nt sv0)                 
-                  done
-              | PJDN.Complete_trans nt ->
-                  let t1 = PJ.lookup_trans_nt nonterm_table s nt in
-                  if t1 > 0 then insert_many i ol cs t1 socvas_s;
-                  if is_new then
-                    let t1 = PJ.lookup_trans_nt nonterm_table t nt in
-                    if t1 > 0 then
-                      insert_one_ig i ol cs t1 current_callset sv0 sv0
-              | PJDN.MComplete_trans nts ->
-                  for k = 0 to Array.length nts - 1 do
-                    let nt = nts.(k) in
-                    let t1 = PJ.lookup_trans_nt nonterm_table s nt in
-                    if t1 > 0 then insert_many i ol cs t1 socvas_s;
-                    if is_new then
-                      let t1 = PJ.lookup_trans_nt nonterm_table t nt in
-                      if t1 > 0 then
-                        insert_one_ig i ol cs t1 current_callset sv0 sv0
-                  done
-              | _ -> ()
-          done
-      | _ -> ())
   )                 
            | PJDN.Call_p_trans (call_act, t) ->                         (
      
@@ -2058,132 +1720,12 @@ module Full_yakker (Sem_val : SEMVAL) = struct
          | Socvas.Empty -> ()
          | Socvas.Singleton (callset, sv, sv_arg) -> (let curr_pos = current_callset.id in
         let arg = call_act curr_pos sv in
-       insert_one_ig i ol cs t current_callset arg arg;
-
-       (* Nullability check. *)
-       match term_table.(t) with
-         | PJDN.Maybe_nullable_trans2 (nt, p) ->
-             (match p nplookahead_fn ykb arg with
-                | None -> ()
-                | Some new_sv ->
-                    let {PJDN.ctarget = t1; carg = arg_act; cbinder = binder} =
-                      PJDN.lookup_trans_pnt p_nonterm_table s nt in
-                    if t1 > 0  && arg_act == call_act then begin
-                      (* Only need to check for physical equality
-                         of call_act and arg_act. if not equal, then there will be another
-                         call tagged with arg_act, which will be checked when it is invoked.  *)
-                      insert_one_ig i ol cs t1 callset (binder curr_pos sv new_sv) sv_arg
-                    end)
-         | PJDN.Complete_p_trans nt ->
-             let {PJDN.ctarget = t1; carg = arg_act; cbinder = binder} =
-               PJDN.lookup_trans_pnt p_nonterm_table s nt in
-             if t1 > 0  && arg_act == call_act then begin
-               insert_one_ig i ol cs t1 callset (binder curr_pos sv arg) sv_arg
-             end
-         | PJDN.MComplete_p_trans nts ->
-             for k = 0 to Array.length nts - 1 do
-               let nt = nts.(k) in
-               let {PJDN.ctarget = t1; carg = arg_act; cbinder = binder} =
-                 PJDN.lookup_trans_pnt p_nonterm_table s nt in
-               if t1 > 0  && arg_act == call_act then begin
-                 insert_one_ig i ol cs t1 callset (binder curr_pos sv arg) sv_arg
-               end
-             done
-         | PJDN.Many_trans trans ->
-             let n = Array.length trans in
-             for j = 0 to n-1 do
-               match trans.(j) with
-                 | PJDN.Maybe_nullable_trans2 (nt, p) ->
-                     (match p nplookahead_fn ykb arg with
-                        | None -> ()
-                        | Some new_sv ->
-                            let {PJDN.ctarget = t1; carg = arg_act; cbinder = binder} =
-                              PJDN.lookup_trans_pnt p_nonterm_table s nt in
-                            if t1 > 0  && arg_act == call_act then begin
-                              insert_one_ig i ol cs t1 callset (binder curr_pos sv new_sv) sv_arg
-                            end)
-                 | PJDN.Complete_p_trans nt ->
-                     let {PJDN.ctarget = t1; carg = arg_act; cbinder = binder} =
-                       PJDN.lookup_trans_pnt p_nonterm_table s nt in
-                     if t1 > 0  && arg_act == call_act then begin
-                       insert_one_ig i ol cs t1 callset (binder curr_pos sv arg) sv_arg
-                     end
-                 | PJDN.MComplete_p_trans nts ->
-                     for k = 0 to Array.length nts - 1 do
-                       let nt = nts.(k) in
-                       let {PJDN.ctarget = t1; carg = arg_act; cbinder = binder} =
-                         PJDN.lookup_trans_pnt p_nonterm_table s nt in
-                       if t1 > 0  && arg_act == call_act then begin
-                         insert_one_ig i ol cs t1 callset (binder curr_pos sv arg) sv_arg
-                       end
-                     done
-                 | _ -> ()
-             done
-         | _ -> () )
+       insert_one_ig i ol cs t current_callset arg arg
+     )
          | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, sv, sv_arg) -> let curr_pos = current_callset.id in
         let arg = call_act curr_pos sv in
-       insert_one_ig i ol cs t current_callset arg arg;
-
-       (* Nullability check. *)
-       match term_table.(t) with
-         | PJDN.Maybe_nullable_trans2 (nt, p) ->
-             (match p nplookahead_fn ykb arg with
-                | None -> ()
-                | Some new_sv ->
-                    let {PJDN.ctarget = t1; carg = arg_act; cbinder = binder} =
-                      PJDN.lookup_trans_pnt p_nonterm_table s nt in
-                    if t1 > 0  && arg_act == call_act then begin
-                      (* Only need to check for physical equality
-                         of call_act and arg_act. if not equal, then there will be another
-                         call tagged with arg_act, which will be checked when it is invoked.  *)
-                      insert_one_ig i ol cs t1 callset (binder curr_pos sv new_sv) sv_arg
-                    end)
-         | PJDN.Complete_p_trans nt ->
-             let {PJDN.ctarget = t1; carg = arg_act; cbinder = binder} =
-               PJDN.lookup_trans_pnt p_nonterm_table s nt in
-             if t1 > 0  && arg_act == call_act then begin
-               insert_one_ig i ol cs t1 callset (binder curr_pos sv arg) sv_arg
-             end
-         | PJDN.MComplete_p_trans nts ->
-             for k = 0 to Array.length nts - 1 do
-               let nt = nts.(k) in
-               let {PJDN.ctarget = t1; carg = arg_act; cbinder = binder} =
-                 PJDN.lookup_trans_pnt p_nonterm_table s nt in
-               if t1 > 0  && arg_act == call_act then begin
-                 insert_one_ig i ol cs t1 callset (binder curr_pos sv arg) sv_arg
-               end
-             done
-         | PJDN.Many_trans trans ->
-             let n = Array.length trans in
-             for j = 0 to n-1 do
-               match trans.(j) with
-                 | PJDN.Maybe_nullable_trans2 (nt, p) ->
-                     (match p nplookahead_fn ykb arg with
-                        | None -> ()
-                        | Some new_sv ->
-                            let {PJDN.ctarget = t1; carg = arg_act; cbinder = binder} =
-                              PJDN.lookup_trans_pnt p_nonterm_table s nt in
-                            if t1 > 0  && arg_act == call_act then begin
-                              insert_one_ig i ol cs t1 callset (binder curr_pos sv new_sv) sv_arg
-                            end)
-                 | PJDN.Complete_p_trans nt ->
-                     let {PJDN.ctarget = t1; carg = arg_act; cbinder = binder} =
-                       PJDN.lookup_trans_pnt p_nonterm_table s nt in
-                     if t1 > 0  && arg_act == call_act then begin
-                       insert_one_ig i ol cs t1 callset (binder curr_pos sv arg) sv_arg
-                     end
-                 | PJDN.MComplete_p_trans nts ->
-                     for k = 0 to Array.length nts - 1 do
-                       let nt = nts.(k) in
-                       let {PJDN.ctarget = t1; carg = arg_act; cbinder = binder} =
-                         PJDN.lookup_trans_pnt p_nonterm_table s nt in
-                       if t1 > 0  && arg_act == call_act then begin
-                         insert_one_ig i ol cs t1 callset (binder curr_pos sv arg) sv_arg
-                       end
-                     done
-                 | _ -> ()
-             done
-         | _ -> () ) __s__)                         
+       insert_one_ig i ol cs t current_callset arg arg
+     ) __s__)                         
   )                         
 
            | PJDN.Complete_trans nt ->

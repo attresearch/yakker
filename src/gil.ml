@@ -13,18 +13,18 @@ open Yak
 type nonterminal = string
 type expr = string
 
-type boxnull =
+type 'expr boxnull =
     Always_null          (* box always accepts null, e.g., position *)
   | Never_null           (* box never accepts null *)
   | Runbox_null          (* run box to determine if it accepts null *)
-  | Runpred_null of expr (* run separate predicate to determine if box accepts null *)
+  | Runpred_null of 'expr (* run separate predicate to determine if box accepts null *)
 
 type 'expr rhs =
     Symb of nonterminal * 'expr option * 'expr option
   | Lit of bool * string              (* true iff case sensitive *)
   | CharRange of int * int
   | Action of 'expr
-  | Box of 'expr * boxnull
+  | Box of 'expr * 'expr boxnull
   | When of 'expr * 'expr
   | When_special of 'expr   (* Used for inlining nullability predicates. *)
   | Seq of 'expr rhs * 'expr rhs
@@ -156,11 +156,37 @@ let to_cs r =
 (*********************************************************************
  * Under construction.
  *********************************************************************)
-(* module Meta = struct *)
+module Meta = struct
 
-(*   type rhs_phoas = Meta_prog.PHOAS.hoas_exp rhs *)
-(*   type rhs_dbl = Meta_prog.DB_levels.exp rhs *)
+  module M = Meta_prog
+  type rhs_phoas = M.PHOAS.hoas_exp rhs
+  type rhs_dbl = M.DB_levels.exp rhs
 
+  let boxnull_s2p = function
+    | Always_null -> Always_null
+    | Never_null -> Never_null
+    | Runbox_null -> Runbox_null
+    | Runpred_null e -> Runpred_null {M.PHOAS.e = (fun () -> M.PHOAS.InjectE e)}
 
+  let boxnull_p2s = function
+    | Always_null -> Always_null
+    | Never_null -> Never_null
+    | Runbox_null -> Runbox_null
+    | Runpred_null e -> Runpred_null (M.PHOAS.to_string e)
 
-(* end *)
+  let rec to_string_repr r =
+    let p2s = M.PHOAS.to_string in
+    let to_string = function
+      | Action e -> Action (p2s e)
+      | Symb (nt, x, y) ->
+          Symb (nt, Util.option_map p2s x,  Util.option_map p2s y)
+      | Box (e, bn) -> Box (p2s e, boxnull_p2s bn)
+      | When (e1, e2) -> When (p2s e1, p2s e2)
+      | When_special e -> When_special (p2s e)
+      | Lit (x,y) -> Lit (x,y)
+      | CharRange (x,y) -> CharRange (x,y)
+      | Lookahead (x, r) -> Lookahead (x, to_string_repr r)
+      | (Alt _ | Star _ | Seq _) -> invalid_arg "structural recursion should be handled by Gil.map" in
+    map to_string r
+
+end

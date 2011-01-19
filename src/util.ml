@@ -149,3 +149,7 @@ let array_binary_search arr key =
 
 let list_map_reduce v f_m f_r xs =
   List.fold_left (fun a x -> f_r a (f_m x)) v xs
+
+let option_map f = function None -> None | Some x -> Some (f x)
+let option_fold f v = function None -> v | Some x -> f v x
+

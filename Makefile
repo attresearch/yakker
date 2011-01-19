@@ -40,7 +40,7 @@ CMIS:=$(ML_SOURCES:.ml=.cmi)
 CMOS:=$(ML_SOURCES:.ml=.cmo)
 CMXS:=$(ML_SOURCES:.ml=.cmx)
 
-FRONT_END_SOURCES := compileopt.ml variables.ml tgraph.ml gil.ml gul.ml pr.ml nullable_pred.ml minus.ml desugar.ml hash.ml copyrule.ml \
+FRONT_END_SOURCES := compileopt.ml variables.ml tgraph.ml meta_prog.ml gil.ml gul.ml pr.ml nullable_pred.ml minus.ml desugar.ml hash.ml copyrule.ml \
                      analyze.ml unroll.ml lookahead.ml fusion.ml attributes.ml wrap.ml coroutine.ml replay.ml \
                      dispatch.ml label.ml lift.ml inline_nullable.ml fsm.ml \
 		     extract_grammar.ml rfc.ml yakker_grammar.ml cmdline.ml gil_gen.ml version.ml lexutil.ml main.ml

@@ -33,11 +33,11 @@ type annot = { mutable css: Cs.t option;
                mutable precedence : prec_annotation;
              }
 
-type boxnull = Gil.boxnull =
+type 'expr boxnull = 'expr Gil.boxnull =
     Always_null          (* box always accepts null, e.g., position *)
   | Never_null           (* box never accepts null *)
   | Runbox_null          (* run box to determine if it accepts null *)
-  | Runpred_null of expr (* run separate predicate to determine if box accepts null *)
+  | Runpred_null of 'expr (* run separate predicate to determine if box accepts null *)
 
 type rhs = { mutable a: annot;
              mutable r: rhs0 }
@@ -52,7 +52,7 @@ and rhs0 =
   | CharRange of int * int
   | Prose of string
   | Action of expr option * expr option
-  | Box of expr * ty option * boxnull (* argument, return type, box nullability info *)
+  | Box of expr * ty option * expr boxnull (* argument, return type, box nullability info *)
   | Delay of expr * ty option         (* argument, return type *)
   | When of expr
   | Opt of rhs
@@ -201,9 +201,6 @@ let add_to_prologue gr s =
 
 let add_to_epilogue gr s =
   gr.epilogue <- (Ocaml s)::gr.epilogue
-
-let fresh_nonterminal g : nonterminal =
-  Printf.sprintf "_%d" (Util.postincr Variables.counter)
 
 (* rhs constructors *)
 let mkRHS r          = {r = r; a = mkAnnot None}

@@ -1555,41 +1555,6 @@ module Full_yakker (Sem_val : SEMVAL) = struct
 
     let can_scan = ref (YkBuf.fill2 ykb 1) in
 
-    (* Nullability check. *)
-    (match term_table.(start_state) with
-       | PJDN.Maybe_nullable_trans2 (nt, p) ->
-           if Util.is_some (p nplookahead_fn ykb sv0) then
-             let t1 = PJ.lookup_trans_nt nonterm_table start_state nt in
-             if t1 > 0 then insert_one_nc ns t1 cva0
-       | PJDN.Complete_trans nt ->
-           let t1 = PJ.lookup_trans_nt nonterm_table start_state nt in
-           if t1 > 0 then insert_one_nc ns t1 cva0;
-       | PJDN.MComplete_trans nts ->
-           for k = 0 to Array.length nts - 1 do
-             let nt = nts.(k) in
-             let t = PJ.lookup_trans_nt nonterm_table start_state nt in
-             if t > 0 then insert_one_nc ns t cva0
-           done
-        | PJDN.Many_trans txs ->
-            for j = 0 to Array.length txs - 1 do
-              match txs.(j) with
-                | PJDN.Maybe_nullable_trans2 (nt, p) ->
-                    if Util.is_some (p nplookahead_fn ykb sv0) then
-                      let t1 = PJ.lookup_trans_nt nonterm_table start_state nt in
-                      if t1 > 0 then insert_one_nc ns t1 cva0
-                | PJDN.Complete_trans nt ->
-                    let t1 = PJ.lookup_trans_nt nonterm_table start_state nt in
-                    if t1 > 0 then insert_one_nc ns t1 cva0
-                | PJDN.MComplete_trans nts ->
-                    for k = 0 to Array.length nts - 1 do
-                      let nt = nts.(k) in
-                      let t = PJ.lookup_trans_nt nonterm_table start_state nt in
-                      if t > 0 then insert_one_nc ns t cva0
-                    done
-                | _ -> ()
-            done
-        | _ -> ());
-
     let i = ref 0 in
     let overflow = ref [] in
 

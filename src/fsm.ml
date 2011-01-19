@@ -447,13 +447,7 @@ let grammar_fsm ch gr =
   let npreds = gen_maybe_empty gr in (* what nonterminals are nullable? *)
 
 
-  let gr =
-    if !Compileopt.inline_nullable then
-      begin
-        Inline_nullable.inline npreds gr
-      end
-    else
-      gr in
+  let gr = Desugar.desugar_gil (Inline_nullable.inline npreds gr) in
 
   init_nfa ch;
 
@@ -494,11 +488,6 @@ let grammar_fsm ch gr =
           let arc_final = Final n in
           atrans(f,s_final,arc_final,ONE);
           atrans(e,s_final,arc_final,ONE);
-          if not !Compileopt.inline_nullable then
-            match Nullable_pred.Gil.get_symbol_nullability npreds n with
-              | Nullable_pred.No_n -> ()
-              | Nullable_pred.Yes_n -> atrans(s, s_final,arc_final,ONE)
-              | Nullable_pred.Maybe_n -> atrans(s, s_final, MaybeFinal n, ONE)
 
     )
     gr;

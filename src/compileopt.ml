@@ -25,10 +25,6 @@ let skip_opt = ref true
 let use_fsm = ref true
   (** Use FSM toolkit to build transducer; use FST otherwise. *)
 
-let inline_nullable = ref true
-  (** Inline the null-grammar of nullable nonterminals,
-      instead of doing a call and immediate return. *)
-
 (* testing-related *)
 let unit_history = ref false
 let repress_replay = ref false

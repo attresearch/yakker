@@ -9,17 +9,43 @@
  *    Trevor Jim and Yitzhak Mandelbaum
  *******************************************************************************)
 
-(* Desugar a few constructs:
-   $pos (late positions) is implemented with @delay
-   Non-symbol, non-character set lookahead is lifted out to a fresh nonterminal
+(**
+ Lift out non-symbol, non-character set lookahead to a fresh nonterminal.
 *)
+
+let desugar_gil gr =
+  let ds = ref [] in
+  let define r =
+    let nt1 = Variables.fresh_nonterminal () in
+    ds := (nt1, r) :: !ds;
+    Gil.Symb(nt1, None, None) in
+  let rec loop r =
+    let dleaf = function
+      | Gil.Lookahead(b, r2) ->
+          (* If it is a symbol or a character set, we leave it in
+             place. Otherwise, we lift it out. *)
+          let r2' = match loop r2 with
+            | (Gil.Symb (nt, None, None)) as r -> r
+            | r -> (match Gil.to_cs r with
+                      | Some _ -> r
+                      | None -> define r) in
+          Gil.Lookahead(b, r2')
+      | ( Gil.Symb _
+        | Gil.When _ | Gil.When_special _
+        | Gil.Action _ | Gil.Box _
+        | Gil.CharRange _ | Gil.Lit _) as r -> r
+      | (Gil.Alt _ | Gil.Star _ | Gil.Seq _) ->
+          invalid_arg "structural recursion should be handled by Gil.map" in
+    Gil.map dleaf r in
+  let d2 = List.map (fun (n, r) -> (n, loop r)) gr in
+  !ds @ d2
 
 open Gul
 
 let desugar gr =
   Minus.cs_annot gr;
   let define r =
-    let nt1 = fresh_nonterminal gr in
+    let nt1 = Variables.fresh_nonterminal () in
     gr.ds <- (RuleDef(nt1, (dupRule r), mkAttr()))::gr.ds;
     Symb(nt1,None,[],None)
   in
@@ -33,10 +59,6 @@ let desugar gr =
            | {a={css=Some(_)}} -> ()
            | _ ->
                r2.r <- define r2)
-(*
-    | Position false ->
-        r.r <- (mkDELAY("pos_",None)).r
-*)
     | Symb _ | Position _ | Prose _
     | When _ | Action _ | Box _ | Delay _
     | CharRange _ | Minus _ | Lit _ -> ()

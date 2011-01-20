@@ -14,6 +14,9 @@
 *)
 module DB_levels = struct
 
+(*   type con = string *)
+(*   type patt = con * int *)
+
   type exp =
   | InjectE of string
   | True
@@ -22,6 +25,8 @@ module DB_levels = struct
   | App of exp * exp
   | Lam of exp
   | If of exp * exp * exp
+(*   | Case of exp * (patt * exp) list *)
+(*   | Con of con * exp list *)
 
   let app2 f x y = App (App (f,x), y)
   let app3 f x y z = App (App (App (f, x), y), z)
@@ -34,7 +39,9 @@ module DB_levels = struct
     let rec walk c = function
       | (True | False | InjectE _) as e -> e
       | Var i -> f c i
+(*       | Con (con, es) -> Con (con, List.map (walk c) es) *)
       | Lam f -> Lam (walk (c+1) f)
+(*       | Case (d, cs) -> Case (walk c d, List.map (fun ((con, n), e) -> ((con, n), walk (c+n) e)) cs *)
       | App (e1, e2) -> App (walk c e1, walk c e2)
       | If (e1, e2, e3) -> If (walk c e1, walk c e2, walk c e3)
     in
@@ -113,7 +120,8 @@ module DB_levels = struct
 
   let is_closed = check_free_at_most 0
 
-  let to_string =
+  (** Print a string representation of the code. Does not print valid ocaml code. *)
+  let to_string_raw =
     let rec recur c = function
       | True -> "true"
       | False -> "false"
@@ -159,6 +167,8 @@ module PHOAS = struct
     | If (e1, e2, e3) -> DBL.If (to_dB level e1, to_dB level e2, to_dB level e3)
     | InjectE s -> DBL.InjectE s
 
+  let convert_to_dB {e=f} = to_dB 0 (f())
+
   (* val subst' : 'a exp exp -> 'a exp *)
   let rec subst' = function
     | True -> True
@@ -178,7 +188,6 @@ module PHOAS = struct
   let vsub2' e v1 v2 = subst' (e (Var v1) (Var v2))
   let vsub2 e v1 v2 = vsub2' e.e_open2 v1 v2
 
-  let convert_to_dB {e=f} = to_dB 0 (f())
 
   let get_var (n,elts) i = List.nth elts (n - i - 1)
   let extend_ctxt (n,elts) x = (n+1,x::elts)
@@ -262,6 +271,12 @@ module PHOAS = struct
     recur
 
   let to_string {e=f} = to_string'  0 (f())
+
+  open Yak.Util.Operators
+
+  let simplify = convert_from_dB $ DBL.simplify $ convert_to_dB
+
+  let inject_string s = {e = fun () -> InjectE s}
 
   let app2 x y z = App (App (x,y), z)
   let app3 f x y z = App (App (App (f, x), y), z)

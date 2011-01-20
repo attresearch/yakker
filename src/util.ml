@@ -153,3 +153,11 @@ let list_map_reduce v f_m f_r xs =
 let option_map f = function None -> None | Some x -> Some (f x)
 let option_fold f v = function None -> v | Some x -> f v x
 
+(** Like Haskell's [maybe] function. *)
+let option v f = function None -> v | Some x -> f x
+
+module Operators = struct
+  let ($) f g x = f (g x)
+  let ($|) f x = f x
+end
+

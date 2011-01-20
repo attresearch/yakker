@@ -320,7 +320,7 @@ let do_phases gr =
             Dispatch.transform gr skipped_labels)
       | Fuse_cmd ->
           if !Compileopt.coalesce then
-            do_phase "coalescing actions" (fun () -> Fusion.fuse_gil gr)
+            do_phase "coalescing actions" (fun () -> Fusion.fuse_gil2 gr)
       | Compile_cmd ->
           do_compile gr
 

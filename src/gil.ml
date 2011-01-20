@@ -158,50 +158,40 @@ let to_cs r =
  *********************************************************************)
 module Meta = struct
 
-  module M = Meta_prog
-  type rhs_phoas = M.PHOAS.hoas_exp rhs
-  type rhs_dbl = M.DB_levels.exp rhs
+  module PHOAS = Meta_prog.PHOAS
+  module DBL = Meta_prog.DBL
 
-  let boxnull_s2p = function
+  type rhs_phoas = PHOAS.hoas_exp rhs
+  type rhs_dbl = DBL.exp rhs
+
+  let boxnull_map f = function
     | Always_null -> Always_null
     | Never_null -> Never_null
     | Runbox_null -> Runbox_null
-    | Runpred_null e -> Runpred_null {M.PHOAS.e = fun () -> M.PHOAS.InjectE e}
+    | Runpred_null e -> Runpred_null (f e)
 
-  let boxnull_p2s = function
-    | Always_null -> Always_null
-    | Never_null -> Never_null
-    | Runbox_null -> Runbox_null
-    | Runpred_null e -> Runpred_null (M.PHOAS.to_string e)
+  let boxnull_s2p = boxnull_map PHOAS.inject_string
+  let boxnull_p2s = boxnull_map PHOAS.to_string
 
-  let rec phoas_to_string r =
-    let p2s = M.PHOAS.to_string in
-    let to_string = function
-      | Action e -> Action (p2s e)
+  let rec map_expr f r =
+    let g = function
+      | Action e -> Action (f e)
       | Symb (nt, x, y) ->
-          Symb (nt, Util.option_map p2s x,  Util.option_map p2s y)
-      | Box (e, bn) -> Box (p2s e, boxnull_p2s bn)
-      | When (e1, e2) -> When (p2s e1, p2s e2)
-      | When_special e -> When_special (p2s e)
+          Symb (nt, Util.option_map f x,  Util.option_map f y)
+      | Box (e, bn) -> Box (f e, boxnull_map f bn)
+      | When (e1, e2) -> When (f e1, f e2)
+      | When_special e -> When_special (f e)
       | Lit (x,y) -> Lit (x,y)
       | CharRange (x,y) -> CharRange (x,y)
-      | Lookahead (x, r) -> Lookahead (x, phoas_to_string r)
-      | (Alt _ | Star _ | Seq _) -> invalid_arg "structural recursion should be handled by Gil.map" in
-    map to_string r
+      | Lookahead (x, r) -> Lookahead (x, map_expr f r)
+      | (Alt _ | Star _ | Seq _) ->
+          invalid_arg "structural recursion should be handled by Gil.map" in
+    map g r
 
-  let rec string_to_phoas r =
-    let s2p x = {M.PHOAS.e = fun () -> M.PHOAS.InjectE x} in
-    let to_phoas = function
-      | Action e -> Action (s2p e)
-      | Symb (nt, x, y) ->
-          Symb (nt, Util.option_map s2p x,  Util.option_map s2p y)
-      | Box (e, bn) -> Box (s2p e, boxnull_s2p bn)
-      | When (e1, e2) -> When (s2p e1, s2p e2)
-      | When_special e -> When_special (s2p e)
-      | Lit (x,y) -> Lit (x,y)
-      | CharRange (x,y) -> CharRange (x,y)
-      | Lookahead (x, r) -> Lookahead (x, string_to_phoas r)
-      | (Alt _ | Star _ | Seq _) -> invalid_arg "structural recursion should be handled by Gil.map" in
-    map to_phoas r
+  open Util.Operators
+
+  let phoas_to_string = map_expr PHOAS.to_string
+  let string_to_phoas = map_expr PHOAS.inject_string
+  let phoas_simplify_to_string = map_expr (PHOAS.to_string $ PHOAS.simplify)
 
 end

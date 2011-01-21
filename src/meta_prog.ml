@@ -29,6 +29,7 @@ module DB_levels = struct
   | If of exp * exp * exp
   | Case of exp * (patt * exp) list
   | Con of con * exp list
+  | Let of exp * exp
 
   let app2 f x y = App (App (f,x), y)
   let app3 f x y z = App (App (App (f, x), y), z)
@@ -42,6 +43,7 @@ module DB_levels = struct
       | Var i -> f c i
       | Con (con, es) -> Con (con, List.map (walk c) es)
       | Lam f -> Lam (walk (c+1) f)
+      | Let (rhs, body) -> Let (walk c rhs, walk (c+1) body)
       | Case (d, cs) -> Case (walk c d,
                               List.map (fun ((con, n), e) -> ((con, n), walk (c+n) e)) cs)
       | App (e1, e2) -> App (walk c e1, walk c e2)
@@ -139,12 +141,14 @@ module DB_levels = struct
              | _ -> App (e1, e2))
       | Var i -> Var i
       | Lam f -> Lam (simplify' (c+1) f)
+      | Let (e, f) -> Let (simplify' c e, simplify' (c+1) f)
     in simplify' 0 e
 
   (** check that the expression has a maximum free variable of at most [n - 1].*)
   let rec check_free_at_most n = function
     | True | False | InjectE _ -> true
     | Var i -> i < n
+    | Let (e, f) -> check_free_at_most n e && check_free_at_most (n+1) f
     | Lam f -> check_free_at_most (n+1) f
     | App (e1, e2) -> check_free_at_most n e1 && check_free_at_most n e2
     | Con (_, es) -> List.fold_left (fun b e -> b && check_free_at_most n e) true es
@@ -163,6 +167,8 @@ module DB_levels = struct
       | False -> "false"
       | Lam f ->
           Printf.sprintf "(lam. %s)" (recur (c+1) f)
+      | Let (e,f) ->
+          Printf.sprintf "(let %s. %s)" (recur c e) (recur (c+1) f)
       | Var x -> if x < c then Printf.sprintf "%d" x else Printf.sprintf "'%d" x
       | Con (con, es) -> Printf.sprintf "%s(%s)" con $ String.concat ", " $ List.map (recur c)
           $| es
@@ -189,6 +195,7 @@ module PHOAS = struct
     Var of 'a
   | App of 'a exp * 'a exp
   | Lam of ('a -> 'a exp)
+  | Let of 'a exp * ('a -> 'a exp)
   | InjectE of string
   | True
   | False
@@ -210,6 +217,7 @@ module PHOAS = struct
     | False -> DBL.False
     | Var i -> DBL.Var i
     | Lam f -> DBL.Lam (to_dB (level+1) (f level))
+    | Let (e, f) -> DBL.Let (to_dB level e, to_dB (level+1) (f level))
     | App (e1, e2) -> DBL.App (to_dB level e1, to_dB level e2)
     | If (e1, e2, e3) -> DBL.If (to_dB level e1, to_dB level e2, to_dB level e3)
     | Con (c, es) -> DBL.Con (c, List.map (to_dB level) es)
@@ -230,6 +238,7 @@ module PHOAS = struct
     | False -> False
     | Var e -> e
     | Lam f -> Lam (fun x -> subst' (f (Var x)))
+    | Let (e, f) -> Let (subst' e, fun x -> subst' (f (Var x)))
     | Con (con, es) -> Con (con, List.map subst' es)
     | Case (d, cs) ->
         let sc (p, e_open) = (p, subst' $ e_open $ List.map (fun x -> Var x)) in
@@ -258,6 +267,7 @@ module PHOAS = struct
     | DBL.False -> False
     | DBL.Var i -> Var (get_var ctxt i)
     | DBL.Lam f -> Lam (fun x -> from_dB (extend_ctxt ctxt x) f)
+    | DBL.Let (e, f) -> Let(from_dB ctxt e, fun x -> from_dB (extend_ctxt ctxt x) f)
     | DBL.App (e1, e2) -> App (from_dB ctxt e1, from_dB ctxt e2)
     | DBL.If (e1, e2, e3) -> If (from_dB ctxt e1, from_dB ctxt e2, from_dB ctxt e3)
     | DBL.InjectE s -> InjectE s
@@ -331,6 +341,9 @@ module PHOAS = struct
                         Printf.sprintf "(fun %s %s %s -> %s)" x y z (recur (c+3) (h z))
                     | t -> Printf.sprintf "(fun %s %s -> %s)" x y (recur (c+2) t))
             | t -> Printf.sprintf "(fun %s -> %s)" x (recur (c+1) t))
+      | Let (e, f) ->
+          let x = mk_var c in
+          Printf.sprintf "(let %s = %s in %s)" x $| recur c e $| recur (c+1) (f x)
       | Con (con, es) ->
           Printf.sprintf "%s(%s)" con $ String.concat ", " $ List.map (recur c) $| es
       | Case (d, cs) ->
@@ -358,7 +371,5 @@ module PHOAS = struct
   let app3 f x y z = App (App (App (f, x), y), z)
   let lam2 f = Lam (fun x -> Lam (f x))
   let lam3 f = Lam (fun x -> lam2 (f x))
-
-  let letx e1 e2 = App (Lam e2, e1)
 
 end

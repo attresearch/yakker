@@ -26,10 +26,6 @@ let transform gr =
       (skipped_labels := PSet.add l !skipped_labels; skip_count := !skip_count+1; true)
     else (notskip_count := !notskip_count+1; false) in
   let hproj = if gr.wrapped_history then "Ykd_int" else "" in
-  let n_int =
-    if gr.wrapped_history then
-      "(match _n() with Ykd_int x -> x | _ -> failwith \"Replay.transform.n_int\")"
-    else "_n()" in
   let match_cases = function
     | [] -> Util.impossible "Replay.transform.match_cases([])"
     | [(label,body)] ->
@@ -38,13 +34,13 @@ let transform gr =
         else begin
           (* Could just use next case, but this prints a bit more nicely *)
           if !Compileopt.check_labels then
-            Printf.sprintf "(_i(%d,%s); %s)\n " label n_int body (* NB _i defn is added to prologue by Main *)
+            Printf.sprintf "(_i(%d,_n()); %s)\n " label body (* NB _i defn is added to prologue by Main *)
           else
-            Printf.sprintf "(ignore (*%d*) (%s); %s)\n " label n_int body (* prevent match warning *)
+            Printf.sprintf "(ignore (*%d*) (_n()); %s)\n " label body (* prevent match warning *)
         end
     | cases ->
         let b = Buffer.create 11 in
-        Printf.bprintf b "\n (match %s with\n " n_int;
+        Printf.bprintf b "\n (match _n() with\n ";
         let rec loop = function [] -> Util.impossible "Replay.transform.match_cases"
           | (label,body)::[] ->
               notskip_count := !notskip_count+1;

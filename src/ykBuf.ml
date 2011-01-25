@@ -460,7 +460,8 @@ let from_lexbuf ykb b =
 
 (** If f is an ocamllex entry point, then (wrap_ocamllex f) is
     suitable as a yakker @box *)
-let wrap_ocamllex f start ykb =
+(*TODO: start is not used any more, ykb is sufficient; eliminate *)
+let wrap_ocamllex f (start:int) ykb =
   let lexbuf = to_lexbuf ykb in
   let result =
     try

@@ -567,6 +567,9 @@ ocamlparser.ml: ocamlparser.bnf
 ocaml_lexer.mll: ../ocaml/lexer.patch ../ocaml/lexer.mll
 	patch -o - -d ../ocaml < $< > $@
 
+ocamllex_lexer.mll: ../ocaml/lex/lexer.patch ../ocaml/lex/lexer.mll
+	patch -o - -d ../ocaml/lex < $< > $@
+
 ########################
 # OCaml distro's parser
 

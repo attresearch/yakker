@@ -564,8 +564,8 @@ ocamlparser.ml: ocamlparser.bnf
 %.ml: %.mll
 	ocamllex $<
 
-ocaml_lexer.mll: ../ocaml/lexer.patch ../ocaml/lexer.mll
-	patch -o - -d ../ocaml < $< > $@
+ocaml_lexer.mll: ../ocaml/parsing/lexer.patch ../ocaml/parsing/lexer.mll
+	patch -o - -d ../ocaml/parsing < $< > $@
 
 ocamllex_lexer.mll: ../ocaml/lex/lexer.patch ../ocaml/lex/lexer.mll
 	patch -o - -d ../ocaml/lex < $< > $@

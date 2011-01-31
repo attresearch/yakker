@@ -206,6 +206,7 @@ element
   | group$x {x} | option$x {x} | char-val$x {x} | num-val$x {x} | prose-val$x {x}
   | "@when(" inside-text$x ")" { mkWHEN x }
   | "@delay(" inside-text$x [return-type]$y ")" { mkDELAY(x,y) }
+  | "@delay2" [return-type]$y "(" inside-text$x ")" { mkDELAY(x,y) }
   | "@box(" inside-text$x [return-type]$y [o "," o boxnull$z o {z}]$z ")" { mkBOX(x,y,match z with None -> Runbox_null | Some w -> w) }
   | "@box2" [o early-return]$y [o boxnull]$z o "(" inside-text$x ")" { mkBOX(x,y,match z with None -> Runbox_null | Some w -> w) }
   | "@box3" [o boxnull]$z o "(" closed-text$x [o ":" o inside-text$t {t}]$y ")" { mkBOX(x,y,match z with None -> Runbox_null | Some w -> w) }

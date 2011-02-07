@@ -5,7 +5,8 @@ directly subsequent semantic actions in a grammar.
 let remove_empty_lit r =
   let rec loop = function
     | ( Gil.Action _ | Gil.Symb _ | Gil.Box _
-      | Gil.When _ | Gil.When_special _ | Gil.Lit _ | Gil.CharRange _ | Gil.Lookahead _)
+      | Gil.When _ | Gil.When_special _ | Gil.Lit _
+      | Gil.CharRange _ | Gil.Lookahead _ | Gil.DBranch _)
         as r -> r
     | Gil.Alt (r1, r2) -> Gil.Alt (loop r1, loop r2)
     | Gil.Star r1 -> Gil.Star (loop r1)
@@ -51,6 +52,7 @@ let fuse_gil_rhs =
     | Gil.CharRange _
     | Gil.When _
     | Gil.When_special _
+    | Gil.DBranch _
     | Gil.Lookahead _ -> false
     | Gil.Star _ -> false
 
@@ -130,7 +132,7 @@ let fuse_gil_rhs =
     | Gil.Symb _
     | Gil.CharRange _
     | Gil.Box _
-    | Gil.When _ | Gil.When_special _
+    | Gil.When _ | Gil.When_special _ | Gil.DBranch _
     | Gil.Lookahead _ -> continue_s (Gil.Meta.string_to_phoas r :: r_acc) todo
 
     | Gil.Alt (r1, r2) ->
@@ -154,7 +156,7 @@ let fuse_gil_rhs =
     | Gil.Symb _
     | Gil.Lit _
     | Gil.CharRange _
-    | Gil.When _ | Gil.When_special _
+    | Gil.When _ | Gil.When_special _ | Gil.DBranch _
     | Gil.Lookahead _
     | Gil.Box (_, Gil.Runpred_null _) ->
         continue_s (Gil.Meta.string_to_phoas r :: (fuse a_acc) :: r_acc) todo

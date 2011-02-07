@@ -69,7 +69,7 @@ let rec cs_annot_rule gr r = begin
   | Star(_,r2)
   | Hash(_,r2) ->
       ignore(cs_annot_rule gr r2)
-  | Prose _ | Action _ | Position _ | Box _ | Delay _ | When _ -> ());
+  | DBranch _ | Prose _ | Action _ | Position _ | Box _ | Delay _ | When _ -> ());
   r.a.css
 end
 
@@ -122,6 +122,7 @@ let rec elim_rule r = match r.r with
   | Hash(_,r2) ->
       elim_rule r2
   | Symb _ | CharRange _ | Lit _
+  | DBranch _
   | Box _ | Prose _ | When _ | Action _ | Delay _ | Position _ -> ()
 
 (* more general character set inlining *)
@@ -144,6 +145,7 @@ let rec inline_rule r = match r.r with
   | Hash(_,r2) ->
       inline_rule r2
   | CharRange _ | Lit _
+  | DBranch _
   | Box _ | Prose _ | When _ | Action _ | Delay _ | Position _ -> ()
 
 (* broken *)
@@ -165,6 +167,7 @@ let rec inline_rule_la r = match r.r with
   | Hash(_,r2) ->
       inline_rule_la r2
   | Symb _ | CharRange _ | Lit _
+  | DBranch _
   | Box _ | Prose _ | When _ | Action _ | Delay _ | Position _ -> ()
 
 let rec inline_rule_no_la r = match r.r with
@@ -186,6 +189,7 @@ let rec inline_rule_no_la r = match r.r with
   | Hash(_,r2) ->
       inline_rule_no_la r2
   | CharRange _ | Lit _
+  | DBranch _
   | Box _ | Prose _ | When _ | Action _ | Delay _ | Position _ -> ()
 
 let elim gr =

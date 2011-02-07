@@ -119,6 +119,7 @@ module DNELR :
       (* Deterministic transitions. *)
       | No_trans
       | Scan_trans of Pam_internal.terminal * Pam_internal.label
+      | Det_trans of (Pam_internal.pos -> 'a -> 'a * Pam_internal.label)
       | MScan_trans of Pam_internal.label array
       | Lookahead_trans of Pam_internal.label array
       | RegLookahead_trans of Pam_internal.presence * Pam_internal.label * nonterm * Pam_internal.label

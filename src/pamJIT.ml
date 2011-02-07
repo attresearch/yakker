@@ -151,7 +151,8 @@ let convert_to_ELR0_table p start_symb start_state min_nonterm num_nonterms =
 
       (* Non-ELR0 compatible instructions. *)
       | PI.AAction2Instr _ | PI.AWhenInstr3 _ | PI.AContInstr3 _ | PI.WhenSpecialInstr _
-      | PI.ALookaheadInstr _ -> fail_not_ELR0_msg s "Incompatible instructions"
+      | PI.ALookaheadInstr _ | PI.DetBranchInstr _ ->
+          fail_not_ELR0_msg s "Incompatible instructions"
     in
     Array.iter init_arrays blk
   done;
@@ -511,7 +512,7 @@ module NELR0 = struct
 
         (* Non-ELR0 compatible instructions. *)
         | PI.AAction2Instr _ | PI.AWhenInstr3 _ | PI.AContInstr3 _ | PI.WhenSpecialInstr _
-        | PI.ALookaheadInstr _  -> fail_not_ELR0_msg s "Incompatible instructions"
+        | PI.ALookaheadInstr _ | PI.DetBranchInstr _  -> fail_not_ELR0_msg s "Incompatible instructions"
       in
       Array.iter init_arrays blk
     done;
@@ -531,6 +532,7 @@ module DNELR = struct
 
     (* Deterministic transitions. *)
     | Scan_trans of PI.terminal * PI.label
+    | Det_trans of (PI.pos -> 'a -> 'a * PI.label)
     | MScan_trans of PI.label array
     | Lookahead_trans of PI.label array
     | RegLookahead_trans of PI.presence * PI.label * nonterm * PI.label
@@ -572,6 +574,7 @@ module DNELR = struct
   let name_of = function
     | No_trans -> "EMPTY"
     | Scan_trans _ | MScan_trans _ -> "shift"
+    | Det_trans _ -> "det-branch"
     | Lookahead_trans _ -> "lookahead"
     | RegLookahead_trans _ -> "regular lookahead"
     | ExtLookahead_trans _ -> "ext.lookahead"
@@ -691,6 +694,7 @@ module DNELR = struct
 
     let instr2trans s = function
       | PI.EatInstr(c,target) -> Scan_trans (c, target)
+      | PI.DetBranchInstr b -> Det_trans b
       | PI.ACallInstr3 (arg,target) ->
           if arg == f_no_arg then
             Call_trans target
@@ -795,7 +799,7 @@ module DNELR = struct
               (a_mt.(c) <- scan_dtrans target; tr2)
             else if t = scan_dtrans target then tr2
             else mk_many s tr1 tr2
-        | Scan_trans _, ( RegLookahead_trans _ | ExtLookahead_trans _
+        | Scan_trans _, ( Det_trans _ | RegLookahead_trans _ | ExtLookahead_trans _
                         | Complete_trans _
                         | MComplete_trans _
                         | Call_trans _
@@ -810,6 +814,9 @@ module DNELR = struct
             mk_many s tr1 tr2
 
         | _, Scan_trans _ -> merge_transs s tr2 tr1
+
+        | Det_trans _, _ -> mk_many s tr1 tr2
+        | _, Det_trans _ -> mk_many s tr1 tr2
 
         | MScan_trans a1, MScan_trans a2 ->
             if merge_term_maps a1 a2 then tr1
@@ -1044,6 +1051,7 @@ module DNELR = struct
         | When_trans _
         | When2_trans _
         | Box_trans _
+        | Det_trans _
           -> reachables in
       unvisited.(s) <- false;  (* mark s as visited. *)
       let rs = s::reachables in (* add s to list.     *)

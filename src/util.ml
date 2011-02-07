@@ -27,6 +27,11 @@ let impossible s =
   Printf.eprintf "Impossible: %s\n%!" s;
   raise Exit
 
+(** Marks a features as "todo". Most useful for match cases for which
+    we don't want the compiler to emit a match warning, but which still
+    need addressing.*)
+let todo s = invalid_arg ("Todo: " ^ s)
+
 (** m++ *)
 let postincr m =
   let res = !m in
@@ -155,6 +160,31 @@ let option_fold f v = function None -> v | Some x -> f v x
 
 (** Like Haskell's [maybe] function. *)
 let option v f = function None -> v | Some x -> f x
+let option_get v = option v (fun z -> z)
+
+(* return the set of unique elements in the list *)
+let remove_dups xs =
+  match List.fast_sort compare xs with
+    | ([] | [_]) as v -> v
+    | x::xs ->
+        let f ((x, xs) as v) y = if x = y then v else (y, x::xs) in
+        let x, xs = List.fold_left f (x, []) xs in
+        x::xs
+
+(** Group a list into sublists according the provided equality function *)
+let group_by cmp xs =
+  match List.fast_sort cmp xs with
+    | [] -> []
+    | y::xs_s ->
+        let (x,xs,xss) =
+          List.fold_left (fun (y, ys, xss) v -> if cmp y v = 0 then (v,y::ys,xss) else (v,[],(y::ys)::xss))
+            (y, [], []) xs_s in
+        (x::xs)::xss
+
+let list_make n f =
+  let rec loop i xs =
+    if i < n then loop (i + 1) ((f i)::xs) else xs in
+  List.rev (loop 0 [])
 
 module Operators = struct
   let ($) f g x = f (g x)

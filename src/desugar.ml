@@ -31,7 +31,7 @@ let desugar_gil gr =
                       | None -> define r) in
           Gil.Lookahead(b, r2')
       | ( Gil.Symb _
-        | Gil.When _ | Gil.When_special _
+        | Gil.When _ | Gil.When_special _ | Gil.DBranch _
         | Gil.Action _ | Gil.Box _
         | Gil.CharRange _ | Gil.Lit _) as r -> r
       | (Gil.Alt _ | Gil.Star _ | Gil.Seq _) ->
@@ -61,6 +61,7 @@ let desugar gr =
                r2.r <- define r2)
     | Symb _ | Position _ | Prose _
     | When _ | Action _ | Box _ | Delay _
+    | DBranch _
     | CharRange _ | Minus _ | Lit _ -> ()
     | Seq(r2,_,_,r3)
     | Alt(r2,r3) ->

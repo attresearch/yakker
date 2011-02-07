@@ -45,6 +45,7 @@ let rec elim_rule r = match r.r with
   | Star(_,r2) ->
       elim_rule r2
   | Symb _ | CharRange _ | Lit _
+  | DBranch _
   | Box _ | Prose _ | When _ | Action _ | Delay _ | Position _ -> ()
 
 let elim gr =

@@ -64,6 +64,8 @@ let producers gr =
               if late<>None then late_producer()
           | Position true -> early_producer()
           | Position false -> late_producer()
+          | DBranch(_,{arity=0}) -> ()
+          | DBranch _
           | Box(_,Some _,_) -> early_producer()
           | Box(_,None,_) ->
               ()
@@ -97,7 +99,7 @@ let producers gr =
     | Lit _
     | CharRange _
     | Prose _
-    | When _
+    | When _ | DBranch _
     | Lookahead _ -> (* NB Lookahead can't contribute a tail *)
         g
     | Seq(r1,_,_,r2) ->
@@ -167,6 +169,8 @@ let rec relevance0 is_early_producer r =
       r.a.late_relevant <- true;
   | When _ ->
       r.a.early_relevant <- true
+  | DBranch _ ->
+      r.a.early_relevant <- true
   | Symb(n,early,early_attributes,late) ->
       (* NB early_attributes may be modified by the copy rule *)
       if early<>None || early_attributes<>[] || is_early_producer n then r.a.early_relevant <- true;
@@ -205,7 +209,8 @@ let rec relevance0 is_early_producer r =
   | Lit _ | CharRange _ | Prose _ ->
       ()
 
-(* second pass, calculates late relevance for all subterms given late relevance for nonterminals *)
+(* second pass, calculates late relevance for all subterms given late
+   relevance for nonterminals *)
 let rec late_relevance late_relevant r =
   r.a.late_relevant <- false; (* careful: we start from scratch *)
   let add r' =
@@ -236,7 +241,7 @@ let rec late_relevance late_relevant r =
   | Lookahead (_,r1) ->
       (* Complete late relevance analysis for r1 but don't propagate relevance to the Lookahead node itself *)
       late_relevance late_relevant r1
-  | Box _ | When _ | Lit _ | CharRange _ | Prose _ ->
+  | DBranch _ | Box _ | When _ | Lit _ | CharRange _ | Prose _ ->
       ()
 
 (* main function *)
@@ -297,6 +302,7 @@ let assignments gr =
     | Box _
     | Delay _
     | When _
+    | DBranch _
     | Symb _
     | Lit _
     | CharRange _
@@ -358,6 +364,7 @@ let infer_prec ptbl tokmap r =
     | Box _
     | Prose _
     | When _
+    | DBranch _
     | Delay _
     | Lit _
 
@@ -422,7 +429,7 @@ let iter_with_pos f r =
     | Alt _ | Minus _ | CharRange _ | Opt _ -> Middle_of
 
     | Assign _ | Action _ | Position _ | Prose _
-    | When _ | Delay _ | Lookahead _ -> pos
+    | When _ | DBranch _ | Delay _ | Lookahead _ -> pos
 
     | Seq(r1,_,_,r2) ->
         match pos with
@@ -449,6 +456,7 @@ let prec_dependency_graph ptbl tokmap ds =
   | Position _
   | Prose _
   | When _ | Action _ | Box _ | Delay _
+  | DBranch _
   | CharRange _
   | Lit _ -> g
   | Minus(r2,r3)
@@ -696,7 +704,7 @@ let iter_with_pos2 f r =
     | Alt _ | Minus _ | CharRange _ | Opt _ -> Middle_of
 
     | Assign _ | Action _ | Position _ | Prose _
-    | When _ | Delay _ | Lookahead _ -> pos
+    | When _ | DBranch _ | Delay _ | Lookahead _ -> pos
 
     | Seq({r=Symb (n, _, _, _)}, _, _, r2) ->
         (match pos with
@@ -768,7 +776,6 @@ let prec_rewrite_simple gr =
   let left = mk_assoc_array r_a n_a in
   let right = mk_assoc_array l_a n_a in
 
-  let prec_var = "prec" in
   let prec_type = "Pami.prec" in
 
   let mk_pguard x prec pos =
@@ -881,7 +888,11 @@ let regular_inline gr trans =
           | Action _
           | Position _
           | Delay _
-          | Box _ -> (None, false, false)
+          | Box _
+          | Prose _ | When _ | Lookahead _
+          | Star(Accumulate _, _)
+          | Hash(Accumulate _, _)
+            -> (None, false, false)
           | Minus (r1, r2) ->
               let (myr1, has_change1, is_regular1) = loop inline_map r1 in
               let (myr2, has_change2, is_regular2) = loop inline_map r2 in
@@ -920,9 +931,6 @@ let regular_inline gr trans =
               r.a.is_regular <- true;
               let myr = dupRule r in
                 (Some myr, true, true)
-          | Prose _ | When _ | Lookahead _ -> (None, false, false)
-          | Star(Accumulate(_,_),r1)
-          | Hash(Accumulate(_,_),r1) -> (None, false, false)
           | Assign(r1,early,late) ->
               if (early<>None || late<>None) then (None, false, false) else
               (*TODO: basically the same as Opt, refactor*)
@@ -1010,6 +1018,7 @@ let regular_inline gr trans =
                     end
                 else if has_change then (None, true, false)
                 else (None, false, false)
+          | DBranch _ -> Util.todo "Analyze.regular_inline.loop.DBranch"
       end
       else (None, false, false)
     else (None, false, true)
@@ -1189,7 +1198,7 @@ let first_gr gr tokmap =
             let fs1 = PMap.find n1 first_map in
               (fs1, true)
           else (empty(), false)
-          | When _
+      | When _
       | Lookahead _ (* -> if fv then (maybe_singleton r, false) else (maybe_singleton r, true) *) (* This is the hack for recursive parts. *)
       | Box _
       | Action _
@@ -1249,6 +1258,8 @@ let first_gr gr tokmap =
       | Rcount(_,r1)
       | Hash(_,r1) ->
           loop first_map r1 fv
+      | DBranch _ -> Util.todo "Analyze.first_gr.loop.DBranch"
+
   in
   let flag = ref false in
   let iter gr =
@@ -1295,7 +1306,7 @@ let first r first_map =
     match r.r with
       | Symb (n1, _, _, _) ->  (* TODO: attributes *)
           (try PMap.find n1 first_map with Not_found -> Printf.eprintf "Warning: Unable to compute %s's FIRST set." n1; empty ())
-          | When _
+      | When _
       | Lookahead _ -> maybe_singleton r
       | Box _
       | Action _
@@ -1327,6 +1338,7 @@ let first r first_map =
       | Rcount(_,r1)
       | Hash(_,r1) ->
           loop r1
+      | DBranch _ -> Util.todo "Analyze.first.loop.DBranch"
   in
     loop r
 
@@ -1343,6 +1355,7 @@ let rec_graph gr first_map =
     | CharRange _
     | Prose _
     | When _
+    | DBranch _
     | Lookahead _ ->
         g
     | Seq(r1,_,_,r2)
@@ -1378,7 +1391,7 @@ let lrec_graph gr first_map =
     | Lit _
     | CharRange _
     | Prose _
-    | When _
+    | When _ | DBranch _
     | Lookahead _ ->
         g
     | Seq(r1,_,_,r2) ->
@@ -1452,14 +1465,15 @@ let follow_gr gr first_map =
           else
             PMap.add n1 cur_fls follow_map
       | Box _
-          | When _
+      | When _
+      | DBranch _
       | Lookahead _
       | Action _
       | Position _
       | Delay _
       | Prose _
       | Lit _
-          | CharRange _ -> follow_map
+      | CharRange _ -> follow_map
       | Alt (r1,r2) ->
           let newmap = loop follow_map r1 cur_fls in
           let newmap = loop newmap r2 cur_fls in
@@ -1624,6 +1638,7 @@ let is_ll1 gr first_map follow_map n tokmap =
                       else false
             end
       | Minus(r1,r2) -> true (* assume minus is in LL(1) *)
+      | DBranch _ -> Util.todo "Analyze.is_ll1.loop.DBranch"
   in
   let init_fls = try PMap.find n follow_map with Not_found -> (Printf.eprintf "Warning: Unable to compute %s's FOLLOW set\n" n; Cs.empty (), []) in
     loop gr init_fls
@@ -1806,14 +1821,19 @@ let print_fsmap first_map =
   let str = PMap.foldi print_one first_map "" in
     str
 
-(* the main function that computes the first sets for all nonterminal in the grammar gr. assume tokens are non-nullable and all tokens from the same tokenizer are non-ambiguous, which I think is true in ocamllex *)
+(** The main function that computes the first sets for all nonterminal
+    in the grammar gr. assume tokens are non-nullable and all tokens
+    from the same tokenizer are non-ambiguous, which I think is true
+    in ocamllex *)
 let first_gr_gil_lex gr tokmap =
-  let rec loop first_map r fv = (* fv stands for first visit. it is used to help determine if there's any change in the current pass *)
+  (* [fv] stands for first visit. it is used to help determine if
+     there's any change in the current pass *)
+  let rec loop first_map r fv =
     match r with
       | Gil.Symb (n1, _, _) ->
           if PMap.mem n1 first_map then
             let fs1 = PMap.find n1 first_map in
-              (fs1, true)
+            (fs1, true)
           else  (empty(), false)
       | Gil.When _
       | Gil.When_special _
@@ -1824,40 +1844,41 @@ let first_gr_gil_lex gr tokmap =
           if fv then
             (epsilon_singleton (), false)
           else
-          (epsilon_singleton (), true)
-          | Gil.Lit (b, s) ->
-              let c = s.[0] in
-            if b then
-              let c = Char.code c in
-                if fv then
-                      (non_singleton (c,c), false)
-                else
-                  (non_singleton (c,c), true)
+            (epsilon_singleton (), true)
+      | Gil.Lit (b, s) ->
+          let c = s.[0] in
+          if b then
+            let c = Char.code c in
+            if fv then
+              (non_singleton (c,c), false)
             else
-              let lower = Char.lowercase c in
-              let lower = Char.code lower in
-              let upper = Char.uppercase c in
-              let upper = Char.code upper in
-              let fs = union (non_singleton (lower, lower)) (non_singleton (upper, upper)) in
-                if fv then (fs, false) else (fs, true)
-          | Gil.CharRange (x,y) -> if fv then (non_singleton (x,y), false) else (non_singleton (x,y), true)
+              (non_singleton (c,c), true)
+          else
+            let lower = Char.lowercase c in
+            let lower = Char.code lower in
+            let upper = Char.uppercase c in
+            let upper = Char.code upper in
+            let fs = union (non_singleton (lower, lower)) (non_singleton (upper, upper)) in
+            if fv then (fs, false) else (fs, true)
+      | Gil.CharRange (x,y) -> if fv then (non_singleton (x,y), false) else (non_singleton (x,y), true)
       | Gil.Seq(r1,r2) ->
           let (fs1, has_change1) = loop first_map r1 fv in
           let (fs2, has_change2) = loop first_map r2 fv in
-            if has_change1 || has_change2 then
-              (concat fs1 fs2, true)
-            else
-              (concat fs1 fs2, false)
+          if has_change1 || has_change2 then
+            (concat fs1 fs2, true)
+          else
+            (concat fs1 fs2, false)
       | Gil.Alt(r1,r2) ->
           let (fs1, has_change1) = loop first_map r1 fv in
           let (fs2, has_change2) = loop first_map r2 fv in
-            if has_change1 || has_change2 then
-              (union fs1 fs2, true)
-            else
-              (union fs1 fs2, false)
+          if has_change1 || has_change2 then
+            (union fs1 fs2, true)
+          else
+            (union fs1 fs2, false)
       | Gil.Star r1 ->
           let (fs1, has_change1) = loop first_map r1 fv in
-            ({nonempty = fs1.nonempty; epsilon = true; maybe_empty = fs1.maybe_empty; maybe_nonempty = fs1.maybe_nonempty}, has_change1)
+          ({nonempty = fs1.nonempty; epsilon = true; maybe_empty = fs1.maybe_empty; maybe_nonempty = fs1.maybe_nonempty}, has_change1)
+      | Gil.DBranch _ -> Util.todo "Analyze.First_set_gil_lex.first_gr_gil_lex.loop.DBranch"
   in
   let flag = ref false in
   let iter grdefs =
@@ -1873,32 +1894,32 @@ let first_gr_gil_lex gr tokmap =
         if has_change then
           if fv then
             let fs = PMap.find n first_map in
-              if compare fs fs1 <> 0 then
-                let newmap = PMap.remove n first_map in
-                let newmap = PMap.add n fs1 newmap in
-                let _ = flag := true in
-                  newmap
-              else
-                first_map
+            if compare fs fs1 <> 0 then
+              let newmap = PMap.remove n first_map in
+              let newmap = PMap.add n fs1 newmap in
+              let _ = flag := true in
+              newmap
+            else
+              first_map
           else
             (let newmap = PMap.add n fs1 first_map in let _ = flag := true in newmap)
         else first_map
       in
-        newmap
+      newmap
     in
     let _ = flag := true in
-      while !flag do
-        let _ = flag := false in
-        let first_map = List.fold_left loopfunc !map grdefs in
-          map := first_map
-      done;
-      !map
+    while !flag do
+      let _ = flag := false in
+      let first_map = List.fold_left loopfunc !map grdefs in
+      map := first_map
+    done;
+    !map
   in
-    iter gr
+  iter gr
 
 let pr_fls fls =
   let flscs,flsts = fls in
-    Printf.sprintf "cs: %s, ts: %s\n" (Cs.to_nice_string flscs) (pr_ts flsts)
+  Printf.sprintf "cs: %s, ts: %s\n" (Cs.to_nice_string flscs) (pr_ts flsts)
 
 (* given the first_map that stores the pre-calculated first sets for all nonterminals in the grammar, return the first set of a particular rhs r. *)
 let first_gil_lex r first_map =
@@ -1928,6 +1949,7 @@ let first_gil_lex r first_map =
       | Gil.Star r1 ->
           let fs1 = loop r1 in
             {nonempty = fs1.nonempty; epsilon = true; maybe_empty = fs1.maybe_empty; maybe_nonempty = fs1.maybe_nonempty}
+      | Gil.DBranch _ -> Util.todo "Analyze.First_set_gil_lex.first_gil_lex.loop.DBranch"
   in
     loop r
 
@@ -1947,7 +1969,7 @@ let rec_graph gr first_map =
     | Gil.Box _
     | Gil.Lit _
     | Gil.CharRange _
-    | Gil.When _ | Gil.When_special _
+    | Gil.When _ | Gil.When_special _  | Gil.DBranch _
     | Gil.Lookahead _ ->
         g
     | Gil.Seq(r1,r2)
@@ -1972,7 +1994,7 @@ let lrec_graph gr first_map =
     | Gil.Box _
     | Gil.Lit _
     | Gil.CharRange _
-    | Gil.When _ | Gil.When_special _
+    | Gil.When _ | Gil.When_special _  | Gil.DBranch _
     | Gil.Lookahead _ ->
         g
     | Gil.Seq(r1,r2) ->
@@ -2034,7 +2056,7 @@ let follow_gr_gil_lex gr first_map =
           else
             PMap.add n1 cur_fls follow_map
       | Gil.Box _
-      | Gil.When _ | Gil.When_special _
+      | Gil.When _ | Gil.When_special _ | Gil.DBranch _
       | Gil.Lookahead _
       | Gil.Action _
       | Gil.Lit _
@@ -2193,7 +2215,7 @@ let is_ll1 r first_map follow_map n tokmap =
             if fs2.maybe_empty <> [] || fs3.maybe_empty <> [] || fs2.maybe_nonempty <> [] || fs3.maybe_nonempty <> [] then
               false
             else
-              match (fs2.epsilon,fs3.epsilon) with
+              (match (fs2.epsilon,fs3.epsilon) with
                 | (false,false) ->
                     let is,flag = fs_fs_dstct fs2.nonempty fs3.nonempty in
                       if is && fs_notempty fs2.nonempty && fs_notempty fs3.nonempty then
@@ -2226,7 +2248,8 @@ let is_ll1 r first_map follow_map n tokmap =
                     let is,flag = fs3dstct fs2.nonempty fs3.nonempty fls in
                       if is && fs_notempty fs2.nonempty && fs_notempty fs3.nonempty && fs_notempty fls then
                         true && (loop r2 cur_fls) && (loop r3 cur_fls)
-                      else false
+                      else false)
+      | Gil.DBranch _ -> Util.todo "Analyze.First_set_gil_lex.is_ll1.loop.DBranch"
   in
   let init_fls = try PMap.find n follow_map with Not_found -> (Printf.eprintf "Warning: Unable to compute %s's FOLLOW set\n" n; Cs.empty (), []) in
     loop r init_fls

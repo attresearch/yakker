@@ -311,7 +311,9 @@ let do_phases gr =
           do_phase "dispatching" (fun () ->
             Analyze.producers gr;
             Analyze.relevance gr;
-            Label.transform gr;
+            if !Compileopt.use_dbranch then
+              Label.transform2 gr
+            else Label.transform gr;
             if !Compileopt.check_labels then
               add_to_prologue gr
                 "let _i (x,y) = if x=y then y else failwith(Printf.sprintf \"_i expected %d, got %d\" x y)\n";
@@ -320,7 +322,7 @@ let do_phases gr =
             Dispatch.transform gr skipped_labels)
       | Fuse_cmd ->
           if !Compileopt.coalesce then
-            do_phase "coalescing actions" (fun () -> Fusion.fuse_gil2 gr)
+            do_phase "coalescing actions" (fun () -> Fusion.fuse_gil gr)
       | Compile_cmd ->
           do_compile gr
 

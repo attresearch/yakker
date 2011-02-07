@@ -13,6 +13,7 @@ open Yak
 
 (* Gul abstract syntax *)
 type nonterminal = Gil.nonterminal
+type constr =  Gil.constr = {cname: string; arity:int; cty: string}
 type expr = Gil.expr
 type ty = string
 type var = string
@@ -55,6 +56,7 @@ and rhs0 =
   | Box of expr * ty option * expr boxnull (* argument, return type, box nullability info *)
   | Delay of expr * ty option         (* argument, return type *)
   | When of expr
+  | DBranch of expr * constr
   | Opt of rhs
   | Seq of rhs * var option * var option * rhs
   | Assign of rhs * var option * var option
@@ -92,7 +94,7 @@ let rec copy_b = function
   | (Position _
     | Symb _
     | Prose _
-    | When _ | Action _ | Box _ | Delay _
+    | When _ | Action _ | Box _ | Delay _ | DBranch _
     | CharRange _
     | Lit _) as x -> x
   | Minus(r2,r3) -> Minus(copyRule r2,copyRule r3)
@@ -225,6 +227,7 @@ let mkHASH2(a,r)      = mkRHS(Hash(a,r))
 let mkMINUS(r1,r2)    = mkRHS(Minus(r1,r2))
 let mkWHEN(e)         = mkRHS(When(e))
 let mkDELAY(e,topt)   = mkRHS(Delay(e,topt))
+let mkDBRANCH(e,c)   = mkRHS(DBranch(e,c))
 let mkBOX(e,topt,n)   = mkRHS(Box(e,topt,n))
 
 let rec mkSEQ = function [] -> mkLIT ""
@@ -260,6 +263,7 @@ let iter_rule_postorder f r =
        | Box _
        | Prose _
        | When _
+       | DBranch _
        | Delay _
        | CharRange _
        | Lit _ -> ()
@@ -285,6 +289,7 @@ let dependency_graph ds =
   | Position _
   | Prose _
   | When _ | Action _ | Box _ | Delay _
+  | DBranch _
   | CharRange _
   | Lit _ -> g
   | Minus(r2,r3)
@@ -390,6 +395,7 @@ let remove_late_actions gr =
   let rec loop r = match r.r with
     | Action (_, None) | Box _ | Symb (_,_,_,None) | Position true
     | Prose _ | When _ | Delay _
+    | DBranch _
     | CharRange _ | Lit _ -> r
 
     | Symb (s,e,a, Some _) -> mkSYMB2(s,e,a,None)
@@ -434,3 +440,50 @@ let remove_late_actions gr =
      grammar_late_relevant = false;
      wrapped_history = false;
   }
+
+(** Lookahead is treated as a base case. *)
+let fold f_ind2 f_ind1 f_base r =
+  let rec loop r = match r.r with
+    | Symb _ | Lit _ | Position _
+    | CharRange _ | Prose _ | Action _
+    | Box _ | Delay _ | When _
+    | DBranch _ | Lookahead _
+        -> f_base r
+    | Opt r1
+    | Star (_, r1)
+    | Hash (_, r1)
+    | Rcount (_, r1)
+    | Assign (r1, _, _)
+      -> f_ind1 (loop r1)
+    | Minus (r1, r2) | Alt (r1,r2) | Seq (r1,_,_,r2)
+        -> f_ind2 (loop r1) (loop r2) in
+  loop r
+
+(** Perform a fold with propogation of information from left-to-right,
+    in addition to standard bottom-to-top. Output of left sibling is
+    provided as first output parameter.
+
+    Lookahead is treated as a base case.
+*)
+let lrfold f_ind2 f_ind1 f_base r v_init =
+  let rec loop v_left r = match r.r with
+    | Symb _ | Lit _ | Position _
+    | CharRange _ | Prose _ | Action _
+    | Box _ | Delay _ | When _
+    | DBranch _ | Lookahead _
+        -> f_base r v_left
+    | Opt r1
+    | Star (_, r1)
+    | Hash (_, r1)
+    | Rcount (_, r1)
+    | Assign (r1, _, _)
+      -> f_ind1 v_left (loop v_left r1)
+    | Minus (r1, r2) | Alt (r1,r2) | Seq (r1,_,_,r2)
+        -> let v1 = loop v_left r1 in
+        f_ind2 v_left v1 (loop v1 r2) in
+  loop v_init r
+
+(** [lrfold] where only the base elements are interesting. The inductive cases
+    just propogate changes L-R. *)
+let lrfold_b f_b =
+  lrfold (fun _ _ v2 -> v2) (fun _ v1 -> v1) f_b

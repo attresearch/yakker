@@ -39,7 +39,7 @@ let find tbl x =
   try
     Hashtbl.find tbl x
   with Not_found ->
-    (Printf.eprintf "Internal wrap error: could not find %s\n%!" x; raise Not_found)
+    (Printf.eprintf "Internal wrap error: could not find %S\n%!" x; raise Not_found)
 
 let combined_type default attributes =
   let type_of_attributes =
@@ -63,11 +63,14 @@ let input_type a =
 let wrap gr =
   (* Get all parameter and argument types *)
   let types = ref PSet.empty in
+  let add_types = lrfold_b
+    (fun r v_left -> match r.r with | DBranch (_,{cty=t}) -> PSet.add t v_left | _ -> v_left) in
   List.iter
     (function
         RuleDef(n,r,a) ->
           (match a.early_rettype with None -> () | Some x   -> types := PSet.add x !types);
-          (match a.early_params with None -> () | Some x -> types := PSet.add (get_paramtype x) !types)
+          (match a.early_params with None -> () | Some x -> types := PSet.add (get_paramtype x) !types);
+          types := add_types r !types
       | _ -> ())
     gr.ds;
   (* Each type gets a corresponding datatype constructor *)
@@ -75,12 +78,11 @@ let wrap gr =
   Printf.bprintf b "type %s =\n" sv_type;
   Printf.bprintf b "| %s\n" sv_unit;
   let tbl_type_constructor = Hashtbl.create 11 in (* Map types to their constructors *)
-  PSet.iter
-    (fun t ->
-      let x = "Yk"^(fresh()) in
-      Printf.bprintf b "| %s of (%s)\n" x t; (* The parens are necessary if t is a tuple type *)
-      Hashtbl.add tbl_type_constructor t x)
-    !types;
+  let add_type_constructor t =
+    let x = "Yk"^(fresh()) in
+    Printf.bprintf b "| %s of (%s)\n" x t; (* The parens are necessary if t is a tuple type *)
+    Hashtbl.add tbl_type_constructor t x in
+  PSet.iter add_type_constructor !types;
   Printf.bprintf b ";;\n";
   Printf.bprintf b "let sv0 = %s;;\n" sv_unit;
   (* For the new version *)
@@ -105,20 +107,23 @@ let wrap gr =
               Hashtbl.add tbl_nt_inject n (find tbl_type_constructor (get_paramtype x)))
       | _ -> ())
     gr.ds;
-  (* At every call wrap the arguments and unwrap the results*)
+  (* At every call wrap the arguments and unwrap the results.  Replace
+     det. branch type with corresponding constructor, which is used
+     here to inject the expression into the [sv] type, and later to
+     project the result. *)
   let rec loop r = match r.r with
-  | Symb(n,eopt,attrs,lopt) ->
-      if attrs<>[] then Printf.eprintf "Warning: %s with attributes in Wrap\n%!" n;
-      let args =
-        match eopt with None ->
-          begin
-            if has_argument n then Printf.eprintf "Error: %s requires an argument but is called without one\n%!" n;
-            None
-          end
-        | Some e ->
-            let inject = find tbl_nt_inject n in
-            Some(Printf.sprintf "%s(%s)" inject e) in
-      r.r <- Symb(n,args,[],lopt); (* TODO: attributes *)
+    | Symb(n,eopt,attrs,lopt) ->
+        if attrs<>[] then Printf.eprintf "Warning: %s with attributes in Wrap\n%!" n;
+        let args =
+          match eopt with None ->
+            begin
+              if has_argument n then Printf.eprintf "Error: %s requires an argument but is called without one\n%!" n;
+              None
+            end
+            | Some e ->
+                let inject = find tbl_nt_inject n in
+                Some(Printf.sprintf "%s(%s)" inject e) in
+        r.r <- Symb(n,args,[],lopt); (* TODO: attributes *)
       let ntp_opt = try find tbl_nt_project n with Not_found -> None in
       (match ntp_opt with
       | None -> ()
@@ -132,6 +137,13 @@ let wrap gr =
             r.r <- (mkSEQ2(dupRule r,Some x,Some latev,mkACTION2(Some act,Some latev))).r;
           else
             r.r <- (mkSEQ2(dupRule r,Some x,None,mkACTION act)).r)
+
+  | DBranch (e, c) ->
+      let constructor = find tbl_type_constructor c.cty in
+      let e_inj = Printf.sprintf "%s(%s)" constructor e in
+        r.r <-
+        (mkDBRANCH (e_inj, {c with cty=constructor})).r
+
   | Position _ | Lit(_,_) | CharRange(_,_) | Prose _
   | Action _ | When _ | Box _ | Delay _ -> ()
   | Seq(r2,_,_,r3) | Alt(r2,r3) | Minus(r2,r3) -> loop r2; loop r3
@@ -214,7 +226,7 @@ let transform_history gr =
         loop r1
 
     | Symb _ | Position _ | Lit(_,_) | CharRange(_,_) | Prose _
-    | Action _ | When _ | Box _ | Delay(_,None) ->
+    | Action _ | When _ | DBranch _ | Box _ | Delay(_,None) ->
         ()
   in
   List.iter
@@ -242,7 +254,7 @@ let transform_history gr =
       !types;
     Printf.bprintf b ";;\nlet _l2hv x = Ykd_int(x);; (* label to hv *)\n";
     add_to_prologue gr (Buffer.contents b);
-    (* Wrap and unwrap at delay *)
+    (* Wrap and unwrap at delay. *)
     let rec loop r =
       match r.r with
       | Delay(e,topt) ->
@@ -264,7 +276,7 @@ let transform_history gr =
           loop r1
 
       | Symb _ | Position _ | Lit(_,_) | CharRange(_,_) | Prose _
-      | Action _ | When _ | Box _ ->
+      | Action _ | When _ | DBranch _ | Box _ ->
           ()
     in
     List.iter
@@ -322,7 +334,7 @@ let force_alt_relevance gr = (*TODO: move out of Wrap*)
         r.r <- (mkALT[r1;y]).r; (* NB r and r1 have the same relevance, y has none *)
         loop r
     | Symb _ | Position _ | Lit(_,_) | CharRange(_,_) | Prose _
-    | Action _ | When _ | Box _ | Delay _ -> ()
+    | Action _ | When _ | DBranch _ | Box _ | Delay _ -> ()
     | Seq(r1,_,_,r2) | Minus(r1,r2) -> loop r1; loop r2
     | Assign(r1,_,_) | Lookahead (_,r1) | Rcount(_,r1) | Star(_,r1) | Hash(_,r1) -> loop r1
   in

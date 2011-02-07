@@ -76,7 +76,7 @@ let add_lr1_lookahead gr =
   | Position _
   | Rcount _
   | Hash _
-  | When _
+  | When _ | DBranch _
   | Delay _ | Prose _ ->
       Util.warn Util.Sys_warn "rule not handled by lookahead transformation";
       (fun _ -> mkLIT("!ERROR!")) in

@@ -23,6 +23,8 @@ Retooled for Gil.
 
 open Yak
 open Gil
+open Util.Operators
+let map = List.map
 
 type expr = Gul.expr
 type nonterminal = Gul.nonterminal
@@ -101,7 +103,9 @@ type fsm_arc = int
 type earley_arc =
   | Epsilon                              (* Epsilon *)
   | CallEps                              (* Special epsilon edge used in call collapsing*)
-  | Tm of int                             (* Terminal, 0-255 *)
+  | Tm of int                            (* Terminal, 0-255 *)
+  | EDetBranch of expr * constr * expr
+                                         (* A deterministic branch on a constructor, annotated with its type's wrap constructor. *)
   | Call of expr option                  (* Call with arguments, possibly empty *)
   | Cont of nonterminal * expr option * expr option (* Continue for a nonterminal,argument,binder *)
   | ELookahead of bool * nonterminal      (* boolean value indicates whether or not following input should match
@@ -122,6 +126,7 @@ type earley_arc =
 let arc2string = function
   | Epsilon -> "EPS"
   | Tm c -> Printf.sprintf "%%d%d" c
+  | EDetBranch (f1, c, f2) -> Printf.sprintf "Branch(%s, %s : %s, %s)" f1 c.cname c.cty f2
   | Call(None) -> "Call"
   | Call(Some e) -> Printf.sprintf "Call(%s)" e
   | CallEps -> "CallEps"
@@ -294,6 +299,7 @@ let rec thompson =  function
       (s,f)
   | Action f_act -> thompson_base (EAction f_act)
   | Box (f_box, _) ->  thompson_base (EBox (f_box))
+  | DBranch (f1, c, f2) ->  thompson_base (EDetBranch (f1, c, f2))
   | When (f_pred, f_next) -> thompson_base (EPred (f_pred, f_next))
   | When_special p -> thompson_base (EPredSpecial p)
 
@@ -376,6 +382,7 @@ let rec merge = function
   | When (f_pred, f_next) -> merge_base (EPred (f_pred, f_next))
   | When_special p -> merge_base (EPredSpecial p)
   | Box (f_box, _) -> merge_base (EBox (f_box))
+  | DBranch (f1, c, f2) ->  merge_base (EDetBranch (f1, c, f2))
   | Seq(r2,r3) ->
      (*     ~~~r2~~~~   ~~~~~ r3 ~~~~~~
         s-->|s2-->f2|-->|scall-->fcall|--+-->f
@@ -660,13 +667,16 @@ let fsm_transducer gr inch outch =
         let add_eat x =
           Printf.ksprintf
             (fun eat ->
-              let (eats_tl, ops_tl) = (try Hashtbl.find tbl_instrs a with _ -> ([],[]) ) in
-              Hashtbl.replace tbl_instrs a (eat::eats_tl,ops_tl)) x in
+              let (eats_tl, ops_tl, dbranches_tl) = (try Hashtbl.find tbl_instrs a with _ -> ([],[],[]) ) in
+              Hashtbl.replace tbl_instrs a (eat::eats_tl,ops_tl, dbranches_tl)) x in
         let add_op x =
           Printf.ksprintf
             (fun op ->
-              let (eats_tl, ops_tl) = (try Hashtbl.find tbl_instrs a with _ -> ([],[]) ) in
-              Hashtbl.replace tbl_instrs a (eats_tl, op::ops_tl)) x in
+              let (eats_tl, ops_tl, dbranches_tl) = (try Hashtbl.find tbl_instrs a with _ -> ([],[],[]) ) in
+              Hashtbl.replace tbl_instrs a (eats_tl, op::ops_tl, dbranches_tl)) x in
+        let add_db x =
+          let (eats_tl, ops_tl, dbranches_tl) = (try Hashtbl.find tbl_instrs a with _ -> ([],[],[]) ) in
+          Hashtbl.replace tbl_instrs a (eats_tl, ops_tl, x::dbranches_tl) in
         (match fsm2earley c with
           Tm x ->          add_eat "EatInstr(%d,%d)" x b
         | Cont(n,arg_tx,y) ->
@@ -695,6 +705,7 @@ let fsm_transducer gr inch outch =
             add_op "WhenSpecialInstr(%s,%d)" (predicate p) b
         | EBox (fbox) ->
             add_op "ABlackboxInstr(%s,%d)" (box fbox) b
+        | EDetBranch (f1, c, f2) -> add_db (f1, c, f2, b)
         | _ -> ())
     | Arc2(a,b,c) ->
         f(Arc1(a,b,c,0.0)) (* NB in FSM default weight is ZERO *)
@@ -707,8 +718,8 @@ let fsm_transducer gr inch outch =
   List.iter (fun (a,b,is_next,nt) ->
                let n_start = List.assoc nt !starts in
                let op = Printf.sprintf "ALookaheadInstr(%B,CfgLA (%d,%d),%d)" is_next n_start nt b in
-               let (eats_tl, ops_tl) = (try Hashtbl.find tbl_instrs a with _ -> ([],[]) ) in
-               Hashtbl.replace tbl_instrs a (eats_tl, op::ops_tl))
+               let (xs, ops_tl, ys) = (try Hashtbl.find tbl_instrs a with _ -> ([],[],[]) ) in
+               Hashtbl.replace tbl_instrs a (xs, op::ops_tl, ys))
     !lookaheads;
 
   (* The ignore set of transformers starts off calls with a fresh sv0 and ignores
@@ -754,11 +765,36 @@ let fsm_transducer gr inch outch =
 
   Printf.fprintf outch "open Yak.Pam_internal\n";
 
+(* B_many(function Value(Yk_T x) -> match x with C1 -> t1 | C2 -> t2 | C3 -> t3) *)
+
+
   Printf.fprintf outch "let program : (int * sv instruction list) list = [\n";
   Hashtbl.iter
-    (fun a (eats,ops) ->
-      Printf.fprintf outch "(%d, [%s]);\n" a
-        (String.concat ";" (eats @ ops)))
+    (fun a (eats, ops, dbranches) ->
+       let mkcase (c, f2, target) =
+         if c.Gil.arity = 0 then
+               Printf.sprintf "%s -> %s (), %d" c.cname f2 target
+         else
+           let vars = Util.list_make c.arity (Printf.sprintf "v%d") in
+           let pattern = String.concat ", " vars in
+           Printf.sprintf "%s %s -> %s (%s), %d" c.cname pattern f2 pattern target in
+       let mkmatch x cs = "match " ^ x ^ " with " ^ String.concat " | " cs in
+       let mkfunc f1 p e = "let f1 = "^ f1 ^" in fun p v -> match f1 p v with " ^ p ^ " -> " ^ e in
+       let mkpat = Printf.sprintf "Yk_done(%s(%s))" in
+
+       let cmpdb (f1, c1, _, _) (f2, c2, _ ,_) =
+         let c = String.compare f1 f2 in
+         if c = 0 then String.compare c1.cty c2.cty else c in
+       let db_groups = Util.group_by cmpdb dbranches in
+       let extract (_, c, f2, tgt) = (c, f2, tgt) in
+       let f = function
+         | [] -> invalid_arg "Empty list is an invalid group"
+         | ((f1,c,_,_)::xs) as ys -> (f1, c.cty, map extract ys) in
+       let gr2fun (f1, c_t, cs) = mkfunc f1 (mkpat c_t "x") $| mkmatch "x" (map mkcase cs) in
+       let db_instrs = map (Printf.sprintf "DetBranchInstr(%s)" $ gr2fun $ f) db_groups in
+
+       Printf.fprintf outch "(%d, [%s]);\n" a
+         (String.concat ";" (eats @ ops @ db_instrs)))
     tbl_instrs;
   Printf.fprintf outch "]\n";
   ()

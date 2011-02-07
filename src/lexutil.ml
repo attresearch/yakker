@@ -62,40 +62,74 @@ let mk_lexer tokenizer token_type decls =
     RuleDef(tok,mkBOX(tokenizer,rettype,Runbox_null),a) in
   let x = Variables.fresh() in
   let y = Variables.fresh() in
-  let lit_envs,decls =
+  let lit_envs, decls =
     List.split
       (List.map
          (function
            | TokenLit(ocaml_constructor,carried_type,lit) ->
                let nonterminal = Variables.fresh() in
                ( [(lit,nonterminal)],
-                 TokenSymb(ocaml_constructor,carried_type,Some nonterminal) )
-           | TokenSymb _ as td -> ([],td))
+                 (ocaml_constructor,carried_type,Some nonterminal) )
+           | TokenSymb (x,y,z) -> ([],(x,y,z)))
          decls) in
   let lit_env = List.flatten lit_envs in
   let other_defs =
     List.map
-      (function
-        | TokenLit _ -> failwith "impossible"
-        | TokenSymb(ocaml_constructor,carried_type,nonterminal_opt) ->
-            let nonterminal =
-              (match nonterminal_opt with
-                Some z -> z | None -> ocaml_constructor) in
-            let a = mkAttr() in
-            let rhs =
-              match carried_type with
-                Some _ ->
-                  let guard = mkWHEN(sprintf "(match %s with %s _ -> true | _ -> false)" x ocaml_constructor) in
-                  let delay = mkDELAY(sprintf "(match %s with %s %s -> %s | _ -> failwith \"impossible\")" x ocaml_constructor y y,
-                                      carried_type) in
-                  mkSEQ2(mkSYMB(tok,None,None),Some x,None,mkSEQ[guard;delay])
-              | None ->
-                  let guard = mkWHEN(sprintf "(match %s with %s -> true | _ -> false)" x ocaml_constructor) in
-                  mkSEQ2(mkSYMB(tok,None,None),Some x,None,guard) in
-            (nonterminal,(ocaml_constructor,carried_type)),RuleDef(nonterminal,rhs,a))
+      (fun (ocaml_constructor,carried_type,nonterminal_opt) ->
+         let nonterminal = Yak.Util.option_get ocaml_constructor nonterminal_opt in
+         let a = mkAttr() in
+         let rhs =
+           match carried_type with
+               Some _ ->
+                 let guard = mkWHEN(sprintf "(match %s with %s _ -> true | _ -> false)" x ocaml_constructor) in
+                 let delay = mkDELAY(sprintf "(match %s with %s %s -> %s | _ -> failwith \"impossible\")" x ocaml_constructor y y,
+                                     carried_type) in
+                 mkSEQ2(mkSYMB(tok,None,None),Some x,None,mkSEQ[guard;delay])
+             | None ->
+                 let guard = mkWHEN(sprintf "(match %s with %s -> true | _ -> false)" x ocaml_constructor) in
+                 mkSEQ2(mkSYMB(tok,None,None),Some x,None,guard) in
+         (nonterminal,(ocaml_constructor,carried_type)),RuleDef(nonterminal,rhs,a))
       decls in
   let myenv,other_defs = List.split other_defs in
     lit_env,myenv,tok_def::other_defs
+
+(** Desugar lexer decls to determinitic branches (instead of @when). *)
+let mk_lexer2 tokenizer token_type decls =
+  let tok = Variables.fresh() in
+  let rettype = Some token_type in
+  let tok_box = mkBOX(tokenizer, rettype, Runbox_null) in
+  let x = Variables.fresh() in
+  let lit_envs, decls =
+    List.split
+      (List.map
+         (function
+           | TokenLit(ocaml_constructor,carried_type,lit) ->
+               let nonterminal = Variables.fresh() in
+               ( [(lit,nonterminal)],
+                 (ocaml_constructor,carried_type,Some nonterminal) )
+           | TokenSymb (x,y,z) -> ([],(x,y,z)))
+         decls) in
+  let lit_env = List.flatten lit_envs in
+  let other_defs =
+    List.map
+      (fun (ocaml_constructor, carried_type, nonterminal_opt) ->
+         let nonterminal = Yak.Util.option_get ocaml_constructor nonterminal_opt in
+         let a = mkAttr() in
+         let rhs =
+           (* TODO: support arities other than 0, 1. *)
+           match carried_type with
+               Some _ ->
+                 let c = {cname = ocaml_constructor; arity = 1; cty = token_type} in
+                 mkSEQ2(tok_box, Some tok, None,
+                        mkSEQ2(mkDBRANCH(tok, c), Some x, None,
+                               mkDELAY(x, carried_type)))
+             | None ->
+                 let c = {cname = ocaml_constructor; arity = 0; cty = token_type} in
+                 mkSEQ2(tok_box, Some tok, None, mkDBRANCH(tok, c)) in
+         (nonterminal, (ocaml_constructor,carried_type)), RuleDef(nonterminal,rhs,a))
+      decls in
+  let myenv, other_defs = List.split other_defs in
+    lit_env, myenv, other_defs
 
 let lit_substitution env r0 =
   let rec loop r =
@@ -110,7 +144,7 @@ let lit_substitution env r0 =
     | Delay _
     | CharRange _
     | Prose _
-    | When _
+    | When _ | DBranch _
     | Lookahead _ ->
         ()
     | Seq(r1,_,_,r2)
@@ -137,7 +171,11 @@ let transform gr =
         let tokmap,ngr = loop lit_env tl in
           tokmap, [hd]::ngr
     | LexerDecl(tokenizer,tokenizer_peek,token_type,decls)::tl ->
-        let lit_env',myenv,defs = mk_lexer tokenizer token_type decls in
+        let lit_env', myenv, defs =
+          if !Compileopt.use_dbranch then
+            mk_lexer2 tokenizer token_type decls
+          else
+            mk_lexer tokenizer token_type decls in
         let tokmap,ngr = loop (lit_env'@lit_env) tl in
         let ntokmap = (tokenizer_peek,myenv)::tokmap in
           ntokmap, defs::ngr

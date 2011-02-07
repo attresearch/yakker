@@ -96,6 +96,7 @@ type 'a instruction =
   | AWhenInstr3 of 'a pred3 * 'a next3 * label
   | ASimpleCont2Instr of nonterm * 'a binder2 * label (** Parameterless continue. *)
   | AContInstr3 of nonterm * 'a action2 * 'a binder2 * label
+  | DetBranchInstr of (pos -> 'a -> 'a * label)
 
 
 type 'a block = 'a instruction array

@@ -312,7 +312,7 @@ module Full_yakker (Sem_val : SEMVAL) = struct
 
   let lookahead_regexp_NELR0_tbl term_table la_nt ykb start =
 
-    (* BUG: Missing handling of Many_trans. *)
+    (* BUG: Missing handling of Many_trans, boxes. *)
 
     (*   Printf.printf "lookahead (%d, %d\n" la_nt start; *)
     let rec loop_eof term_table la_nt ykb s =
@@ -818,7 +818,7 @@ module Full_yakker (Sem_val : SEMVAL) = struct
 
       (* In any of the following cases, we've finished with our closure.
          Add state [s] and its socvas to the Earley set [es]. *)
-      | PJDN.Scan_trans _ | PJDN.MScan_trans _
+      | PJDN.Scan_trans _ | PJDN.Det_trans _ | PJDN.MScan_trans _
       | PJDN.Lookahead_trans _ | PJDN.Det_multi_trans _
       | PJDN.Box_trans _ | PJDN.Maybe_nullable_trans2 _ | PJDN.Many_trans _
       | PJDN.RegLookahead_trans _ | PJDN.ExtLookahead_trans _
@@ -1254,6 +1254,13 @@ module Full_yakker (Sem_val : SEMVAL) = struct
                let c1 = Char.code (YkBuf.get_current ykb) in
                if c1 = c then insert_many_nc ns t socvas_s
 (*             if c1 = c then epsilon_close term_table (current_callset.id + 1) ns t socvas_s *)
+           | PJDN.Det_trans f ->
+               let curr_pos = current_callset.id in
+               (                        (match socvas_s with
+         | Socvas.Empty -> ()
+         | Socvas.Singleton (callset, sv, sv_arg) -> (let ret_sv, target = f curr_pos sv in insert_one_ig i ol cs target callset ret_sv sv_arg)
+         | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, sv, sv_arg) -> let ret_sv, target = f curr_pos sv in insert_one_ig i ol cs target callset ret_sv sv_arg) __s__)                         )
+
            | PJDN.MScan_trans col ->
                let c = Char.code (YkBuf.get_current ykb) in
                let t = col.(c) in
@@ -1934,6 +1941,13 @@ module Full_yakker (Sem_val : SEMVAL) = struct
                         | None -> ()
                         | Some new_sv -> insert_one_ig i ol cs target callset new_sv sv_arg)) __s__)                         
 
+           | PJDN.Det_trans f ->
+               let curr_pos = current_callset.id in
+               (                        (match socvas_s with
+         | Socvas.Empty -> ()
+         | Socvas.Singleton (callset, sv, sv_arg) -> (let ret_sv, target = f curr_pos sv in insert_one_ig i ol cs target callset ret_sv sv_arg)
+         | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, sv, sv_arg) -> let ret_sv, target = f curr_pos sv in insert_one_ig i ol cs target callset ret_sv sv_arg) __s__)                         )
+
            (* Only null boxes are okay now that we've reached EOF. *)
            | PJDN.Box_trans (box, target) ->
                (                        (match socvas_s with
@@ -2052,7 +2066,7 @@ module Full_yakker (Sem_val : SEMVAL) = struct
             | PJDN.Maybe_nullable_trans2 _
             | PJDN.Call_trans _| PJDN.Det_multi_trans _
             | PJDN.RegLookahead_trans _ | PJDN.ExtLookahead_trans _ | PJDN.Lookahead_trans _| PJDN.MScan_trans _
-            | PJDN.Scan_trans _ | PJDN.No_trans -> false in
+            | PJDN.Scan_trans _ | PJDN.No_trans | PJDN.Det_trans _ -> false in
           is_done || search_for_succ term_table d dcs start_nt n (j + 1)
         end in
       search_for_succ term_table d dcs start_nt count 0 in
@@ -2260,7 +2274,8 @@ module Full_yakker (Sem_val : SEMVAL) = struct
           | PJDN.Call_trans _| PJDN.Det_multi_trans _
           | PJDN.RegLookahead_trans _ | PJDN.ExtLookahead_trans _
           | PJDN.Lookahead_trans _| PJDN.MScan_trans _
-          | PJDN.Scan_trans _| PJDN.No_trans -> ()
+          | PJDN.Scan_trans _ | PJDN.No_trans | PJDN.Det_trans _
+              -> ()
       done;
 
                    if Logging.activated then begin if Logging.features_are_set Logging.Features.stats then begin

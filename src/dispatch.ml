@@ -47,7 +47,10 @@ let _m x p = (fun(v1,h1)->fun(_,h2)-> (v1,h1#merge p (%s(x),p) h2))\n" hproj hpr
 type _uid = int (* for sharing *)
 type _pos = int (* input positions *)
 type _lab = int (* dispatch labels *)
-type 'a ev = (* early values, aka coroutines.  'a is the type of values eventually computed by the coroutines *)
+(** Early values, aka coroutines.
+    ['a] is the type of values eventually computed
+    by the coroutines *)
+type 'a ev =
   | Yk_more of _uid * (_lab -> _pos -> 'a ev)
   | Yk_box of (_pos -> Yak.YkBuf.t -> (int * 'a ev) option)
   | Yk_when of bool
@@ -101,7 +104,7 @@ let sv_hash (x,h) =
 let _d x p = function
     (Yk_more(_,t),h) -> (t x p,h)
   | (ev,_) -> failwith (Printf.sprintf \"_d(%%s)\" (_ev_to_string ev))
-let _darg x p = function (*TJIM: same as _d without p*)
+let _darg x p = function (* YHM: close to _d *)
     (Yk_more(_,t),h) -> (t x p,h#empty p)
   | _ -> failwith \"_darg\"
 let _dbox x = function
@@ -125,14 +128,13 @@ let _ddelay_only x p =
   (function
     | (Yk_more(_,t),h) -> (match t x p with Yk_delay(v,hv) -> (v,h#push p (hv,p)) | _ -> failwith \"_ddelay1\")
     | _ -> failwith \"_ddelay2\")
-let _dret x p =
-  (function
-    | (Yk_more(_,t),h) ->
-        (fun (r,_) ->
-          match t x p with
-          | Yk_bind(f) -> (f r,h)
-          | _ -> failwith \"_dret1\")
-    | _ -> failwith \"_dret2\")
+let _dret x p v1 v2 =
+  match v1 with
+    | (Yk_more(_,t), h) ->
+        (match t x p with
+          | Yk_bind f -> (f (fst v2), h)
+          | _ -> failwith \"_dret2\")
+    | _ -> failwith \"_dret1\"
 let _dmerge x p =
   (function
     | (Yk_more(_,t),h1) ->
@@ -312,6 +314,7 @@ let transform gr skipped_labels =
     | Assign _    -> Util.impossible "Dispatch.gul2gil.Assign"
     | Action _    -> Util.impossible "Dispatch.gul2gil.Action"
     | When _      -> Util.impossible "Dispatch.gul2gil.When"
+    | DBranch _   -> Util.impossible "Dispatch.gul2gil.DBranch"
     | Symb(n,Some _,   _,     _) -> Util.impossible (Printf.sprintf "Dispatch.gul2gil.Symb(%s) with early arguments" n)
     | Symb(n,     _,_::_,     _) -> Util.impossible (Printf.sprintf "Dispatch.gul2gil.Symb(%s) with attributes" n)
     | Symb(n,     _,   _,Some _) -> Util.impossible (Printf.sprintf "Dispatch.gul2gil.Symb(%s) with late arguments" n)
@@ -342,7 +345,7 @@ let transform gr skipped_labels =
           (match r.a.early_relevant,r.a.late_relevant with
           | true,true ->
               Gil.Seq(push(pre),
-                      Gil.Symb(n,f_arg (Some hist_empty),Some(disp_merge(post))))
+                      Gil.Symb(n,f_arg (Some hist_empty),Some(disp_merge post)))
           | true,false ->
               Gil.Symb(n, f_arg None, Some (disp_ret post))
           | false,true ->
@@ -352,7 +355,9 @@ let transform gr skipped_labels =
               (* impossible, would have been caught above *)
               gul2gil r)
       | When _ ->
-          Gil.When(disp_when(pre),disp_next(post))
+          Gil.When(disp_when pre, disp_next post)
+      | DBranch (_,c) ->
+          Gil.DBranch(disp_arg pre, c, disp_ret post)
       | Box (_, _, bn) ->
           Gil.Box(disp_box(pre), bn)
       | Delay _ ->

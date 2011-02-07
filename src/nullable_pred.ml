@@ -737,6 +737,7 @@ module Gul = struct
   (* invariant: branches return an npred, which now includes lookahead arg. *)
   let rec trans' r = match r.Gul.r with
   | Gul.When e -> Lam (fun la -> InjectE e)
+  | Gul.DBranch _ -> Util.todo "Nullable_pred.Gul.trabs'.DBranch"
   | Gul.Action(Some e,_) ->
       lam2 (fun la v -> SomeE (App (InjectE e, Var v)))
   | Gul.Action _ -> true_e ()
@@ -920,6 +921,19 @@ module Gil = struct
   | Gil.When (f_pred, f_next) ->
       InjectE ("let p = " ^ f_pred ^ " and n = " ^ f_next ^ " in " ^
                "fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None")
+  | Gil.DBranch (f1, c, f2) ->
+      if c.Gil.arity = 0 then
+        InjectE (Printf.sprintf
+                   "let f1 = %s and f2 = %s in
+fun _ ykb v -> match f1 v with | Yk_done %s %s -> Some (f2 v ()) | _ -> None"
+                 f1 f2 c.Gil.cty c.Gil.cname)
+      else
+        let vars = Util.list_make c.Gil.arity (Printf.sprintf "v%d") in
+        let pattern = String.concat ", " vars in
+        InjectE (Printf.sprintf
+                   "let f1 = %s and f2 = %s in
+fun _ ykb v -> match f1 v with | Yk_done %s %s (%s) -> Some (f2 v (%s)) | _ -> None"
+                   f1 f2 c.Gil.cty c.Gil.cname pattern pattern)
   | Gil.When_special p -> InjectE p
   | Gil.Seq (r1,r2) -> AndE (trans' r1, trans' r2)
   | Gil.Alt (r1,r2) -> OrE (trans' r1, trans' r2)

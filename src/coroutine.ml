@@ -85,6 +85,13 @@ let transform r0 =
           let e = yk_when e in
           [(pre, e);
            (post, k("(_wv0)"))]
+      | DBranch(e,_) -> (* TODO: attributes *)
+          let e = yk_done e in
+          let eta k =
+            let x = Variables.fresh() in
+            Printf.sprintf "Yk_bind(function Yk_done(%s) -> %s | _ -> failwith \"bind-%d\")" x (k(x)) post in
+          [(pre, e);
+           (post, eta k)]
       | Alt(r1,r2) ->
           (* NB both r1 and r2 are early_relevant b/c of force_early_alts *)
           (c r1 k)@(c r2 k)

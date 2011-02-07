@@ -239,11 +239,12 @@ in
 let pr_gil_lex f use_refs r0 first_map follow_map n tokmap =
   let rec loop r cur_fls =
     match r with
+      | Gil.When_special _ -> Util.todo "Gil_gen.pr_gil_lex.loop.When_special"
+      | Gil.DBranch _      -> Util.todo "Gil_gen.pr_gil_lex.loop.DBranch"
       | Gil.Action(e) ->
           bprintf f "(action (%s))" e
       | Gil.When(e1,e2) ->
           bprintf f "(pred (%s) (%s))" e1 e2
-      | Gil.When_special e -> invalid_arg "When_special not yet supported."
       | Gil.Box(e,_) ->
           bprintf f "(box (%s))"  e
       | Gil.Symb(x,y,z) ->
@@ -752,12 +753,12 @@ module Peg = struct
 let pr_gil f liberal use_refs use_arrays r0 =
   let rec loop r =
     match r with
+      | Gil.When_special _ -> Util.todo "Gil_gen.Peg.pr_gil.loop.When_special"
+      | Gil.DBranch _      -> Util.todo "Gil_gen.Peg.pr_gil.loop.DBranch"
       | Gil.Action(e) ->
           bprintf f "(action (%s))" e
       | Gil.When(e1,e2) ->
           bprintf f "(pred (%s) (%s))" e1 e2
-      | Gil.When_special e ->
-          invalid_arg "When_special not yet supported."
       | Gil.Box(e,_) ->
           bprintf f "(box (%s))"  e
       | Gil.Symb(x,y,z) ->

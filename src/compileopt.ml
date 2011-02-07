@@ -20,10 +20,15 @@ let memoize_history = ref true
 let check_labels = ref false
 
 let skip_opt = ref true
-  (** Perform the label-skipping optimization. *)
+  (** Perform the label-skipping optimization for late actions. *)
+
+let skip_opt_coroutine = ref false
+  (** Perform the label-skipping optimization early actions. *)
 
 let use_fsm = ref true
   (** Use FSM toolkit to build transducer; use FST otherwise. *)
+
+let use_dbranch = ref false
 
 (* testing-related *)
 let unit_history = ref false

@@ -57,16 +57,6 @@ type t = {
     mutable save_count: int; (* number of pending saves *)
   }
 
-(* TODO:
-
-   Change the linenum_map data structure to explicitly store linenumbers
-   rather than implicitly as the array index. That way, there won't be
-   any holes in the array and binary searching will be possible. Since
-   both linenumbers and positions are integers, can store them unboxed in
-   the array.
-
-*)
-
 let zero_pos = {Lexing.
   pos_fname = "";
   pos_lnum = 1;

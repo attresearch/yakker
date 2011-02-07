@@ -192,7 +192,8 @@ let eliminate gr =
 
         ()
       end
-  | Position _ | Lit(_,_) | CharRange(_,_) | Prose _
+  | Position _ | Lit _ | CharRange _ | Prose _
+  | DBranch _
   | Action _ | When _ | Box _ | Delay _ -> ()
   | Seq(r2,_,_,r3) | Alt(r2,r3) | Minus(r2,r3) -> loop r2; loop r3
   | Assign(r2,_,_) | Lookahead (_,r2) | Opt r2 | Rcount(_,r2) | Star(_,r2) | Hash(_,r2) -> loop r2

@@ -100,6 +100,8 @@ let transform gr =
     | Symb(n,_,_,_) -> (* TODO: attributes *)
         (is_early_producer n,is_late_producer n)
     | Delay _ -> (false,true)
+    | DBranch (_, {Gil.arity = 0}) -> (false, false)
+    | DBranch (_, _) -> (true, false)
     | Box(_,Some _,_) ->
         (true,false)
     | Box(_,None,_) ->

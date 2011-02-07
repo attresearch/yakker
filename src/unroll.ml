@@ -53,6 +53,7 @@ let transform gr =
         end
 
     | Action _
+    | DBranch _
     | Delay _
     | Box(_,Some _,_)
     | Position _ ->

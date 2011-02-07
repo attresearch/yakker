@@ -10,6 +10,7 @@
  *******************************************************************************)
 
 open Yak
+type constr = {cname: string; arity:int; cty: string}
 type nonterminal = string
 type expr = string
 
@@ -25,6 +26,9 @@ type 'expr rhs =
   | CharRange of int * int
   | Action of 'expr
   | Box of 'expr * 'expr boxnull
+  | DBranch of 'expr * constr * 'expr
+      (** A deterministic branch on a constructor,
+          annotated with its type's wrap constructor. *)
   | When of 'expr * 'expr
   | When_special of 'expr   (* Used for inlining nullability predicates. *)
   | Seq of 'expr rhs * 'expr rhs
@@ -66,7 +70,7 @@ let rec mkSEQ_rev = function
 
 let rec map f = function
   | ( Action _ | Symb _ | Box _
-    | When _ | When_special _ | Lit _ | CharRange _ | Lookahead _)
+    | When _ | When_special _ | Lit _ | CharRange _ | Lookahead _ | DBranch _)
       as r -> f r
   | Alt (r1, r2) -> Alt (map f r1, map f r2)
   | Star r1 -> Star (map f r1)
@@ -77,7 +81,7 @@ let rec map f = function
 let rec ends_in_sem = function
   | Action _
   | Symb (_, _, Some _)
-  | Box _
+  | Box _ | DBranch _
   | When _
   | When_special _ -> true
   | Symb (_, _, None) | Lit _ | CharRange _ | Alt _ | Star _ | Lookahead _ -> false
@@ -88,7 +92,7 @@ let dependency_graph ds =
     (* Add dependencies for n to a graph given definition r *)
   | Symb(x,_,_) ->
       Tgraph.add_edge (Tgraph.add_node g x) n x
-  | When _ | When_special _ | Action _ | Box _ | CharRange _ | Lit _ -> g
+  | When _ | When_special _ | Action _ | Box _ | DBranch _ | CharRange _ | Lit _ -> g
   | Seq(r2,r3)
   | Alt(r2,r3) ->
       get_depend (get_depend g n r2) n r3
@@ -146,7 +150,7 @@ let rec to_cs_rule = function
       Cs.union result y;
       result
   | Symb _ | Action _ | Box _ | When _ | When_special _ | Seq _
-  | Star _ | Lookahead _
+  | Star _ | Lookahead _ | DBranch _
       -> raise Not_character_set
 
 let to_cs r =
@@ -184,6 +188,7 @@ module Meta = struct
       | Lit (x,y) -> Lit (x,y)
       | CharRange (x,y) -> CharRange (x,y)
       | Lookahead (x, r) -> Lookahead (x, map_expr f r)
+      | DBranch (f1, c, f2) -> DBranch (f f1, c, f f2)
       | (Alt _ | Star _ | Seq _) ->
           invalid_arg "structural recursion should be handled by Gil.map" in
     map g r

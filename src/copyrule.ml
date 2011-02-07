@@ -112,6 +112,7 @@ let mk_needs gr =
           g
     | Position _
     | Prose _
+    | DBranch _
     | When _ | Action _ | Box _ | Delay _
     | CharRange _
     | Lit _ -> g
@@ -200,6 +201,7 @@ let add_actuals needs =
           (* trivial base cases *)
     | Lookahead _
     | Position _
+    | DBranch _
     | When _
     | Action _
     | Box _

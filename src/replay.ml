@@ -66,10 +66,6 @@ let transform gr =
           [(pre,Printf.sprintf "_r_%s(_n,_ps,ykinput,%s)" (Variables.bnf2ocaml n) e)]
       | Symb(n,_,_,None) -> (* TODO: attributes *)
           [(pre,Printf.sprintf "_r_%s(_n,_ps,ykinput)" (Variables.bnf2ocaml n))]
-      | When _
-      | Box _ ->
-          (* Impossible: not late relevant *)
-          []
       | Delay _ ->
           [(pre,"_n()")]
       | Position false ->
@@ -147,6 +143,9 @@ let transform gr =
               g x (match_cases all_cases) g e)]
 
       (* cases below are not late relevant *)
+      | When _            -> Util.impossible "Replay.rp.When"
+      | Box _             -> Util.impossible "Replay.rp.Box"
+      | DBranch _         -> Util.impossible "Replay.rp.DBranch"
       | Position true     -> Util.impossible "Replay.rp.Position true"
       | Action(_,None)    -> Util.impossible "Replay.rp.Action(_,None)"
       | CharRange _       -> Util.impossible "Replay.rp.CharRange"

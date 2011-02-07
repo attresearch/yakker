@@ -37,7 +37,9 @@ let get_prec r = match r.r with
   | Action _
   | Box _
   | Delay _
-  | When _-> 1000
+  | When _
+  | DBranch _
+    -> 1000
 
 let compare_prec x y = (get_prec x) - (get_prec y)
 
@@ -64,6 +66,8 @@ let pr_boxnull f = function
   | Runbox_null -> ()
   | Runpred_null e -> bprintf f ",?{%s}" e
 
+let pr_constr f {cname = n; arity=a; cty=cty;} = bprintf f "%s %d:%s" n a cty
+
 let rec pr_rule_paren f r =
   begin bprintf f "("; pr_rule f r; bprintf f ")"; end
 
@@ -81,6 +85,8 @@ and pr_rule f r =
       (match late with None -> () | Some x -> bprintf f "{%s}" x)   (* Omit the $ for brevity *)
   | When x ->
       bprintf f "@when(%s)" x
+  | DBranch (e, c) ->
+      bprintf f "@match(%s, %a)" e pr_constr c
   | Box(x,None,boxnull) ->
       bprintf f "@box(%s%a)" x pr_boxnull boxnull
   | Box(x,Some y,boxnull) ->
@@ -275,6 +281,7 @@ module Gil = struct
       | Gil.Action _    -> 3
       | Gil.When _      -> 3
       | Gil.When_special _ -> 3
+      | Gil.DBranch _   -> 3
       | Gil.Box _       -> 3
       | Gil.Symb _      -> 3
       | Gil.CharRange _ -> 3
@@ -299,8 +306,10 @@ module Gil = struct
               bprintf f "{%s}" e
           | Gil.When(e1,e2) ->
               bprintf f "@when(%s,%s)" e1 e2
-          | Gil.When_special _ ->
-              invalid_arg "When_special does not have concrete syntax yet."
+          | Gil.When_special _ -> Util.todo "Pr.Gil.Pretty.pr.loop.When_special"
+          | Gil.DBranch (f1, c, f2) ->
+              bprintf f "@match(%s, {%s, %d, %s}, %s)"
+                f1 c.Gil.cname c.Gil.arity c.Gil.cty f2
           | Gil.Box(e,boxnull) ->
               bprintf f "@box(%s%a)" e pr_boxnull boxnull
           | Gil.Symb(x,y,z) ->
@@ -438,6 +447,7 @@ let _appp dyp f = f %s dyp.Dyp.last_local_data
           else
             thunk is_seq_right (loop is_nested my_prec) in
         match r with
+          | Gil.DBranch _ -> Util.todo "Pr.Dypgen.pr.loop.DBranch"
           | Gil.Action(e) ->
               if is_seq_right then
                 (if is_nested then

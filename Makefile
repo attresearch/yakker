@@ -134,6 +134,13 @@ doc: $(OCAMLDOC_SOURCES)
 
 -include $(FRONT_END_ML_SOURCES:.ml=.d) $(ML_SOURCES:.ml=.d)
 -include $(MLI_SOURCES:.mli=.di)
+########################################################################
+## Dependency fixes for yak.mli
+gil.cmo gil.cmx tgraph.cmo tgraph.cmx meta_prog.cmo meta_prog.cmx: yak.cmi
+variables.cmx variables.cmo : yak.cmi
+rfc.cmx rfc.cmo : yak.cmi
+extract_grammar.cmx extract_grammar.cmo : yak.cmi
+########################################################################
 
 yak.cmo: $(CMOS)
 	@echo "--x> " $@
@@ -678,6 +685,7 @@ aurochs-depend: aurochs.ml aurochs_tx.ml
 	ocamldep $^ > examples/aurochs/.depend
 
 -include examples/aurochs/.depend
+
 
 .PHONY: all opt examples
 

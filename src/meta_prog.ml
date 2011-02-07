@@ -11,6 +11,166 @@
 
 open Yak.Util.Operators
 
+let concat = List.concat
+let map = List.map
+let rev = List.rev
+let foldl = List.fold_left
+let foldr = List.fold_right
+let filter = List.filter
+let length = List.length
+let mem = List.mem
+
+module Core = struct
+
+  type con = string
+  type var = int
+  type patt = con * int
+
+  module Var_set = Set.Make(struct type t = var let compare = (-) end)
+  module Vs = Var_set
+
+  type exp =
+  | App of var * var list
+  | Con of con * var list
+  | Let of exp list * var
+  | Case of var * (patt * exp) list
+  | Lam of exp
+
+  let var i = App (i,[])
+
+  (** Return the free variables of [e], assuming variables [0 .. n - 1] are free. *)
+  let fv e n =
+    let free = filter (fun x -> x < n) in
+    let rec loop = function
+      | App (v, vs) -> free (v::vs)
+      | Con (_, vs) -> free vs
+      | Lam f -> loop f
+      | Case (v, cs) ->
+          free (v :: (concat $ map (loop $ snd) $| cs))
+      | Let (bs, v) -> free (v :: (concat $ map loop $| bs)) in
+    Yak.Util.remove_dups (loop e)
+
+  let ($<) f g x = f x $ g
+
+(*    (\** [n] = binder count. *\) *)
+(*   let strict_vars e n = *)
+(*     let free v = v < n in *)
+(*     let rec loop = function *)
+(*       | App (f, args) -> Vs.add $| Vs.singleton f (Vs.from_list args) *)
+(*       | Con (_, vs) -> Vs.from_list args *)
+(*       | Lam _ -> Vs.empty *)
+(*       | Let (es, v) -> foldl (Vs.union $< loop) $| Vs.singleton v $| es *)
+(*       | Case (v, cs) -> let xs = match cs with [] -> Vs.empty | x::xs -> foldl (Vs.intersection $< loop $ snd) x xs *)
+(*           Vs.add $| xs $| v *)
+
+  let var_map f e =
+    let rec walk c = function
+      | App (v, vs) -> App (f c v, map (f c) vs)
+      | Con (con, vs) -> Con (con, map (f c) vs)
+      | Lam f -> Lam (walk (c + 1) f)
+      | Case (v, cs) ->
+          let g ((con, n), e) = (con, n), walk (c+n) e in
+          Case (f c v, map g cs)
+      | Let (bs, v) ->
+          let g (es, n) e = (walk (c + n) e :: es, n + 1) in
+          let es, n = foldl g ([], c) bs in
+          Let (rev es, f n v) in
+    walk 0 e
+
+  (** Adjust the numbering of bound variables so that the expression
+      can be placed in a new context. Free variables remain
+      unchanged. Note that we abstract over the distinction between
+      free and bound by taking it as an argument, [mf]. So, what we
+      call "free" is actually relatively free, with respect to [mf].
+
+      mf = the maximum free variable.
+      n = the amount by which to shift.
+
+      For example, if we want to place [e] in a context with two more
+      outer lambdas than the current context, we need to increase the
+      value of all bound variables by two, because their binders are about to
+      be forced deeper into the tree.
+
+      The result expression will have minimum bound variable of mf + 1 + n
+      (which is equivalent to maximum free variable of mf + n).
+  *)
+  (*
+    (A note regarding the wildcard on the first argument of the
+    function supplied to [exp_map]. This argument, [c], is the count
+    of binders traversed during the map process.
+    Now, every variable should be in 0..c + mf, because free variables should only
+    be taken from 0..mf and variables i, mf < i <= c + mf, are bound variables.
+    So, we can ignore c.)
+  *)
+  let shift mf n e =
+    if n = 0 then e else
+      let f _ i_var = if mf < i_var then i_var + n else i_var in
+      var_map f e
+
+(* The following is not clearly useful
+   because the language is not pure. *)
+(*   let remove_unused_bindings c es v = *)
+(*     (\* [used_vars] will be the set of variables in *)
+
+(*        [c .. c + length es - 1] *)
+
+(*        which appear free in [es]. Note that we take into account *)
+(*        that the set of locally let-bound variables is growing as *)
+(*        we move down the list of bindings. Also note that the *)
+(*        first expression cannot have any locally let-bound *)
+(*        variables because we do not support recursion. However, *)
+(*        we do not take the trouble to remove it from [es] first. *\) *)
+(*     let used_vars = *)
+(*       let f (n, fvs) e = (n + 1, fv e n :: fvs) in *)
+(*       let (n2, fvs) = foldl f (c, []) es in *)
+(*       filter (fun x -> x >= c) $ Yak.Util.remove_dups $| (v :: fvs) in *)
+
+(*     match used_vars with *)
+(*       | [] -> ? *)
+(*       | v::vs -> *)
+(*           let v, s, ds = (\* var, shift-amount pairs. *\) *)
+(*             let g (vp, s, ds) v = (v, s + (v - vp - 1), (vp, s)::ds) in *)
+(*             foldl g (v, v - c, []) vs in *)
+(*           let shift_list = (v,s)::ds in *)
+(*           let f = ... (\* function for var_map *\) in *)
+(*           var_map ... *)
+
+(*   let simplify e = *)
+(*     (\* [c] is the count of binders. Keep in mind, therefore, that *)
+
+(*           [c] = maximum free var + 1. *)
+
+(*        So, [c] is the first available bound variable. This overlap happens *)
+(*        because bound variables start from 0. i.e. 0 is the variable corresponding *)
+(*        to being under 1 lambda. *)
+(*     *\) *)
+(*     let rec simplify' c = function *)
+(*       | Let (es, v) -> *)
+(*       | (True | False | InjectE _) as e -> e *)
+(*       | Con (con, es) -> Con (con, List.map (simplify' c) es) *)
+(*       | Case (d, cs) -> *)
+(*           (match simplify' c d with *)
+(*              | Con (con, es) -> *)
+(*                  (\* Note: assuming well-formedness of expression. *)
+(*                     Specifically, length es = arity(con) *\) *)
+(*                  let (_, n), e_body = List.find (fun ((x,_),_) -> x = con) cs in *)
+(*                  simplify' c $| case_reduce (c - 1) n e_body es *)
+(*              | e -> *)
+(*                  let cs' = List.map (fun ((con, n), e) -> (con, n), simplify' (c+n) e) cs in *)
+(*                  Case (e, cs')) *)
+(*       | App (e1, e2) -> *)
+(*           let e1 = simplify' c e1 in *)
+(*           let e2 = simplify' c e2 in *)
+(*           (match e1 with *)
+(*              | Lam e -> simplify' c (beta_reduce (c - 1) e e2) *)
+(*              | _ -> App (e1, e2)) *)
+(*       | Var i -> Var i *)
+(*       | Lam f -> Lam (simplify' (c+1) f) *)
+(*     in simplify' 0 e *)
+
+
+end
+
 (**
    General DeBruin-levels machinery
 *)
@@ -21,12 +181,9 @@ module DB_levels = struct
 
   type exp =
   | InjectE of string
-  | True
-  | False
   | Var of int
   | App of exp * exp
   | Lam of exp
-  | If of exp * exp * exp
   | Case of exp * (patt * exp) list
   | Con of con * exp list
   | Let of exp * exp
@@ -39,7 +196,7 @@ module DB_levels = struct
 
   let exp_map f e =
     let rec walk c = function
-      | (True | False | InjectE _) as e -> e
+      | (InjectE _) as e -> e
       | Var i -> f c i
       | Con (con, es) -> Con (con, List.map (walk c) es)
       | Lam f -> Lam (walk (c+1) f)
@@ -47,7 +204,6 @@ module DB_levels = struct
       | Case (d, cs) -> Case (walk c d,
                               List.map (fun ((con, n), e) -> ((con, n), walk (c+n) e)) cs)
       | App (e1, e2) -> App (walk c e1, walk c e2)
-      | If (e1, e2, e3) -> If (walk c e1, walk c e2, walk c e3)
     in
     walk 0 e
 
@@ -115,14 +271,8 @@ module DB_levels = struct
        to being under 1 lambda.
     *)
     let rec simplify' c = function
-      | (True | False | InjectE _) as e -> e
+      | (InjectE _) as e -> e
       | Con (con, es) -> Con (con, List.map (simplify' c) es)
-      | If (e1, e2, e3) ->
-          let e1 = simplify' c e1 in
-          (match e1 with
-             | True -> simplify' c e2
-             | False -> simplify' c e3
-             | _ -> If (e1, simplify' c e2, simplify' c e3))
       | Case (d, cs) ->
           (match simplify' c d with
              | Con (con, es) ->
@@ -146,7 +296,7 @@ module DB_levels = struct
 
   (** check that the expression has a maximum free variable of at most [n - 1].*)
   let rec check_free_at_most n = function
-    | True | False | InjectE _ -> true
+    | InjectE _ -> true
     | Var i -> i < n
     | Let (e, f) -> check_free_at_most n e && check_free_at_most (n+1) f
     | Lam f -> check_free_at_most (n+1) f
@@ -154,17 +304,12 @@ module DB_levels = struct
     | Con (_, es) -> List.fold_left (fun b e -> b && check_free_at_most n e) true es
     | Case (d, cs) -> check_free_at_most n d &&
         List.fold_left (fun b ((_,m), e) -> b && check_free_at_most (n+m) e) true cs
-    | If (e1, e2, e3) -> check_free_at_most n e1
-        && check_free_at_most n e2
-        && check_free_at_most n e3
 
   let is_closed = check_free_at_most 0
 
   (** Print a string representation of the code. Does not print valid ocaml code. *)
   let to_string_raw =
     let rec recur c = function
-      | True -> "true"
-      | False -> "false"
       | Lam f ->
           Printf.sprintf "(lam. %s)" (recur (c+1) f)
       | Let (e,f) ->
@@ -177,7 +322,6 @@ module DB_levels = struct
             Printf.sprintf "%s<%d> -> %s" con n $| recur (c+n) e in
           Printf.sprintf "(case %s of %s)" (recur c d) $ String.concat "| " $ List.map pcase $| cs
       | App (e1,e2) -> Printf.sprintf "(%s %s)" (recur c e1) (recur c e2)
-      | If (e1, e2, e3) -> Printf.sprintf "(if %s then %s else %s)" (recur c e1) (recur c e2) (recur c e3)
       | InjectE s -> Printf.sprintf "(%s)" s in
     recur
 
@@ -197,13 +341,11 @@ module PHOAS = struct
   | Lam of ('a -> 'a exp)
   | Let of 'a exp * ('a -> 'a exp)
   | InjectE of string
-  | True
-  | False
-  | If of 'a exp * 'a exp * 'a exp
   | Case of 'a exp * (patt * ('a list -> 'a exp)) list
   | Con of con * 'a exp list
 
   type hoas_exp = {e:'a. unit -> 'a exp}
+  type hoas_exp2 = {e2: 'a. 'a exp}
   type open1_hoas_exp = {e_open1:'a. 'a -> 'a exp}
   type open2_hoas_exp = {e_open2:'a. 'a -> 'a -> 'a exp}
   type open3_hoas_exp = {e_open3:'a. 'a -> 'a -> 'a -> 'a exp}
@@ -213,13 +355,10 @@ module PHOAS = struct
   let let_e e1 e2 = App (e2, e1)
 
   let rec to_dB level = function
-    | True -> DBL.True
-    | False -> DBL.False
     | Var i -> DBL.Var i
     | Lam f -> DBL.Lam (to_dB (level+1) (f level))
     | Let (e, f) -> DBL.Let (to_dB level e, to_dB (level+1) (f level))
     | App (e1, e2) -> DBL.App (to_dB level e1, to_dB level e2)
-    | If (e1, e2, e3) -> DBL.If (to_dB level e1, to_dB level e2, to_dB level e3)
     | Con (c, es) -> DBL.Con (c, List.map (to_dB level) es)
     | Case (d, cs) ->
         let c2db ((con,n), e_open) =
@@ -234,8 +373,6 @@ module PHOAS = struct
 
   (* val subst' : 'a exp exp -> 'a exp *)
   let rec subst' = function
-    | True -> True
-    | False -> False
     | Var e -> e
     | Lam f -> Lam (fun x -> subst' (f (Var x)))
     | Let (e, f) -> Let (subst' e, fun x -> subst' (f (Var x)))
@@ -244,7 +381,6 @@ module PHOAS = struct
         let sc (p, e_open) = (p, subst' $ e_open $ List.map (fun x -> Var x)) in
         Case (subst' d, List.map sc cs)
     | App (e1, e2) -> App (subst' e1, subst' e2)
-    | If (e1, e2, e3) -> If (subst' e1, subst' e2, subst' e3)
     | InjectE s -> InjectE s
 
   let subst e1 e2 = {e = fun () -> subst' (e1.e_open1 (e2.e ()))}
@@ -263,13 +399,10 @@ module PHOAS = struct
   let empty_ctxt () = (0,[])
 
   let rec from_dB ctxt = function
-    | DBL.True -> True
-    | DBL.False -> False
     | DBL.Var i -> Var (get_var ctxt i)
     | DBL.Lam f -> Lam (fun x -> from_dB (extend_ctxt ctxt x) f)
     | DBL.Let (e, f) -> Let(from_dB ctxt e, fun x -> from_dB (extend_ctxt ctxt x) f)
     | DBL.App (e1, e2) -> App (from_dB ctxt e1, from_dB ctxt e2)
-    | DBL.If (e1, e2, e3) -> If (from_dB ctxt e1, from_dB ctxt e2, from_dB ctxt e3)
     | DBL.InjectE s -> InjectE s
     | DBL.Case (d, cs) ->
         let db2c ((con, n), e_open) =
@@ -328,8 +461,6 @@ module PHOAS = struct
     let rec recur c = function
       | Var x -> x
       | InjectE s -> Printf.sprintf "(%s)" s
-      | True -> "true"
-      | False -> "false"
       | Lam f ->
           let x = mk_var c in
           (match f x with
@@ -344,8 +475,14 @@ module PHOAS = struct
       | Let (e, f) ->
           let x = mk_var c in
           Printf.sprintf "(let %s = %s in %s)" x $| recur c e $| recur (c+1) (f x)
+      | Con (con, []) -> con
       | Con (con, es) ->
           Printf.sprintf "%s(%s)" con $ String.concat ", " $ List.map (recur c) $| es
+      | Case (d, [("true", 0), e_then; ("false", 0), e_else]) ->
+          Printf.sprintf "(if %s then %s else %s)"
+            (recur c d) (recur c $| e_then []) (recur c $| e_else [])
+      | Case (d, [("true", 0), e_then]) ->
+          Printf.sprintf "(if %s then %s)" (recur c d) (recur c (e_then []))
       | Case (d, cs) ->
           let pcase ((con,n), e) =
             let vars =
@@ -357,7 +494,6 @@ module PHOAS = struct
           Printf.sprintf "(match %s with %s)" (recur c d)
             $ String.concat "| " $ List.map pcase $| cs
       | App (e1,e2) -> Printf.sprintf "(%s %s)" (recur c e1) (recur c e2)
-      | If (e1, e2, e3) -> Printf.sprintf "(if %s then %s else %s)" (recur c e1) (recur c e2) (recur c e3)
     in
     recur
 
@@ -371,5 +507,11 @@ module PHOAS = struct
   let app3 f x y z = App (App (App (f, x), y), z)
   let lam2 f = Lam (fun x -> Lam (f x))
   let lam3 f = Lam (fun x -> lam2 (f x))
+  let ifthenelse e e1 e2 =
+    Case (e, [("true", 0), (function [] -> e1 | _ -> invalid_arg "[] expected");
+              ("false", 0), (function [] -> e2 | _ -> invalid_arg "[] expected")])
+  let ifthen e e1 = Case (e, [("true", 0), (function [] -> e1 | _ -> invalid_arg "[] expected")])
+  let etrue = Con ("true", [])
+  let efalse = Con ("false", [])
 
 end

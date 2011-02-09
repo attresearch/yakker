@@ -818,7 +818,7 @@ module Full_yakker (Sem_val : SEMVAL) = struct
 
       (* In any of the following cases, we've finished with our closure.
          Add state [s] and its socvas to the Earley set [es]. *)
-      | PJDN.Scan_trans _ | PJDN.Det_trans _ | PJDN.MScan_trans _
+      | PJDN.Scan_trans _ | PJDN.Det_trans _ | PJDN.Lexer_trans _ | PJDN.MScan_trans _
       | PJDN.Lookahead_trans _ | PJDN.Det_multi_trans _
       | PJDN.Box_trans _ | PJDN.Maybe_nullable_trans2 _ | PJDN.Many_trans _
       | PJDN.RegLookahead_trans _ | PJDN.ExtLookahead_trans _
@@ -1623,32 +1623,60 @@ module Full_yakker (Sem_val : SEMVAL) = struct
 (*             epsilon_close_current xyz target image i term_table.(target) *)
 
            | PJDN.Box_trans (box, target) ->
+               let curr_pos = current_callset.id in
                (                        (match socvas_s with
          | Socvas.Empty -> ()
          | Socvas.Singleton (callset, sv, sv_arg) -> (let cp = YkBuf.save ykb in
-                           (match box sv current_callset.id ykb with
+                           (match box sv curr_pos ykb with
                                 Some (0, ret_sv) -> (* returns to current set *)
                                   insert_one_ig i ol cs target callset ret_sv sv_arg
                               | Some (1, ret_sv) -> (* returns to next set *)
                                   insert_one_nc ns target (callset, ret_sv, sv_arg)
                               | Some (n, ret_sv) ->
-                                  let curr_pos = current_callset.id in
                                   let j = curr_pos + n in
                                   insert_future futuresq j target (callset, ret_sv, sv_arg)
                               | None -> ()
                            );
                            YkBuf.restore ykb cp)
          | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, sv, sv_arg) -> let cp = YkBuf.save ykb in
-                           (match box sv current_callset.id ykb with
+                           (match box sv curr_pos ykb with
                                 Some (0, ret_sv) -> (* returns to current set *)
                                   insert_one_ig i ol cs target callset ret_sv sv_arg
                               | Some (1, ret_sv) -> (* returns to next set *)
                                   insert_one_nc ns target (callset, ret_sv, sv_arg)
                               | Some (n, ret_sv) ->
-                                  let curr_pos = current_callset.id in
                                   let j = curr_pos + n in
                                   insert_future futuresq j target (callset, ret_sv, sv_arg)
                               | None -> ()
+                           );
+                           YkBuf.restore ykb cp) __s__)                         )
+
+           | PJDN.Lexer_trans lexer ->
+               let curr_pos = current_callset.id in
+               (                        (match socvas_s with
+         | Socvas.Empty -> ()
+         | Socvas.Singleton (callset, sv, sv_arg) -> (let cp = YkBuf.save ykb in
+                           (match lexer sv curr_pos ykb with
+                              | _, _, 0 -> ()
+                              | 0, ret_sv, target -> (* returns to current set *)
+                                  insert_one_ig i ol cs target callset ret_sv sv_arg
+                              | 1, ret_sv, target -> (* returns to next set *)
+                                  insert_one_nc ns target (callset, ret_sv, sv_arg)
+                              | n, ret_sv, target ->
+                                  let j = curr_pos + n in
+                                  insert_future futuresq j target (callset, ret_sv, sv_arg)
+                           );
+                           YkBuf.restore ykb cp)
+         | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, sv, sv_arg) -> let cp = YkBuf.save ykb in
+                           (match lexer sv curr_pos ykb with
+                              | _, _, 0 -> ()
+                              | 0, ret_sv, target -> (* returns to current set *)
+                                  insert_one_ig i ol cs target callset ret_sv sv_arg
+                              | 1, ret_sv, target -> (* returns to next set *)
+                                  insert_one_nc ns target (callset, ret_sv, sv_arg)
+                              | n, ret_sv, target ->
+                                  let j = curr_pos + n in
+                                  insert_future futuresq j target (callset, ret_sv, sv_arg)
                            );
                            YkBuf.restore ykb cp) __s__)                         )
 
@@ -1950,10 +1978,11 @@ module Full_yakker (Sem_val : SEMVAL) = struct
 
            (* Only null boxes are okay now that we've reached EOF. *)
            | PJDN.Box_trans (box, target) ->
+               let curr_pos = current_callset.id in
                (                        (match socvas_s with
          | Socvas.Empty -> ()
          | Socvas.Singleton (callset, sv, sv_arg) -> (let cp = YkBuf.save ykb in
-                           (match box sv current_callset.id ykb with
+                           (match box sv curr_pos ykb with
                                 Some (0, ret_sv) -> (* returns to current set *)
                                   insert_one_ig i ol cs target callset ret_sv sv_arg
                               | Some _ ->              if Logging.activated then begin Logging.log Logging.Features.verbose "BUG: Box returning success > 0 at EOF.\n" end             
@@ -1961,11 +1990,37 @@ module Full_yakker (Sem_val : SEMVAL) = struct
                            );
                            YkBuf.restore ykb cp)
          | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, sv, sv_arg) -> let cp = YkBuf.save ykb in
-                           (match box sv current_callset.id ykb with
+                           (match box sv curr_pos ykb with
                                 Some (0, ret_sv) -> (* returns to current set *)
                                   insert_one_ig i ol cs target callset ret_sv sv_arg
                               | Some _ ->              if Logging.activated then begin Logging.log Logging.Features.verbose "BUG: Box returning success > 0 at EOF.\n" end             
                               | None -> ()
+                           );
+                           YkBuf.restore ykb cp) __s__)                         )
+
+           (* Only null tokens are okay now that we've reached EOF. *)
+           | PJDN.Lexer_trans lexer ->
+               let curr_pos = current_callset.id in
+               (                        (match socvas_s with
+         | Socvas.Empty -> ()
+         | Socvas.Singleton (callset, sv, sv_arg) -> (let cp = YkBuf.save ykb in
+                           (match lexer sv curr_pos ykb with
+                              | _, _, 0 -> ()
+                              | 0, ret_sv, target -> (* returns to current set *)
+                                  insert_one_ig i ol cs target callset ret_sv sv_arg
+                              | _ ->
+                                               if Logging.activated then begin Logging.log Logging.Features.verbose
+                                        "BUG: Lexer returning success > 0 at EOF.\n" end             
+                           );
+                           YkBuf.restore ykb cp)
+         | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, sv, sv_arg) -> let cp = YkBuf.save ykb in
+                           (match lexer sv curr_pos ykb with
+                              | _, _, 0 -> ()
+                              | 0, ret_sv, target -> (* returns to current set *)
+                                  insert_one_ig i ol cs target callset ret_sv sv_arg
+                              | _ ->
+                                               if Logging.activated then begin Logging.log Logging.Features.verbose
+                                        "BUG: Lexer returning success > 0 at EOF.\n" end             
                            );
                            YkBuf.restore ykb cp) __s__)                         )
 
@@ -2066,7 +2121,7 @@ module Full_yakker (Sem_val : SEMVAL) = struct
             | PJDN.Maybe_nullable_trans2 _
             | PJDN.Call_trans _| PJDN.Det_multi_trans _
             | PJDN.RegLookahead_trans _ | PJDN.ExtLookahead_trans _ | PJDN.Lookahead_trans _| PJDN.MScan_trans _
-            | PJDN.Scan_trans _ | PJDN.No_trans | PJDN.Det_trans _ -> false in
+            | PJDN.Scan_trans _ | PJDN.No_trans | PJDN.Det_trans _ | PJDN.Lexer_trans _ -> false in
           is_done || search_for_succ term_table d dcs start_nt n (j + 1)
         end in
       search_for_succ term_table d dcs start_nt count 0 in
@@ -2274,7 +2329,7 @@ module Full_yakker (Sem_val : SEMVAL) = struct
           | PJDN.Call_trans _| PJDN.Det_multi_trans _
           | PJDN.RegLookahead_trans _ | PJDN.ExtLookahead_trans _
           | PJDN.Lookahead_trans _| PJDN.MScan_trans _
-          | PJDN.Scan_trans _ | PJDN.No_trans | PJDN.Det_trans _
+          | PJDN.Scan_trans _ | PJDN.No_trans | PJDN.Det_trans _ | PJDN.Lexer_trans _
               -> ()
       done;
 

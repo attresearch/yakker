@@ -70,8 +70,8 @@ let wrap gr =
         RuleDef(n,r,a) ->
           (match a.early_rettype with None -> () | Some x   -> types := PSet.add x !types);
           (match a.early_params with None -> () | Some x -> types := PSet.add (get_paramtype x) !types);
-          types := add_types r !types
-      | _ -> ())
+          if not !Compileopt.late_only_dbranch then types := add_types r !types
+       | _ -> ())
     gr.ds;
   (* Each type gets a corresponding datatype constructor *)
   let b = Buffer.create 11 in                     (* Print out the type declaration *)
@@ -139,10 +139,12 @@ let wrap gr =
             r.r <- (mkSEQ2(dupRule r,Some x,None,mkACTION act)).r)
 
   | DBranch (e, c) ->
-      let constructor = find tbl_type_constructor c.cty in
-      let e_inj = Printf.sprintf "%s(%s)" constructor e in
+      if !Compileopt.late_only_dbranch then ()
+      else
+        let constructor = find tbl_type_constructor c.cty in
+        let e_inj = Printf.sprintf "%s(%s)" constructor e in
         r.r <-
-        (mkDBRANCH (e_inj, {c with cty=constructor})).r
+          (mkDBRANCH (e_inj, {c with cty=constructor})).r
 
   | Position _ | Lit(_,_) | CharRange(_,_) | Prose _
   | Action _ | When _ | Box _ | Delay _ -> ()
@@ -212,27 +214,13 @@ let wrap gr =
  *)
 let transform_history gr =
   (* Get all delay types *)
-  let types = ref PSet.empty in
-  types := PSet.add "int" !types;
-  let rec loop r =
-    match r.r with
-    | Delay(_,Some x) ->
-        types := PSet.add x !types
-
-    | Alt(r1,r2) | Seq(r1,_,_,r2) | Minus(r1,r2) ->
-        loop r1; loop r2
-
-    | Assign(r1,_,_) | Opt r1 | Lookahead (_,r1) | Rcount(_,r1) | Star(_,r1) | Hash(_,r1) ->
-        loop r1
-
-    | Symb _ | Position _ | Lit(_,_) | CharRange(_,_) | Prose _
-    | Action _ | When _ | DBranch _ | Box _ | Delay(_,None) ->
-        ()
-  in
-  List.iter
-    (function RuleDef(n,r,a) -> loop r | _ -> ())
-    gr.ds;
-  if 1 = PSet.cardinal !types
+  let add_types = lrfold_b
+    (fun r v_left -> match r.r with | Delay(_,Some t) -> PSet.add t v_left | _ -> v_left) in
+  let types = List.fold_left
+    (fun types -> function | RuleDef(n,r,a) -> add_types r types | _ -> types)
+    (PSet.add "int" PSet.empty)
+    gr.ds in
+  if 1 = PSet.cardinal types
   then
     (* No need to wrap if we only use int *)
     add_to_prologue gr "type hv = int\n;;\nlet _l2hv x = x;; (* label to hv *)\n"
@@ -251,7 +239,7 @@ let transform_history gr =
           Printf.bprintf b "| %s of (%s)\n" x t;    (* NB parens force a reference if t is a tuple type *)
           Hashtbl.add tbl_type_constructor t x
         end)
-      !types;
+      types;
     Printf.bprintf b ";;\nlet _l2hv x = Ykd_int(x);; (* label to hv *)\n";
     add_to_prologue gr (Buffer.contents b);
     (* Wrap and unwrap at delay. *)

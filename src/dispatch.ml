@@ -314,7 +314,8 @@ let transform gr skipped_labels =
     | Assign _    -> Util.impossible "Dispatch.gul2gil.Assign"
     | Action _    -> Util.impossible "Dispatch.gul2gil.Action"
     | When _      -> Util.impossible "Dispatch.gul2gil.When"
-    | DBranch _   -> Util.impossible "Dispatch.gul2gil.DBranch"
+    | DBranch (e,c)   -> (* TODO-dbranch Util.impossible "Dispatch.gul2gil.DBranch" *)
+        Gil.DBranch(e, c, "")
     | Symb(n,Some _,   _,     _) -> Util.impossible (Printf.sprintf "Dispatch.gul2gil.Symb(%s) with early arguments" n)
     | Symb(n,     _,_::_,     _) -> Util.impossible (Printf.sprintf "Dispatch.gul2gil.Symb(%s) with attributes" n)
     | Symb(n,     _,   _,Some _) -> Util.impossible (Printf.sprintf "Dispatch.gul2gil.Symb(%s) with late arguments" n)
@@ -357,7 +358,10 @@ let transform gr skipped_labels =
       | When _ ->
           Gil.When(disp_when pre, disp_next post)
       | DBranch (_,c) ->
-          Gil.DBranch(disp_arg pre, c, disp_ret post)
+          if !Compileopt.late_only_dbranch then
+            (* TODO-dbranch: make it possible for late. *)
+            Util.impossible "Dispatch.transform.d.DBranch"
+          else Gil.DBranch(disp_arg pre, c, disp_ret post)
       | Box (_, _, bn) ->
           Gil.Box(disp_box(pre), bn)
       | Delay _ ->

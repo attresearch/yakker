@@ -25,10 +25,13 @@ let skip_opt = ref true
 let skip_opt_coroutine = ref false
   (** Perform the label-skipping optimization early actions. *)
 
-let use_fsm = ref true
-  (** Use FSM toolkit to build transducer; use FST otherwise. *)
+let late_only_dbranch = ref true
+  (** Treat dbranch as a late-only construct. *)
 
 let use_dbranch = ref false
+
+let use_fsm = ref true
+  (** Use FSM toolkit to build transducer; use FST otherwise. *)
 
 (* testing-related *)
 let unit_history = ref false

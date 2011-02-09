@@ -768,20 +768,68 @@ let fsm_transducer gr inch outch =
 (* B_many(function Value(Yk_T x) -> match x with C1 -> t1 | C2 -> t2 | C3 -> t3) *)
 
 
+  (* Version 1: [f1] is an action-like function, taking only the current position and semval. *)
+  let branches2instr1 (f1, c_t, cs) =
+    let mkcase (c, f2, target) =
+      if c.Gil.arity = 0 then
+        Printf.sprintf "%s -> %s (), %d" c.cname f2 target
+      else
+        let vars = Util.list_make c.arity (Printf.sprintf "v%d") in
+        let pattern = String.concat ", " vars in
+        Printf.sprintf "%s %s -> %s (%s), %d" c.cname pattern f2 pattern target in
+    let mkmatch x cs = "match " ^ x ^ " with " ^ String.concat " | " cs in
+    let mkfunc f1 p e = "let f1 = "^ f1 ^" in fun p v -> match f1 p v with " ^ p ^ " -> " ^ e in
+    let mkpat = Printf.sprintf "Yk_done(%s(%s))" in
+    Printf.sprintf "DetBranchInstr(%s)" (mkfunc f1 (mkpat c_t "x") $| mkmatch "x" (map mkcase cs)) in
+
+  (* Version 2: [f1] is an box-like function, taking the current position and semval and the ykbuf
+     and returning an option like blackboxes.
+     TODO-dbranch: Use this in late_only_dbranch case, rather than version3.
+  *)
+  let branches2instr2 (f1, c_t, cs) =
+    let spanvar = "n" in
+    let xvar = "x" in
+    let mkcase (c, f2, target) =
+      if c.Gil.arity = 0 then
+        Printf.sprintf "%s -> %s, %s (), %d" c.cname spanvar f2 target
+      else
+        let vars = Util.list_make c.arity (Printf.sprintf "v%d") in
+        let pattern = String.concat ", " vars in
+        Printf.sprintf "%s %s -> %s, %s (%s), %d" c.cname pattern spanvar f2 pattern target in
+    let mkmatch cs = "match " ^ xvar ^ " with " ^ String.concat " | " cs in
+    let mkfunc f1 pat e = "let f1 = "^ f1 ^" in fun v p ykb -> match f1 v p ykb with "
+      ^ "| None -> (0,v,0) | Some (" ^ spanvar ^ "," ^ pat ^ ") -> " ^ e in
+    Printf.sprintf "DetBranchInstr(%s)" (mkfunc f1 xvar $| mkmatch (map mkcase cs)) in
+
+  (* Version 3: [f1] is an box-like function, taking the current
+     position and semval and the ykbuf and returning an option like
+     blackboxes.  This version is weaker than the previous in that any
+     values carried by the matched constructor are ignored. *)
+  let branches2instr3 (f1, c_t, cs) =
+    let spanvar = "n" in
+    let xvar = "x" in
+    let semvalvar = "v" in
+    (* note that we're ignore [f2] here. Instead, we simply return the
+       input semantic value. *)
+    let mkcase (c, _, target) =
+      if c.Gil.arity = 0 then
+        Printf.sprintf "%s -> %s, %s, %d" c.cname spanvar semvalvar target
+      else
+        Printf.sprintf "%s _ -> %s, %s, %d" c.cname spanvar semvalvar target in
+    let mkmatch cs = "match " ^ xvar ^ " with " ^ String.concat " | " cs ^ " | _ -> 0,"^semvalvar^",0" in
+    let mkfunc f1 pat e = "let f1 = "^ f1 ^" in fun "^ semvalvar ^" p ykb -> match f1 p ykb with "
+      ^ "| None -> (0,"^ semvalvar ^",0) | Some (" ^ spanvar ^ "," ^ pat ^ ") -> " ^ e in
+    Printf.sprintf "LexerInstr(%s)" (mkfunc f1 xvar $| mkmatch (map mkcase cs)) in
+
+  let branches2instr =
+    if !Compileopt.late_only_dbranch then
+      (* TODO-dbranch: branches2instr2 *)
+      branches2instr3
+    else branches2instr1 in
+
   Printf.fprintf outch "let program : (int * sv instruction list) list = [\n";
   Hashtbl.iter
     (fun a (eats, ops, dbranches) ->
-       let mkcase (c, f2, target) =
-         if c.Gil.arity = 0 then
-               Printf.sprintf "%s -> %s (), %d" c.cname f2 target
-         else
-           let vars = Util.list_make c.arity (Printf.sprintf "v%d") in
-           let pattern = String.concat ", " vars in
-           Printf.sprintf "%s %s -> %s (%s), %d" c.cname pattern f2 pattern target in
-       let mkmatch x cs = "match " ^ x ^ " with " ^ String.concat " | " cs in
-       let mkfunc f1 p e = "let f1 = "^ f1 ^" in fun p v -> match f1 p v with " ^ p ^ " -> " ^ e in
-       let mkpat = Printf.sprintf "Yk_done(%s(%s))" in
-
        let cmpdb (f1, c1, _, _) (f2, c2, _ ,_) =
          let c = String.compare f1 f2 in
          if c = 0 then String.compare c1.cty c2.cty else c in
@@ -790,9 +838,7 @@ let fsm_transducer gr inch outch =
        let f = function
          | [] -> invalid_arg "Empty list is an invalid group"
          | ((f1,c,_,_)::xs) as ys -> (f1, c.cty, map extract ys) in
-       let gr2fun (f1, c_t, cs) = mkfunc f1 (mkpat c_t "x") $| mkmatch "x" (map mkcase cs) in
-       let db_instrs = map (Printf.sprintf "DetBranchInstr(%s)" $ gr2fun $ f) db_groups in
-
+       let db_instrs = map (branches2instr $ f) db_groups in
        Printf.fprintf outch "(%d, [%s]);\n" a
          (String.concat ";" (eats @ ops @ db_instrs)))
     tbl_instrs;

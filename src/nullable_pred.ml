@@ -67,6 +67,7 @@ struct
   | InjectE of string
   | CfgLookaheadE of bool * string (** context-free lookahead*)
   | CsLookaheadE of bool * Cs.t
+  | DBranchE of string * Gil.constr * string
 
   let app2 f x y = App (App (f,x), y)
   let app3 f x y z = App (App (App (f, x), y), z)
@@ -82,6 +83,7 @@ struct
       | AndE (e1, e2) -> AndE (walk c e1, walk c e2)
       | OrE (e1, e2) -> OrE (walk c e1, walk c e2)
       | InjectE s -> InjectE s
+      | DBranchE (f1, c, f2) -> DBranchE (f1, c, f2)
       | CfgLookaheadE (b,n) -> CfgLookaheadE (b,n)
       | CsLookaheadE (b,cs) -> CsLookaheadE (b,cs)
     in
@@ -144,6 +146,7 @@ struct
       | AndE (e1, e2) -> AndE (simplify' c e1, simplify' c e2)
       | OrE (e1, e2) ->  OrE (simplify' c e1, simplify' c e2)
       | InjectE s -> InjectE s
+      | DBranchE (f1, c, f2) -> DBranchE (f1, c, f2)
       | CfgLookaheadE (b,n) -> CfgLookaheadE (b,n)
       | CsLookaheadE (b,cs) -> CsLookaheadE (b,cs)
       | CallE (nt,e1,e2) -> CallE (nt, simplify' c e1, simplify' c e2)
@@ -160,6 +163,7 @@ struct
     | AndE (e1, e2) -> check_free_at_most n e1 && check_free_at_most n e2
     | OrE (e1, e2) -> check_free_at_most n e1 && check_free_at_most n e2
     | InjectE _ -> true
+    | DBranchE _ -> true
     | CfgLookaheadE _ -> true
     | CsLookaheadE _ -> true
 
@@ -168,6 +172,7 @@ struct
   (** Note any called nonterminals *)
   let rec note_called s = function
     | InjectE _
+    | DBranchE _
     | CfgLookaheadE _
     | CsLookaheadE _
     | Var _
@@ -198,6 +203,7 @@ module PHOAS = struct
   | InjectE of string
   | CfgLookaheadE of bool * string
   | CsLookaheadE of bool * Cs.t
+  | DBranchE of string * Gil.constr * string
 
   type hoas_exp = {e:'a. unit -> 'a exp}
   type open1_hoas_exp = {e_open1:'a. 'a -> 'a exp}
@@ -218,6 +224,7 @@ module PHOAS = struct
     | AndE (e1, e2) -> DBL.AndE (to_dB level e1, to_dB level e2)
     | OrE (e1, e2) -> DBL.OrE (to_dB level e1, to_dB level e2)
     | InjectE s -> DBL.InjectE s
+    | DBranchE (f1, c, f2) -> DBL.DBranchE (f1, c, f2)
     | CfgLookaheadE (b,n) -> DBL.CfgLookaheadE (b,n)
     | CsLookaheadE (b,cs) -> DBL.CsLookaheadE (b,cs)
 
@@ -232,6 +239,7 @@ module PHOAS = struct
     | AndE (e1, e2) -> AndE (subst' e1, subst' e2)
     | OrE (e1, e2) -> OrE (subst' e1, subst' e2)
     | InjectE s -> InjectE s
+    | DBranchE (f1, c, f2) -> DBranchE (f1, c, f2)
     | CfgLookaheadE (b,n) -> CfgLookaheadE (b, n)
     | CsLookaheadE (b,cs) -> CsLookaheadE (b, cs)
 
@@ -260,6 +268,7 @@ module PHOAS = struct
     | DBL.AndE (e1, e2) -> AndE (from_dB ctxt e1, from_dB ctxt e2)
     | DBL.OrE (e1, e2) -> OrE (from_dB ctxt e1, from_dB ctxt e2)
     | DBL.InjectE s -> InjectE s
+    | DBL.DBranchE (f1, c, f2) -> DBranchE (f1, c, f2)
     | DBL.CfgLookaheadE (b,n) -> CfgLookaheadE (b,n)
     | DBL.CsLookaheadE (b,cs) -> CsLookaheadE (b,cs)
 
@@ -330,6 +339,7 @@ module Expr_gul = struct
     | OrE (e1,e2) -> Printf.sprintf "(Pred.orc %s %s)" (to_string_raw c e1) (to_string_raw c e2)
     | CallE (nt,e1,e2) -> callc (mk_npname nt) (to_string_raw c e1) (to_string_raw c e2)
     | InjectE s -> Printf.sprintf "(%s)" s
+    | DBranchE (f1, c, f2) -> Printf.sprintf "(Pred.dbranch %s %s %s)" f1 c.Gil.cname f2
     | CfgLookaheadE (b,n) -> Printf.sprintf "(Pred.lookaheadc %B 0 %s)" b n
     | CsLookaheadE (b,cs) -> Printf.sprintf "(Pred.lookaheadc %B 0 %s)" b (Cs.to_nice_string cs)
 
@@ -515,6 +525,7 @@ module Expr_gul = struct
       | Lam f -> Lam (rewrite' (c+1) f)
       | App (e1, e2) -> App (rewrite' c e1, rewrite' c e2)
       | InjectE s -> InjectE s
+      | DBranchE (f1, c, f2) -> DBranchE (f1, c, f2)
       | Var i -> Var i
       | CfgLookaheadE (b,n) -> CfgLookaheadE (b,n)
       | CsLookaheadE (b,cs) -> CsLookaheadE (b,cs)
@@ -548,6 +559,7 @@ module Expr_gil = struct
     | OrE (e1,e2) -> Printf.sprintf "(Pred2.orc %s %s)" (to_string_raw c e1) (to_string_raw c e2)
     | CallE (nt,e1,e2) -> gil_callc (mk_npname nt) (to_string_raw c e1) (to_string_raw c e2)
     | InjectE s -> Printf.sprintf "(%s)" s
+    | DBranchE (f1, c, f2) -> Printf.sprintf "(Pred2.dbranchc %s %s %s)" f1 c.Gil.cname f2
     | CfgLookaheadE (b,n) -> Printf.sprintf "(Pred2.lookaheadc %B 0 %s)" b n
     | CsLookaheadE (b,cs) -> Printf.sprintf "(Pred2.lookaheadc %B 0 %s)" b (Cs.to_nice_string cs)
 
@@ -591,7 +603,7 @@ module Expr_gil = struct
       | CallE (nt, e1, e2) as e_orig ->
           let nt_pred = preds nt in
           (match nt_pred with
-               Lam (Lam (Lam NoneE)) -> false_e
+             | Lam (Lam (Lam NoneE)) -> false_e
              | Lam (Lam (Lam (SomeE e_nt))) ->
 (*               let e_nt_pred_ph = P.convert_from_dB nt_pred in *)
 (*                  let e1_ph = P.convert_from_dB e1 in *)
@@ -652,7 +664,8 @@ module Expr_gil = struct
         | CfgLookaheadE _
         | CsLookaheadE _
         | NoneE
-        | SomeE _) as r -> r
+        | SomeE _
+        | DBranchE _) as r -> r
     in
     rewrite' 0 e
 
@@ -683,6 +696,10 @@ let to_string' callts get_action get_start =
     | OrE (e1,e2) -> Printf.sprintf "(Pred.orc %s %s)" (recur c e1) (recur c e2)
     | CallE (nt,e1,e2) -> callts (mk_npname nt) (recur c e1) (recur c e2)
     | InjectE s -> Printf.sprintf "(%s)" s
+    | DBranchE (f1, c, f2) ->
+        (* ignore [f2]. TODO-dbranch: use [f2] properly. *)
+        let pat = if c.Gil.arity = 0 then "" else " _" in
+        Printf.sprintf "(Pred.dbranchc (%s) (function | %s%s -> true | _ -> false))" f1 c.Gil.cname pat
     | CfgLookaheadE (b,n) ->
         let n_act = get_action n in
         Printf.sprintf "(Pred.full_lookaheadc %B %d %d)" b n_act (get_start n_act)
@@ -694,6 +711,23 @@ let to_string' callts get_action get_start =
   recur
 
 let to_string callts get_action get_start {e=f} = to_string' callts get_action get_start 0 (f())
+
+let to_rhs e =
+  let rec recur = function
+    | DBL.Lam _ -> invalid_arg "lam"
+    | DBL.Var _ -> invalid_arg "var"
+    | DBL.App (e1,e2) -> invalid_arg "app"
+    | DBL.NoneE -> invalid_arg "none"
+    | DBL.SomeE e -> invalid_arg "some"
+    | DBL.AndE (e1,e2) -> Gil.Seq (recur e1, recur e2)
+    | DBL.OrE (e1,e2) -> Gil.Alt (recur e1, recur e2)
+    | DBL.CallE (nt,e1,e2) -> invalid_arg "nonterminal"
+    | DBL.InjectE s -> invalid_arg "inject"
+    | DBL.DBranchE (f1, c, f2) -> Gil.DBranch (f1, c, f2)
+    | DBL.CfgLookaheadE (b, nt) -> Gil.Lookahead (b, Gil.Symb(nt,None,None))
+    | DBL.CsLookaheadE (b,la_cs) -> invalid_arg "cs-lookahead"
+  in
+  try Some (recur e) with Invalid_argument _ -> None
 
 (******************************************************************************)
 
@@ -712,19 +746,8 @@ let ignore_binder_e = Lam (fun x -> Lam (fun y -> Var x))
 (******************************************************************************)
 
 type nullability = Yes_n | No_n | Maybe_n
+                   | Rhs_n of string Gil.rhs (** The predicate can be represented by a nonterminal-free rhs. *)
 
-let get_symbol_nullability preds_tbl nt =
-(*   Printf.eprintf "Looking up nullability of symbol %s.\n" nt; *)
-  let e_n = Hashtbl.find preds_tbl nt in
-  (*  For the case of
-          Lam (SomeE e)
-      , while we know statically that it is nullable,
-      we still need to dynamically compute e, so we
-      categorize it as maybe. *)
-  match e_n with
-    | DBL.Lam (DBL.Lam DBL.NoneE) -> No_n
-    | DBL.Lam (DBL.Lam (DBL.SomeE (DBL.Var 1))) -> Yes_n
-    | _ -> Maybe_n
 
 (******************************************************************************)
 
@@ -886,6 +909,20 @@ module Gul = struct
     in
     (* use dummy get_start function because there is no transducer. *)
     process_grammar outch add_nonterm (fun _ -> 0) gr
+
+  let get_symbol_nullability preds_tbl nt =
+    (*   Printf.eprintf "Looking up nullability of symbol %s.\n" nt; *)
+    let e_n = Hashtbl.find preds_tbl nt in
+    (*  For the case of
+        Lam (SomeE e)
+        , while we know statically that it is nullable,
+        we still need to dynamically compute e, so we
+        categorize it as maybe. *)
+    match e_n with
+      | DBL.Lam (DBL.Lam DBL.NoneE) -> No_n
+      | DBL.Lam (DBL.Lam (DBL.SomeE (DBL.Var 1))) -> Yes_n
+      | _ -> Maybe_n
+
 end
 
 (******************************************************************************)
@@ -922,31 +959,41 @@ module Gil = struct
       InjectE ("let p = " ^ f_pred ^ " and n = " ^ f_next ^ " in " ^
                "fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None")
   | Gil.DBranch (f1, c, f2) ->
-      if c.Gil.arity = 0 then
-        InjectE (Printf.sprintf
-                   "let f1 = %s and f2 = %s in
-fun _ ykb v -> match f1 v with | Yk_done %s %s -> Some (f2 v ()) | _ -> None"
-                 f1 f2 c.Gil.cty c.Gil.cname)
+      if !Compileopt.late_only_dbranch then
+        begin
+          (* TODO-dbranch: handle more complex case*)
+(*           false_e() *)
+          let f1 = "let f1 = "^ f1 ^" in fun p ykb -> match f1 p ykb with | Some (0,_) as x -> x | (Some _ | None) -> None" in
+          DBranchE (f1, c, f2)
+        end
       else
-        let vars = Util.list_make c.Gil.arity (Printf.sprintf "v%d") in
-        let pattern = String.concat ", " vars in
-        InjectE (Printf.sprintf
-                   "let f1 = %s and f2 = %s in
+        begin
+          if c.Gil.arity = 0 then
+            InjectE (Printf.sprintf
+                       "let f1 = %s and f2 = %s in
+fun _ ykb v -> match f1 v with | Yk_done %s %s -> Some (f2 v ()) | _ -> None"
+                       f1 f2 c.Gil.cty c.Gil.cname)
+          else
+            let vars = Util.list_make c.Gil.arity (Printf.sprintf "v%d") in
+            let pattern = String.concat ", " vars in
+            InjectE (Printf.sprintf
+                       "let f1 = %s and f2 = %s in
 fun _ ykb v -> match f1 v with | Yk_done %s %s (%s) -> Some (f2 v (%s)) | _ -> None"
-                   f1 f2 c.Gil.cty c.Gil.cname pattern pattern)
+                       f1 f2 c.Gil.cty c.Gil.cname pattern pattern)
+        end
   | Gil.When_special p -> InjectE p
   | Gil.Seq (r1,r2) -> AndE (trans' r1, trans' r2)
   | Gil.Alt (r1,r2) -> OrE (trans' r1, trans' r2)
   | Gil.Star _ -> true_e ()
   | Gil.Lookahead (b, Gil.Symb(nt,None,None)) -> CfgLookaheadE(b,nt)
   | Gil.Lookahead (b, r) ->
-        (match Gil.to_cs r with
-           | Some cs -> CsLookaheadE(b,cs)
-           | None ->
-               Util.error Util.Sys_warn
-                 "lookahead limited to character sets and argument-free symbols.\n";
-               false_e()
-        )
+      (match Gil.to_cs r with
+         | Some cs -> CsLookaheadE(b,cs)
+         | None ->
+             Util.error Util.Sys_warn
+               "lookahead limited to character sets and argument-free symbols.\n";
+             false_e()
+      )
 
   let trans r = {e = fun () -> trans' r}
 
@@ -993,60 +1040,91 @@ fun _ ykb v -> match f1 v with | Yk_done %s %s (%s) -> Some (f2 v (%s)) | _ -> N
     List.iter try_rewrite_nt ds_sorted;
     preds_tbl
 
+  let get_expr_nullability e_n =
+    (*  For the case of
+        Lam (Lam (Lam (SomeE e)))
+        , while we know statically that it is nullable,
+        we still need to dynamically compute e, so we
+        categorize it as maybe. *)
+    match e_n with
+      | DBL.Lam DBL.Lam DBL.Lam DBL.NoneE -> No_n
+      | DBL.Lam DBL.Lam DBL.Lam DBL.SomeE DBL.Var 2 -> Yes_n
+      | _ -> (match to_rhs e_n with None -> Maybe_n | Some r -> Rhs_n r)
+
   let process_grammar ch get_action get_start grm =
     let preds =  preds_from_grammar grm in
 
-    (* Record which nonterminals are called from other nonterminals (including themselves). *)
-    let called_set = Hashtbl.fold (fun _ e s -> DBL.note_called s e) preds (PSet.create compare) in
+    (* Record which nonterminals are called from other nonterminals
+       (including themselves) that require predicates to be printed
+       (i.e. if its called from a nonterminal for which we will not
+       print a predicate, then the call is unimportant). *)
+    let called_set = Hashtbl.fold (fun _ e s ->
+                                     match to_rhs e with
+                                       | None -> DBL.note_called s e
+                                       | Some _ -> s) preds (PSet.create compare) in
 
     let print_pred nt e_p first =
-      if first then
-        Printf.fprintf ch "let rec "
-      else
-        Printf.fprintf ch "and ";
-      (* To ensure "let rec" compatibility, we force everything to be a syntactic function.
-         We can special case functions, b/c they already meet the criterion, and eta-expand
-         everything else.
-      *)
-      let ykb = mk_pvar 0 in
-      let v = mk_var 0 in
-      let p = convert_from_dB e_p in
-      let exc = Failure "Internal error in module Nullable_pred: De Bruin and PHOAS representations out-of-sync." in
-      let body = match e_p with
-          DBL.Lam DBL.Lam DBL.Lam _ ->
-            (match p.e () with
-               | Lam f ->
-                   (match f lookahead_name with
-                      | Lam f2 ->
-                          (match f2 ykb with
-                             | Lam f3 -> f3 v
-                             | _ -> raise exc)
-                      | _ -> raise exc)
-               | _ -> raise exc)
-        | _ ->  app3 (p.e()) (Var lookahead_name) (Var ykb) (Var v)
-      in
-      if PSet.mem nt called_set && not (Expr_gil.is_bool e_p) then begin
-        (* COMMENT HERE *)
-        Printf.fprintf ch "%s = let __tbl = SV_hashtbl.create 11 in\n\
+      let ntcalled = PSet.mem nt called_set in
+      (* if [e_p] is a boolean then it will have been inlined into any
+         other calling contexts, so there's no reason to print the
+         function. *)
+      match get_expr_nullability e_p with
+        | No_n | Yes_n -> first
+        | Rhs_n _ when not ntcalled -> first
+        | _ ->
+            if first then
+              Printf.fprintf ch "let rec "
+            else
+              Printf.fprintf ch "and ";
+            (* To ensure "let rec" compatibility, we force everything to be a syntactic function.
+               We can special case functions, b/c they already meet the criterion, and eta-expand
+               everything else.
+            *)
+            let ykb = mk_pvar 0 in
+            let v = mk_var 0 in
+            let p = convert_from_dB e_p in
+            let exc = Failure "Internal error in module Nullable_pred: De Bruin and PHOAS representations out-of-sync." in
+            let body = match e_p with
+                DBL.Lam DBL.Lam DBL.Lam _ ->
+                  (match p.e () with
+                     | Lam f ->
+                         (match f lookahead_name with
+                            | Lam f2 ->
+                                (match f2 ykb with
+                                   | Lam f3 -> f3 v
+                                   | _ -> raise exc)
+                            | _ -> raise exc)
+                     | _ -> raise exc)
+              | _ ->  app3 (p.e()) (Var lookahead_name) (Var ykb) (Var v)
+            in
+            (* If the nonterminal is called from another predicate,
+               then there might be recursion and we should memoize the
+               result. Otherwise, it doesn't need to be
+               memoized. However, because it could be called directly
+               from the grammar, it still needs a function. *)
+            if ntcalled then begin
+              (* TODO: COMMENT HERE *)
+              Printf.fprintf ch "%s = let __tbl = SV_hashtbl.create 11 in\n\
                          fun %s %s %s -> \n"
-          (mk_npname nt) lookahead_name ykb v;
-        let body_code = to_string' gil_callc get_action get_start 1 body in
-        Printf.fprintf ch
-          "let __p1 = Yak.YkBuf.get_offset %s in\n\
+                (mk_npname nt) lookahead_name ykb v;
+              let body_code = to_string' gil_callc get_action get_start 1 body in
+              Printf.fprintf ch
+                "let __p1 = Yak.YkBuf.get_offset %s in\n\
           try\n\
             let (r, __p2)  = SV_hashtbl.find __tbl %s in\n\
             if __p1 = __p2 then r else\n\
             let x = %s in SV_hashtbl.replace __tbl %s (x, __p1); x\n\
           with Not_found ->\n"
-          ykb v body_code v;
-        Printf.fprintf ch
-          "  let x = %s in SV_hashtbl.add __tbl %s (x, __p1); x\n\n"
-          body_code v
-      end
-      else
-        Printf.fprintf ch "%s %s %s %s = %s\n\n" (mk_npname nt) lookahead_name ykb v
-          (to_string' gil_callc get_action get_start 1 body);
-      false
+                ykb v body_code v;
+              Printf.fprintf ch
+                "  let x = %s in SV_hashtbl.add __tbl %s (x, __p1); x\n\n"
+                body_code v
+            end
+            else begin
+              Printf.fprintf ch "%s %s %s %s = %s\n\n" (mk_npname nt) lookahead_name ykb v
+                (to_string' gil_callc get_action get_start 1 body)
+            end;
+            false
     in
     Printf.fprintf ch "module SV_hashtbl = Hashtbl.Make(struct
                           type t = sv
@@ -1056,15 +1134,5 @@ fun _ ykb v -> match f1 v with | Yk_done %s %s (%s) -> Some (f2 v (%s)) | _ -> N
     ignore (Hashtbl.fold print_pred preds true)
 
   let get_symbol_nullability preds_tbl nt =
-    let e_n = Hashtbl.find preds_tbl nt in
-    (*  For the case of
-        Lam (Lam (Lam (SomeE e)))
-        , while we know statically that it is nullable,
-        we still need to dynamically compute e, so we
-        categorize it as maybe. *)
-    match e_n with
-      | DBL.Lam DBL.Lam DBL.Lam DBL.NoneE -> No_n
-      | DBL.Lam DBL.Lam DBL.Lam DBL.SomeE DBL.Var 2 -> Yes_n
-      | _ -> Maybe_n
-
+    get_expr_nullability (Hashtbl.find preds_tbl nt)
 end

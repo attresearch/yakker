@@ -60,7 +60,9 @@ let inline npreds gr =
                             None -> None
                           | Some v2 -> Some (f_ret p v v2))" f name
                    | Some e, Some f -> Nullable_pred.gil_callc name e f in
-                 Gil.Alt (r, Gil.When_special p))
+                 Gil.Alt (r, Gil.When_special p)
+             | N.Rhs_n r2 -> Gil.Alt (r, r2)
+          )
       | r -> r in
     Gil.map rhs_inline_leaf r in
   let rule_inline (n, r) = (n, rhs_inline r) in

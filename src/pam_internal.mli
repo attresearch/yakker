@@ -55,6 +55,8 @@ module Pred3 : sig
 
   val boxc : 'a blackbox -> 'a t
 
+  val dbranchc : (pos -> YkBuf.t -> (int * 'b)  option) -> ('b -> bool) -> 'a t
+
   val callc : 'a t -> 'a action2 -> 'a binder2 -> 'a t
 
   val andc : 'a t -> 'a t -> 'a t
@@ -75,6 +77,7 @@ type 'a instruction =
   | ASimpleCont2Instr of nonterm * 'a binder2 * label (** Parameterless continue. *)
   | AContInstr3 of nonterm * 'a action2 * 'a binder2 * label
   | DetBranchInstr of (pos -> 'a -> 'a * label)
+  | LexerInstr of ('a -> pos -> YkBuf.t -> int * 'a * label)
 
 type 'a block = 'a instruction array
 

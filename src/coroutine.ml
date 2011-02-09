@@ -51,11 +51,11 @@ let transform r0 =
   let t_ulam l = "_t"^(ulam l) in
   (* invariant: c is only applied to early-relevant r, and returns a non-empty list *)
   let rec c r k =
-    if not(r.a.early_relevant) then 
-      (Util.warn Util.Sys_warn "Invariant violated: coroutine transform on non-early-relevant rhs"; 
+    if not(r.a.early_relevant) then
+      (Util.warn Util.Sys_warn "Invariant violated: coroutine transform on non-early-relevant rhs";
        Pr.pr_rule_channel stderr r;
        prerr_newline ();
-       []) 
+       [])
     else
     let (pre,post) = (r.a.pre,r.a.post) in
     if pre=0 then (match r.r with Alt _ | Opt _ -> () | _ -> Printf.eprintf "Warning: pre=0 for %s\n%!" (Pr.rule2string r));
@@ -86,12 +86,16 @@ let transform r0 =
           [(pre, e);
            (post, k("(_wv0)"))]
       | DBranch(e,_) -> (* TODO: attributes *)
-          let e = yk_done e in
-          let eta k =
-            let x = Variables.fresh() in
-            Printf.sprintf "Yk_bind(function Yk_done(%s) -> %s | _ -> failwith \"bind-%d\")" x (k(x)) post in
-          [(pre, e);
-           (post, eta k)]
+          if !Compileopt.late_only_dbranch then
+            (Util.warn Util.Sys_warn "Invariant violated: coroutine transform on late-only dbranch.";
+            [])
+          else
+            let e = yk_done e in
+            let eta k =
+              let x = Variables.fresh() in
+              Printf.sprintf "Yk_bind(function Yk_done(%s) -> %s | _ -> failwith \"bind-%d\")" x (k(x)) post in
+            [(pre, e);
+             (post, eta k)]
       | Alt(r1,r2) ->
           (* NB both r1 and r2 are early_relevant b/c of force_early_alts *)
           (c r1 k)@(c r2 k)
@@ -164,11 +168,11 @@ let transform r0 =
       | Lookahead _
       | Lit _  ->
           Util.warn Util.Sys_warn "Impossible case 2 in coroutine transformation: not early relevant";
-	  []
+          []
       | Rcount(_,_)
       | Hash(_,_)
       | Minus(_,_) ->
           Util.warn Util.Sys_warn "Impossible case 3 in coroutine transformation: not desugared";
-	  [] (* should have been desugared *)
+          [] (* should have been desugared *)
   in
   t_ulam(c r0 (fun x->"Yk_done("^x^")"))

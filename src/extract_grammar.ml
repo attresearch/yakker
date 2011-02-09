@@ -59,7 +59,10 @@ _r_rfc(_n,_ps,ykinput) = (
 type _uid = int (* for sharing *)
 type _pos = int (* input positions *)
 type _lab = int (* dispatch labels *)
-type 'a ev = (* early values, aka coroutines.  'a is the type of values eventually computed by the coroutines *)
+(** Early values, aka coroutines.
+    ['a] is the type of values eventually computed
+    by the coroutines *)
+type 'a ev =
   | Yk_more of _uid * (_lab -> _pos -> 'a ev)
   | Yk_box of (_pos -> Yak.YkBuf.t -> (int * 'a ev) option)
   | Yk_when of bool
@@ -113,7 +116,7 @@ let sv_hash (x,h) =
 let _d x p = function
     (Yk_more(_,t),h) -> (t x p,h)
   | (ev,_) -> failwith (Printf.sprintf "_d(%s)" (_ev_to_string ev))
-let _darg x p = function (*TJIM: same as _d without p*)
+let _darg x p = function (* YHM: close to _d *)
     (Yk_more(_,t),h) -> (t x p,h#empty p)
   | _ -> failwith "_darg"
 let _dbox x = function
@@ -137,14 +140,13 @@ let _ddelay_only x p =
   (function
     | (Yk_more(_,t),h) -> (match t x p with Yk_delay(v,hv) -> (v,h#push p (hv,p)) | _ -> failwith "_ddelay1")
     | _ -> failwith "_ddelay2")
-let _dret x p =
-  (function
-    | (Yk_more(_,t),h) ->
-        (fun (r,_) ->
-          match t x p with
-          | Yk_bind(f) -> (f r,h)
-          | _ -> failwith "_dret1")
-    | _ -> failwith "_dret2")
+let _dret x p v1 v2 =
+  match v1 with
+    | (Yk_more(_,t), h) ->
+        (match t x p with
+          | Yk_bind f -> (f (fst v2), h)
+          | _ -> failwith "_dret2")
+    | _ -> failwith "_dret1"
 let _dmerge x p =
   (function
     | (Yk_more(_,t),h1) ->
@@ -322,31 +324,7 @@ module SV_hashtbl = Hashtbl.Make(struct
                           let equal a b = sv_compare a b = 0
                           let hash = Hashtbl.hash end)
 module Pred = Pred3
-let rec nullable_rulename_body __lookahead _p0_ _x0_ = None
-
-and nullable_alternation __lookahead _p0_ _x0_ = None
-
-and nullable_group __lookahead _p0_ _x0_ = None
-
-and nullable_elements __lookahead _p0_ _x0_ = None
-
-and nullable_c_nl __lookahead _p0_ _x0_ = None
-
-and nullable_inside_string __lookahead _p0_ _x0_ = None
-
-and nullable_element __lookahead _p0_ _x0_ = None
-
-and nullable_line_end_line __lookahead _p0_ _x0_ = None
-
-and nullable_inside_prose __lookahead _p0_ _x0_ = None
-
-and nullable_hex_val __lookahead _p0_ _x0_ = None
-
-and nullable_rule __lookahead _p0_ _x0_ = None
-
-and nullable_LF __lookahead _p0_ _x0_ = None
-
-and nullable_line = let __tbl = SV_hashtbl.create 11 in
+let rec nullable_line = let __tbl = SV_hashtbl.create 11 in
 fun __lookahead _p0_ _x0_ -> 
 let __p1 = Yak.YkBuf.get_offset _p0_ in
 try
@@ -356,67 +334,7 @@ let x = ((((Pred.full_lookaheadc false 278 15) __lookahead) _p0_) _x0_) in SV_ha
 with Not_found ->
   let x = ((((Pred.full_lookaheadc false 278 15) __lookahead) _p0_) _x0_) in SV_hashtbl.add __tbl _x0_ (x, __p1); x
 
-and nullable_bitstring __lookahead _p0_ _x0_ = None
-
-and nullable_BIT __lookahead _p0_ _x0_ = None
-
-and nullable_num_val __lookahead _p0_ _x0_ = None
-
-and nullable_repetition __lookahead _p0_ _x0_ = None
-
-and nullable_SP __lookahead _p0_ _x0_ = None
-
-and nullable_ALPHA __lookahead _p0_ _x0_ = None
-
-and nullable_defined_as __lookahead _p0_ _x0_ = None
-
-and nullable_HTAB __lookahead _p0_ _x0_ = None
-
-and nullable_string __lookahead _p0_ _x0_ = None
-
 and nullable_o __lookahead _p0_ _x0_ = ((((Pred.full_lookaheadc false 283 20) __lookahead) _p0_) ((((_d 1069)) ((Yak.YkBuf.get_offset) _p0_)) ((((fun _x0_ _x1_ -> (((_d 1062) _x0_) (((_d 1061) _x0_) (((_d 1060) _x0_) (((_d 1059) _x0_) (((_d 1058) _x0_) (((_x62) _x0_) _x1_)))))))) ((Yak.YkBuf.get_offset) _p0_)) _x0_)))
-
-and nullable_prose_val __lookahead _p0_ _x0_ = None
-
-and nullable_indent __lookahead _p0_ _x0_ = None
-
-and nullable_DIGITS __lookahead _p0_ _x0_ = None
-
-and nullable_VCHAR __lookahead _p0_ _x0_ = None
-
-and nullable_WSP __lookahead _p0_ _x0_ = None
-
-and nullable_not_line_end __lookahead _p0_ _x0_ = None
-
-and nullable_DIGIT __lookahead _p0_ _x0_ = None
-
-and nullable_DQUOTE __lookahead _p0_ _x0_ = None
-
-and nullable_sp_htab __lookahead _p0_ _x0_ = None
-
-and nullable_option __lookahead _p0_ _x0_ = None
-
-and nullable_CHAR __lookahead _p0_ _x0_ = None
-
-and nullable_concatenation __lookahead _p0_ _x0_ = None
-
-and nullable_char_val __lookahead _p0_ _x0_ = None
-
-and nullable_OCTET __lookahead _p0_ _x0_ = None
-
-and nullable_HEXDIGS __lookahead _p0_ _x0_ = None
-
-and nullable_CR __lookahead _p0_ _x0_ = None
-
-and nullable_nlf_comment __lookahead _p0_ _x0_ = None
-
-and nullable_dec_val __lookahead _p0_ _x0_ = None
-
-and nullable_comment __lookahead _p0_ _x0_ = None
-
-and nullable_BACKSLASH __lookahead _p0_ _x0_ = None
-
-and nullable_rule_indent __lookahead _p0_ _x0_ = None
 
 and nullable_rfc __lookahead _p0_ _x0_ = ((((Pred.andc (let symb_pred = nullable_line
        and f_call = (fun _x1_ _x2_ -> (sv0))
@@ -427,14 +345,6 @@ and nullable_rfc __lookahead _p0_ _x0_ = ((((Pred.andc (let symb_pred = nullable
      match symb_pred la ykb (f_call p v) with
         None -> None
       | Some v2 -> Some (f_ret p v v2)) (fun _x1_ _x2_ _x3_ -> (Some ((((_p 1003)) ((Yak.YkBuf.get_offset) _x2_)) _x3_)))) __lookahead) _p0_) _x0_)
-
-and nullable_repeat __lookahead _p0_ _x0_ = None
-
-and nullable_HEXDIG __lookahead _p0_ _x0_ = None
-
-and nullable_bin_val __lookahead _p0_ _x0_ = None
-
-and nullable_rulename __lookahead _p0_ _x0_ = None
 
 let __a31 = (_d 1097);;
 let __a3 = (fun _x0_ _x1_ -> (((_d 1047) _x0_) (((_d 1046) _x0_) (((_d 1045) _x0_) (((_d 1044) _x0_) (((_d 1043) _x0_) (((_x55) _x0_) _x1_)))))));;

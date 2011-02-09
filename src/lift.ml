@@ -101,7 +101,11 @@ let transform gr =
         (is_early_producer n,is_late_producer n)
     | Delay _ -> (false,true)
     | DBranch (_, {Gil.arity = 0}) -> (false, false)
-    | DBranch (_, _) -> (true, false)
+    | DBranch (_, _) ->
+        if !Compileopt.late_only_dbranch then
+          (* TODO-dbranch: (false, true)  *)
+          (false, false)
+        else (true, false)
     | Box(_,Some _,_) ->
         (true,false)
     | Box(_,None,_) ->

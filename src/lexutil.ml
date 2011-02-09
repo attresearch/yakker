@@ -94,6 +94,13 @@ let mk_lexer tokenizer token_type decls =
     lit_env,myenv,tok_def::other_defs
 
 (** Desugar lexer decls to determinitic branches (instead of @when). *)
+(* TODO: previous version has the advantage that the Earley state
+   implicitly handles memoization of tokenizers invocations by
+   wrapping it in a nonterminals. IN this version, i've inlined the
+   boxes so that they can be determinized into one box when tokens
+   appear together in the transducer. While that (may) help
+   determinization, it loses memoization. Would be best to find a way
+   to have both. *)
 let mk_lexer2 tokenizer token_type decls =
   let tok = Variables.fresh() in
   let rettype = Some token_type in
@@ -103,11 +110,11 @@ let mk_lexer2 tokenizer token_type decls =
     List.split
       (List.map
          (function
-           | TokenLit(ocaml_constructor,carried_type,lit) ->
-               let nonterminal = Variables.fresh() in
-               ( [(lit,nonterminal)],
-                 (ocaml_constructor,carried_type,Some nonterminal) )
-           | TokenSymb (x,y,z) -> ([],(x,y,z)))
+            | TokenLit(ocaml_constructor,carried_type,lit) ->
+                let nonterminal = Variables.fresh() in
+                ( [(lit,nonterminal)],
+                  (ocaml_constructor,carried_type,Some nonterminal) )
+            | TokenSymb (x,y,z) -> ([],(x,y,z)))
          decls) in
   let lit_env = List.flatten lit_envs in
   let other_defs =
@@ -120,12 +127,18 @@ let mk_lexer2 tokenizer token_type decls =
            match carried_type with
                Some _ ->
                  let c = {cname = ocaml_constructor; arity = 1; cty = token_type} in
-                 mkSEQ2(tok_box, Some tok, None,
-                        mkSEQ2(mkDBRANCH(tok, c), Some x, None,
-                               mkDELAY(x, carried_type)))
+                 if !Compileopt.late_only_dbranch then
+                   mkDBRANCH(tokenizer, c)
+                 else
+                   mkSEQ2(tok_box, Some tok, None,
+                          mkSEQ2(mkDBRANCH(tok, c), Some x, None,
+                                 mkDELAY(x, carried_type)))
              | None ->
                  let c = {cname = ocaml_constructor; arity = 0; cty = token_type} in
-                 mkSEQ2(tok_box, Some tok, None, mkDBRANCH(tok, c)) in
+                 if !Compileopt.late_only_dbranch then
+                   mkDBRANCH(tokenizer, c)
+                 else
+                   mkSEQ2(tok_box, Some tok, None, mkDBRANCH(tok, c)) in
          (nonterminal, (ocaml_constructor,carried_type)), RuleDef(nonterminal,rhs,a))
       decls in
   let myenv, other_defs = List.split other_defs in

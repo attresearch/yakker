@@ -65,7 +65,9 @@ let producers gr =
           | Position true -> early_producer()
           | Position false -> late_producer()
           | DBranch(_,{arity=0}) -> ()
-          | DBranch _
+(*        TODO-dbranch: extend to support late production
+          | DBranch _ -> if !Compileopt.late_only_dbranch then late_producer() else early_producer() *)
+          | DBranch _ -> if !Compileopt.late_only_dbranch then () else early_producer()
           | Box(_,Some _,_) -> early_producer()
           | Box(_,None,_) ->
               ()
@@ -170,7 +172,11 @@ let rec relevance0 is_early_producer r =
   | When _ ->
       r.a.early_relevant <- true
   | DBranch _ ->
-      r.a.early_relevant <- true
+      if !Compileopt.late_only_dbranch then
+(*   TODO-dbranch:      r.a.late_relevant <- true *)
+        ()
+      else
+        r.a.early_relevant <- true
   | Symb(n,early,early_attributes,late) ->
       (* NB early_attributes may be modified by the copy rule *)
       if early<>None || early_attributes<>[] || is_early_producer n then r.a.early_relevant <- true;

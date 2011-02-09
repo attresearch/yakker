@@ -61,11 +61,19 @@ module Pred3 = struct
 
   let boxc box r ykb v =
     let cp = YkBuf.save ykb in
-    let r = match box v (YkBuf.get_offset ykb) ykb with
+    let res = match box v (YkBuf.get_offset ykb) ykb with
       | Some (0, v2) -> Some v2
       | None | Some _ -> None in
     YkBuf.restore ykb cp;
-    r
+    res
+
+  let dbranchc box check r ykb v =
+    let cp = YkBuf.save ykb in
+    let res = match box (YkBuf.get_offset ykb) ykb with
+      | Some (0, v2) -> if check v2 then Some v else None
+      | None | Some _ -> None in
+    YkBuf.restore ykb cp;
+    res
 
   let callc symb_pred action binder r ykb v =
     let p = YkBuf.get_offset ykb in
@@ -97,7 +105,7 @@ type 'a instruction =
   | ASimpleCont2Instr of nonterm * 'a binder2 * label (** Parameterless continue. *)
   | AContInstr3 of nonterm * 'a action2 * 'a binder2 * label
   | DetBranchInstr of (pos -> 'a -> 'a * label)
-
+  | LexerInstr of ('a -> pos -> YkBuf.t -> int * 'a * label)
 
 type 'a block = 'a instruction array
 

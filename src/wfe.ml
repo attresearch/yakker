@@ -956,17 +956,17 @@ module Full_yakker (Sem_val : SEMVAL) = struct
   let inspect_semvals earley_set =
     fold_semvals Sem_val.inspect earley_set (Sem_val.create_idata ())
 
-  (* PERF: Create this closure once, and store it in [xyz]. *)
   (** Invokes full-blown lookahead in CfgLA case. *)
-  let rec mk_lookahead term_table nonterm_table p_nonterm_table sv0
+  let rec mk_lookahead term_table nonterm_table p_nonterm_table sv0 advance fill save restore
       la_nt la_target ykb =
+    let sv = save () in
     let cp = YkBuf.save ykb in
     if Logging.activated then begin
       let cf = !Logging.current_features in
       Logging.set_features Logging.Features.none;
       let old_pos = Imp_position.get_position () in
 
-      let r = _parse false
+      let r = _parse false advance fill save restore
         {PJDN.start_symb = la_nt; start_state = la_target;
          term_table = term_table; nonterm_table = nonterm_table;
          p_nonterm_table = p_nonterm_table;}
@@ -977,14 +977,16 @@ module Full_yakker (Sem_val : SEMVAL) = struct
         "Lookahead: %B @ %d.\n" r (Imp_position.get_position ());
       Imp_position.set_position old_pos;
       YkBuf.restore ykb cp;
+      restore sv;
       r
     end else begin
-      let r = _parse false
+      let r = _parse false advance fill save restore
         {PJDN.start_symb = la_nt; start_state = la_target;
          term_table = term_table; nonterm_table = nonterm_table;
          p_nonterm_table = p_nonterm_table;}
         sv0 ykb <> [] in
       YkBuf.restore ykb cp;
+      restore sv;
       r
     end
 
@@ -1378,18 +1380,11 @@ module Full_yakker (Sem_val : SEMVAL) = struct
            | PJDN.Lexer_trans lexer ->
                let curr_pos = current_callset.id in
                (SOCVAS_ITER(`socvas_s', `(callset, sv, sv_arg)',
-                           `let cp = YkBuf.save ykb in
-                           (match lexer sv curr_pos ykb with
+                           `(match lexer sv curr_pos ykb with
                               | _, _, 0 -> ()
-                              | 0, ret_sv, target -> (* returns to current set *)
-                                  insert_one_ig i ol cs target callset ret_sv sv_arg
-                              | 1, ret_sv, target -> (* returns to next set *)
+                              | _, ret_sv, target -> (* returns to next set *)
                                   insert_one_nc ns target (callset, ret_sv, sv_arg)
-                              | n, ret_sv, target ->
-                                  let j = curr_pos + n in
-                                  insert_future futuresq j target (callset, ret_sv, sv_arg)
-                           );
-                           YkBuf.restore ykb cp'))
+                           )'))
 
   and process_eof_trans start_nt succeeded ol cs socvas_s i term_table nonterm_table p_nonterm_table nplookahead_fn
       s sv0 current_callset ykb = function
@@ -1546,19 +1541,17 @@ module Full_yakker (Sem_val : SEMVAL) = struct
            | PJDN.Lexer_trans lexer ->
                let curr_pos = current_callset.id in
                (SOCVAS_ITER(`socvas_s', `(callset, sv, sv_arg)',
-                           `let cp = YkBuf.save ykb in
-                           (match lexer sv curr_pos ykb with
+                           `(match lexer sv curr_pos ykb with
                               | _, _, 0 -> ()
                               | 0, ret_sv, target -> (* returns to current set *)
                                   insert_one_ig i ol cs target callset ret_sv sv_arg
                               | _ ->
                                   LOG(Logging.log Logging.Features.verbose
                                         "BUG: Lexer returning success > 0 at EOF.\n")
-                           );
-                           YkBuf.restore ykb cp'))
+                           )'))
 
 
-  and _parse is_exact_match
+  and _parse is_exact_match advance fill save restore
       {PJDN.start_symb = start_nt; start_state = start_state;
        term_table = term_table; nonterm_table = nonterm_table;
        p_nonterm_table = p_nonterm_table;}
@@ -1582,7 +1575,7 @@ module Full_yakker (Sem_val : SEMVAL) = struct
     let current_callset = ref start_callset in
 
     let futuresq = Ordered_queue.init () in
-    let nplookahead_fn = mk_lookahead term_table nonterm_table p_nonterm_table sv0 in
+    let nplookahead_fn = mk_lookahead term_table nonterm_table p_nonterm_table sv0 advance fill save restore in
 
     if Logging.activated then begin
       Imp_position.set_position 0
@@ -1595,7 +1588,7 @@ module Full_yakker (Sem_val : SEMVAL) = struct
     insert_one_nc ns start_state cva0;
     Pcs.add_call_state pre_cc start_state;
 
-    let can_scan = ref (YkBuf.fill2 ykb 1) in
+    let can_scan = ref (fill ykb) in
 
     let i = ref 0 in
     let overflow = ref [] in
@@ -1754,8 +1747,8 @@ module Full_yakker (Sem_val : SEMVAL) = struct
       ccs.data <- Pcs.convert_current_callset cs pre_cc;
       let pos = ccs.id + 1 in
       current_callset := mk_callset pos;
-      YkBuf.advance ykb;
-      can_scan := YkBuf.fill2 ykb 1;
+      advance ykb;
+      can_scan := fill ykb;
       Pcs.reset pre_cc;
 
       (* Check whether there's any blackbox results to load into the next set. *)
@@ -1897,7 +1890,8 @@ module Full_yakker (Sem_val : SEMVAL) = struct
       []
     end
 
-  let parse data sv0 ykb = _parse true data sv0 ykb
+  let parse data sv0 ykb = _parse true YkBuf.advance (fun ykb -> YkBuf.fill2 ykb 1) (fun () -> ()) (fun () -> ()) data sv0 ykb
+  let parse_tok fill_tok advance_tok save_tok restore_tok data sv0 ykb = _parse true advance_tok fill_tok save_tok restore_tok data sv0 ykb
 
 end
 

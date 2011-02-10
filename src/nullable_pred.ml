@@ -962,9 +962,9 @@ module Gil = struct
       if !Compileopt.late_only_dbranch then
         begin
           (* TODO-dbranch: handle more complex case*)
-(*           false_e() *)
-          let f1 = "let f1 = "^ f1 ^" in fun p ykb -> match f1 p ykb with | Some (0,_) as x -> x | (Some _ | None) -> None" in
-          DBranchE (f1, c, f2)
+          false_e()
+(*           let f1 = "let f1 = "^ f1 ^" in fun p ykb -> match f1 p ykb with | Some (0,_) as x -> x | (Some _ | None) -> None" in *)
+(*           DBranchE (f1, c, f2) *)
         end
       else
         begin

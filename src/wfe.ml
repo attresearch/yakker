@@ -1011,7 +1011,7 @@ module Full_yakker (Sem_val : SEMVAL) = struct
       | PJDN.Scan_trans _ | PJDN.Det_trans _ | PJDN.Lexer_trans _ | PJDN.MScan_trans _
       | PJDN.Lookahead_trans _ | PJDN.Det_multi_trans _
       | PJDN.Box_trans _ | PJDN.Maybe_nullable_trans2 _ | PJDN.Many_trans _
-      | PJDN.RegLookahead_trans _ | PJDN.ExtLookahead_trans _
+      | PJDN.TokLookahead_trans _ | PJDN.RegLookahead_trans _ | PJDN.ExtLookahead_trans _
       | PJDN.MComplete_trans _ | PJDN.MComplete_p_trans _
       | PJDN.Call_trans _ | PJDN.Call_p_trans _
       | PJDN.Complete_trans _ | PJDN.Complete_p_trans _ ->
@@ -1249,6 +1249,12 @@ module Full_yakker (Sem_val : SEMVAL) = struct
                  else insert_many i ol cs t socvas_s
 (*               else epsilon_close_current xyz t socvas_s i term_table.(t) *)
                end
+           | PJDN.TokLookahead_trans (presence, f, target) ->
+               let curr_pos = current_callset.id in
+               let b = match f sv0 curr_pos ykb with
+                 | 0 -> false
+                 | _ -> true in
+               if b = presence then insert_many i ol cs target socvas_s
            | PJDN.RegLookahead_trans (presence, la_target, la_nt, target) ->
                let b = REGLA_CODE(`presence', `la_target', `la_nt', `target') in
                if b then insert_many i ol cs target socvas_s
@@ -1401,6 +1407,12 @@ module Full_yakker (Sem_val : SEMVAL) = struct
                let x_action = x land 0x7F000000 in
                let t = x land 0xFFFFFF in
                if t > 0 && x_action > 0 then insert_many i ol cs t socvas_s
+           | PJDN.TokLookahead_trans (presence, f, target) ->
+               let curr_pos = current_callset.id in
+               let b = match f sv0 curr_pos ykb with
+                 | 0 -> false
+                 | _ -> true in
+               if b = presence then insert_many i ol cs target socvas_s
            | PJDN.RegLookahead_trans (presence, la_target, la_nt, target) ->
                let b = REGLA_CODE(`presence', `la_target', `la_nt', `target') in
                if b then insert_many i ol cs target socvas_s
@@ -1641,7 +1653,8 @@ module Full_yakker (Sem_val : SEMVAL) = struct
             | PJDN.Call_p_trans _
             | PJDN.Maybe_nullable_trans2 _
             | PJDN.Call_trans _| PJDN.Det_multi_trans _
-            | PJDN.RegLookahead_trans _ | PJDN.ExtLookahead_trans _ | PJDN.Lookahead_trans _| PJDN.MScan_trans _
+            | PJDN.TokLookahead_trans _ | PJDN.RegLookahead_trans _ | PJDN.ExtLookahead_trans _
+            | PJDN.Lookahead_trans _| PJDN.MScan_trans _
             | PJDN.Scan_trans _ | PJDN.No_trans | PJDN.Det_trans _ | PJDN.Lexer_trans _ -> false in
           is_done || search_for_succ term_table d dcs start_nt n (j + 1)
         end in
@@ -1843,7 +1856,7 @@ module Full_yakker (Sem_val : SEMVAL) = struct
           | PJDN.Call_p_trans _
           | PJDN.Maybe_nullable_trans2 _
           | PJDN.Call_trans _| PJDN.Det_multi_trans _
-          | PJDN.RegLookahead_trans _ | PJDN.ExtLookahead_trans _
+          | PJDN.TokLookahead_trans _ | PJDN.RegLookahead_trans _ | PJDN.ExtLookahead_trans _
           | PJDN.Lookahead_trans _| PJDN.MScan_trans _
           | PJDN.Scan_trans _ | PJDN.No_trans | PJDN.Det_trans _ | PJDN.Lexer_trans _
               -> ()

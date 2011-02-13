@@ -38,6 +38,9 @@ let is_regular p start =
           | Some stack -> dfs_regular stack in
   dfs_regular [start]
 
+let is_token p start =
+  match p.(start) with [|PI.LexerInstr f|] -> Some f | _ -> None
+
 let col_size = 257
   (** one for EOF *)
 let iEOF = 256
@@ -537,6 +540,7 @@ module DNELR = struct
     | Lexer_trans of ('a -> PI.pos -> YkBuf.t -> int * 'a * PI.label)
     | MScan_trans of PI.label array
     | Lookahead_trans of PI.label array
+    | TokLookahead_trans of PI.presence * ('a -> PI.pos -> YkBuf.t -> PI.label) * PI.label
     | RegLookahead_trans of PI.presence * PI.label * nonterm * PI.label
     | ExtLookahead_trans of PI.presence * PI.label * nonterm * PI.label
     | Det_multi_trans of det_trans array
@@ -579,6 +583,7 @@ module DNELR = struct
     | Det_trans _ -> "det-branch"
     | Lexer_trans _ -> "lexer"
     | Lookahead_trans _ -> "lookahead"
+    | TokLookahead_trans _ -> "token lookahead"
     | RegLookahead_trans _ -> "regular lookahead"
     | ExtLookahead_trans _ -> "ext.lookahead"
     | Det_multi_trans _ -> "multi"
@@ -713,26 +718,30 @@ module DNELR = struct
           Lookahead_trans (mk_csla presence la_cs target)
 
       | PI.ALookaheadInstr (presence, PI.CfgLA (la_target, nt), target) ->
-          let is_reg =
-            match Util.find_option regulars nt with
-              | Some x -> x
-              | None ->
-                  let x = is_regular p la_target in
-                  if x then begin
-                      if Logging.activated then
-                        Logging.log Logging.Features.lookahead "RLA: +%d\n" nt
-                  end else begin
-(*                  Util.warn Util.Sys_warn  *)
-(*                    (Printf.sprintf "Nonterminal %d cannot be used in regular lookahead." nt); *)
-                    if Logging.activated then
-                      Logging.log Logging.Features.lookahead "RLA: -%d\n" nt
-                  end;
-                  Hashtbl.add regulars nt x;
-                  x in
-          if is_reg then
-            RegLookahead_trans (presence, la_target, ntid nt, target)
-          else
-            ExtLookahead_trans (presence, la_target, ntid nt, target)
+          (match is_token p la_target with
+             | Some f ->
+                 TokLookahead_trans (presence, (fun sv pos ykb -> let (_,_,t) = f sv pos ykb in t), target)
+             | None ->
+                 let is_reg =
+                   match Util.find_option regulars nt with
+                     | Some x -> x
+                     | None ->
+                         let x = is_regular p la_target in
+                         if x then begin
+                           if Logging.activated then
+                             Logging.log Logging.Features.lookahead "RLA: +%d\n" nt
+                         end else begin
+                           (*                  Util.warn Util.Sys_warn  *)
+                           (*                    (Printf.sprintf "Nonterminal %d cannot be used in regular lookahead." nt); *)
+                           if Logging.activated then
+                             Logging.log Logging.Features.lookahead "RLA: -%d\n" nt
+                         end;
+                         Hashtbl.add regulars nt x;
+                         x in
+                 if is_reg then
+                   RegLookahead_trans (presence, la_target, ntid nt, target)
+                 else
+                   ExtLookahead_trans (presence, la_target, ntid nt, target))
 
       | PI.AAction2Instr (f, t) -> Action_trans (f, t)
       | PI.AWhenInstr3 (p, f, t) -> When_trans (p, f, t)
@@ -803,7 +812,8 @@ module DNELR = struct
               (a_mt.(c) <- scan_dtrans target; tr2)
             else if t = scan_dtrans target then tr2
             else mk_many s tr1 tr2
-        | Scan_trans _, ( Det_trans _ | Lexer_trans _ | RegLookahead_trans _ | ExtLookahead_trans _
+        | Scan_trans _, ( Det_trans _ | Lexer_trans _
+                        | TokLookahead_trans _ | RegLookahead_trans _ | ExtLookahead_trans _
                         | Complete_trans _
                         | MComplete_trans _
                         | Call_trans _
@@ -836,7 +846,7 @@ module DNELR = struct
             if merge_mt_sc a_mt a_s then tr2
             else mk_many s tr1 tr2
 
-        | MScan_trans _, ( RegLookahead_trans _ | ExtLookahead_trans _
+        | MScan_trans _, ( TokLookahead_trans _ | RegLookahead_trans _ | ExtLookahead_trans _
                          | Complete_trans _
                          | MComplete_trans _
                          | Call_trans _
@@ -874,7 +884,7 @@ module DNELR = struct
           | When_trans _
           | When2_trans _
           | Box_trans _
-          | RegLookahead_trans _ | ExtLookahead_trans _) ->
+          | TokLookahead_trans _ | RegLookahead_trans _ | ExtLookahead_trans _) ->
             mk_many s tr1 tr2
 
         | _, Complete_trans _ -> merge_transs s tr2 tr1
@@ -892,7 +902,7 @@ module DNELR = struct
           | When_trans _
           | When2_trans _
           | Box_trans _
-          | RegLookahead_trans _ | ExtLookahead_trans _ )
+          | TokLookahead_trans _ | RegLookahead_trans _ | ExtLookahead_trans _ )
         | _, MComplete_trans _ ->
             mk_many s tr1 tr2
 
@@ -910,14 +920,13 @@ module DNELR = struct
           | When_trans _
           | When2_trans _
           | Box_trans _
-          | RegLookahead_trans _ | ExtLookahead_trans _) ->
+          | TokLookahead_trans _ | RegLookahead_trans _ | ExtLookahead_trans _) ->
             mk_many s tr1 tr2
 
         | _, Lookahead_trans _ -> merge_transs s tr2 tr1
 
-        | RegLookahead_trans _, _ | _, RegLookahead_trans _ ->
-            mk_many s tr1 tr2
-
+        | TokLookahead_trans _, _ | _, TokLookahead_trans _
+        | RegLookahead_trans _, _ | _, RegLookahead_trans _
         | ExtLookahead_trans _, _ | _, ExtLookahead_trans _ ->
             mk_many s tr1 tr2
 
@@ -1050,6 +1059,7 @@ module DNELR = struct
         | MScan_trans _
         | Lookahead_trans _
         | Det_multi_trans _
+        | TokLookahead_trans _
         | RegLookahead_trans _
         | ExtLookahead_trans _
         | Call_trans _ | Call_p_trans _

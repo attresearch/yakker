@@ -366,6 +366,67 @@ module Dummy_inspector = struct
   let summarize_inspection x = "n/a"
 end
 
+module type TERM_LANG = sig
+  type state
+
+  val advance: YkBuf.t -> unit
+  val fill : YkBuf.t -> bool
+  val save : unit -> state (** save terminal-related state. *)
+  val restore : state -> unit
+end
+
+module Scannerless_term_lang : TERM_LANG = struct
+  type state = unit
+  let advance = YkBuf.advance
+  let fill ykb = YkBuf.fill2 ykb 1
+  let save () = ()
+  let restore () = ()
+end
+
+module type TOKENIZER = sig
+  include TERM_LANG
+
+  type token
+  val lex : YkBuf.t -> token option
+end
+
+module Make_tokenizer (T : sig
+                         type token
+                         val f : Lexing.lexbuf -> token
+                       end) : TOKENIZER with type token = T.token =
+struct
+
+  (* the implementation of lookahead is somewhat broken becuase it
+     forces revisiting current position. hence all this work to get
+     the functions working for the case of revisiting the current
+     position. If the invariant is that fill is never called twice for
+     the same position, things become much easier. also, combine with
+     fact that lexer advances the input position, so after fill is
+     called, get_offset returns incorrect value.  *)
+
+  let dummystate = (-1, false, None)
+
+  (** single-element map from position to "at_eof" and token. the
+      position corresponds to the end position of any token that is stored, not the start position. *)
+  let lexstate = ref dummystate
+
+  type token = T.token
+  type state = int * bool * token option
+      (** we tag the tokens with a position so that the first fill of a
+          lookahead will execute correctly.*)
+
+  let fill = YkBuf.ocamllex_fill T.f lexstate
+
+  (** force the next call to fill to grab the next token. *)
+  let advance ykb = lexstate := dummystate
+
+  let save () = !lexstate
+  let restore t = lexstate := t
+
+  let lex ykb = let (_,_,t) = !lexstate in t
+end
+
+
 module type SEMVAL = sig
   type t
   val cmp : t -> t -> int
@@ -466,7 +527,7 @@ module PJDN = PamJIT.DNELR
    end
 )')
 
-module Full_yakker (Sem_val : SEMVAL) = struct
+module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
 
   let lookahead_regexp_NELR0_tbl term_table la_nt ykb start =
 
@@ -957,16 +1018,16 @@ module Full_yakker (Sem_val : SEMVAL) = struct
     fold_semvals Sem_val.inspect earley_set (Sem_val.create_idata ())
 
   (** Invokes full-blown lookahead in CfgLA case. *)
-  let rec mk_lookahead term_table nonterm_table p_nonterm_table sv0 advance fill save restore
+  let rec mk_lookahead term_table nonterm_table p_nonterm_table sv0
       la_nt la_target ykb =
-    let sv = save () in
+    let sv = Terms.save () in
     let cp = YkBuf.save ykb in
     if Logging.activated then begin
       let cf = !Logging.current_features in
       Logging.set_features Logging.Features.none;
       let old_pos = Imp_position.get_position () in
 
-      let r = _parse false advance fill save restore
+      let r = _parse false
         {PJDN.start_symb = la_nt; start_state = la_target;
          term_table = term_table; nonterm_table = nonterm_table;
          p_nonterm_table = p_nonterm_table;}
@@ -977,16 +1038,16 @@ module Full_yakker (Sem_val : SEMVAL) = struct
         "Lookahead: %B @ %d.\n" r (Imp_position.get_position ());
       Imp_position.set_position old_pos;
       YkBuf.restore ykb cp;
-      restore sv;
+      Terms.restore sv;
       r
     end else begin
-      let r = _parse false advance fill save restore
+      let r = _parse false
         {PJDN.start_symb = la_nt; start_state = la_target;
          term_table = term_table; nonterm_table = nonterm_table;
          p_nonterm_table = p_nonterm_table;}
         sv0 ykb <> [] in
       YkBuf.restore ykb cp;
-      restore sv;
+      Terms.restore sv;
       r
     end
 
@@ -1250,10 +1311,7 @@ module Full_yakker (Sem_val : SEMVAL) = struct
 (*               else epsilon_close_current xyz t socvas_s i term_table.(t) *)
                end
            | PJDN.TokLookahead_trans (presence, f, target) ->
-               let curr_pos = current_callset.id in
-               let b = match f sv0 curr_pos ykb with
-                 | 0 -> false
-                 | _ -> true in
+               let b = f ykb in
                if b = presence then insert_many i ol cs target socvas_s
            | PJDN.RegLookahead_trans (presence, la_target, la_nt, target) ->
                let b = REGLA_CODE(`presence', `la_target', `la_nt', `target') in
@@ -1384,13 +1442,10 @@ module Full_yakker (Sem_val : SEMVAL) = struct
                            YkBuf.restore ykb cp'))
 
            | PJDN.Lexer_trans lexer ->
-               let curr_pos = current_callset.id in
-               (SOCVAS_ITER(`socvas_s', `(callset, sv, sv_arg)',
-                           `(match lexer sv curr_pos ykb with
-                              | _, _, 0 -> ()
-                              | _, ret_sv, target -> (* returns to next set *)
-                                  insert_one_nc ns target (callset, ret_sv, sv_arg)
-                           )'))
+               (match lexer ykb with
+                  | 0 -> ()
+                  | target -> (* returns to next set *)
+                      insert_many_nc ns target socvas_s)
 
   and process_eof_trans start_nt succeeded ol cs socvas_s i term_table nonterm_table p_nonterm_table nplookahead_fn
       s sv0 current_callset ykb = function
@@ -1408,10 +1463,7 @@ module Full_yakker (Sem_val : SEMVAL) = struct
                let t = x land 0xFFFFFF in
                if t > 0 && x_action > 0 then insert_many i ol cs t socvas_s
            | PJDN.TokLookahead_trans (presence, f, target) ->
-               let curr_pos = current_callset.id in
-               let b = match f sv0 curr_pos ykb with
-                 | 0 -> false
-                 | _ -> true in
+               let b = f ykb in
                if b = presence then insert_many i ol cs target socvas_s
            | PJDN.RegLookahead_trans (presence, la_target, la_nt, target) ->
                let b = REGLA_CODE(`presence', `la_target', `la_nt', `target') in
@@ -1549,21 +1601,12 @@ module Full_yakker (Sem_val : SEMVAL) = struct
                            );
                            YkBuf.restore ykb cp'))
 
-           (* Only null tokens are okay now that we've reached EOF. *)
            | PJDN.Lexer_trans lexer ->
-               let curr_pos = current_callset.id in
-               (SOCVAS_ITER(`socvas_s', `(callset, sv, sv_arg)',
-                           `(match lexer sv curr_pos ykb with
-                              | _, _, 0 -> ()
-                              | 0, ret_sv, target -> (* returns to current set *)
-                                  insert_one_ig i ol cs target callset ret_sv sv_arg
-                              | _ ->
-                                  LOG(Logging.log Logging.Features.verbose
-                                        "BUG: Lexer returning success > 0 at EOF.\n")
-                           )'))
+               (match lexer ykb with
+                  | 0 -> ()
+                  | target -> insert_many i ol cs target socvas_s)
 
-
-  and _parse is_exact_match advance fill save restore
+  and _parse is_exact_match
       {PJDN.start_symb = start_nt; start_state = start_state;
        term_table = term_table; nonterm_table = nonterm_table;
        p_nonterm_table = p_nonterm_table;}
@@ -1587,7 +1630,7 @@ module Full_yakker (Sem_val : SEMVAL) = struct
     let current_callset = ref start_callset in
 
     let futuresq = Ordered_queue.init () in
-    let nplookahead_fn = mk_lookahead term_table nonterm_table p_nonterm_table sv0 advance fill save restore in
+    let nplookahead_fn = mk_lookahead term_table nonterm_table p_nonterm_table sv0 in
 
     if Logging.activated then begin
       Imp_position.set_position 0
@@ -1600,7 +1643,7 @@ module Full_yakker (Sem_val : SEMVAL) = struct
     insert_one_nc ns start_state cva0;
     Pcs.add_call_state pre_cc start_state;
 
-    let can_scan = ref (fill ykb) in
+    let can_scan = ref (Terms.fill ykb) in
 
     let i = ref 0 in
     let overflow = ref [] in
@@ -1760,8 +1803,8 @@ module Full_yakker (Sem_val : SEMVAL) = struct
       ccs.data <- Pcs.convert_current_callset cs pre_cc;
       let pos = ccs.id + 1 in
       current_callset := mk_callset pos;
-      advance ykb;
-      can_scan := fill ykb;
+      Terms.advance ykb;
+      can_scan := Terms.fill ykb;
       Pcs.reset pre_cc;
 
       (* Check whether there's any blackbox results to load into the next set. *)
@@ -1903,8 +1946,7 @@ module Full_yakker (Sem_val : SEMVAL) = struct
       []
     end
 
-  let parse data sv0 ykb = _parse true YkBuf.advance (fun ykb -> YkBuf.fill2 ykb 1) (fun () -> ()) (fun () -> ()) data sv0 ykb
-  let parse_tok fill_tok advance_tok save_tok restore_tok data sv0 ykb = _parse true advance_tok fill_tok save_tok restore_tok data sv0 ykb
+  let parse data sv0 ykb = _parse true data sv0 ykb
 
 end
 

@@ -537,10 +537,10 @@ module DNELR = struct
     (* Deterministic transitions. *)
     | Scan_trans of PI.terminal * PI.label
     | Det_trans of (PI.pos -> 'a -> 'a * PI.label)
-    | Lexer_trans of ('a -> PI.pos -> YkBuf.t -> int * 'a * PI.label)
+    | Lexer_trans of (YkBuf.t -> PI.label)
     | MScan_trans of PI.label array
     | Lookahead_trans of PI.label array
-    | TokLookahead_trans of PI.presence * ('a -> PI.pos -> YkBuf.t -> PI.label) * PI.label
+    | TokLookahead_trans of PI.presence * (YkBuf.t -> bool) * PI.label
     | RegLookahead_trans of PI.presence * PI.label * nonterm * PI.label
     | ExtLookahead_trans of PI.presence * PI.label * nonterm * PI.label
     | Det_multi_trans of det_trans array
@@ -720,7 +720,10 @@ module DNELR = struct
       | PI.ALookaheadInstr (presence, PI.CfgLA (la_target, nt), target) ->
           (match is_token p la_target with
              | Some f ->
-                 TokLookahead_trans (presence, (fun sv pos ykb -> let (_,_,t) = f sv pos ykb in t), target)
+                 TokLookahead_trans (presence, (fun ykb -> match f ykb with
+                                                  | 0 -> false
+                                                  | _ -> true),
+                                     target)
              | None ->
                  let is_reg =
                    match Util.find_option regulars nt with

@@ -120,10 +120,10 @@ module DNELR :
       | No_trans
       | Scan_trans of Pam_internal.terminal * Pam_internal.label
       | Det_trans of (Pam_internal.pos -> 'a -> 'a * Pam_internal.label)
-      | Lexer_trans of ('a -> Pam_internal.pos -> YkBuf.t -> int * 'a * Pam_internal.label)
+      | Lexer_trans of (YkBuf.t -> Pam_internal.label)
       | MScan_trans of Pam_internal.label array
       | Lookahead_trans of Pam_internal.label array
-      | TokLookahead_trans of Pam_internal.presence * ('a -> Pam_internal.pos -> YkBuf.t -> Pam_internal.label) * Pam_internal.label
+      | TokLookahead_trans of Pam_internal.presence * (YkBuf.t -> bool) * Pam_internal.label
       | RegLookahead_trans of Pam_internal.presence * Pam_internal.label * nonterm * Pam_internal.label
       | ExtLookahead_trans of Pam_internal.presence * Pam_internal.label * nonterm * Pam_internal.label
       | Det_multi_trans of det_trans array

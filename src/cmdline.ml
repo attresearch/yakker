@@ -1001,8 +1001,8 @@ let program : (int * sv instruction list) list = [
 
 let start_symb = get_symb_action "cmd-line-args"
 
-module P2__ = Yak.Engine.Full_yakker(struct type t = sv let cmp = sv_compare
-                                            type idata = Yk_History.Root_id_set.t
+module P2__ = Yak.Engine.Full_yakker (Yak.Engine.Scannerless_term_lang)
+                                     (struct type t = sv let cmp = sv_compare type idata = Yk_History.Root_id_set.t
   let create_idata () = Yk_History.Root_id_set.empty
   let inspect h s = Yk_History.add_id_set h#get_root s
   let summarize_inspection s = string_of_int (Yk_History.Root_id_set.cardinal s) end)

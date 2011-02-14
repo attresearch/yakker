@@ -136,8 +136,8 @@ let add_boilerplate backend gr =
   let mk_trans_bp1 = Printf.sprintf "
 let start_symb = get_symb_action %S
 
-module P2__ = Yak.Engine.Full_yakker(struct type t = sv let cmp = sv_compare
-                                            %s end)
+module P2__ = Yak.Engine.Full_yakker (Yak.Engine.Scannerless_term_lang)
+                                     (struct type t = sv let cmp = sv_compare %s end)
 
 let _wfe_data_ = Yak.PamJIT.DNELR.to_table (Yak.Pam_internal.load_internal_program program)
   start_symb (get_symb_start start_symb) %d num_symbols

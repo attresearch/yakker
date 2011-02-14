@@ -105,7 +105,7 @@ type 'a instruction =
   | ASimpleCont2Instr of nonterm * 'a binder2 * label (** Parameterless continue. *)
   | AContInstr3 of nonterm * 'a action2 * 'a binder2 * label
   | DetBranchInstr of (pos -> 'a -> 'a * label)
-  | LexerInstr of ('a -> pos -> YkBuf.t -> int * 'a * label)
+  | LexerInstr of (YkBuf.t -> label)
 
 type 'a block = 'a instruction array
 

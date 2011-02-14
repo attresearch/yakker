@@ -801,24 +801,21 @@ let fsm_transducer gr inch outch =
       ^ "| None -> (0,v,0) | Some (" ^ spanvar ^ "," ^ pat ^ ") -> " ^ e in
     Printf.sprintf "DetBranchInstr(%s)" (mkfunc f1 xvar $| mkmatch (map mkcase cs)) in
 
-  (* Version 3: [f1] is an box-like function, taking the current
-     position and semval and the ykbuf and returning an option like
+  (* Version 3: [f1] is an box-like function, taking the
+     ykbuf and returning an option like
      blackboxes.  This version is weaker than the previous in that any
-     values carried by the matched constructor are ignored. *)
+     values carried by the matched constructor are ignored and it does not involve the semantic value at all. *)
   let branches2instr3 (f1, c_t, cs) =
-    let spanvar = "n" in
     let xvar = "x" in
-    let semvalvar = "v" in
-    (* note that we're ignore [f2] here. Instead, we simply return the
-       input semantic value. *)
+    (* note that we ignore [f2] here. *)
     let mkcase (c, _, target) =
       if c.Gil.arity = 0 then
-        Printf.sprintf "%s -> %s, %s, %d" c.cname spanvar semvalvar target
+        Printf.sprintf "%s -> %d" c.cname target
       else
-        Printf.sprintf "%s _ -> %s, %s, %d" c.cname spanvar semvalvar target in
-    let mkmatch cs = "match " ^ xvar ^ " with " ^ String.concat " | " cs ^ " | _ -> 0,"^semvalvar^",0" in
-    let mkfunc f1 pat e = "let f1 = "^ f1 ^" in fun "^ semvalvar ^" p ykb -> match f1 p ykb with "
-      ^ "| None -> (0,"^ semvalvar ^",0) | Some (" ^ spanvar ^ "," ^ pat ^ ") -> " ^ e in
+        Printf.sprintf "%s _ -> %d" c.cname target in
+    let mkmatch cs = "match " ^ xvar ^ " with " ^ String.concat " | " cs ^ " | _ -> 0" in
+    let mkfunc f1 pat e = "let f1 = "^ f1 ^" in fun ykb -> match f1 ykb with "
+      ^ "| None -> 0 | Some " ^ pat ^ " -> " ^ e in
     Printf.sprintf "LexerInstr(%s)" (mkfunc f1 xvar $| mkmatch (map mkcase cs)) in
 
   let branches2instr =

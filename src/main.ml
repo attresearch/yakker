@@ -188,7 +188,8 @@ let parse = Yak.Pami.mk_parse_fun __parse %s
           mk_trans_bp1 gr.start_symbol term_lang inspector_fields Fsm.min_symbol Fsm.default_call_tx
             Fsm.default_binder_tx post_parse_function
       | Fun_BE | Peg_BE _ ->
-          mk_other_bp1 post_parse_function in
+          mk_other_bp1 post_parse_function
+      | Wadler_BE -> "" in
   let boilerplate_shared =
     "let parse_file = Yak.Pami.Simple.parse_file parse
 let parse_string = Yak.Pami.Simple.parse_string parse\n;;\n"in
@@ -208,6 +209,7 @@ let do_compile gr =
       (List.rev gr.prologue);
     (match backend with
     | Fun_BE -> Gil_gen.pr_gil_definitions2 !outch gr.start_symbol gr.tokmap gr.gildefs
+    | Wadler_BE -> Gil_gen.Wadler.pr_definitions !outch gr.start_symbol gr.gildefs
     | Peg_BE liberal -> Gil_gen.Peg.pr_definitions !outch liberal gr.start_symbol gr.gildefs
     | Trans_BE ->
         gil_transducer gr.gildefs);

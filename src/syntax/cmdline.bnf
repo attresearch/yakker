@@ -62,6 +62,7 @@ let only = ref false
 
 type backend =
   | Fun_BE   (** Functional backend (parser combinators).*)
+  | Wadler_BE   (** Haskell functional backend (parser combinators).*)
   | Peg_BE of bool (** PEG backend. argument indicates whether
                        to use more liberal (PADS-style) star. *)
   | Trans_BE (** Transducer backend. *)
@@ -117,6 +118,7 @@ args =
       | "-backend" o
           ( "fun" {Fun_BE}
           | "tx"  {Trans_BE}
+          | "wadler"  {Wadler_BE}
           | "peg-strict" {Peg_BE false}
           | "peg" {Peg_BE true} )$b o     { backend := b } ""
       | "-case-insensitive" o             { Compileopt.case_sensitive := false } ""

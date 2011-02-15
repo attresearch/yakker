@@ -874,4 +874,109 @@ open Allp.Peg\n\n";
       Printf.fprintf f "Pami.Peg.mk_parse %s sv0\n\n%!" (symb_fun_name start)
 end
 
+module Wadler = struct
+
+  open Util.Operators;;
+
+  let to_char_list s n =
+    let rec loop cs k =
+      if k < n then loop (s.[k] :: cs) (k + 1)
+      else List.rev cs in
+    loop [] 0
+
+  let mk_eps = "return []";;
+  let mk_tok = Printf.sprintf "tok %C";;
+
+  let mk_seq es ret_e =
+    let indent = "   " in
+    "\ndo " ^ String.concat ("\n" ^ indent) es ^ "\n"
+    ^ indent ^ "return " ^ ret_e
+
+  let mk_lit s =
+    match String.length s with
+      | 0 -> mk_eps
+      | 1 -> mk_tok s.[0]
+      | n ->
+          let cs = to_char_list s n in
+          mk_seq (List.map mk_tok cs) "()"
+
+  let mk_char_range lb ub =
+    mk_seq
+      ["d <- item";
+       Printf.sprintf "guard (%d <= ord d && ord d <= %d)" lb ub]
+      "d"
+
+
+  let pr_gil f r0 =
+    let rec loop r =
+      match r with
+        | Gil.When_special _ -> Util.warn Util.Sys_warn "Gil_gen.Wadler.pr_gil.loop.When_special"
+        | Gil.Lit(false, _) -> Util.warn Util.Sys_warn "Gil_gen.Wadler.pr_gil.loop.Gil.Lit(false, _)"
+        | Gil.Action _ -> Util.warn Util.Sys_warn "Gil_gen.Wadler.pr_gil.loop.Gil.Action"
+        | Gil.When _ -> Util.warn Util.Sys_warn "Gil_gen.Wadler.pr_gil.loop.Gil.When"
+        | Gil.Box _ -> Util.warn Util.Sys_warn "Gil_gen.Wadler.pr_gil.loop.Gil.Box"
+
+
+        | Gil.DBranch (f1, c, _) ->
+            Util.warn Util.Sys_warn "Gil_gen.Wadler.pr_gil.loop.DBranch";
+            bprintf f "(lextok (%s) %s)" f1 c.Gil.cname
+        | Gil.Lookahead (presence, r1) ->
+            Util.warn Util.Sys_warn "Gil_gen.Wadler.pr_gil.loop.Gil.Lookahead";
+            bprintf f "(lookahead %B " presence;
+            loop r1;
+            bprintf f ")";
+
+
+        | Gil.Symb(x, None, None) -> bprintf f "%s" $| symb_fun_name x
+
+        | Gil.Symb _ -> Util.todo "Gil_gen.Wadler.pr_gil.loop.Gil.Symb (with arg or binder)."
+
+        | Gil.CharRange(low,high) ->
+            if low = high then
+              bprintf f "%s" $ mk_tok $| Char.chr low
+            else
+              bprintf f "%s" $| mk_char_range low high
+
+        | Gil.Lit(true, x) ->
+            bprintf f "%s" $| mk_lit x
+
+        | Gil.Star(r2) ->
+            bprintf f "(many ";
+            loop r2;
+            bprintf f ")";
+
+        | Gil.Seq _  ->
+            let rs = Gil.seq2rules r in
+            bprintf f "(do {";
+            List.iter (fun r_i ->
+                         bprintf f " ";
+                         loop r_i;
+                         bprintf f ";") rs;
+            bprintf f " return ()})"
+
+        | Gil.Alt (r2, r3) ->
+            loop r2;
+            bprintf f " `mplus` ";
+            loop r3;
+    in loop r0
+
+
+  let pr_definitions f start = function
+    | [] -> ()
+    | ds ->
+        let b = Buffer.create 11 in
+
+        Printf.bprintf b "do rec {\n";
+
+        List.iter begin fun (n, r_gil) ->
+          let name = symb_fun_name n in
+          Printf.bprintf b "%s <- loop " name;
+          pr_gil b r_gil;
+          Printf.bprintf b ";\n"
+        end ds;
+        Printf.bprintf b "return (final %s)}\n\n" start;
+
+        Printf.fprintf f "%s\n" (Buffer.contents b);
+end
+
 

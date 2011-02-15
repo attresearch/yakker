@@ -236,6 +236,7 @@ Printf.sprintf "tokenizer r k_s ykb_init v_init =
 in
 " (is_mem_wrap ntl tokendefs)
 
+
 let pr_gil_lex f use_refs r0 first_map follow_map n tokmap =
   let rec loop r cur_fls =
     match r with
@@ -319,198 +320,59 @@ let pr_gil_lex f use_refs r0 first_map follow_map n tokmap =
                  loop r2 cur_fls;
                  bprintf f ")")
       | Gil.Seq _ when !use_arrays ->
-              bprintf f "(nseq [|";
-              let rs = Gil.seq2rules r in
-            if !Compileopt.lookahead then begin
-              let computeone r_i (this_fls,list) =
-                let fs = first_gil_lex r_i first_map in
-                let new_fls =
-                  if not(fs_notempty fs.nonempty) || fs.epsilon || fs.maybe_empty <> [] then
-                    union_fls fs.nonempty this_fls
-                  else fs.nonempty
-                in
-                  (new_fls,this_fls::list)
+          bprintf f "(nseq [|";
+          let rs = Gil.seq2rules r in
+          if not !Compileopt.lookahead then begin
+            List.iter (fun r_i ->
+                         bprintf f " ";
+                         loop r_i cur_fls;
+                         bprintf f ";") rs;
+          end
+          else begin
+            let computeone r_i (this_fls,list) =
+              let fs = first_gil_lex r_i first_map in
+              let new_fls =
+                if not(fs_notempty fs.nonempty) || fs.epsilon || fs.maybe_empty <> [] then
+                  union_fls fs.nonempty this_fls
+                else fs.nonempty
               in
-              let (_,flslist) = List.fold_right computeone rs (cur_fls,[]) in
-              let doone i r_i =
-                bprintf f " ";
-                loop r_i (List.nth flslist i);
-                bprintf f ";";
-                i+1
-              in
-              let _ = List.fold_left doone 0 rs in
-                ()
-            end
-            else begin
-                  List.iter (fun r_i ->
-                                   bprintf f " ";
-                                   loop r_i cur_fls;
-                                   bprintf f ";") rs;
-            end;
-                bprintf f "|])"
+              (new_fls,this_fls::list)
+            in
+            let (_,flslist) = List.fold_right computeone rs (cur_fls,[]) in
+            let do_one i r_i =
+              bprintf f " ";
+              loop r_i (List.nth flslist i);
+              bprintf f ";";
+              i+1
+            in
+            let _ = List.fold_left do_one 0 rs in
+            ()
+          end;
+          bprintf f "|])"
       | Gil.Seq (r2, r3) ->
           if !Compileopt.lookahead then begin
-          let fs = first_gil_lex r3 first_map in
-          let new_fls =
-            if not(fs_notempty fs.nonempty) || fs.epsilon || fs.maybe_empty <> [] then
-              union_fls fs.nonempty cur_fls
-            else fs.nonempty
-          in
-                  bprintf f "(seq ";
-                  loop r2 new_fls;
-                  bprintf f " ";
-                  loop r3 cur_fls;
-                  bprintf f ")"
+            let fs = first_gil_lex r3 first_map in
+            let new_fls =
+              if not(fs_notempty fs.nonempty) || fs.epsilon || fs.maybe_empty <> [] then
+                union_fls fs.nonempty cur_fls
+              else fs.nonempty
+            in
+            bprintf f "(seq ";
+            loop r2 new_fls;
+            bprintf f " ";
+            loop r3 cur_fls;
+            bprintf f ")"
           end
           else begin
-                bprintf f "(seq ";
-                loop r2 cur_fls;
-                bprintf f " ";
-                loop r3 cur_fls;
-                bprintf f ")"
+            bprintf f "(seq ";
+            loop r2 cur_fls;
+            bprintf f " ";
+            loop r3 cur_fls;
+            bprintf f ")"
           end
+
       | Gil.Alt _ when !use_arrays ->
-              let rs = Gil.alt2rules r in
-          if !Compileopt.lookahead then begin
-            let fss = List.map (fun r_i -> first_gil_lex r_i first_map) rs in
-            let fsl = List.map (fun fs -> fs.nonempty) fss in
-              if List.for_all (fun fs -> fs_notempty fs.nonempty && not(fs.epsilon) && fs.maybe_empty = []) fss then
-                let is,flag = fssdstct fsl in
-                  if is then
-                    if flag then begin
-                      let fn = Variables.fresh () in
-                      let (tokenizer, _) = List.nth (let cs,ts = List.nth fsl 0 in ts) 0 in
-                      let tokendefs = try List.assoc tokenizer tokmap with Not_found -> (Printf.eprintf "Warning: Unable to find %s" tokenizer; []) in
-                      let ntll = List.map (fun (cs,ntli) -> let (tknz,ntl) = List.nth ntli 0 in ntl) fsl in
-                        bprintf f "\n(let nalt_w_lookahead_lex_%s " fn;
-                        nalt_w_lookahead_lex_str ntll tokendefs f;
-                        bprintf f "(nalt_w_lookahead_lex_%s %s [|" fn tokenizer;
-                            List.iter (fun r_i ->
-                                             bprintf f " ";
-                                             loop r_i cur_fls;
-                                             bprintf f ";") rs;
-                            bprintf f "|]))"
-                    end
-                    else begin
-(*
-                      let fn = Variables.fresh () in
-                        bprintf f "\n(let nalt_w_lookahead_%s " fn;
-                        nalt_w_lookahead_str0 fsl f;
-                        bprintf f "(nalt_w_lookahead_%s [|" fn;
-                            List.iter (fun r_i ->
-                                             bprintf f " ";
-                                             loop r_i cur_fls;
-                                             bprintf f ";") rs;
-                            bprintf f " |]))";
-*)
-(* The following code uses n if-then-else statements while the above uses a single ocaml match statement *)
-                      let fs2code (fscs,fsts) =
-                        let fsstr = Cs.to_code fscs in
-                        let fsname = Variables.fresh() in
-                          bprintf f "(let %s = (%s) in " fsname fsstr;
-                          fsname
-                      in
-                      let fslist = List.map fs2code fsl in
-                        bprintf f "(nalt_w_lookahead [|";
-                        List.iter (fun fsname -> bprintf f " %s;" fsname) fslist;
-                        bprintf f "|] [|";
-                            List.iter (fun r_i ->
-                                             bprintf f " ";
-                                             loop r_i cur_fls;
-                                             bprintf f ";") rs;
-                            bprintf f "|])";
-                        List.iter (fun _ ->  bprintf f ")") fsl
-                    end
-                  else if !use_bucket && one_tokenizer fsl then begin
-                    let union_ntl (i,list) (cs,ts) =
-                      let (tknz,ntl) = List.hd ts in
-                      let doone mylist nt =
-                        if List.mem_assoc nt mylist then
-                          let oldntl = List.assoc nt mylist in
-                          let oldlist = List.remove_assoc nt mylist in
-                            oldlist@[(nt, Array.append oldntl [|i|])]
-                        else mylist@[(nt,[|i|])]
-                      in
-                        (i+1), List.fold_left doone list ntl
-                    in
-                    let (_,bktable) = List.fold_left union_ntl (0,[]) fsl in
-                    let fn = Variables.fresh () in
-                    let (tokenizer, _) = List.nth (let cs,ts = List.nth fsl 0 in ts) 0 in
-                    let tokendefs = try List.assoc tokenizer tokmap with Not_found -> (Printf.eprintf "Warning: Unable to find %s" tokenizer; []) in
-                      bprintf f "\n(let nalt_w_lookahead_lex_bkt_%s " fn;
-                      nalt_w_lookahead_lex_bkt_str bktable tokendefs f;
-                      bprintf f "(nalt_w_lookahead_lex_bkt_%s %s [|" fn tokenizer;
-                          List.iter (fun r_i ->
-                                           bprintf f " ";
-                                           loop r_i cur_fls;
-                                           bprintf f ";") rs;
-                          bprintf f "|]))"
-                  end
-                  else if !use_bucket && all_char fsl then begin
-                    let construct_cslist (i,list,orglist) (topcs,ts) =
-                      let compare_one (flag,comparecs,mylist) (dsjcs,oldbl) =
-                        if flag then begin
-                          let x = Cs.dup dsjcs in
-                          let _ = Cs.intersect x comparecs in
-                            if Cs.count x = 0 then
-                              flag,comparecs,mylist@[(dsjcs,oldbl)]
-                            else if Cs.compare x comparecs = 0 then (* case: new cs is the subset of an existing cs *)
-                              let _ = Cs.difference dsjcs x in
-                                if Cs.count dsjcs = 0 then (* case: new cs is the same as an existing cs *)
-                                  false,Cs.empty(),mylist@[(x,oldbl@[i])]
-                                else
-                                  false,Cs.empty(),mylist@[(x,oldbl@[i]);(dsjcs,oldbl)]
-                            else if Cs.compare x dsjcs = 0 then (* case: new cs is the superset of an existing cs *)
-                              let _ = Cs.difference comparecs x in
-                                flag,comparecs,mylist@[(x,oldbl@[i])]
-                            else
-                              let _ = Cs.difference comparecs x in
-                              let _ = Cs.difference dsjcs x in
-                              flag,comparecs,mylist@[(dsjcs,oldbl);(x,oldbl@[i])]
-                        end
-                        else flag,comparecs,mylist@[(dsjcs,oldbl)]
-                      in
-                      let (_,comparecs,newlist) = List.fold_left compare_one (true,(Cs.dup topcs),[]) list in
-                      let newlist = if Cs.count comparecs = 0 then newlist else newlist@[(comparecs,[i])] in
-                        (i+1),newlist,orglist
-                    in
-                    let (cs0,ts0) = List.hd fsl in
-                    let _,cstable,_ = List.fold_left construct_cslist (1,[((Cs.dup cs0),[0])],fsl) (List.tl fsl) in
-                    let fn = Variables.fresh () in
-                      bprintf f "\n(let nalt_w_lookahead_bkt_%s " fn;
-                      nalt_w_lookahead_bkt_str cstable f;
-                      bprintf f "(nalt_w_lookahead_bkt_%s [|" fn;
-                          List.iter (fun r_i ->
-                                           bprintf f " ";
-                                           loop r_i cur_fls;
-                                           bprintf f ";") rs;
-                          bprintf f "|]))"
-                  end
-                  else begin
-                        bprintf f "(nalt [|";
-                        List.iter (fun r_i ->
-                                         bprintf f " ";
-                                         loop r_i cur_fls;
-                                         bprintf f ";") rs;
-                        bprintf f "|])"
-                  end
-              else begin
-                    bprintf f "(nalt [|";
-                    List.iter (fun r_i ->
-                                     bprintf f " ";
-                                     loop r_i cur_fls;
-                                     bprintf f ";") rs;
-                    bprintf f "|])"
-              end
-          end
-          else begin
-                bprintf f "(nalt [|";
-                List.iter (fun r_i ->
-                                 bprintf f " ";
-                                 loop r_i cur_fls;
-                                 bprintf f ";") rs;
-                bprintf f "|])"
-          end
+          handle_alts cur_fls r
       | Gil.Alt (r2, r3) ->
           let regular_alt () =
             bprintf f "(alt ";
@@ -662,9 +524,159 @@ let pr_gil_lex f use_refs r0 first_map follow_map n tokmap =
                       else regular_alt ()
           end
           else regular_alt ()
-  in
-  let init_fls = if !Compileopt.lookahead then try PMap.find n follow_map with Not_found -> (Printf.eprintf "Warning: Unable to compute %s's FOLLOW set\n" n; Cs.empty (), []) else Cs.empty (), [] in
-    loop r0 init_fls
+
+  and handle_alts cur_fls r =
+    let rs = Gil.alt2rules r in
+    if not !Compileopt.lookahead then begin
+      bprintf f "(nalt [|";
+      List.iter (fun r_i ->
+                   bprintf f " ";
+                   loop r_i cur_fls;
+                   bprintf f ";") rs;
+      bprintf f "|])"
+    end
+    else begin
+      let fss = List.map (fun r_i -> first_gil_lex r_i first_map) rs in
+      let fsl = List.map (fun fs -> fs.nonempty) fss in
+      if List.for_all (fun fs -> fs_notempty fs.nonempty && not(fs.epsilon) && fs.maybe_empty = []) fss then
+        let is,flag = fssdstct fsl in
+        if is then
+          if flag then begin
+            let fn = Variables.fresh () in
+            let (tokenizer, _) = List.nth (let cs,ts = List.nth fsl 0 in ts) 0 in
+            let tokendefs = try List.assoc tokenizer tokmap with Not_found -> (Printf.eprintf "Warning: Unable to find %s" tokenizer; []) in
+            let ntll = List.map (fun (cs,ntli) -> let (tknz,ntl) = List.nth ntli 0 in ntl) fsl in
+            bprintf f "\n(let nalt_w_lookahead_lex_%s " fn;
+            nalt_w_lookahead_lex_str ntll tokendefs f;
+            bprintf f "(nalt_w_lookahead_lex_%s %s [|" fn tokenizer;
+            List.iter (fun r_i ->
+                         bprintf f " ";
+                         loop r_i cur_fls;
+                         bprintf f ";") rs;
+            bprintf f "|]))"
+          end
+          else begin
+            (*
+              let fn = Variables.fresh () in
+              bprintf f "\n(let nalt_w_lookahead_%s " fn;
+              nalt_w_lookahead_str0 fsl f;
+              bprintf f "(nalt_w_lookahead_%s [|" fn;
+              List.iter (fun r_i ->
+              bprintf f " ";
+              loop r_i cur_fls;
+              bprintf f ";") rs;
+              bprintf f " |]))";
+            *)
+            (* The following code uses n if-then-else statements while the above uses a single ocaml match statement *)
+            let fs2code (fscs,fsts) =
+              let fsstr = Cs.to_code fscs in
+              let fsname = Variables.fresh() in
+              bprintf f "(let %s = (%s) in " fsname fsstr;
+              fsname
+            in
+            let fslist = List.map fs2code fsl in
+            bprintf f "(nalt_w_lookahead [|";
+            List.iter (fun fsname -> bprintf f " %s;" fsname) fslist;
+            bprintf f "|] [|";
+            List.iter (fun r_i ->
+                         bprintf f " ";
+                         loop r_i cur_fls;
+                         bprintf f ";") rs;
+            bprintf f "|])";
+            List.iter (fun _ ->  bprintf f ")") fsl
+          end
+        else if !use_bucket && one_tokenizer fsl then begin
+          let union_ntl (i,list) (cs,ts) =
+            let (tknz,ntl) = List.hd ts in
+            let doone mylist nt =
+              if List.mem_assoc nt mylist then
+                let oldntl = List.assoc nt mylist in
+                let oldlist = List.remove_assoc nt mylist in
+                oldlist@[(nt, Array.append oldntl [|i|])]
+              else mylist@[(nt,[|i|])]
+            in
+            (i+1), List.fold_left doone list ntl
+          in
+          let (_,bktable) = List.fold_left union_ntl (0,[]) fsl in
+          let fn = Variables.fresh () in
+          let (tokenizer, _) = List.nth (let cs,ts = List.nth fsl 0 in ts) 0 in
+          let tokendefs = try List.assoc tokenizer tokmap with Not_found -> (Printf.eprintf "Warning: Unable to find %s" tokenizer; []) in
+          bprintf f "\n(let nalt_w_lookahead_lex_bkt_%s " fn;
+          nalt_w_lookahead_lex_bkt_str bktable tokendefs f;
+          bprintf f "(nalt_w_lookahead_lex_bkt_%s %s [|" fn tokenizer;
+          List.iter (fun r_i ->
+                       bprintf f " ";
+                       loop r_i cur_fls;
+                       bprintf f ";") rs;
+          bprintf f "|]))"
+        end
+        else if !use_bucket && all_char fsl then begin
+          let construct_cslist (i,list,orglist) (topcs,ts) =
+            let compare_one (flag,comparecs,mylist) (dsjcs,oldbl) =
+              if flag then begin
+                let x = Cs.dup dsjcs in
+                let _ = Cs.intersect x comparecs in
+                if Cs.count x = 0 then
+                  flag,comparecs,mylist@[(dsjcs,oldbl)]
+                else if Cs.compare x comparecs = 0 then (* case: new cs is the subset of an existing cs *)
+                  let _ = Cs.difference dsjcs x in
+                  if Cs.count dsjcs = 0 then (* case: new cs is the same as an existing cs *)
+                    false,Cs.empty(),mylist@[(x,oldbl@[i])]
+                  else
+                    false,Cs.empty(),mylist@[(x,oldbl@[i]);(dsjcs,oldbl)]
+                else if Cs.compare x dsjcs = 0 then (* case: new cs is the superset of an existing cs *)
+                  let _ = Cs.difference comparecs x in
+                  flag,comparecs,mylist@[(x,oldbl@[i])]
+                else
+                  let _ = Cs.difference comparecs x in
+                  let _ = Cs.difference dsjcs x in
+                  flag,comparecs,mylist@[(dsjcs,oldbl);(x,oldbl@[i])]
+              end
+              else flag,comparecs,mylist@[(dsjcs,oldbl)]
+            in
+            let (_,comparecs,newlist) = List.fold_left compare_one (true,(Cs.dup topcs),[]) list in
+            let newlist = if Cs.count comparecs = 0 then newlist else newlist@[(comparecs,[i])] in
+            (i+1),newlist,orglist
+          in
+          let (cs0,ts0) = List.hd fsl in
+          let _,cstable,_ = List.fold_left construct_cslist (1,[((Cs.dup cs0),[0])],fsl) (List.tl fsl) in
+          let fn = Variables.fresh () in
+          bprintf f "\n(let nalt_w_lookahead_bkt_%s " fn;
+          nalt_w_lookahead_bkt_str cstable f;
+          bprintf f "(nalt_w_lookahead_bkt_%s [|" fn;
+          List.iter (fun r_i ->
+                       bprintf f " ";
+                       loop r_i cur_fls;
+                       bprintf f ";") rs;
+          bprintf f "|]))"
+        end
+        else begin
+          bprintf f "(nalt [|";
+          List.iter (fun r_i ->
+                       bprintf f " ";
+                       loop r_i cur_fls;
+                       bprintf f ";") rs;
+          bprintf f "|])"
+        end
+      else begin
+        bprintf f "(nalt [|";
+        List.iter (fun r_i ->
+                     bprintf f " ";
+                     loop r_i cur_fls;
+                     bprintf f ";") rs;
+        bprintf f "|])"
+      end
+    end in
+
+  let init_fls =
+    if !Compileopt.lookahead then
+      try
+        PMap.find n follow_map
+      with Not_found ->
+        Printf.eprintf "Warning: Unable to compute %s's FOLLOW set\n" n;
+        Cs.empty (), []
+    else Cs.empty (), [] in
+  loop r0 init_fls
 
 (*
 let pr_gil_definitions f start = function
@@ -705,11 +717,11 @@ let pr_gil_definitions2 f start tokmap = function
   | [] -> ()
   | ds ->
       begin
-      let b = Buffer.create 11 in
-      let first_map = if !Compileopt.lookahead then first_gr_gil_lex ds tokmap else PMap.empty in
-      let follow_map = if !Compileopt.lookahead then follow_gr_gil_lex ds first_map else PMap.empty in
-      let tcg = rec_graph ds first_map in
-      Printf.bprintf b "(*PARSER-COMBINATOR PROLOGUE*)
+        let b = Buffer.create 11 in
+        let first_map = if !Compileopt.lookahead then first_gr_gil_lex ds tokmap else PMap.empty in
+        let follow_map = if !Compileopt.lookahead then follow_gr_gil_lex ds first_map else PMap.empty in
+        let tcg = rec_graph ds first_map in
+        Printf.bprintf b "(*PARSER-COMBINATOR PROLOGUE*)
 module Memo_symb = Allp.Make(struct type semval = sv
                                module HT = TDHashtable
                         end)
@@ -719,31 +731,29 @@ let _ignore_ret = (fun p x y -> x)
 open Allp
 open YkBuf\n\n";
 
-      Printf.bprintf b "\nlet __parse = \n";
+        Printf.bprintf b "\nlet __parse = \n";
 
-      List.iter
-        (fun (n,_) -> Printf.bprintf b "let %s = ref eps in\n" (symb_ref_name n) )
-        ds;
+        List.iter begin fun (n,_) ->
+          Printf.bprintf b "let %s = ref eps in\n" (symb_ref_name n)
+        end ds;
 
-      List.iter
-        (fun (n,r_gil) ->
-           let name = symb_fun_name n in
-           Printf.bprintf b "let %s = \n" name;
-         if !remove_memo && !Compileopt.lookahead &&
-               not(is_rec n tcg)
-           (*&& (is_ll1 r_gil first_map follow_map n tokmap) *)
-             then ()
-         else begin
-               Printf.bprintf b "  let table = TDHashtable.create 11 in\n";
-               Printf.bprintf b "  memo_symb table %S\n" n;
-         end;
-           pr_gil_lex b true r_gil first_map follow_map n tokmap;
-           Printf.bprintf b " in\n%s := %s;\n\n" (symb_ref_name n) name;
-        )
-        ds;
+        List.iter begin fun (n, r_gil) ->
+          let name = symb_fun_name n in
+          Printf.bprintf b "let %s = \n" name;
+          if !remove_memo && !Compileopt.lookahead &&
+            not(is_rec n tcg)
+            (*&& (is_ll1 r_gil first_map follow_map n tokmap) *)
+          then ()
+          else begin
+            Printf.bprintf b "  let table = TDHashtable.create 11 in\n";
+            Printf.bprintf b "  memo_symb table %S\n" n;
+          end;
+          pr_gil_lex b true r_gil first_map follow_map n tokmap;
+          Printf.bprintf b " in\n%s := %s;\n\n" (symb_ref_name n) name;
+        end ds;
 
-      Printf.fprintf f "%s\n" (Buffer.contents b);
-      Printf.fprintf f "Pami.Basic.mk_parse %s sv0\n\n%!" (symb_fun_name start)
+        Printf.fprintf f "%s\n" (Buffer.contents b);
+        Printf.fprintf f "Pami.Basic.mk_parse %s sv0\n\n%!" (symb_fun_name start)
       end
 
 
@@ -863,3 +873,5 @@ open Allp.Peg\n\n";
       Printf.fprintf f "%s\n" (Buffer.contents b);
       Printf.fprintf f "Pami.Peg.mk_parse %s sv0\n\n%!" (symb_fun_name start)
 end
+
+

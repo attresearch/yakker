@@ -100,3 +100,8 @@ let already_var s =
     true
   with Exit ->
     false
+
+(** A list of "well-known" names: *)
+
+let tk_mod = "Yk_Tok_mod"
+  (** The tokenizer/term-language module generated when @set-lexer is used. *)

@@ -136,7 +136,7 @@ let add_boilerplate backend gr =
   let mk_trans_bp1 = Printf.sprintf "
 let start_symb = get_symb_action %S
 
-module P2__ = Yak.Engine.Full_yakker (Yak.Engine.Scannerless_term_lang)
+module P2__ = Yak.Engine.Full_yakker (%s)
                                      (struct type t = sv let cmp = sv_compare %s end)
 
 let _wfe_data_ = Yak.PamJIT.DNELR.to_table (Yak.Pam_internal.load_internal_program program)
@@ -156,6 +156,7 @@ let visualize_string = Yak.Pami.Simple.parse_string visualize
 
 let parse = Yak.Pami.mk_parse_fun __parse %s
 " in
+  let term_lang = if gr.has_single_lexer then Variables.tk_mod else "Yak.Engine.Scannerless_term_lang" in
   (* The [unit_history] flag overrides the standard history relevance. *)
   let post_parse_function =
     if gr.grammar_late_relevant && not !Compileopt.unit_history  && not !Compileopt.repress_replay then
@@ -184,7 +185,7 @@ let parse = Yak.Pami.mk_parse_fun __parse %s
   let boilerplate_vary =
     match backend with
       | Trans_BE ->
-          mk_trans_bp1 gr.start_symbol inspector_fields Fsm.min_symbol Fsm.default_call_tx
+          mk_trans_bp1 gr.start_symbol term_lang inspector_fields Fsm.min_symbol Fsm.default_call_tx
             Fsm.default_binder_tx post_parse_function
       | Fun_BE | Peg_BE _ ->
           mk_other_bp1 post_parse_function in
@@ -313,7 +314,8 @@ let do_phases gr =
             Analyze.relevance gr;
             if !Compileopt.use_dbranch then
               Label.transform2 gr
-            else Label.transform gr;
+            else
+              Label.transform gr;
             if !Compileopt.check_labels then
               add_to_prologue gr
                 "let _i (x,y) = if x=y then y else failwith(Printf.sprintf \"_i expected %d, got %d\" x y)\n";

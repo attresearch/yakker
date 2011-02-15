@@ -646,7 +646,7 @@ let prec_rewrite_complex gr =
         end;
         (* Clear any precedence annotations, now that they've been processed. *)
         iter_rule_postorder (fun r -> r.a.precedence <- Default_prec) r
-    | LexerDef _ | LexerDecl _ -> () in
+    | LexerDef _ | LexerDecl _ | SingleLexerDecl _ -> () in
   List.iter (add_prec_attrs gr.tokmap) gr.ds;
 
   (* Compute associativity predicates (as arrays l_a, n_a,
@@ -849,7 +849,7 @@ let prec_rewrite_simple gr =
         end;
         (* Clear any precedence annotations, now that they've been processed. *)
         iter_rule_postorder (fun r -> r.a.precedence <- Default_prec) r
-    | LexerDef _ | LexerDecl _ -> () in
+    | LexerDef _ | LexerDecl _ | SingleLexerDecl _ -> () in
   List.iter (add_prec_attrs gr.tokmap) gr.ds;
 
   (* Clear the precedence attributes, now that they've been folded in. *)

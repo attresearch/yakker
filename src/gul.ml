@@ -150,6 +150,10 @@ type definition =
        string *         (* ocaml tokenizer peek function *)
        string *         (* return type of tokenizer function *)
        token_decl list) (* the tokens *)
+  | SingleLexerDecl of
+      (string *         (* ocaml tokenizer function *)
+       string *         (* return type of tokenizer function *)
+       token_decl list) (* the tokens *)
 
 type grammar = {
     mutable ds: definition list;
@@ -169,11 +173,15 @@ type grammar = {
     (** Flag indicating whether elements saved in history need to be
         wrapped. *)
 
+    mutable has_single_lexer : bool;
+    (** Flag indicating whether the parsing is driven by a single
+        lexer, vs. scannerless and/or multilex. *)
+
     mutable tokmap: (expr * (nonterminal * (nonterminal * expr option)) list) list;
     mutable gildefs: (nonterminal * string Gil.rhs) list;
 
     mutable precs : (assoc * nonterminal list) array
-  }
+}
 
 let mkGrammar ds m p e pd =
   {ds=ds; m=m;
@@ -193,6 +201,7 @@ let mkGrammar ds m p e pd =
      None -> (Printf.eprintf "Warning: grammar contains no rules\n%!"; "")
    | Some y -> y);
    wrapped_history = false;
+   has_single_lexer = false;
    tokmap = [];
    gildefs = [];
    precs = pd;

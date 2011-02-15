@@ -101,7 +101,9 @@ let mk_lexer tokenizer token_type decls =
    appear together in the transducer. While that (may) help
    determinization, it loses memoization. Would be best to find a way
    to have both. *)
-let mk_lexer2 tokenizer token_type decls =
+(** argument [is_simple_dbranch] flags whether dbranch is interpeted as a simple
+    lexer.*)
+let mk_lexer2 is_simple_dbranch tokenizer token_type decls =
   let tok = Variables.fresh() in
   let rettype = Some token_type in
   let tok_box = mkBOX(tokenizer, rettype, Runbox_null) in
@@ -127,7 +129,7 @@ let mk_lexer2 tokenizer token_type decls =
            match carried_type with
                Some _ ->
                  let c = {cname = ocaml_constructor; arity = 1; cty = token_type} in
-                 if !Compileopt.late_only_dbranch then
+                 if is_simple_dbranch then
                    mkDBRANCH(tokenizer, c)
                  else
                    mkSEQ2(tok_box, Some tok, None,
@@ -135,7 +137,7 @@ let mk_lexer2 tokenizer token_type decls =
                                  mkDELAY(x, carried_type)))
              | None ->
                  let c = {cname = ocaml_constructor; arity = 0; cty = token_type} in
-                 if !Compileopt.late_only_dbranch then
+                 if is_simple_dbranch then
                    mkDBRANCH(tokenizer, c)
                  else
                    mkSEQ2(tok_box, Some tok, None, mkDBRANCH(tok, c)) in
@@ -172,7 +174,17 @@ let lit_substitution env r0 =
         loop r1 in
   loop r0
 
+exception Stop_list_search
+
 let transform gr =
+  let check_singles seen_single = function
+    | SingleLexerDecl _ -> if seen_single then raise Stop_list_search else true
+    | LexerDecl _ | LexerDef _ -> if seen_single then raise Stop_list_search else seen_single
+    | RuleDef _ -> seen_single in
+  let validate ds =
+    try ignore (List.fold_left check_singles false ds) with
+      | Stop_list_search ->
+          Yak.Util.error Yak.Util.Sys_warn "Use of multiple lexers with @set-lexer declaration" in
   let rec loop lit_env ds =
     match ds with [] ->
       [],[]
@@ -186,13 +198,30 @@ let transform gr =
     | LexerDecl(tokenizer,tokenizer_peek,token_type,decls)::tl ->
         let lit_env', myenv, defs =
           if !Compileopt.use_dbranch then
-            mk_lexer2 tokenizer token_type decls
+            mk_lexer2 false tokenizer token_type decls
           else
             mk_lexer tokenizer token_type decls in
         let tokmap,ngr = loop (lit_env'@lit_env) tl in
         let ntokmap = (tokenizer_peek,myenv)::tokmap in
           ntokmap, defs::ngr
-  in
+    | SingleLexerDecl (tokenizer, token_type, decls)::tl ->
+        (* Add token module to prologue *)
+        let tkty = Variables.fresh() in
+        let tkmod = Variables.tk_mod in
+        let tkdecls = Printf.sprintf
+          "type %s = %s\n\
+           module %s = Yak.Engine.Make_tokenizer(struct type token = %s let f = %s end)\n"
+          tkty token_type tkmod tkty tokenizer in
+        gr.prologue <- Ocaml tkdecls :: gr.prologue;
+        gr.has_single_lexer <- true;
+
+        let new_tokenizer = tkmod ^ ".lex" in
+        let lit_env', myenv, defs =
+          mk_lexer2 true new_tokenizer token_type decls in
+        let tokmap,ngr = loop (lit_env'@lit_env) tl in
+        let ntokmap = ("",myenv)::tokmap in
+        ntokmap, defs::ngr in
+  validate gr.ds;
   let tokmap,ngr = loop [] gr.ds in
     gr.ds <- List.flatten ngr;
     gr.tokmap <- tokmap

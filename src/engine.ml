@@ -313,7 +313,19 @@ module Make_tokenizer (T : sig
                          val f : Lexing.lexbuf -> token
                        end) : TOKENIZER with type token = T.token =
 struct
+
+  (* the implementation of lookahead is somewhat broken becuase it
+     forces revisiting current position. hence all this work to get
+     the functions working for the case of revisiting the current
+     position. If the invariant is that fill is never called twice for
+     the same position, things become much easier. also, combine with
+     fact that lexer advances the input position, so after fill is
+     called, get_offset returns incorrect value.  *)
+
   let dummystate = (-1, false, None)
+
+  (** single-element map from position to "at_eof" and token. the
+      position corresponds to the end position of any token that is stored, not the start position. *)
   let lexstate = ref dummystate
 
   type token = T.token

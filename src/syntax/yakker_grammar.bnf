@@ -325,6 +325,10 @@ lexer-declaration =
   ID$n o rettype$t o ID$np o "=" o
   lexer-cases$l *WSP c-nl
   { LexerDecl(n,np,t,l) }
+| "@set-lexer" o
+  closed-text$f o closed-text$ty o "=" o
+  lexer-cases$l *WSP c-nl
+  { SingleLexerDecl(f,ty,l) }
 .
 
 assoc-tag =

@@ -80,7 +80,7 @@ TESTS_PCOMB_ML := $(foreach test,$(TESTS),$(test)_pcomb.ml)
 EXAMPLES_ICS = ocaml_opt python ocamlyacc ocamlparser_regular
 EXAMPLES_ICS_ML := $(foreach example,$(EXAMPLES_ICS),$(example).ml)
 
-EXAMPLES := aurochs aurochs_cor ocaml pexpr pyexpr js mailapp lgul $(EXAMPLES_ICS)
+EXAMPLES := aurochs aurochs_cor ocaml pexpr pyexpr js mailapp lgul happy $(EXAMPLES_ICS)
 EXAMPLES_EXE := $(foreach example,$(EXAMPLES),$(example)-parser)
 EXAMPLES_PCOMB_EXE := $(foreach example,$(EXAMPLES),$(example)-pcomb-parser)
 EXAMPLES_OPT_EXE := $(foreach example,$(EXAMPLES),$(example)-parser.opt)

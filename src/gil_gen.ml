@@ -966,7 +966,7 @@ module Wadler = struct
     | ds ->
         let b = Buffer.create 11 in
 
-        Printf.bprintf b "do rec {\n";
+        Printf.bprintf b "do { rec {\n";
 
         List.iter begin fun (n, r_gil) ->
           let name = symb_fun_name n in
@@ -974,7 +974,8 @@ module Wadler = struct
           pr_gil b r_gil;
           Printf.bprintf b ";\n"
         end ds;
-        Printf.bprintf b "return (final %s)}\n\n" start;
+
+        Printf.bprintf b "};\nreturn (final %s)}\n\n" start;
 
         Printf.fprintf f "%s\n" (Buffer.contents b);
 end

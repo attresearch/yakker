@@ -53,7 +53,21 @@ let run_ocamllex gr =
   gr.prologue <- replace gr.prologue;
   gr.epilogue <- replace gr.epilogue
 
-let mk_lexer tokenizer token_type decls =
+let preprocess_decls use_new_syntax decls =
+  List.split
+    (List.map
+       (function
+          | TokenLit(ocaml_constructor, carried_type, lit) ->
+              let nonterminal = Variables.fresh() in
+              ( [(lit, nonterminal)],
+                (nonterminal, carried_type, ocaml_constructor) )
+          | TokenSymb (s1, cty, s2_opt) ->
+              let s2 = Yak.Util.option_get s1 s2_opt in
+              let decl = if use_new_syntax then s1, cty, s2 else s2, cty, s1 in
+              ([], decl))
+       decls)
+
+let mk_lexer use_new_syntax tokenizer token_type decls =
   let tok = Variables.fresh() in
   let tok_def =
     let rettype = Some token_type in
@@ -62,21 +76,11 @@ let mk_lexer tokenizer token_type decls =
     RuleDef(tok,mkBOX(tokenizer,rettype,Runbox_null),a) in
   let x = Variables.fresh() in
   let y = Variables.fresh() in
-  let lit_envs, decls =
-    List.split
-      (List.map
-         (function
-           | TokenLit(ocaml_constructor,carried_type,lit) ->
-               let nonterminal = Variables.fresh() in
-               ( [(lit,nonterminal)],
-                 (ocaml_constructor,carried_type,Some nonterminal) )
-           | TokenSymb (x,y,z) -> ([],(x,y,z)))
-         decls) in
+  let lit_envs, decls = preprocess_decls use_new_syntax decls in
   let lit_env = List.flatten lit_envs in
   let other_defs =
     List.map
-      (fun (ocaml_constructor,carried_type,nonterminal_opt) ->
-         let nonterminal = Yak.Util.option_get ocaml_constructor nonterminal_opt in
+      (fun (nonterminal, carried_type, ocaml_constructor) ->
          let a = mkAttr() in
          let rhs =
            match carried_type with
@@ -108,21 +112,11 @@ let mk_lexer2 is_simple_dbranch tokenizer token_type decls =
   let rettype = Some token_type in
   let tok_box = mkBOX(tokenizer, rettype, Runbox_null) in
   let x = Variables.fresh() in
-  let lit_envs, decls =
-    List.split
-      (List.map
-         (function
-            | TokenLit(ocaml_constructor,carried_type,lit) ->
-                let nonterminal = Variables.fresh() in
-                ( [(lit,nonterminal)],
-                  (ocaml_constructor,carried_type,Some nonterminal) )
-            | TokenSymb (x,y,z) -> ([],(x,y,z)))
-         decls) in
+  let lit_envs, decls = preprocess_decls true decls in
   let lit_env = List.flatten lit_envs in
   let other_defs =
     List.map
-      (fun (ocaml_constructor, carried_type, nonterminal_opt) ->
-         let nonterminal = Yak.Util.option_get ocaml_constructor nonterminal_opt in
+      (fun (nonterminal, carried_type, ocaml_constructor) ->
          let a = mkAttr() in
          let rhs =
            (* TODO: support arities other than 0, 1. *)
@@ -179,7 +173,7 @@ exception Stop_list_search
 let transform gr =
   let check_singles seen_single = function
     | SingleLexerDecl _ -> if seen_single then raise Stop_list_search else true
-    | LexerDecl _ | LexerDef _ -> if seen_single then raise Stop_list_search else seen_single
+    | LexerDecl _ | LexerDecl2 _ | LexerDef _ -> if seen_single then raise Stop_list_search else seen_single
     | RuleDef _ -> seen_single in
   let validate ds =
     try ignore (List.fold_left check_singles false ds) with
@@ -200,9 +194,18 @@ let transform gr =
           if !Compileopt.use_dbranch then
             mk_lexer2 false tokenizer token_type decls
           else
-            mk_lexer tokenizer token_type decls in
+            mk_lexer false tokenizer token_type decls in
         let tokmap,ngr = loop (lit_env'@lit_env) tl in
         let ntokmap = (tokenizer_peek,myenv)::tokmap in
+          ntokmap, defs::ngr
+    | LexerDecl2(tokenizer, token_type, decls)::tl ->
+        let lit_env', myenv, defs =
+          if !Compileopt.use_dbranch then
+            mk_lexer2 false tokenizer token_type decls
+          else
+            mk_lexer true tokenizer token_type decls in
+        let tokmap,ngr = loop (lit_env'@lit_env) tl in
+        let ntokmap = ("",myenv)::tokmap in
           ntokmap, defs::ngr
     | SingleLexerDecl (tokenizer, token_type, decls)::tl ->
         (* Add token module to prologue *)

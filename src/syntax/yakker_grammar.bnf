@@ -316,6 +316,8 @@ lexer-case =
 | ID$n o [rettype]$t_opt                  { TokenSymb(n,t_opt,None) }
 | ID$n o [rettype]$t_opt o "=" o DQUOTE (*inside-string)$s DQUOTE
                                           { TokenLit(n,t_opt,s) }
+| DQUOTE (*inside-string)$s DQUOTE o [rettype]$t_opt o "=" o ID$n
+                                          { TokenLit(n, t_opt, s) }
 .
 lexer-cases = ["|" o ] lexer-case$hd (*(o "|" o lexer-case))$tl [o "."] { hd::tl }
 .
@@ -325,6 +327,10 @@ lexer-declaration =
   ID$n o rettype$t o ID$np o "=" o
   lexer-cases$l *WSP c-nl
   { LexerDecl(n,np,t,l) }
+| "@declare-lexer2" o
+  closed-text$f o closed-text$ty o "=" o
+  lexer-cases$l *WSP c-nl
+  { LexerDecl2(f,ty,l) }
 | "@set-lexer" o
   closed-text$f o closed-text$ty o "=" o
   lexer-cases$l *WSP c-nl

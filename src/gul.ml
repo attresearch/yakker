@@ -150,6 +150,13 @@ type definition =
        string *         (* ocaml tokenizer peek function *)
        string *         (* return type of tokenizer function *)
        token_decl list) (* the tokens *)
+
+  | LexerDecl2 of       (* An alternate representation for lexers; same semantics.
+                           Drops peek and interprets the [token_decl list] a bit
+                           differently, ala. [SingleLexerDecl]. *)
+      (string *         (* ocaml tokenizer function *)
+       string *         (* return type of tokenizer function *)
+       token_decl list) (* the tokens *)
   | SingleLexerDecl of
       (string *         (* ocaml tokenizer function *)
        string *         (* return type of tokenizer function *)

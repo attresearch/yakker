@@ -99,10 +99,17 @@ let outch = ref stdout
 let cmd, files, roots, backend = Cmdline.process()
 let files = if files=[] then ["/dev/stdin"] else files
 
+let do_phase name thunk =
+  vprintf "%s...%!" name;
+  let result = thunk() in
+  vprintf "done\n%!";
+  result
+
 let core =
   try
-    let gr = List.hd (Yakker_grammar.parse_string Strings.core_bnf) in
-    gr.ds
+    do_phase "parsing core rules" (fun () ->
+      let gr = List.hd (Yakker_grammar.parse_string Strings.core_bnf) in
+      gr.ds)
   with e ->
     Printf.eprintf "Internal error: exception %s when parsing core rules\n%!" (Printexc.to_string e);
     raise e
@@ -194,12 +201,6 @@ let parse = Yak.Pami.mk_parse_fun __parse %s
     "let parse_file = Yak.Pami.Simple.parse_file parse
 let parse_string = Yak.Pami.Simple.parse_string parse\n;;\n"in
   add_to_epilogue gr (boilerplate_vary ^ boilerplate_shared)
-
-let do_phase name thunk =
-  vprintf "%s...%!" name;
-  let result = thunk() in
-  vprintf "done\n%!";
-  result
 
 let do_compile gr =
   do_phase "compiling to backend" (fun () ->

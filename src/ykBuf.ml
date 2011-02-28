@@ -497,8 +497,6 @@ let peek_ocamllex f ykb =
 
 (** {1 Constructors} *)
 
-let dummy_fill _ = ()
-
 (** ignores lexbuf argument, using lexbuf in ykbuf instead. *)
 let lexbuf_fill ykb lb =
   assert (ykb.buf == lb);
@@ -526,7 +524,11 @@ let from_string s =
   let lm = Hashtbl.create 101 in
   Hashtbl.add lm 0 zero_pos;
   {prod = Ykp_none;
-   buf = {lexbuf with Lexing.refill_buff = dummy_fill};
+   buf = {lexbuf with
+          Lexing.refill_buff =
+          (* NB this is needed because lexing.c sets lex_eof_reached to false *)
+          (* (search for "pseudo-character" there) *)
+          (fun l -> l.Lexing.lex_eof_reached <- true)};
    save = no_save;
    save_count = 0;
 (*    linenum_base = 1; *)

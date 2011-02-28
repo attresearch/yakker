@@ -243,9 +243,7 @@ end
   | BINVAL
   | WHEN
   | DELAY
-  | DELAY2
   | BOX
-  | BOX2
   | ATPOS
   | DOLLARPOS
   | BEGIN
@@ -313,8 +311,8 @@ end
   | "@when"                {WHEN}
   | "@pos"                 {ATPOS}
   | "$pos"                 {DOLLARPOS}
-  | "@delay2"              {DELAY2}
-  | "@box2"                {BOX2}
+  | "@delay"               {DELAY}
+  | "@box"                 {BOX}
   | "@begin"               {BEGIN}
   | "@end"                 {END}
   | "@repeat"              {REPEAT}
@@ -398,8 +396,8 @@ end
 | ATPOS =                 "@pos"
 | DOLLARPOS =             "$pos"
 | WHEN =                  "@when"
-| DELAY2 =                "@delay2"
-| BOX2 =                  "@box2"
+| DELAY =                 "@delay"
+| BOX =                   "@box"
 | BEGIN =                 "@begin"
 | END =                   "@end"
 | OCAML =                 "@ocaml"
@@ -445,31 +443,31 @@ not-line-end = ((CHAR - LF) - CR) .
 shebang-line = "#!" *not-line-end.
 
 ;;; auxilliary lexer for character literals
-dec-range = @box2 >@(rhs)(dec_range)@x @delay2{rhs}(x)
-bin-range = @box2 >@(rhs)(bin_range)@x @delay2{rhs}(x)
-hex-range = @box2 >@(rhs)(hex_range)@x @delay2{rhs}(x)
+dec-range = @box >@(rhs)(dec_range)@x @delay{rhs}(x)
+bin-range = @box >@(rhs)(bin_range)@x @delay{rhs}(x)
+hex-range = @box >@(rhs)(hex_range)@x @delay{rhs}(x)
 ; we don't put num-val into the ocamllex lexer because it is easier to handle sequences in yakker
 num-val =
   "%d" dec-range$r *("." dec-range)$rl {mkSEQ(r::rl)} ; no spaces allowed between ranges
 | "%x" hex-range$r *("." hex-range)$rl {mkSEQ(r::rl)}
 | "%b" bin-range$r *("." bin-range)$rl {mkSEQ(r::rl)}
 
-Ocaml_until_RBRACE = (@box2 >@(Ocaml_lexer.Parser.token) (Ocaml.until_RBRACE))@y$x @when(y=Ocaml_lexer.Parser.RBRACE) { all_but_last x }
+Ocaml_until_RBRACE = (@box >@(Ocaml_lexer.Parser.token) (Ocaml.until_RBRACE))@y$x @when(y=Ocaml_lexer.Parser.RBRACE) { all_but_last x }
 .
 
-Ocaml_until_RPAREN = @box2 >@(Ocaml_lexer.Parser.token) (Ocaml.until_RPAREN)@y$x @when(y=Ocaml_lexer.Parser.RPAREN) { all_but_last x }
+Ocaml_until_RPAREN = @box >@(Ocaml_lexer.Parser.token) (Ocaml.until_RPAREN)@y$x @when(y=Ocaml_lexer.Parser.RPAREN) { all_but_last x }
 .
 
-Ocaml_until_EQUAL = @box2 >@(Ocaml_lexer.Parser.token) (Ocaml.until_EQUAL)@y$x @when(y=Ocaml_lexer.Parser.EQUAL) { all_but_last x }
+Ocaml_until_EQUAL = @box >@(Ocaml_lexer.Parser.token) (Ocaml.until_EQUAL)@y$x @when(y=Ocaml_lexer.Parser.EQUAL) { all_but_last x }
 .
 
-Ocaml_until_RBRACKET = @box2 >@(Ocaml_lexer.Parser.token) (Ocaml.until_RBRACKET)@y$x @when(y=Ocaml_lexer.Parser.RBRACKET) { all_but_last x }
+Ocaml_until_RBRACKET = @box >@(Ocaml_lexer.Parser.token) (Ocaml.until_RBRACKET)@y$x @when(y=Ocaml_lexer.Parser.RBRACKET) { all_but_last x }
 .
 
-Ocamllex_until_RBRACE = @box2 >@(Ocamllex_lexer.Parser.token) (Ocamllex.until_RBRACE)@y$x @when(y=Ocamllex_lexer.Parser.RBRACE) { all_but_last x }
+Ocamllex_until_RBRACE = @box >@(Ocamllex_lexer.Parser.token) (Ocamllex.until_RBRACE)@y$x @when(y=Ocamllex_lexer.Parser.RBRACE) { all_but_last x }
 .
 
-posn = (@box2 >@(int*int) (Posn.get))@x @delay2{Lexing.position}(x)
+posn = (@box >@(int*int) (Posn.get))@x @delay{Lexing.position}(x)
 
 
 ;;
@@ -507,8 +505,8 @@ element
   = rulename$x params$p ["$(" Ocaml_until_RPAREN$b {b}]$z {let (e,a) = p in mkSYMB2(x,e,a,z)}
   | group$x {x} | option$x {x} | CHARVAL$x {mkLIT x} | num-val$x {x} | PROSEVAL$x {mkPROSE x}
   | "@when" "(" Ocaml_until_RPAREN$x { mkWHEN x }
-  | "@delay2" [return-type]$y "(" Ocaml_until_RPAREN$x { mkDELAY(x,y) }
-  | "@box2" [early-return]$y [boxnull]$z "(" Ocaml_until_RPAREN$x { mkBOX(x,y,match z with None -> Runbox_null | Some w -> w) }
+  | "@delay" [return-type]$y "(" Ocaml_until_RPAREN$x { mkDELAY(x,y) }
+  | "@box" [early-return]$y [boxnull]$z "(" Ocaml_until_RPAREN$x { mkBOX(x,y,match z with None -> Runbox_null | Some w -> w) }
   | "{" Ocaml_until_RBRACE$x { mkACTION2(None,Some x) }
   | "$" "{" Ocaml_until_RBRACE$x { mkACTION2(None, Some x) }
   | "@" "{" Ocaml_until_RBRACE$x { mkACTION2(Some x,None) }

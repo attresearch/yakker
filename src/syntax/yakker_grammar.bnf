@@ -246,7 +246,6 @@ end
   | DELAY2
   | BOX
   | BOX2
-  | BOX3
   | ATPOS
   | DOLLARPOS
   | BEGIN
@@ -316,7 +315,6 @@ end
   | "$pos"                 {DOLLARPOS}
   | "@delay2"              {DELAY2}
   | "@box2"                {BOX2}
-  | "@box3"                {BOX3}
   | "@begin"               {BEGIN}
   | "@end"                 {END}
   | "@repeat"              {REPEAT}
@@ -402,7 +400,6 @@ end
 | WHEN =                  "@when"
 | DELAY2 =                "@delay2"
 | BOX2 =                  "@box2"
-| BOX3 =                  "@box3"
 | BEGIN =                 "@begin"
 | END =                   "@end"
 | OCAML =                 "@ocaml"
@@ -512,7 +509,6 @@ element
   | "@when" "(" Ocaml_until_RPAREN$x { mkWHEN x }
   | "@delay2" [return-type]$y "(" Ocaml_until_RPAREN$x { mkDELAY(x,y) }
   | "@box2" [early-return]$y [boxnull]$z "(" Ocaml_until_RPAREN$x { mkBOX(x,y,match z with None -> Runbox_null | Some w -> w) }
-  | "@box3" [boxnull]$z "(" closed-text$x [":" Ocaml_until_RPAREN$t {t}]$y { mkBOX(x,y,match z with None -> Runbox_null | Some w -> w) }
   | "{" Ocaml_until_RBRACE$x { mkACTION2(None,Some x) }
   | "$" "{" Ocaml_until_RBRACE$x { mkACTION2(None, Some x) }
   | "@" "{" Ocaml_until_RBRACE$x { mkACTION2(Some x,None) }

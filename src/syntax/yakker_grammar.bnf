@@ -1,4 +1,8 @@
-@begin {
+; make compileopt.cmx tgraph.cmx gul.cmx meta_prog.cmx gil.cmx variables.cmx pr.cmx ocaml_lexer.cmx ocamllex_lexer.cmx ocaml_blob.cmx yak.cmxa
+; (cd build; ocamlopt -o ocaml_blob unix.cmxa yak.cmxa compileopt.cmx tgraph.cmx gul.cmx meta_prog.cmx gil.cmx variables.cmx pr.cmx ocaml_lexer.cmx ocamllex_lexer.cmx ocaml_blob.cmx)
+; echo '@ocaml{ hello (* comment *) there (g(g)) }@ocamllex{ hello }e = f g a = b c d' | build/ocaml_blob
+
+@ocaml {
 (*******************************************************************************
  * Copyright (c) 2010 AT&T.
  * All rights reserved. This program and the accompanying materials
@@ -91,130 +95,438 @@ let var_exp s =
   match split s '=' with (* This isn't robust because = can be used inside of expressions*)
     [var;typ] -> (var,typ)
   | _ -> raise Not_found
+
+let all_but_last s =
+  let l = String.length s in
+  if l=0 then s else
+  String.sub s 0 (l - 1)
 }
+
+@ocaml {
+open Gul
+module Location = struct
+open Lexing
+open Printf
+type t = { loc_start: position; loc_end: position; loc_ghost: bool };;
+let input_name = ref "_none_"
+let (msg_file, msg_line, msg_chars, msg_to, msg_colon, msg_head) =
+  ("File \"", "\", line ", ", characters ", "-", ":", "")
+
+(* return file, line, char from the given position *)
+let get_pos_info pos =
+  let (filename, linenum, linebeg) =
+    if pos.pos_fname = "" && !input_name = "" then
+      ("", -1, 0)
+    else
+      (pos.pos_fname, pos.pos_lnum, pos.pos_bol)
+  in
+  (filename, linenum, pos.pos_cnum - linebeg)
+
+let print ppf loc =
+  let (file, line, startchar) = get_pos_info loc.loc_start in
+  let endchar = loc.loc_end.pos_cnum - loc.loc_start.pos_cnum + startchar in
+  let (startchar, endchar) =
+    if startchar < 0 then (0, 1) else (startchar, endchar)
+  in
+  if file = "" then begin
+      fprintf ppf "Characters %i-%i:@."
+              loc.loc_start.pos_cnum loc.loc_end.pos_cnum
+  end else begin
+    fprintf ppf "%s%s%s%i" msg_file file msg_line line;
+    fprintf ppf "%s%i" msg_chars startchar;
+    fprintf ppf "%s%i%s@.%s" msg_to endchar msg_colon msg_head;
+  end
+end
+
+}
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; (* Interface to the ocaml and ocamllex lexers *)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+@ocaml {
+module Ocaml = struct
+  open Ocaml_lexer.Parser
+  open Lexing
+  let is t x = (x=t)
+  (* consume the longest balanced sequence of tokens until we reach a token
+     satisfying f, or we reach an unbalanced token.  Return the last token read. *)
+  let rec balanced f lexbuf =
+    let resume() = balanced f lexbuf in
+    let resume_after tk =
+      let last = balanced (is tk) lexbuf in
+      if last = tk then resume() else tk in
+    let tk = Ocaml_lexer.token lexbuf in
+    if f tk then tk else
+    match tk with
+    | LBRACE          -> resume_after RBRACE        (* {}   *)
+    | LBRACELESS      -> resume_after GREATERRBRACE (* {<>} *)
+    | LBRACKET        -> resume_after RBRACKET      (* []   *)
+    | LBRACKETBAR     -> resume_after BARRBRACKET   (* [||] *)
+    | LBRACKETLESS    -> resume_after RBRACKET      (* [<]  *)
+    | LBRACKETGREATER -> resume_after RBRACKET      (* [>]  *)
+    | LPAREN          -> resume_after RPAREN        (* ()   *)
+    | EOF
+    | RBRACE
+    | RBRACKET
+    | RPAREN
+    | BARRBRACKET
+    | GREATERRBRACE   -> tk (* unbalanced tokens *)
+    | GREATERRBRACKET -> resume() (* >] defined but not used in ocaml-3.11 *)
+    | _               -> resume()
+  let wrap f = Yak.YkBuf.wrap_ocamllex (balanced f)
+  let until_RBRACE = wrap (is RBRACE)
+  let until_RPAREN = wrap (is RPAREN)
+  let until_RPAREN_or_LBRACE = wrap (fun x -> x=RPAREN || x=LBRACE)
+  let until_EQUAL = wrap (is EQUAL)
+  let until_RBRACKET = wrap (is RBRACKET)
+end
+module Ocamllex = struct
+  open Ocamllex_lexer.Parser
+  let is = Ocaml.is
+  let rec balanced f lexbuf =
+    let resume() = balanced f lexbuf in
+    let resume_after tk =
+      let last = balanced (is tk) lexbuf in
+      if last = tk then resume() else tk in
+    let tk = Ocamllex_lexer.main lexbuf in
+    if f tk then tk else
+    match tk with
+    | Tlparen   -> resume_after Trbracket      (* () *)
+    | Tlbracket -> resume_after Trbracket      (* [] *)
+    | Trparen
+    | Trbracket
+    | Teof
+    | RBRACE    -> tk (* unbalanced tokens *)
+    | _         -> resume()
+  let wrap f = Yak.YkBuf.wrap_ocamllex (balanced f)
+  let until_RBRACE = wrap (is RBRACE)
+end
+}
+@ocaml {
+module Posn = struct
+open Yak.YkBuf (* In a module so we don't open everywhere *)
+open Lexing
+let get (start:int) ykb =
+  Some(0,(ykb.buf.lex_curr_p))
+end
+}
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; (* A lexer for Yakker input files *)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+@ocamllex {
+  {
+  let int_of_string x =
+    (try int_of_string x with _ -> Printf.eprintf "FAILED INT_OF_STRING: %s\n%!" x; 0)
+  type tok =
+  | EOF
+  | LPAREN
+  | RPAREN
+  | LBRACE
+  | RBRACE
+  | LBRACK
+  | RBRACK
+  | LANGLE
+  | RANGLE
+  | BAR
+  | DASH
+  | AT
+  | DOLLAR
+  | STAR
+  | HASH
+  | EXCL
+  | AMP
+  | DOT
+  | COLON
+  | EQ
+  | EQSLASH
+  | SLASH
+  | DECVAL
+  | HEXVAL
+  | BINVAL
+  | WHEN
+  | DELAY
+  | DELAY2
+  | BOX
+  | BOX2
+  | BOX3
+  | ATPOS
+  | DOLLARPOS
+  | BEGIN
+  | END
+  | REPEAT
+  | COUNTER
+  | OCAML
+  | OCAMLLEX
+  | DYPGENLEX
+  | IMPLICIT_PARAMETERS
+  | DECLARE_LEXER
+  | DECLARE_LEXER2
+  | SET_LEXER
+  | PRECEDENCE
+  | PREC
+  | NO_PREC
+  | CHARVAL of string
+  | PROSEVAL of string
+  | DIGITS of int
+  | ATID of string
+  | DOLLARID of string
+  | ID of string
+  }
+  let newline = ('\010' | '\013' | "\013\010")
+  let blank = [' ' '\009' '\012']
+  rule tok = parse
+    newline
+      { Ocaml_lexer.update_loc lexbuf None 1 false 0;
+        tok lexbuf
+      }
+  | blank
+      { tok lexbuf }
+  | ";" [^ '\010' '\013']* newline
+      { Ocaml_lexer.update_loc lexbuf None 1 false 0;
+        tok lexbuf }
+  | ";" [^ '\010' '\013']* eof
+      {EOF}
+  | "#" [' ' '\t']* (['0'-'9']+ as num) [' ' '\t']*
+        ("\"" ([^ '\010' '\013' '"' ] * as name) "\"")?
+        [^ '\010' '\013'] * newline
+      { Ocaml_lexer.update_loc lexbuf name (int_of_string num) true 0;
+        tok lexbuf
+      }
+  | eof                    {EOF}
+  | "("                    {LPAREN}
+  | ")"                    {RPAREN}
+  | "{"                    {LBRACE}
+  | "}"                    {RBRACE}
+  | "["                    {LBRACK}
+  | "]"                    {RBRACK}
+  | ">"                    {RANGLE}
+  | "|"                    {BAR}
+  | "-"                    {DASH}
+  | "@"                    {AT}
+  | "$"                    {DOLLAR}
+  | "*"                    {STAR}
+  | "#"                    {HASH}
+  | "!"                    {EXCL}
+  | "&"                    {AMP}
+  | "."                    {DOT}
+  | ":"                    {COLON}
+  | "="                    {EQ}
+  | "=/"                   {EQSLASH}
+  | "/"                    {SLASH}
+  | "@when"                {WHEN}
+  | "@pos"                 {ATPOS}
+  | "$pos"                 {DOLLARPOS}
+  | "@delay"               {DELAY}
+  | "@delay2"              {DELAY2}
+  | "@box"                 {BOX}
+  | "@box2"                {BOX2}
+  | "@box3"                {BOX3}
+  | "@begin"               {BEGIN}
+  | "@end"                 {END}
+  | "@repeat"              {REPEAT}
+  | "@counter"             {COUNTER}
+  | "@ocaml"               {OCAML}
+  | "@ocamllex"            {OCAMLLEX}
+  | "@dypgenlex"           {DYPGENLEX}
+  | "@implicit-parameters" {IMPLICIT_PARAMETERS}
+  | "@declare-lexer"       {DECLARE_LEXER}
+  | "@declare-lexer2"      {DECLARE_LEXER2}
+  | "@set-lexer"           {SET_LEXER}
+  | "@precedence"          {PRECEDENCE}
+  | "@prec"                {PREC}
+  | "@no-prec"             {NO_PREC}
+  | "\"" (['\032' '\033' '\035'-'\126']* as x) "\""
+                           {CHARVAL(x)}
+  | "<" ((['\032'-'\061' '\063'-'\126']*) as x) ">"
+                           {if x="\"" then CHARVAL(x) else PROSEVAL(x)}
+  | "<"                    {LANGLE}
+  | "%d"                   {DECVAL}
+  | "%b"                   {BINVAL}
+  | "%x"                   {HEXVAL}
+  | ['0'-'9']+             {DIGITS(int_of_string(Lexing.lexeme lexbuf))}
+  | ['A'-'Z' 'a'-'z' '_'] ['A'-'Z' 'a'-'z' '_' '0'-'9' ':' '-']*
+                           {ID(Lexing.lexeme lexbuf)}
+  | "@" (['A'-'Z' 'a'-'z' '_'] ['A'-'Z' 'a'-'z' '_' '0'-'9' ':' '-']* as x)
+                           {ATID(x)}
+  | "$" (['A'-'Z' 'a'-'z' '_'] ['A'-'Z' 'a'-'z' '_' '0'-'9' ':' '-']* as x)
+                           {DOLLARID(x)}
+  and dec_range = parse
+    (['0'-'9']+ as d1) '-' (['0'-'9']+ as d2)
+                           {let d1,d2 = int_of_string d1,int_of_string d2 in mkCHARRANGE(d1,d2)}
+  | ['0'-'9']+ as d        {let d = int_of_string d in mkCHARRANGE(d,d)}
+  and bin_range = parse
+    (['0'-'1']+ as d1) '-' (['0'-'1']+ as d2)
+                           {let d1,d2 = int_of_string("0b"^d1),int_of_string("0b"^d2) in mkCHARRANGE(d1,d2)}
+  | ['0'-'1']+ as d        {let d = int_of_string("0b"^d) in mkCHARRANGE(d,d)}
+  and hex_range = parse
+    (['0'-'9' 'a'-'f' 'A'-'F']+ as d1) '-' (['0'-'9' 'a'-'f' 'A'-'F']+ as d2)
+                           {let d1,d2 = int_of_string("0x"^d1),int_of_string("0x"^d2) in mkCHARRANGE(d1,d2)}
+  | ['0'-'9' 'a'-'f' 'A'-'F']+ as d
+                           {let d = int_of_string("0x"^d) in mkCHARRANGE(d,d)}
+  {
+  let token = Yak.YkBuf.wrap_ocamllex tok
+  let token_peek = Yak.YkBuf.peek_ocamllex tok
+
+  let dec_range = Yak.YkBuf.wrap_ocamllex dec_range
+  let bin_range = Yak.YkBuf.wrap_ocamllex bin_range
+  let hex_range = Yak.YkBuf.wrap_ocamllex hex_range
+  }
+}
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; (* Interface to the Yakker lexer *)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+@declare-lexer token @({tok}) token_peek =
+  EOF
+| LPAREN =                "("
+| RPAREN =                ")"
+| LBRACE =                "{"
+| RBRACE =                "}"
+| LBRACK =                "["
+| RBRACK =                "]"
+| RANGLE =                ">"
+| BAR =                   "|"
+| DASH =                  "-"
+| AT =                    "@"
+| DOLLAR =                "$"
+| STAR =                  "*"
+| HASH =                  "#"
+| EXCL =                  "!"
+| AMP =                   "&"
+| DOT =                   "."
+| COLON =                 ":"
+| EQ =                    "="
+| EQSLASH =               "=/"
+| SLASH =                 "/"
+| LANGLE =                "<"
+| DECVAL =                "%d"
+| HEXVAL =                "%x"
+| BINVAL =                "%b"
+| ATPOS =                 "@pos"
+| DOLLARPOS =             "$pos"
+| WHEN =                  "@when"
+| DELAY =                 "@delay"
+| DELAY2 =                "@delay2"
+| BOX =                   "@box"
+| BOX2 =                  "@box2"
+| BOX3 =                  "@box3"
+| BEGIN =                 "@begin"
+| END =                   "@end"
+| OCAML =                 "@ocaml"
+| OCAMLLEX =              "@ocamllex"
+| DYPGENLEX =             "@dypgenlex"
+| REPEAT =                "@repeat"
+| COUNTER =               "@counter"
+| IMPLICIT_PARAMETERS =   "@implicit-parameters"
+| DECLARE_LEXER =         "@declare-lexer"
+| DECLARE_LEXER2 =        "@declare-lexer2"
+| SET_LEXER =             "@set-lexer"
+| PRECEDENCE =            "@precedence"
+| PREC =                  "@prec"
+| NO_PREC =               "@no-prec"
+| CHARVAL@({string})
+| PROSEVAL@({string})
+| DIGITS@({int})
+| ID@({string})
+| ATID@({string})
+| DOLLARID@({string})
+.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; (* The Yakker parser *)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;start = rulelist$x EOF { Pr.pr_grammar stdout x }.
 
 rulelist
   = [shebang-line]
-    o prologue$p
-    o 1*(  rule$rd             {let (n,r,a) = rd in [RuleDef (n,r,a)]}
-         | directive           {[]}
-         | lexer-declaration$d {[d]}
-         | c-nl                {[]} )$xs
-    epilogue$e o
+    prologue$p
+    1*(  rule$rd             {let (n,r,a) = rd in [RuleDef (n,r,a)]}
+       | directive           {[]}
+       | lexer-declaration$d {[d]})$xs
+    epilogue$e
+    EOF
     { let ts, ps = partition_map (function Text_directive t -> Util.Left t
                                          | Disamb_directive d  -> Util.Right d) p in
       let pd = extract_pd ps in
       let ds = List.flatten xs in
       mkGrammar ds PMap.empty (List.rev ts) e pd}.
 
-BACKSLASH = "\".
-string = DQUOTE *inside-string DQUOTE.
+;;; auxilliary lexer for shebang-line
+not-line-end = ((CHAR - LF) - CR) .
+shebang-line = "#!" *not-line-end.
 
-inside-string
- = BACKSLASH DQUOTE
- | BACKSLASH BACKSLASH
- | BACKSLASH ((OCTET - BACKSLASH) - DQUOTE)
- | ((OCTET - BACKSLASH) - DQUOTE).
+;;; auxilliary lexer for character literals
+dec-range = @box2 >@(rhs)(dec_range)@x @delay2{rhs}(x)
+bin-range = @box2 >@(rhs)(bin_range)@x @delay2{rhs}(x)
+hex-range = @box2 >@(rhs)(hex_range)@x @delay2{rhs}(x)
+; we don't put num-val into the ocamllex lexer because it is easier to handle sequences in yakker
+num-val =
+  "%d" dec-range$r *("." dec-range)$rl {mkSEQ(r::rl)} ; no spaces allowed between ranges
+| "%x" hex-range$r *("." hex-range)$rl {mkSEQ(r::rl)}
+| "%b" bin-range$r *("." bin-range)$rl {mkSEQ(r::rl)}
 
-charlit = "'" *inside-char "'".
+Ocaml_until_RBRACE = (@box2 >@(Ocaml_lexer.Parser.token) (Ocaml.until_RBRACE))@y$x @when(y=Ocaml_lexer.Parser.RBRACE) { all_but_last x }
+.
 
-inside-char
- = BACKSLASH "'"
- | BACKSLASH BACKSLASH
- | BACKSLASH ((OCTET - BACKSLASH) - "'")
- | ((OCTET - BACKSLASH) - "'").
+Ocaml_until_RPAREN = @box2 >@(Ocaml_lexer.Parser.token) (Ocaml.until_RPAREN)@y$x @when(y=Ocaml_lexer.Parser.RPAREN) { all_but_last x }
+.
 
-parens = "(" *inside ")".
-braces = "{" *inside "}".
-inside
- = parens
- | string
- | braces
- | "'" %d34 "'" | "'" !%d34
- | ((((((OCTET - "(") - ")") - "{") - "}") - DQUOTE) - "'").
+Ocaml_until_RPAREN_or_LBRACE = @box2 >@(Ocaml_lexer.Parser.token) (Ocaml.until_RPAREN_or_LBRACE)@y$x @when(y=Ocaml_lexer.Parser.RPAREN || y=Ocaml_lexer.Parser.LBRACE) { all_but_last x }
+.
 
-inside-text = *inside .
-braces-text = "{" inside-text$x "}" {x}.
+Ocaml_until_EQUAL = @box2 >@(Ocaml_lexer.Parser.token) (Ocaml.until_EQUAL)@y$x @when(y=Ocaml_lexer.Parser.EQUAL) { all_but_last x }
+.
 
-; Allow a simple identifier syntax w/o any lexical demarcation. If you
-; want/need something fancier, use parens.
-closed-text = ID$x {x} | "(" inside-text$x ")" {x}.
+Ocaml_until_RBRACKET = @box2 >@(Ocaml_lexer.Parser.token) (Ocaml.until_RBRACKET)@y$x @when(y=Ocaml_lexer.Parser.RBRACKET) { all_but_last x }
+.
 
-id-body = ALPHA|DIGIT|"_".
-ID = (ALPHA|"_") *(ALPHA|DIGIT|"_") !id-body.
-wsp = WSP|comment|LF|CR.
-o = *wsp !wsp.
-u = 1*wsp !wsp.
-c-nl = comment|LF|CR.
-c-wsp = WSP|(c-nl WSP).
-comment = ";" *(WSP|VCHAR) (LF|CR).
-bitstring = (1*BIT)$x  !BIT {int_of_string x}.
-DIGITS = (1*DIGIT)$x  !DIGIT {int_of_string x}.
-HEXDIGS = (1*HEXDIG)$x  !HEXDIG {int_of_string ("0x" ^ x)}.
+Ocamllex_until_RBRACE = @box2 >@(Ocamllex_lexer.Parser.token) (Ocamllex.until_RBRACE)@y$x @when(y=Ocamllex_lexer.Parser.RBRACE) { all_but_last x }
+.
 
-rulename-body = ALPHA|DIGIT|"-"|":"|"_".
+posn = (@box2 >@(int*int) (Posn.get))@x @delay2{Lexing.position}(x)
 
-keyword = "pos" !rulename-body.
 
-rulename = !keyword (ALPHA|"_") *rulename-body !rulename-body.
-
-infix-op-stuff
-  = ("/" | "|") o alternation$x {(0,x)}
-  | "-" wsp o alternation$x {(1,x)} ; force non-empty whitespace after minus sign, for %dx0-7F case
-  .
-
-bin-val = "b" bitstring$b
-    ( *("." bitstring$b0 {b0})$bs  {mkSEQ(List.map (fun b -> mkCHARRANGE(b,b)) (b::bs))}
-    | "-" bitstring$b2     {mkCHARRANGE(b,b2)}).
-
-char-val
-  = DQUOTE (*(%d32-33|%d35-126))$x DQUOTE {mkLIT x}
-  | "<" DQUOTE ">" {mkLIT "\""}.
-
-dec-val = "d" DIGITS$d
-    ( *("." DIGITS$d0 {d0})$ds  {mkSEQ(List.map (fun d -> mkCHARRANGE(d,d)) (d::ds))}
-    | "-" DIGITS$d2     {mkCHARRANGE(d,d2)}).
-
-hex-val = "x" HEXDIGS$x
-   ( *("." HEXDIGS$x0 {x0})$xs  {mkSEQ(List.map (fun x -> mkCHARRANGE(x,x)) (x::xs))}
-   | "-" HEXDIGS$x2     {mkCHARRANGE(x,x2)}).
-
-num-val = "%" (bin-val$x {x} | dec-val$x {x} | hex-val$x {x}).
+;;
 
 defined-as = "=" | "=/".
 
+rulename = ID.
+
+closed-text = ID$x {x} | "(" Ocaml_until_RPAREN$x {x}.
+
+infix-op-stuff
+  = ("/" | "|") alternation$x {(0,x)}
+  | "-" alternation$x {(1,x)}
+.
+
 alternation =
-  concatenation$x prec-dir-opt$pdopt [o infix-op-stuff$z {z}]$y
+  concatenation$x prec-dir-opt$pdopt [infix-op-stuff$z {z}]$y
   {process_alt (process_pdopt x pdopt) y}
 .
 
-prec-dir-opt = o "@prec" u rulename$n {Some_prec n} 
-             | o "@no-prec"           {No_prec}
-             |                        {Default_prec}
+prec-dir-opt = "@prec" rulename$n {Some_prec n}
+             | "@no-prec"           {No_prec}
+             |                      {Default_prec}
 .
 
 concatenation
   = lookahead$x {x}
-  | lookahead$x  ">@" ID$e     ; TODO: late attributes
+  | lookahead$x  ">" ATID$e     ; TODO: late attributes
     { mkASSIGN(x,Some e,None) }
-  | lookahead$x [ "@" ID$i {i} ]$e [ "$" ID$i {i} ]$l 1*c-wsp concatenation$y
+  | lookahead$x [ ATID$i {i} ]$e [ DOLLARID$i {i} ]$l concatenation$y
     { mkSEQ2(x,e,l,y) }
 .
 
 element
-  = rulename$x params$p ["$(" inside-text$b ")" {b}]$z {let (e,a) = p in mkSYMB2(x,e,a,z)}
-  | group$x {x} | option$x {x} | char-val$x {x} | num-val$x {x} | prose-val$x {x}
-  | "@when(" inside-text$x ")" { mkWHEN x }
-  | "@delay(" inside-text$x [return-type]$y ")" { mkDELAY(x,y) }
-  | "@delay2" [return-type]$y "(" inside-text$x ")" { mkDELAY(x,y) }
-  | "@box(" inside-text$x [return-type]$y [o "," o boxnull$z o {z}]$z ")" { mkBOX(x,y,match z with None -> Runbox_null | Some w -> w) }
-  | "@box2" [o early-return]$y [o boxnull]$z o "(" inside-text$x ")" { mkBOX(x,y,match z with None -> Runbox_null | Some w -> w) }
-  | "@box3" [o boxnull]$z o "(" closed-text$x [o ":" o inside-text$t {t}]$y ")" { mkBOX(x,y,match z with None -> Runbox_null | Some w -> w) }
-  | "{" inside-text$x "}" { mkACTION2(None,Some x) }
-  | "${" inside-text$x "}" { mkACTION2(None, Some x) }
-  | "@{" inside-text$x "}" { mkACTION2(Some x,None) }
+  = rulename$x params$p ["$(" Ocaml_until_RPAREN$b {b}]$z {let (e,a) = p in mkSYMB2(x,e,a,z)}
+  | group$x {x} | option$x {x} | CHARVAL$x {mkLIT x} | num-val$x {x} | PROSEVAL$x {mkPROSE x}
+  | "@when" "(" Ocaml_until_RPAREN$x { mkWHEN x }
+  | "@delay" "(" Ocaml_until_RPAREN_or_LBRACE$x [return-type]$y { mkDELAY(x,y) }
+  | "@delay2" [return-type]$y "(" Ocaml_until_RPAREN$x { mkDELAY(x,y) }
+  | "@box" "(" Ocaml_until_RPAREN_or_LBRACE$x [return-type]$y ["," boxnull$z {z}]$z ")" { mkBOX(x,y,match z with None -> Runbox_null | Some w -> w) }
+  | "@box2" [early-return]$y [boxnull]$z "(" Ocaml_until_RPAREN$x { mkBOX(x,y,match z with None -> Runbox_null | Some w -> w) }
+  | "@box3" [boxnull]$z "(" closed-text$x [":" Ocaml_until_RPAREN$t {t}]$y { mkBOX(x,y,match z with None -> Runbox_null | Some w -> w) }
+  | "{" Ocaml_until_RBRACE$x { mkACTION2(None,Some x) }
+  | "$" "{" Ocaml_until_RBRACE$x { mkACTION2(None, Some x) }
+  | "@" "{" Ocaml_until_RBRACE$x { mkACTION2(Some x,None) }
   | "@pos" {mkPOSITION true}
-  | "pos" {mkPOSITION false}
   | "$pos" {mkPOSITION false}.
 
 boxnull =
@@ -223,7 +535,7 @@ boxnull =
 | "?" [return-type]$x {match x with None -> Runbox_null | Some y -> Runpred_null y}.
 
 params =
-  "@(" inside-text$t ")"
+  "@" "(" Ocaml_until_RPAREN$t
     { match split t ';' with  (* This isn't robust because ; can be used inside of expressions*)
         [] -> (Some t,[])
       | ""::tl -> (None,List.map var_exp tl)
@@ -233,52 +545,48 @@ params =
 
 elements = alternation$x {x}.
 
-group = "(" o alternation$x o ")" {x}.
+group = "(" alternation$x ")" {x}.
 
-option = "[" o alternation$x o "]" {mkOPT x}.
-
-inside-prose = %d32-61|%d63-126.
-
-prose-val = "<" [(inside-prose - DQUOTE) *inside-prose]$x ">" {mkPROSE x}.
+option = "[" alternation$x "]" {mkOPT x}.
 
 lookahead
   = repetition$e {e}
-  | "!" o lookahead$e {mkLOOKAHEAD (false,e)}
-  | "&" o lookahead$e {mkLOOKAHEAD (true, e)}
-  | "@repeat(" inside-text$x ")" o lookahead$y {mkRCOUNT(x,y)}
-  | "*" o "@[" (*(CHAR - "="))$v1 "=" o (*(CHAR - "]"))$i1 "]"
-        o lookahead$z { {r=Star(Accumulate(Some(v1,i1),None),z);a=mkAnnot(Some z);} }
-  | "*" o "$[" (*(CHAR - "="))$v2 "=" o (*(CHAR - "]"))$i2 "]"
-        o lookahead$z { {r=Star(Accumulate(None,Some(v2,i2)),z);a=mkAnnot(Some z);} }
-  | "*" o "@[" (*(CHAR - "="))$v1 "=" o (*(CHAR - "]"))$i1 "]"
-        o "$[" (*(CHAR - "="))$v2 "=" o (*(CHAR - "]"))$i2 "]"
-        o lookahead$z { {r=Star(Accumulate(Some(v1,i1),Some(v2,i2)),z);a=mkAnnot(Some z);} }
-  | "#" o "@[" (*(CHAR - "="))$v1 "=" o (*(CHAR - "]"))$i1 "]"
-        o lookahead$z { {r=Hash(Accumulate(Some(v1,i1),None),z);a=mkAnnot(Some z);} }
-  | "#" o "$[" (*(CHAR - "="))$v2 "=" o (*(CHAR - "]"))$i2 "]"
-        o lookahead$z { {r=Hash(Accumulate(None,Some(v2,i2)),z);a=mkAnnot(Some z);} }
-  | "#" o "@[" (*(CHAR - "="))$v1 "=" o (*(CHAR - "]"))$i1 "]"
-        o "$[" (*(CHAR - "="))$v2 "=" o (*(CHAR - "]"))$i2 "]"
-        o lookahead$z { {r=Hash(Accumulate(Some(v1,i1),Some(v2,i2)),z);a=mkAnnot(Some z);} }
+  | "!" lookahead$e {mkLOOKAHEAD (false,e)}
+  | "&" lookahead$e {mkLOOKAHEAD (true, e)}
+  | "@repeat" "(" Ocaml_until_RPAREN$x lookahead$y {mkRCOUNT(x,y)}
+  | "*" "@" "[" Ocaml_until_EQUAL$v1 Ocaml_until_RBRACKET$i1
+        lookahead$z { {r=Star(Accumulate(Some(v1,i1),None),z);a=mkAnnot(Some z);} }
+  | "*" "$" "[" Ocaml_until_EQUAL$v2 Ocaml_until_RBRACKET$i2
+        lookahead$z { {r=Star(Accumulate(None,Some(v2,i2)),z);a=mkAnnot(Some z);} }
+  | "*" "@" "[" Ocaml_until_EQUAL$v1 Ocaml_until_RBRACKET$i1
+        "$" "[" Ocaml_until_EQUAL$v2 Ocaml_until_RBRACKET$i2
+        lookahead$z { {r=Star(Accumulate(Some(v1,i1),Some(v2,i2)),z);a=mkAnnot(Some z);} }
+  | "#" "@" "[" Ocaml_until_EQUAL$v1 Ocaml_until_RBRACKET$i1
+        lookahead$z { {r=Hash(Accumulate(Some(v1,i1),None),z);a=mkAnnot(Some z);} }
+  | "#" "$" "[" Ocaml_until_EQUAL$v2 Ocaml_until_RBRACKET$i2
+        lookahead$z { {r=Hash(Accumulate(None,Some(v2,i2)),z);a=mkAnnot(Some z);} }
+  | "#" "@" "[" Ocaml_until_EQUAL$v1 Ocaml_until_RBRACKET$i1
+        "$" "[" Ocaml_until_EQUAL$v2 Ocaml_until_RBRACKET$i2
+        lookahead$z { {r=Hash(Accumulate(Some(v1,i1),Some(v2,i2)),z);a=mkAnnot(Some z);} }
   .
 
 repetition
   = element$e {e}
-  | DIGITS$x o element$y                  {mkSTAR(x,Num x,y)}
-  | DIGITS$x o "*" o element$y            {mkSTAR(x,Infinity,y)}
-  | DIGITS$x o "*" o DIGITS$z o element$y {mkSTAR(x,Num z,y)}
-  | "*" o DIGITS$z o element$y            {mkSTAR(0,Num z,y)}
-  | "*" o element$y                       {mkSTAR(0,Infinity,y)}
-  | DIGITS$x o "#" o element$y            {mkHASH(x,Infinity,y)}
-  | DIGITS$x o "#" o DIGITS$z o element$y {mkHASH(x,Num z,y)}
-  | "#" o DIGITS$z o element$y            {mkHASH(0,Num z,y)}
-  | "#" o element$y                       {mkHASH(0,Infinity,y)}
+  | DIGITS$x element$y                  {mkSTAR(x,Num x,y)}
+  | DIGITS$x "*" element$y            {mkSTAR(x,Infinity,y)}
+  | DIGITS$x "*" DIGITS$z element$y {mkSTAR(x,Num z,y)}
+  | "*" DIGITS$z element$y            {mkSTAR(0,Num z,y)}
+  | "*" element$y                       {mkSTAR(0,Infinity,y)}
+  | DIGITS$x "#" element$y            {mkHASH(x,Infinity,y)}
+  | DIGITS$x "#" DIGITS$z element$y {mkHASH(x,Num z,y)}
+  | "#" DIGITS$z element$y            {mkHASH(0,Num z,y)}
+  | "#" element$y                       {mkHASH(0,Infinity,y)}
 .
 
 typestuff =
   [early-inputs]$x
-  [o early-outputs]$y
-  [o late-inputs]$z
+  [early-outputs]$y
+  [late-inputs]$z
   {{Attr.early_params = (match x with None -> None | Some(params,_) -> params);
     input_attributes =  (match x with None -> []   | Some(_,attributes) -> attributes);
     early_rettype =     (match y with None -> None | Some(typ,_) -> typ);
@@ -286,95 +594,97 @@ typestuff =
     late_params=z;}}
 .
 early-inputs =
-  "@("  inside-text$t ")"        ;;; example: >@(a:int,b:bool;x:string;y:bool*int list)
+  "@" "("  Ocaml_until_RPAREN$t        ;;; example: @(a:int,b:bool;x:string;y:bool*int list)
   { match split t ';' with
       [] -> (Some t,[])
 (*    | ""::tl -> (None,List.map var_typ tl)  *)
     | hd::tl -> (Some hd,List.map var_typ tl) }
 .
 early-outputs =
-  ">@(" inside-text$t ")"        ;;; example: >@(int;x:string;y:bool*int list)
+  ">" "@" "(" Ocaml_until_RPAREN$t        ;;; example: >@(int;x:string;y:bool*int list)
   { match split t ';' with
       [] -> (Some t,[])
     | ""::tl -> (None,List.map var_typ tl)
     | hd::tl -> (Some hd,List.map var_typ tl) }
 .
 late-inputs =
-  "$("  inside-text$t ")" {t}    ;;; example: $(x,y,z)
+  "$" "("  Ocaml_until_RPAREN$t {t}    ;;; example: $(x,y,z)
 .
 
 ; TODO: change lexer declarations and blackbox/delay to reflect new
 ; return type syntax (early-return)
-return-type = "{" inside-text$y "}" {y}
+return-type = "{" Ocaml_until_RBRACE$y {y}
 .
-early-return = ">@(" inside-text$t ")" {t}
+early-return = ">" "@" "(" Ocaml_until_RPAREN$t {t}
 .
-rettype = "@" o "(" o "{" o inside-text$t "}" o ")" {t}
+rettype = "@" "(" "{" Ocaml_until_RBRACE$t ")" {t}
 .
 lexer-case =
-  ID$n o [rettype]$t_opt o "=" o ID$n2    { TokenSymb(n,t_opt,Some n2) }
-| ID$n o [rettype]$t_opt                  { TokenSymb(n,t_opt,None) }
-| ID$n o [rettype]$t_opt o "=" o DQUOTE (*inside-string)$s DQUOTE
-                                          { TokenLit(n,t_opt,s) }
-| DQUOTE (*inside-string)$s DQUOTE o [rettype]$t_opt o "=" o ID$n
-                                          { TokenLit(n, t_opt, s) }
+  ID$n [rettype]$t_opt "=" ID$n2     { TokenSymb(n,t_opt,Some n2) }
+| ID$n [rettype]$t_opt               { TokenSymb(n,t_opt,None) }
+| ID$n [rettype]$t_opt "=" CHARVAL$s { TokenLit(n,t_opt,s) }
+| CHARVAL$s [rettype]$t_opt "=" ID$n { TokenLit(n, t_opt, s) }
 .
-lexer-cases = ["|" o ] lexer-case$hd (*(o "|" o lexer-case))$tl [o "."] { hd::tl }
+lexer-cases = ["|" ] lexer-case$hd (*("|" lexer-case))$tl ["."] { hd::tl }
 .
 
 lexer-declaration =
-  "@declare-lexer" o
-  ID$n o rettype$t o ID$np o "=" o
-  lexer-cases$l *WSP c-nl
+  "@declare-lexer"
+  ID$n rettype$t ID$np "="
+  lexer-cases$l
   { LexerDecl(n,np,t,l) }
-| "@declare-lexer2" o
-  closed-text$f o closed-text$ty o "=" o
-  lexer-cases$l *WSP c-nl
+| "@declare-lexer2"
+  closed-text$f closed-text$ty "="
+  lexer-cases$l
   { LexerDecl2(f,ty,l) }
-| "@set-lexer" o
-  closed-text$f o closed-text$ty o "=" o
-  lexer-cases$l *WSP c-nl
+| "@set-lexer"
+  closed-text$f closed-text$ty "="
+  lexer-cases$l
   { SingleLexerDecl(f,ty,l) }
 .
 
 assoc-tag =
-    "@" ( ("R" |"right") {Right_assoc}
-        | ("L" | "left") {Left_assoc}
-        | ("N" | "non")  {Non_assoc})
+  ATID$x
+    { match x with
+        ("R" |"right") -> Right_assoc
+      | ("L" | "left") -> Left_assoc
+      | ("N" | "non")  -> Non_assoc
+      | _ -> Non_assoc } ; TODO: error message or rule out with @when
 .
 
 prec-declaration =
-  "@precedence" o ":" o
-  ["<" o] assoc-tag$atag u rulename$id *(u rulename$x {x})$ids
+  "@precedence" ":"
+  ["<"] assoc-tag$atag rulename$id *(rulename$x {x})$ids
   {(atag, [atag, (id :: ids)])}$v
-  *$[a=v](o "<" o (assoc-tag$t u {t} | {fst a})$atag
-          rulename$id *(u rulename$x {x})$ids
+  *$[a=v]("<" (assoc-tag$t {t} | {fst a})$atag
+          rulename$id *(rulename$x {x})$ids
           {atag, ((atag, (id::ids))::(snd a))})$levels
-  o "." o
+  "."
   { Array.of_list (List.rev (snd levels)) }
 .
 
 rule
-  = rulename$n typestuff$y o defined-as o elements$r [o "."] *WSP c-nl
+  = rulename$n typestuff$y defined-as elements$r ["."]
     {(n, r, y)}
   .
 
 prologue =
-  *("@begin" o "{" inside-text$x "}" o {Text_directive (Ocaml x)}
-   |"@ocaml" o "{" inside-text$x "}" o {Text_directive (Ocaml x)}
+  *("@begin" "{" Ocaml_until_RBRACE$x {Text_directive (Ocaml x)}
+   |"@ocaml" "{" Ocaml_until_RBRACE$x {Text_directive (Ocaml x)}
    | prec-declaration$d                {Disamb_directive d}
-   |"@ocamllex" o "{" inside-text$x "}" o {Text_directive (Ocamllex x)}
-   |"@dypgenlex" o "{" inside-text$x "}" o {Text_directive (Dypgenlex x)})
+   |"@ocamllex" "{" Ocaml_until_RBRACE$x {Text_directive (Ocamllex x)}
+   |"@dypgenlex" "{" Ocaml_until_RBRACE$x {Text_directive (Dypgenlex x)})
 .
 
 epilogue =
-  *("@end" o "{" inside-text$x "}" o {Ocaml x}
-   |"@ocaml" o "{" inside-text$x "}" o {Ocaml x}
-   |"@ocamllex" o "{" inside-text$x "}" o {Ocamllex x}).
-
-not-line-end = ((CHAR - LF) - CR) .
-shebang-line = "#!" *not-line-end !not-line-end.
+  *("@end" "{" Ocaml_until_RBRACE$x {Ocaml x}
+   |"@ocaml" "{" Ocaml_until_RBRACE$x {Ocaml x}
+   |"@ocamllex" "{" Ocaml_until_RBRACE$x {Ocamllex x}).
 
 directive =
-  "@counter(" 1*DIGIT$x ")" *WSP
-    { Variables.counter := (int_of_string x)}.
+  "@counter" "(" 1*DIGIT$x ")"
+  { Variables.counter := (int_of_string x)}.
+
+; @end {
+;   Yak.Pami.Simple.qrun parse_file
+; }

@@ -175,7 +175,6 @@ module Ocaml = struct
   let wrap f = Yak.YkBuf.wrap_ocamllex (balanced f)
   let until_RBRACE = wrap (is RBRACE)
   let until_RPAREN = wrap (is RPAREN)
-  let until_RPAREN_or_LBRACE = wrap (fun x -> x=RPAREN || x=LBRACE)
   let until_EQUAL = wrap (is EQUAL)
   let until_RBRACKET = wrap (is RBRACKET)
 end
@@ -315,9 +314,7 @@ end
   | "@when"                {WHEN}
   | "@pos"                 {ATPOS}
   | "$pos"                 {DOLLARPOS}
-  | "@delay"               {DELAY}
   | "@delay2"              {DELAY2}
-  | "@box"                 {BOX}
   | "@box2"                {BOX2}
   | "@box3"                {BOX3}
   | "@begin"               {BEGIN}
@@ -403,9 +400,7 @@ end
 | ATPOS =                 "@pos"
 | DOLLARPOS =             "$pos"
 | WHEN =                  "@when"
-| DELAY =                 "@delay"
 | DELAY2 =                "@delay2"
-| BOX =                   "@box"
 | BOX2 =                  "@box2"
 | BOX3 =                  "@box3"
 | BEGIN =                 "@begin"
@@ -468,9 +463,6 @@ Ocaml_until_RBRACE = (@box2 >@(Ocaml_lexer.Parser.token) (Ocaml.until_RBRACE))@y
 Ocaml_until_RPAREN = @box2 >@(Ocaml_lexer.Parser.token) (Ocaml.until_RPAREN)@y$x @when(y=Ocaml_lexer.Parser.RPAREN) { all_but_last x }
 .
 
-Ocaml_until_RPAREN_or_LBRACE = @box2 >@(Ocaml_lexer.Parser.token) (Ocaml.until_RPAREN_or_LBRACE)@y$x @when(y=Ocaml_lexer.Parser.RPAREN || y=Ocaml_lexer.Parser.LBRACE) { all_but_last x }
-.
-
 Ocaml_until_EQUAL = @box2 >@(Ocaml_lexer.Parser.token) (Ocaml.until_EQUAL)@y$x @when(y=Ocaml_lexer.Parser.EQUAL) { all_but_last x }
 .
 
@@ -518,9 +510,7 @@ element
   = rulename$x params$p ["$(" Ocaml_until_RPAREN$b {b}]$z {let (e,a) = p in mkSYMB2(x,e,a,z)}
   | group$x {x} | option$x {x} | CHARVAL$x {mkLIT x} | num-val$x {x} | PROSEVAL$x {mkPROSE x}
   | "@when" "(" Ocaml_until_RPAREN$x { mkWHEN x }
-  | "@delay" "(" Ocaml_until_RPAREN_or_LBRACE$x [return-type]$y { mkDELAY(x,y) }
   | "@delay2" [return-type]$y "(" Ocaml_until_RPAREN$x { mkDELAY(x,y) }
-  | "@box" "(" Ocaml_until_RPAREN_or_LBRACE$x [return-type]$y ["," boxnull$z {z}]$z ")" { mkBOX(x,y,match z with None -> Runbox_null | Some w -> w) }
   | "@box2" [early-return]$y [boxnull]$z "(" Ocaml_until_RPAREN$x { mkBOX(x,y,match z with None -> Runbox_null | Some w -> w) }
   | "@box3" [boxnull]$z "(" closed-text$x [":" Ocaml_until_RPAREN$t {t}]$y { mkBOX(x,y,match z with None -> Runbox_null | Some w -> w) }
   | "{" Ocaml_until_RBRACE$x { mkACTION2(None,Some x) }

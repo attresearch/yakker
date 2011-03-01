@@ -1,7 +1,3 @@
-; make compileopt.cmx tgraph.cmx gul.cmx meta_prog.cmx gil.cmx variables.cmx pr.cmx ocaml_lexer.cmx ocamllex_lexer.cmx ocaml_blob.cmx yak.cmxa
-; (cd build; ocamlopt -o ocaml_blob unix.cmxa yak.cmxa compileopt.cmx tgraph.cmx gul.cmx meta_prog.cmx gil.cmx variables.cmx pr.cmx ocaml_lexer.cmx ocamllex_lexer.cmx ocaml_blob.cmx)
-; echo '@ocaml{ hello (* comment *) there (g(g)) }@ocamllex{ hello }e = f g a = b c d' | build/ocaml_blob
-
 @ocaml {
 (*******************************************************************************
  * Copyright (c) 2010 AT&T.
@@ -55,8 +51,6 @@ let process_alt r_left = function
     None -> r_left
   | Some (0,r) -> mkALT([r_left;r])
   | Some (_,r) -> mkMINUS(r_left,r)
-
-let process_pdopt r x = r.a.precedence <- x; r
 
 let partition_map f l =
   let xs, ys =
@@ -257,9 +251,6 @@ end
   | DECLARE_LEXER
   | DECLARE_LEXER2
   | SET_LEXER
-  | PRECEDENCE
-  | PREC
-  | NO_PREC
   | CHARVAL of string
   | PROSEVAL of string
   | DIGITS of int
@@ -324,9 +315,6 @@ end
   | "@declare-lexer"       {DECLARE_LEXER}
   | "@declare-lexer2"      {DECLARE_LEXER2}
   | "@set-lexer"           {SET_LEXER}
-  | "@precedence"          {PRECEDENCE}
-  | "@prec"                {PREC}
-  | "@no-prec"             {NO_PREC}
   | "\"" (['\032' '\033' '\035'-'\126']* as x) "\""
                            {CHARVAL(x)}
   | "<" ((['\032'-'\061' '\063'-'\126']*) as x) ">"
@@ -409,9 +397,6 @@ end
 | DECLARE_LEXER =         "@declare-lexer"
 | DECLARE_LEXER2 =        "@declare-lexer2"
 | SET_LEXER =             "@set-lexer"
-| PRECEDENCE =            "@precedence"
-| PREC =                  "@prec"
-| NO_PREC =               "@no-prec"
 | CHARVAL@({string})
 | PROSEVAL@({string})
 | DIGITS@({int})
@@ -484,13 +469,8 @@ infix-op-stuff
 .
 
 alternation =
-  concatenation$x prec-dir-opt$pdopt [infix-op-stuff$z {z}]$y
-  {process_alt (process_pdopt x pdopt) y}
-.
-
-prec-dir-opt = "@prec" rulename$n {Some_prec n}
-             | "@no-prec"           {No_prec}
-             |                      {Default_prec}
+  concatenation$x [infix-op-stuff$z {z}]$y
+  {process_alt x y}
 .
 
 concatenation
@@ -636,17 +616,6 @@ assoc-tag =
       | _ -> Non_assoc } ; TODO: error message or rule out with @when
 .
 
-prec-declaration =
-  "@precedence" ":"
-  ["<"] assoc-tag$atag rulename$id *(rulename$x {x})$ids
-  {(atag, [atag, (id :: ids)])}$v
-  *$[a=v]("<" (assoc-tag$t {t} | {fst a})$atag
-          rulename$id *(rulename$x {x})$ids
-          {atag, ((atag, (id::ids))::(snd a))})$levels
-  "."
-  { Array.of_list (List.rev (snd levels)) }
-.
-
 rule
   = rulename$n typestuff$y defined-as elements$r ["."]
     {(n, r, y)}
@@ -655,7 +624,6 @@ rule
 prologue =
   *("@begin" "{" Ocaml_until_RBRACE$x {Text_directive (Ocaml x)}
    |"@ocaml" "{" Ocaml_until_RBRACE$x {Text_directive (Ocaml x)}
-   | prec-declaration$d                {Disamb_directive d}
    |"@ocamllex" "{" Ocaml_until_RBRACE$x {Text_directive (Ocamllex x)}
    |"@dypgenlex" "{" Ocaml_until_RBRACE$x {Text_directive (Dypgenlex x)})
 .

@@ -124,7 +124,7 @@ uninstall:
 tests: $(TESTS_EXE)
 
 .PHONY: examples
-examples: $(EXAMPLES_EXE)
+examples: $(EXAMPLES_EXE) ocaml_lex_rec
 
 .PHONY: doc
 doc: $(OCAMLDOC_SOURCES)
@@ -509,9 +509,18 @@ $(EXAMPLES_PCOMB_ML): %_pcomb.ml : examples/$$*/$$*.bnf yakker
 ########################################################################
 ##  Specialized tests
 ########################################################################
-
 OCAML_COMP_DIR=/Users/yitzhakm/sw/godi/lib/ocaml/compiler-lib
 OCAML_COMP_INCLUDES = -I $(OCAML_COMP_DIR)
+
+# OCaml recognizer using a lexer:
+ocaml_lex_rec: $(TOPDIR)/examples/ocaml_lex_rec/olr.native
+	cp $< $@
+
+$(TOPDIR)/examples/ocaml_lex_rec/olr.native:
+	(cd $(TOPDIR)/examples/ocaml_lex_rec; \
+         export yk_yakker_home=$(TOPDIR); \
+         export yk_ocamlcomp=$(OCAML_COMP_DIR); \
+         ocamlbuild olr.native)
 
 ocamlparser_regular-parser: OCAML_FLAGS+= \
 	$(OCAML_COMP_DIR)/config.cmo \

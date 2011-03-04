@@ -140,7 +140,8 @@ let gil_transducer,gil_dot =
     try_fst Fsm.fsm_transducer,try_fst Fsm.fsm_dot
 
 let add_boilerplate backend gr =
-  let mk_trans_bp1 = Printf.sprintf "
+  if backend = Wadler_BE then ()
+  else let mk_trans_bp1 = Printf.sprintf "
 let start_symb = get_symb_action %S
 
 module P2__ = Yak.Engine.Full_yakker (%s)
@@ -203,22 +204,40 @@ let parse_string = Yak.Pami.Simple.parse_string parse\n;;\n"in
   add_to_epilogue gr (boilerplate_vary ^ boilerplate_shared)
 
 let do_compile gr =
-  do_phase "compiling to backend" (fun () ->
-    List.iter
-      (function Ocaml x -> Printf.fprintf !outch "%s" x
-        | _ -> failwith "Non-ocaml blob in prologue")
-      (List.rev gr.prologue);
+  do_phase "compiling to backend" begin fun () ->
+    let print_prologue () =
+      List.iter begin function
+        | Ocaml x ->
+            Printf.fprintf !outch "%s" x
+        | _ -> failwith "Non-ocaml blob in prologue"
+      end
+        (List.rev gr.prologue) in
+    let print_epilogue () =
+      List.iter begin function
+        | Ocaml x ->
+            Printf.fprintf !outch "%s" x
+        | _ -> failwith "Non-ocaml blob in epilogue"
+      end
+        gr.epilogue in
+
     (match backend with
-    | Fun_BE -> Gil_gen.pr_gil_definitions2 !outch gr.start_symbol gr.tokmap gr.gildefs
-    | Wadler_BE -> Gil_gen.Wadler.pr_definitions !outch gr.start_symbol gr.gildefs
-    | Peg_BE liberal -> Gil_gen.Peg.pr_definitions !outch liberal gr.start_symbol gr.gildefs
+    | Fun_BE ->
+        print_prologue ();
+        Gil_gen.pr_gil_definitions2 !outch gr.start_symbol gr.tokmap gr.gildefs
+    | Wadler_BE ->
+        gr.prologue <- [];
+        gr.epilogue <- [];
+        Gil_gen.Wadler.pr_definitions !outch gr.start_symbol gr.gildefs
+    | Peg_BE liberal ->
+        print_prologue ();
+        Gil_gen.Peg.pr_definitions !outch liberal gr.start_symbol gr.gildefs
     | Trans_BE ->
+        print_prologue ();
         gil_transducer gr.gildefs);
+
     add_boilerplate backend gr;
-    List.iter
-      (function Ocaml x -> Printf.fprintf !outch "%s" x
-        | _ -> failwith "Non-ocaml blob in epilogue")
-      gr.epilogue)
+    print_epilogue ()
+  end
 
 let do_phases gr =
   List.iter

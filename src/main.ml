@@ -34,6 +34,7 @@ let phase_order = (* preorder on phases *)
         [Print_gul_cmd];
         [Print_npreds_cmd];
         [Print_relevance_cmd];
+        [Sort_cmd];
         [Strip_late_actions_cmd];
 
         (* commands that handle their own output and
@@ -309,6 +310,9 @@ let do_phases gr =
                     n
               | _ -> ())
             gr.ds
+      | Sort_cmd ->
+          gr.ds <- Gul.sort_definitions gr.ds;
+          Pr.pr_grammar stdout gr
       | Print_gul_cmd ->
           Pr.pr_grammar stdout gr
       | Dispatch_cmd ->

@@ -44,6 +44,7 @@ type command =
 | Print_npreds_cmd
 | Print_relevance_cmd
 | Rfc_cmd
+| Sort_cmd
 | Strip_late_actions_cmd
 | Subset_cmd
 | Translate_dypgen_cmd
@@ -109,6 +110,7 @@ command =
       | "print-nullable-predicates" o     { Print_npreds_cmd }
       | "print-relevance" o               { Print_relevance_cmd }
       | "rfc" (1*DIGIT)$n o               { try rfc_num := int_of_string n; Rfc_cmd with _ -> failwith "Invalid RFC number" }
+      | "sort" o                          { Sort_cmd }
       | "strip-late-actions" o            { Strip_late_actions_cmd }
       | "translate-dypgen" o              { Translate_dypgen_cmd }
       | "translate-dypgen-scannerless" o  { Translate_dypgen_scannerless_cmd }

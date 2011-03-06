@@ -884,13 +884,14 @@ module Wadler = struct
       else List.rev cs in
     loop [] 0
 
-  let mk_eps = "return []";;
-  let mk_tok = Printf.sprintf "tok %C";;
+  let mk_eps = "eps";;
+  let mk_tok = Printf.sprintf "ytok %C";;
+  let mk_lookahead_tok = Printf.sprintf "lookahead_tok %C";;
 
   let mk_seq es ret_e =
     let indent = "   " in
-    "\ndo " ^ String.concat ("\n" ^ indent) es ^ "\n"
-    ^ indent ^ "return " ^ ret_e
+    "\ndo {" ^ String.concat (";\n" ^ indent) es ^ ";\n"
+    ^ indent ^ "return " ^ ret_e ^ "\n}"
 
   let mk_lit s =
     match String.length s with
@@ -900,11 +901,8 @@ module Wadler = struct
           let cs = to_char_list s n in
           mk_seq (List.map mk_tok cs) "()"
 
-  let mk_char_range lb ub =
-    mk_seq
-      ["d <- item";
-       Printf.sprintf "guard (%d <= ord d && ord d <= %d)" lb ub]
-      "d"
+  let mk_char_range = Printf.sprintf "char_range %d %d"
+  let mk_lookahead_char_range = Printf.sprintf "lookahead_char_range %d %d"
 
 
   let pr_gil f r0 =
@@ -920,28 +918,38 @@ module Wadler = struct
         | Gil.DBranch (f1, c, _) ->
             Util.warn Util.Sys_warn "Gil_gen.Wadler.pr_gil.loop.DBranch";
             bprintf f "(lextok (%s) %s)" f1 c.Gil.cname
-        | Gil.Lookahead (presence, r1) ->
-            Util.warn Util.Sys_warn "Gil_gen.Wadler.pr_gil.loop.Gil.Lookahead";
-            bprintf f "(lookahead %B " presence;
-            loop r1;
+
+        | Gil.Lookahead (b, Gil.CharRange(low,high)) ->
+            bprintf f "(";
+            if low = high then
+              bprintf f "%s" $ mk_lookahead_tok $| Char.chr low
+            else
+              bprintf f "%s" $| mk_lookahead_char_range low high;
             bprintf f ")";
 
+        | Gil.Lookahead _ ->
+            Util.warn Util.Sys_warn "Gil_gen.Wadler.pr_gil.loop.Gil.Lookahead";
+            bprintf f "eps"
 
         | Gil.Symb(x, None, None) -> bprintf f "%s" $| symb_fun_name x
 
         | Gil.Symb _ -> Util.todo "Gil_gen.Wadler.pr_gil.loop.Gil.Symb (with arg or binder)."
 
         | Gil.CharRange(low,high) ->
+            bprintf f "(";
             if low = high then
               bprintf f "%s" $ mk_tok $| Char.chr low
             else
-              bprintf f "%s" $| mk_char_range low high
+              bprintf f "%s" $| mk_char_range low high;
+            bprintf f ")";
 
         | Gil.Lit(true, x) ->
-            bprintf f "%s" $| mk_lit x
+            bprintf f "(";
+            bprintf f "%s" $| mk_lit x;
+            bprintf f ")";
 
         | Gil.Star(r2) ->
-            bprintf f "(many ";
+            bprintf f "(ymany ";
             loop r2;
             bprintf f ")";
 
@@ -955,9 +963,11 @@ module Wadler = struct
             bprintf f " return ()})"
 
         | Gil.Alt (r2, r3) ->
+            bprintf f "(";
             loop r2;
             bprintf f " `mplus` ";
             loop r3;
+            bprintf f ")";
     in loop r0
 
 
@@ -965,19 +975,32 @@ module Wadler = struct
     | [] -> ()
     | ds ->
         let b = Buffer.create 11 in
-
-        Printf.bprintf b "do { rec {\n";
-
         List.iter begin fun (n, r_gil) ->
           let name = symb_fun_name n in
           Printf.bprintf b "%s <- loop " name;
           pr_gil b r_gil;
           Printf.bprintf b ";\n"
         end ds;
+        let grammar_body = Buffer.contents b in
 
-        Printf.bprintf b "};\nreturn (final %s)}\n\n" start;
+        Printf.fprintf f "{-# LANGUAGE DoRec #-}\n\n";
 
-        Printf.fprintf f "%s\n" (Buffer.contents b);
+        Printf.fprintf f "module Main (\n";
+        Printf.fprintf f "  main\n";
+        Printf.fprintf f ") where\n";
+        Printf.fprintf f "\nimport Earley\n\n";
+
+        Printf.fprintf f "the_grammar = do { rec {\n";
+
+        Printf.fprintf f "%s\n" grammar_body;
+
+        Printf.fprintf f "};\nreturn (final %s)}\n\n" (symb_fun_name start);
+
+        Printf.fprintf f "main = do { the_input <- getContents;\n  \
+                            let x = eparse the_grammar the_input in\n  \
+                            case x of { _:_ -> putStrLn \"success\";\n              \
+                                        _ -> putStrLn \"failure\"} } \n";
+
 end
 
 

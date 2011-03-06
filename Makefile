@@ -509,7 +509,14 @@ $(EXAMPLES_PCOMB_ML): %_pcomb.ml : examples/$$*/$$*.bnf yakker
 ########################################################################
 ##  Specialized tests
 ########################################################################
+ifeq ($(shell whoami),yitzhakm)
 OCAML_COMP_DIR=/Users/yitzhakm/sw/godi/lib/ocaml/compiler-lib
+endif
+ifndef OCAML_COMP_DIR
+OCAML_COMP_DIR:=$(realpath $(dir $(shell which ocaml))../lib/ocaml/compiler-lib)
+$(warning Variable OCAML_COMP_DIR undefined. Defaulting to $(OCAML_COMP_DIR).)
+endif
+
 OCAML_COMP_INCLUDES = -I $(OCAML_COMP_DIR)
 
 # OCaml recognizer using a lexer:

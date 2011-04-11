@@ -103,6 +103,8 @@ let cs2enum = BitSet.enum
 let count = BitSet.count
 let intersect = BitSet.intersect
 
+let is_empty cs = (count cs = 0)
+
 let singleton c = (* TODO: rename as just singleton *)
   let res = empty() in
   insert res (Char.code c);
@@ -200,11 +202,11 @@ let to_code cs =
   if rs = [] then "Yak.Cs.empty()" else
     "let cs = Yak.Cs.empty() in " ^
       (String.concat "; "
-	 (List.map
-	    (fun (lb,ub) ->
+         (List.map
+            (fun (lb,ub) ->
                if lb = (ub-1)  then Printf.sprintf "Yak.Cs.insert cs %d" lb
                else Printf.sprintf "Yak.Cs.insert_range cs %d %d" lb ub)
-	    rs)) ^
+            rs)) ^
       "; cs"
 
 let pr cs =

@@ -29,8 +29,8 @@ let phase_order = (* preorder on phases *)
         [Print_gil_cmd];           (* takes Gil as input *)
 
         [Lookahead_analysis_cmd];  (* these take Gul.grammars as input *)
-        [Lr1_lookahead_cmd];
-        [Precedence_analysis_cmd];
+        [Lr1_lookahead_cmd; Lexer_cmd];  (* Too few preprocessing elements here, but ok for starters. *)
+        [Precedence_analysis_cmd; Lexer_cmd];
         [Print_gul_cmd];
         [Print_npreds_cmd];
         [Print_relevance_cmd];
@@ -415,9 +415,6 @@ let do_phases gr =
           do_phase "printing nullable predicates" (fun () ->
             Nullable_pred.Gul.print_nullable_predicates gr !outch)
       | Precedence_analysis_cmd ->
-          do_phase "lexer transform" (fun () ->
-            Lexutil.transform gr;
-            Lexutil.run_ocamllex gr);
           do_phase "precedence analysis" (fun () ->
             let v = Analyze.build_prec_sets gr in
             Analyze.print_prec_sets v)

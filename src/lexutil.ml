@@ -97,9 +97,9 @@ let mk_lexer use_new_syntax tokenizer token_type decls =
   let myenv,other_defs = List.split other_defs in
     lit_env,myenv,tok_def::other_defs
 
-(** Desugar lexer decls to determinitic branches (instead of @when). *)
+(** Desugar lexer decls to deterministic branches (instead of @when). *)
 (* TODO: previous version has the advantage that the Earley state
-   implicitly handles memoization of tokenizers invocations by
+   implicitly handles memoization of tokenizer's invocations by
    wrapping it in a nonterminals. IN this version, i've inlined the
    boxes so that they can be determinized into one box when tokens
    appear together in the transducer. While that (may) help
@@ -108,10 +108,10 @@ let mk_lexer use_new_syntax tokenizer token_type decls =
 (** argument [is_simple_dbranch] flags whether dbranch is interpeted as a simple
     lexer.*)
 let mk_lexer2 is_simple_dbranch tokenizer token_type decls =
-  let tok = Variables.fresh() in
+  let tok = Variables.fresh() in (* fresh name for variable used to bind result of tokenizer. *)
   let rettype = Some token_type in
   let tok_box = mkBOX(tokenizer, rettype, Runbox_null) in
-  let x = Variables.fresh() in
+  let x = Variables.fresh() in          (* fresh name for variable used to bind result of dbranch. *)
   let lit_envs, decls = preprocess_decls true decls in
   let lit_env = List.flatten lit_envs in
   let other_defs =
@@ -225,6 +225,6 @@ let transform gr =
         let ntokmap = ("",myenv)::tokmap in
         ntokmap, defs::ngr in
   validate gr.ds;
-  let tokmap,ngr = loop [] gr.ds in
+  let tokmap, ngr = loop [] gr.ds in
     gr.ds <- List.flatten ngr;
     gr.tokmap <- tokmap

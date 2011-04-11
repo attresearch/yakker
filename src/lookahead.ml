@@ -19,6 +19,7 @@ let add_lr1_lookahead gr =
   let nametbl = Hashtbl.create sz in
   let ftbl = Hashtbl.create sz in
   let apptbl = Hashtbl.create 101 in
+  let toktbl = ref [] in
   let dummy = mkLIT("") in
   let rec findfree n x tbl =
     let n_try = n ^ string_of_int x in
@@ -34,6 +35,9 @@ let add_lr1_lookahead gr =
     with Not_found ->
       Hashtbl.add nametbl n 1;
       n in
+
+  let add_tok toktbl d = toktbl := d :: !toktbl in
+
   let la_app (n:nonterminal) fs =
     try
       let n_fs,_,_ = Hashtbl.find apptbl (n,fs) in
@@ -45,8 +49,12 @@ let add_lr1_lookahead gr =
       let r_fs = f_n fs in
       Hashtbl.replace apptbl (n, fs) (n_fs, r_fs, a);
       n_fs in
+
   let rec tx r = match r.r with
-  | Symb (n1, _, _,_) -> (fun follow -> mkSYMB (la_app n1 follow, None, None)) (* TODO: attributes *)
+  | Symb (n1, _, _,_) ->
+      (match Analyze.search_tokmap gr.tokmap n1 with
+         | None -> (fun follow -> mkSYMB (la_app n1 follow, None, None)) (* TODO: attributes *)
+         | Some _ -> (fun _ -> r))
   | Lit _ | CharRange _ -> (fun follow -> r)
   | Seq(r1, None, None, r2) ->
       let r1' = tx r1 in
@@ -81,17 +89,27 @@ let add_lr1_lookahead gr =
       Util.warn Util.Sys_warn "rule not handled by lookahead transformation";
       (fun _ -> mkLIT("!ERROR!")) in
   let tx_def = function
-    | RuleDef(n, r, a) ->
-        let r' = tx r in
-        Hashtbl.add ftbl n
-          ((fun la -> mkSEQ2(r' la, None, None, mkLOOKAHEAD(true, Analyze.First_set_lex.to_rule la))),
-           a)
+    | RuleDef(n, r, a) as d ->
+        (match Analyze.search_tokmap gr.tokmap n with
+          | None ->
+              let r' = tx r in
+              let f = (fun la -> mkSEQ2(r' la, None, None, mkLOOKAHEAD(true, Analyze.First_set_lex.to_rule la))) in
+              Hashtbl.add ftbl n (f, a)
+          | Some _ -> add_tok toktbl d)
     | d -> () in
   (* load [ftbl] *)
   List.iter tx_def gr.ds;
   (* load [apptbl] *)
-  let ssymb = la_app gr.start_symbol (Analyze.First_set_lex.non_singleton (256, 256)) in
+  (* NOTE: Not clear, as yet, how to set the starting lookahead token
+     in the general case. For grammars with tokenizers, the EOF token
+     is probably the correct choice; for scannerless grammars, 256 is
+     probably the right choice. Ultimately, we should analyze the
+     grammar to figure this out, or somesuch. For now, we just pick
+     one and warn. *)
+  (*   let ssymb = la_app gr.start_symbol (Analyze.First_set_lex.non_singleton (256, 256)) in *)
+  Util.warn Util.Sys_warn "Choosing token EOF as start symbol lookahead.";
+  let ssymb = la_app gr.start_symbol (Analyze.First_set_lex.non_singleton_tok "" "EOF") in
   (* convert [apptbl] to new grammar. *)
   let retrieve_defs _ (n,r,a) ds = (RuleDef (n,r,a))::ds in
-  let ds' = Hashtbl.fold retrieve_defs apptbl [] in
+  let ds' = Hashtbl.fold retrieve_defs apptbl !toktbl in
   {gr with ds = ds'; start_symbol = ssymb;}

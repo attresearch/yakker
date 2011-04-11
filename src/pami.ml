@@ -61,7 +61,7 @@ module Simple = struct
     let visualize_flag = ref false in
     let args =
       match Array.to_list Sys.argv with
-      | [] -> ["/dev/stdin"]
+      | [] -> failwith "Impossible: Sys.argv cannot be empty."
       | _::args ->
           (let rec loop = function
             | [] -> []

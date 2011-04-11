@@ -470,10 +470,10 @@ let wrap_ocamllex f (start:int) ykb =
     [ocamllex_fill f s] is suitable as a token fill function, where
     [s] is filled (as needed). *)
 let ocamllex_fill f lexstate ykb =
-  let (o, at_eof, t) = !lexstate in
-  if o = get_offset ykb then at_eof
+  let (o, can_scan, t) = !lexstate in
+  if o = get_offset ykb then can_scan
   else
-    let at_eof = fill2 ykb 1 in
+    let can_scan = fill2 ykb 1 in
     let lexbuf = to_lexbuf ykb in
     let t =
       try
@@ -481,8 +481,8 @@ let ocamllex_fill f lexstate ykb =
       with _ -> None in
     from_lexbuf ykb lexbuf;
     let off = get_offset ykb in
-    lexstate := (off, at_eof, t);
-    at_eof
+    lexstate := (off, can_scan, t);
+    can_scan
 
 
 let peek_ocamllex f ykb =

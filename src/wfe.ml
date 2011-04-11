@@ -404,16 +404,18 @@ struct
      fact that lexer advances the input position, so after fill is
      called, get_offset returns incorrect value.  *)
 
-  let dummystate = (-1, false, None)
-
-  (** single-element map from position to "at_eof" and token. the
-      position corresponds to the end position of any token that is stored, not the start position. *)
-  let lexstate = ref dummystate
+  let dummystate = (-1, true, None)
 
   type token = T.token
   type state = int * bool * token option
       (** we tag the tokens with a position so that the first fill of a
           lookahead will execute correctly.*)
+
+  let lexstate = ref dummystate
+    (** single-element map from position to "can scan" and token. the
+        position corresponds to the end position of any token that is
+        stored, not the start position. *)
+
 
   let fill = YkBuf.ocamllex_fill T.f lexstate
 
@@ -1818,6 +1820,8 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
       );
     done;
 
+    LOGp(eof_ne, "Main loop ended with can_scan = %B\n" !can_scan);
+
     (* PERF: apply the same optimizations used above to the following code. *)
 
     (* We've either hit a shortest match or we're either at EOF or a failure. *)
@@ -1936,8 +1940,11 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
     end
     else begin
       (* There was no succesful scan of the last byte, so we backtrack
-         by one to ensure proper error reporting. *)
-      YkBuf.step_back ykb;
+         by one to ensure proper error reporting.
+
+         DISABLED: Not compatible with our tracking of line numbers and tokens. We need to find a different way. Need to step back a *token*.
+      *)
+(*       YkBuf.step_back ykb; *)
       LOG(
       if Logging.features_are_set Logging.Features.stats then begin
         Logging.Distributions.report ();

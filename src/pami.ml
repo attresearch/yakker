@@ -200,7 +200,7 @@ module Wfe = struct
     if parse_result = [] then
       let read_all = YkBuf.is_eof ykb in
       let msg = if read_all then "No complete parses found." else  "Error at byte." in
-      let pos = YkBuf.get_offset ykb + 1 in
+      let pos = YkBuf.get_offset ykb + 1 in (* add 1 to translate from 0-indexed to 1-indexed. *)
       YkBuf.restore ykb cp;
       parse_error msg pos ykb
     else

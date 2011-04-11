@@ -289,8 +289,15 @@ module type TERM_LANG = sig
 
   val advance: YkBuf.t -> unit
   val fill : YkBuf.t -> bool
-  val save : unit -> state (** save terminal-related state. *)
+
+  val save : unit -> state
+    (** save terminal-related state. *)
+
   val restore : state -> unit
+
+  val step_back : YkBuf.t -> unit
+    (** step back one "unit" (e.g. a char in scannerless case, a token
+        in a standard lexer. *)
 end
 
 module Scannerless_term_lang : TERM_LANG = struct
@@ -299,6 +306,7 @@ module Scannerless_term_lang : TERM_LANG = struct
   let fill ykb = YkBuf.fill2 ykb 1
   let save () = ()
   let restore () = ()
+  let step_back = YkBuf.step_back
 end
 
 module type TOKENIZER = sig
@@ -326,7 +334,9 @@ struct
 
   type token = T.token
   type state = int * bool * token option
-      (** we tag the tokens with a position so that the first fill of a
+      (** offset, can_scan, current token (might be none)
+
+          We tag the tokens with a position so that the first fill of a
           lookahead will execute correctly.*)
 
   let lexstate = ref dummystate
@@ -344,6 +354,11 @@ struct
   let restore t = lexstate := t
 
   let lex ykb = let (_,_,t) = !lexstate in t
+
+  (** TODO: we need to add support for stepping back to the previous token. *)
+  let step_back ykb =
+    Util.warn Util.Sys_warn "step_back not yet supported for lexers"
+
 end
 
 
@@ -2153,6 +2168,10 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
         end in
       search_for_succ term_table d dcs start_nt count 0 in
 
+    (**************************************************************
+     *                      BEGIN MAIN LOOP
+     **************************************************************)
+
     let s_matched = ref false in
     while (                 (if support_FLA then (is_exact_match || not !s_matched) else true)                  &&
               if !next_set.WI.count > 0 then !can_scan
@@ -2265,6 +2284,10 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
                    if Logging.activated then begin Imp_position.set_position pos;
        end             ;
     done;
+
+    (**************************************************************
+     *                      END MAIN LOOP
+     **************************************************************)
 
                     if Logging.activated then begin
        Logging.log Logging.Features.eof_ne "Main loop ended with can_scan = %B\n" !can_scan end                 ;
@@ -2391,12 +2414,11 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
       !successes
     end
     else begin
-      (* There was no succesful scan of the last byte, so we backtrack
-         by one to ensure proper error reporting.
-
-         DISABLED: Not compatible with our tracking of line numbers. We need to find a different way.
-      *)
-(*       YkBuf.step_back ykb; *)
+      (* There was no succesful scan of the last element (token, byte,
+         etc.), so we backtrack by one to ensure proper error
+         reporting -- specifically, that the penultimate element is
+         reported as at fault, rather than the EOF. *)
+      Terms.step_back ykb;
                    if Logging.activated then begin if Logging.features_are_set Logging.Features.stats then begin
         Logging.Distributions.report ();
       end

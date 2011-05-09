@@ -30,7 +30,7 @@ let late_only_dbranch = ref true
 
 let use_dbranch = ref false
 
-let use_fsm = ref true
+let use_fsm = ref false
   (** Use FSM toolkit to build transducer; use FST otherwise. *)
 
 (* testing-related *)

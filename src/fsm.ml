@@ -19,6 +19,8 @@ Retooled for Gil.
    process, via pipes, so this file mostly converts from our internal
    transducer format to the FSM text input and output format, which is
    described in the man page fsm(5).
+
+   This also provides an interface to OpenFST, which uses the FSM format.
 *)
 
 open Yak

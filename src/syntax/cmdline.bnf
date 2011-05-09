@@ -31,6 +31,7 @@ type command =
 | Extract_cmd
 | Fuse_cmd
 | Hash_cmd
+| Infer_ty_cmd
 | Info_cmd
 | Inline_regular_cmd
 | Lexer_cmd
@@ -80,6 +81,7 @@ phases = ; these commands can be controlled by -after
       | "copyrule" o                      { Copyrule_cmd }
       | "desugar" o                       { Desugar_cmd }
       | "hash" o                          { Hash_cmd }
+      | "infer-types" o                   { Infer_ty_cmd }
       | "inline-regular" o                { Inline_regular_cmd }
       | "lexer" o                         { Lexer_cmd }
       | "lift" o                          { Lift_cmd }

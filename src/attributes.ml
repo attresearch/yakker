@@ -18,18 +18,6 @@ open Yak
 open Gul
 open Attr
 
-let get_paramtype s =
-  (* s is a parameter and type declaration, e.g., "x:int", and this extracts the type *)
-  try
-    Scanf.sscanf s "%[^:]:%[^\\000]" (fun var typ -> typ)
-  with End_of_file -> "int" (* no colon -> no type -> use int as default *)
-
-let get_param s =
-  (* s is a parameter and type declaration, e.g., "x:int", and this extracts the parameter *)
-  try
-    Scanf.sscanf s "%[^:]:%[^\\000]" (fun var typ -> var)
-  with End_of_file -> s (* no colon -> no type *)
-
 let sort = List.sort (fun (x,_) (y,_) -> compare x y) (*TEMPORARY until copyrule does this*)
 
 let combined_type default attributes =

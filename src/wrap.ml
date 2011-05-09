@@ -23,17 +23,6 @@ open Variables
 let sv_type = "_yk_t"
 let sv_unit = "Yk"^(fresh())
 
-let get_paramtype s =
-  (* s is a parameter and type declaration, e.g., "x:int", and this extracts the type *)
-  try
-    Scanf.sscanf s "%[^:]:%[^\\000]" (fun var typ -> typ)
-  with End_of_file -> "int" (* no colon -> no type -> use int as default *)
-
-let get_param s =
-  (* s is a parameter and type declaration, e.g., "x:int", and this extracts the parameter *)
-  try
-    Scanf.sscanf s "%[^:]:%[^\\000]" (fun var typ -> var)
-  with End_of_file -> s (* no colon -> no type *)
 
 let find tbl x =
   try

@@ -555,6 +555,7 @@ typestuff =
     input_attributes =  (match x with None -> []   | Some(_,attributes) -> attributes);
     early_rettype =     (match y with None -> None | Some(typ,_) -> typ);
     output_attributes = (match y with None -> []   | Some(_,attributes) -> attributes);
+    early_param_type = None;
     late_params=z;}}
 .
 early-inputs =

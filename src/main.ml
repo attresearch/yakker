@@ -54,6 +54,8 @@ let phase_order = (* preorder on phases *)
          Wrap_cmd; Attributes_cmd; Lift_cmd; Desugar_cmd; Unroll_star_cmd;
          Inline_regular_cmd; Copyrule_cmd; Hash_cmd; Minus_cmd;
          Tx_prec_cmd; Close_under_core_cmd; Subset_cmd; Lexer_cmd];
+
+        [Infer_ty_cmd; Hash_cmd];
       ])
 let phase_order_sorted = Tgraph.tsort phase_order
 let phases_of cmd =
@@ -83,6 +85,7 @@ let phases_of cmd =
     | Desugar_cmd
     | Lift_cmd
     | Attributes_cmd
+    | Infer_ty_cmd
     | Wrap_cmd               -> Print_gul_cmd::phases
 
     | Dispatch_cmd
@@ -348,6 +351,8 @@ let do_phases gr =
             Analyze.assignments gr;
             let skipped_labels = Replay.transform gr in
             Dispatch.transform gr skipped_labels)
+      | Infer_ty_cmd ->
+          do_phase "inferring types" (fun () -> Ty_infer.infer gr)
       | Fuse_cmd ->
           if !Compileopt.coalesce then
             do_phase "coalescing actions" (fun () -> Fusion.fuse_gil gr)

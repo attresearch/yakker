@@ -81,8 +81,11 @@ and pr_rule f r =
   (match r.r with
   | Action(None,None) -> pr_rule f (mkLIT "")
   | Action(early,late) ->
-      (match early with None -> () | Some x -> bprintf f "@{%s}" x);
-      (match late with None -> () | Some x -> bprintf f "{%s}" x)   (* Omit the $ for brevity *)
+      Util.option ()
+        (fun x -> bprintf f "@{%s}" x;
+           Util.option () (bprintf f ":%s") r.a.inf_type)
+        early;
+      Util.option () (fun x -> bprintf f "{%s}" x) late   (* Omit the $ for brevity *)
   | When x ->
       bprintf f "@when(%s)" x
   | DBranch (e, c) ->
@@ -114,7 +117,8 @@ and pr_rule f r =
              (String.concat ";" (List.map (fun (var,exp) -> var^"="^exp) z)));
        (match w with None -> ()
        | Some late_args ->
-           bprintf f "$(%s)" late_args))
+           bprintf f "$(%s)" late_args));
+      Util.option () (bprintf f ":%s") r.a.inf_type;
   | CharRange(low,high) ->
       bprintf f "%s" (Cs.to_string (Cs.range low (high+1)))
 (*
@@ -137,8 +141,14 @@ and pr_rule f r =
         pr_maybe_group f r2 r left
       else
         pr_bound_rule f r2;
-      (match early with None -> () | Some v ->  bprintf f "@%s" v);
-      (match late with None -> () | Some v ->  bprintf f "$%s" v);
+      Util.option ()
+        begin fun v ->
+          match r.a.inf_type with
+            | None -> bprintf f "@%s" v
+            | Some ty -> bprintf f "@(%s:%s)" v ty
+        end
+        early;
+      Util.option () (bprintf f "$%s") late;
       bprintf f " ";
       pr_maybe_group f r3 r right
   | Assign(r2,early,late) ->
@@ -147,8 +157,8 @@ and pr_rule f r =
         pr_maybe_group f r2 r left
       else
         pr_bound_rule f r2;
-      (match early with None -> () | Some v ->  bprintf f ">@%s)" v);
-      (match late with None -> () | Some v ->  bprintf f ">$%s)" v)
+      Util.option () (bprintf f ">@%s)") early;
+      Util.option () (bprintf f ">$%s)") late;
   | Alt(r2,r3) ->
       pr_maybe_group f r2 r left;
       bprintf f "|";
@@ -164,8 +174,12 @@ and pr_rule f r =
       pr_maybe_group f r2 r right
   | Star(Accumulate(early,late),r2) ->
       bprintf f "*";
-      (match early with None -> () | Some(x,e) -> bprintf f "@[%s=%s]" x e);
-      (match late with None -> () | Some(x,e) -> bprintf f "$[%s=%s]" x e);
+      Util.option ()
+        (fun (x,e) -> match r.a.inf_type with
+           | None -> bprintf f "@[%s=%s]" x e
+           | Some ty -> bprintf f "@[%s:%s=%s]" x ty e)
+        early;
+      Util.option () (fun (x,e) -> bprintf f "$[%s=%s]" x e) late;
       pr_maybe_group f r2 r right
   | Hash(Bounds(m,Num(n)),r2) ->
       if (m = 0) then bprintf f "#%d" n
@@ -190,14 +204,18 @@ and pr_rule f r =
 let pr_definition f = function
   | RuleDef(n,r,a) -> begin
       bprintf f "%s" n;
-      (match a.early_params,a.input_attributes with
-          None,[]   -> ()
-      |   None,y ->
+      (match a.early_params, a.early_param_type, a.input_attributes with
+          None,_,[]   -> ()
+      |   None,_,y ->
           bprintf f "@(;%s)"
             (String.concat ";" (List.map (fun (var,typ) -> var^":"^typ) y))
-      | Some x,[]   -> bprintf f "@(%s)" x
-      | Some x,y ->
+      | Some x,None,[]   -> bprintf f "@(%s)" x
+      | Some x,Some ty,[]   -> bprintf f "@(%s:%s)" x ty
+      | Some x,None,y ->
           bprintf f "@(%s;%s)" x
+            (String.concat ";" (List.map (fun (var,typ) -> var^":"^typ) y))
+      | Some x,Some ty,y ->
+          bprintf f "@(%s:%s;%s)" x ty
             (String.concat ";" (List.map (fun (var,typ) -> var^":"^typ) y)));
       (match a.early_rettype,a.output_attributes with
           None,[]   -> ()

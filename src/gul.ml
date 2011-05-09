@@ -32,6 +32,9 @@ type annot = { mutable css: Cs.t option;
                mutable early_assignments: var PSet.t;
                mutable late_assignments: var PSet.t;
                mutable precedence : prec_annotation;
+               inf_type : ty option
+                 (** inferred type. It does *not* necessarily refer to the entire
+                     rhs. Rather, its meaning is rhs-dependent. *)
              }
 
 type 'expr boxnull = 'expr Gil.boxnull =
@@ -67,22 +70,13 @@ and rhs0 =
   | Hash of looper * rhs
   | Lookahead of bool * rhs
 
-let dupAnnot a =
-  { css = a.css;
-    early_relevant = a.early_relevant;
-    late_relevant = a.late_relevant;
-    pre = a.pre;
-    post = a.post;
-    is_regular = a.is_regular;
-    early_assignments=a.early_assignments;
-    late_assignments=a.late_assignments;
-    precedence = a.precedence;
-  }
+let dupAnnot a = {a with css=a.css } (* specify one field b/c syntax doesn't let us specify none. however, we just chose that one arbitrarily. All fields are duplicated.*)
 
 let rec mkAnnot = function
   | None -> {css = None; early_relevant = false; late_relevant = false;
            pre = 0; post = 0; is_regular = false; precedence = Default_prec;
-           early_assignments=PSet.empty;late_assignments=PSet.empty}
+           early_assignments=PSet.empty;late_assignments=PSet.empty;
+           inf_type = None;}
   | Some r -> let a = dupAnnot r.a in a.css <- None; a
 
 let dupRule r = {a=dupAnnot r.a;r=r.r}
@@ -112,6 +106,7 @@ and copyRule r = {a=dupAnnot r.a;r= copy_b r.r}
 
 module Attr = struct
   type t = {mutable early_params: string option;
+            early_param_type: string option;
             mutable early_rettype: string option;
             mutable late_params: string option;
             mutable input_attributes: (var * string) list;  (* attribute name x type *)
@@ -124,6 +119,7 @@ let mkAttr() = {Attr.
                 late_params=None;
                 input_attributes=[];
                 output_attributes=[];
+                early_param_type = None;
                }
 
 type text =
@@ -220,6 +216,18 @@ let add_to_prologue gr s =
 let add_to_epilogue gr s =
   gr.epilogue <- (Ocaml s)::gr.epilogue
 
+(** [s] is a parameter and type declaration, e.g., "x:int", and this extracts the type *)
+let get_paramtype s =
+  try
+    Scanf.sscanf s "%[^:]:%[^\\000]" (fun var typ -> typ)
+  with End_of_file -> "int" (* no colon -> no type -> use int as default *)
+
+(** s is a parameter and type declaration, e.g., "x:int", and this extracts the parameter *)
+let get_param s =
+  try
+    Scanf.sscanf s "%[^:]:%[^\\000]" (fun var typ -> var)
+  with End_of_file -> s (* no colon -> no type *)
+
 (* rhs constructors *)
 let mkRHS r          = {r = r; a = mkAnnot None}
 
@@ -229,7 +237,6 @@ let mkSYMB(s,e,l)     = mkRHS(Symb(s,e,[],l))
 let mkSYMB2(s,e,a,l)  = mkRHS(Symb(s,e,a,l))
 let mkACTION(e)       = mkRHS(Action(Some e,None))
 let mkACTION2(e,l)    = mkRHS(Action(e,l))
-let mkSEQ2(r1,x,y,r2) = mkRHS(Seq(r1,x,y,r2))
 let mkASSIGN(r,x,y)   = mkRHS(Assign(r,x,y))
 let mkCHARRANGE(m,n)  = mkRHS(CharRange(m,n))
 let mkPROSE(s)        = mkRHS(Prose(s))
@@ -246,6 +253,7 @@ let mkDELAY(e,topt)   = mkRHS(Delay(e,topt))
 let mkDBRANCH(e,c)   = mkRHS(DBranch(e,c))
 let mkBOX(e,topt,n)   = mkRHS(Box(e,topt,n))
 
+
 let rec mkSEQ = function [] -> mkLIT ""
   | [r] -> r
   | r::rs ->
@@ -260,7 +268,40 @@ let mkALT = function [] -> mkLIT ""  (* TODO: mkALT [] should probably match not
         r
         rs
 
+let mkSEQ2(r1,x,y,r2) = mkRHS(Seq(r1,x,y,r2))
 let mkALT2 (x,y) = mkALT[x;y]
+
+(** A curried formulation of the constructor functions above. *)
+module Curried_constructors = struct
+ let mkLIT s           = mkRHS(Lit(!Compileopt.case_sensitive,s))
+ let mkPOSITION m      = mkRHS(Position m)
+ let mkSYMB s e l      = mkRHS(Symb(s,e,[],l))
+ let mkSYMB2 s e a l   = mkRHS(Symb(s,e,a,l))
+ let mkACTION e        = mkRHS(Action(Some e,None))
+ let mkACTION2 e l     = mkRHS(Action(e,l))
+ let mkASSIGN r x y    = mkRHS(Assign(r,x,y))
+ let mkCHARRANGE m n   = mkRHS(CharRange(m,n))
+ let mkPROSE s         = mkRHS(Prose(s))
+ let mkLOOKAHEAD b r   = mkRHS(Lookahead(b,r))
+ let mkOPT r           = mkRHS(Opt(r))
+ let mkRCOUNT c r      = mkRHS(Rcount(c,r))
+ let mkSTAR m n r      = mkRHS(Star(Bounds(m,n),r)) (* Omits optimization *[r] --> *r for now, see bnf.cyc *)
+ let mkSTAR2 a r       = mkRHS(Star(a,r))
+ let mkHASH m n r      = mkRHS(Hash(Bounds(m,n),r))
+ let mkHASH2 a r       = mkRHS(Hash(a,r))
+ let mkMINUS r1 r2     = mkRHS(Minus(r1,r2))
+ let mkWHEN e          = mkRHS(When(e))
+ let mkDELAY e topt    = mkRHS(Delay(e,topt))
+ let mkDBRANCH e c     = mkRHS(DBranch(e,c))
+ let mkBOX e topt n    = mkRHS(Box(e,topt,n))
+
+ (* leave these abbreviations here just for completeness. *)
+ let mkSEQ = mkSEQ
+ let mkALT = mkALT
+
+ let mkSEQ2 r1 x y r2  = mkRHS(Seq(r1,x,y,r2))
+ let mkALT2 x y = mkALT[x;y]
+end
 
 (* Convert binary Alt representation to list of alternatives *)
 let alt2rules =
@@ -474,6 +515,101 @@ let fold f_ind2 f_ind1 f_base r =
     | Minus (r1, r2) | Alt (r1,r2) | Seq (r1,_,_,r2)
         -> f_ind2 (loop r1) (loop r2) in
   loop r
+
+type map_funs = {
+  m_base : rhs -> rhs;
+  m_opt : rhs -> rhs;
+  m_seq : rhs -> var option -> var option -> rhs -> rhs;
+  m_assign : rhs -> var option -> var option -> rhs;
+  m_alt : rhs -> rhs -> rhs;
+  m_minus : rhs -> rhs -> rhs;
+  m_rcount : expr -> rhs -> rhs;
+  m_star : looper -> rhs -> rhs;
+  m_hash : looper -> rhs -> rhs;
+(*   m_lookahead : bool -> rhs -> rhs; *)
+}
+
+let default_map = {
+  m_base = (fun x -> x);
+  m_opt = Curried_constructors.mkOPT;
+  m_seq = Curried_constructors.mkSEQ2;
+  m_assign = Curried_constructors.mkASSIGN;
+  m_alt = Curried_constructors.mkALT2;
+  m_minus = Curried_constructors.mkMINUS;
+  m_rcount = Curried_constructors.mkRCOUNT;
+  m_star = Curried_constructors.mkSTAR2;
+  m_hash = Curried_constructors.mkHASH2;
+(*   m_lookahead = Curried_constructors.mkLOOKAHEAD; *)
+}
+
+(** generic map -- map with all inductive cases specified separately
+    Lookahead is treated as a base case. *)
+let map funs r =
+  let rec loop r = match r.r with
+    | Symb _ | Lit _ | Position _
+    | CharRange _ | Prose _ | Action _
+    | Box _ | Delay _ | When _
+    | DBranch _ | Lookahead _
+        -> funs.m_base r
+    | Opt r1 -> funs.m_opt (loop r1)
+    | Seq (r1,e,l,r2) -> funs.m_seq (loop r1) e l (loop r2)
+    | Assign (r1, v1, v2) -> funs.m_assign (loop r1) v1 v2
+    | Alt (r1,r2) -> funs.m_alt (loop r1) (loop r2)
+    | Minus (r1, r2) -> funs.m_minus (loop r1) (loop r2)
+    | Rcount (e, r1) -> funs.m_rcount e (loop r1)
+    | Star (l, r1) -> funs.m_star l (loop r1)
+    | Hash (l, r1) -> funs.m_hash l (loop r1) in
+  loop r
+
+(* fold: f1:(... -> 'a) -> ... fn:(... -> 'a) -> T -> 'a *)
+type 'a fold_funs = {
+  f_base : rhs -> 'a;
+  f_opt : 'a -> 'a;
+  f_seq : 'a -> var option -> var option -> 'a -> 'a;
+  f_assign : 'a -> var option -> var option -> 'a;
+  f_alt : 'a -> 'a -> 'a;
+  f_minus : 'a -> 'a -> 'a;
+  f_rcount : expr -> 'a -> 'a;
+  f_star : looper -> 'a -> 'a;
+  f_hash : looper -> 'a -> 'a;
+(*   f_lookahead : bool -> 'a -> 'a; *)
+}
+
+(* force a match failure with proper.*)
+let fail_case _ = failwith "impossible"
+
+let default_fold = {
+  f_base = fail_case;
+  f_opt = fail_case;
+  f_seq = fail_case;
+  f_assign = fail_case;
+  f_alt = fail_case;
+  f_minus = fail_case;
+  f_rcount = fail_case;
+  f_star = fail_case;
+  f_hash = fail_case;
+(*   f_lookahead = fail_case; *)
+}
+
+(** generic fold -- all inductive cases specified separately
+    Lookahead is treated as a base case. *)
+let gfold funs r =
+  let rec loop r = match r.r with
+    | Symb _ | Lit _ | Position _
+    | CharRange _ | Prose _ | Action _
+    | Box _ | Delay _ | When _
+    | DBranch _ | Lookahead _
+        -> funs.f_base r
+    | Opt r1 -> funs.f_opt (loop r1)
+    | Seq (r1,e,l,r2) -> funs.f_seq (loop r1) e l (loop r2)
+    | Assign (r1, v1, v2) -> funs.f_assign (loop r1) v1 v2
+    | Alt (r1,r2) -> funs.f_alt (loop r1) (loop r2)
+    | Minus (r1, r2) -> funs.f_minus (loop r1) (loop r2)
+    | Rcount (e, r1) -> funs.f_rcount e (loop r1)
+    | Star (l, r1) -> funs.f_star l (loop r1)
+    | Hash (l, r1) -> funs.f_hash l (loop r1) in
+  loop r
+
 
 (** Perform a fold with propogation of information from left-to-right,
     in addition to standard bottom-to-top. Output of left sibling is

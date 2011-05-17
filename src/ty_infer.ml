@@ -21,7 +21,7 @@ open Gul
 
 let unit_ty = "unit"
 let int_ty = "int"
-let fresh_tyvar () = "'" ^ Variables.fresh ()
+let fresh_tyvar () = "'yk" ^ Variables.fresh ()
 let is_tyvar x = String.length x > 1 && x.[0] = '\''
 
 
@@ -50,7 +50,7 @@ let subs_lookup (s : substitution) x : uterm option =
   try Some (List.assoc x s) with Not_found -> None
 
 let subs_print s =
-  List.iter (fun (x,t) -> Printf.printf "   %s -> %s\n" x (string_of_uterm t)) s
+  List.iter (fun (x,t) -> Printf.eprintf "   %s -> %s\n" x (string_of_uterm t)) s
 
 (** Expand the substitution [s] once with itself. *)
 let subs_expand_once s =
@@ -133,8 +133,8 @@ module C = Context
 let ty_annot r ty = {r with a = {r.a with inf_type = Some ty}}
 
 let inf_ty_of_expr (g : C.t) e = fresh_tyvar ()
-let nonterm_tyvar nt = "'_" ^ Variables.bnf2ocaml nt ^ "_result"
-let nonterm_arg_tyvar nt = "'_" ^ Variables.bnf2ocaml nt ^ "_arg"
+let nonterm_tyvar nt = "'yk_" ^ Variables.bnf2ocaml nt ^ "_result"
+let nonterm_arg_tyvar nt = "'yk_" ^ Variables.bnf2ocaml nt ^ "_arg"
 
 
 let elaborate g r =
@@ -261,7 +261,7 @@ let debug gr =
     gr.ds in
   gr.ds <- ds
 
-let infer gr =
+let infer print_subs gr =
   let cs, ds = List.split begin
     List.map
       (function
@@ -284,8 +284,11 @@ let infer gr =
   let s = match unify c with
     | UFailure (t1,t2) -> failwith "constraint-solving failed"
     | USuccess s -> subs_expand s in
-  Printf.printf "\nSubstitution:\n";
-  subs_print s;
+  if print_subs then
+    begin
+      Printf.eprintf "\nSubstitution:\n";
+      subs_print s;
+    end;
   let ds =
     List.map begin function
       | RuleDef(nt, r, a) ->

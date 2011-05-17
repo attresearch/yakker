@@ -11,7 +11,7 @@
 
 open Yak
 open Gul
-open Cmdline
+open Cmdline;;
 
 let phase_order = (* preorder on phases *)
   let rec add g = function
@@ -55,7 +55,7 @@ let phase_order = (* preorder on phases *)
          Inline_regular_cmd; Copyrule_cmd; Hash_cmd; Minus_cmd;
          Tx_prec_cmd; Close_under_core_cmd; Subset_cmd; Lexer_cmd];
 
-        [Infer_ty_cmd; Hash_cmd];
+        [Dearrow_cmd; Infer_ty_cmd; Lift_cmd];
       ])
 let phase_order_sorted = Tgraph.tsort phase_order
 let phases_of cmd =
@@ -89,6 +89,7 @@ let phases_of cmd =
     | Wrap_cmd               -> Print_gul_cmd::phases
 
     | Dispatch_cmd
+    | Dearrow_cmd
     | Fuse_cmd               -> Print_gil_cmd::phases
 
     | _                      -> phases in
@@ -117,6 +118,23 @@ let core =
   with e ->
     Printf.eprintf "Internal error: exception %s when parsing core rules\n%!" (Printexc.to_string e);
     raise e
+
+(** @raise [Failure], if failure occurs in attempting to retrieve type information or parse is ambiguous. *)
+let get_type_info path name =
+  let res =
+    try Util.pipe_in_out_result
+      (Printf.sprintf "ocamlc -I %S -i -impl /dev/stdin" path)
+      (fun w -> Printf.fprintf w " let x = List.hd (snd (List.hd %s.program));;\n" name)
+      (* There is a space before the let, because, for some reason, the first byte of the file is eaten in this
+         process. not connected to Util.pipe_in_out_result -- happens if I
+         do the same using echo to send the command to ocamlc -i. *)
+      Tyspec.parse_channel
+    with _ -> failwith "Failure occurred while attempting to retrieve type information." in
+  match res with
+    | [] -> Util.impossible "Tyspec.parse_channel must return at least on result (or raise an exception)."
+    | [x] -> x
+    | _ -> Util.error Util.Sys_warn "Ambiguous parse of type information."; failwith "Ambigous parse of input."
+
 
 let try_fsm f gr = (* FSM version *)
   Util.pipe_in_out
@@ -207,22 +225,26 @@ let parse = Yak.Pami.mk_parse_fun __parse %s
 let parse_string = Yak.Pami.Simple.parse_string parse\n;;\n"in
   add_to_epilogue gr (boilerplate_vary ^ boilerplate_shared)
 
-let do_compile gr =
+let print_prologue ch gr =
+  List.iter begin function
+    | Ocaml x ->
+        Printf.fprintf ch "%s" x
+    | _ -> failwith "Non-ocaml blob in prologue"
+  end
+    (List.rev gr.prologue)
+
+let print_epilogue ch gr =
+  List.iter begin function
+    | Ocaml x ->
+        Printf.fprintf ch "%s" x
+    | _ -> failwith "Non-ocaml blob in epilogue"
+  end
+    gr.epilogue
+
+let do_compile emit_epilogue gr =
   do_phase "compiling to backend" begin fun () ->
-    let print_prologue () =
-      List.iter begin function
-        | Ocaml x ->
-            Printf.fprintf !outch "%s" x
-        | _ -> failwith "Non-ocaml blob in prologue"
-      end
-        (List.rev gr.prologue) in
-    let print_epilogue () =
-      List.iter begin function
-        | Ocaml x ->
-            Printf.fprintf !outch "%s" x
-        | _ -> failwith "Non-ocaml blob in epilogue"
-      end
-        gr.epilogue in
+    let print_prologue () = print_prologue !outch gr in
+    let print_epilogue () = print_epilogue !outch gr in
 
     (match backend with
     | Fun_BE ->
@@ -240,7 +262,11 @@ let do_compile gr =
         gil_transducer gr.gildefs);
 
     add_boilerplate backend gr;
-    print_epilogue ()
+
+    if emit_epilogue then
+      begin
+        print_epilogue ()
+      end;
   end
 
 let do_phases gr =
@@ -307,16 +333,20 @@ let do_phases gr =
             Analyze.relevance gr;
             Attributes.eliminate gr)
       | Wrap_cmd ->
-          do_phase "wrapping" (fun () ->
-            Analyze.producers gr;
-            Analyze.relevance gr;
-            if gr.grammar_early_relevant then begin
-              Wrap.wrap gr; Analyze.relevance gr;
-            end;
-            if gr.grammar_early_relevant || gr.grammar_late_relevant then begin
-              Wrap.force_alt_relevance gr; Analyze.relevance gr;
-            end;
-            Wrap.transform_history gr)
+          do_phase "wrapping" begin fun () ->
+            if !Compileopt.use_coroutines then
+              begin
+                Analyze.producers gr;
+                Analyze.relevance gr;
+                if gr.grammar_early_relevant then begin
+                  Wrap.wrap gr; Analyze.relevance gr;
+                end;
+                if gr.grammar_early_relevant || gr.grammar_late_relevant then begin
+                  Wrap.force_alt_relevance gr; Analyze.relevance gr;
+                end;
+                Wrap.transform_history gr
+              end
+          end
       | Print_relevance_cmd ->
           let outc = !outch in
           Analyze.producers gr;
@@ -338,41 +368,101 @@ let do_phases gr =
       | Print_gul_cmd ->
           Pr.pr_grammar stdout gr
       | Dispatch_cmd ->
-          do_phase "dispatching" (fun () ->
-            Analyze.producers gr;
-            Analyze.relevance gr;
-            if !Compileopt.use_dbranch then
-              Label.transform2 gr
-            else
-              Label.transform gr;
-            if !Compileopt.check_labels then
-              add_to_prologue gr
-                "let _i (x,y) = if x=y then y else failwith(Printf.sprintf \"_i expected %d, got %d\" x y)\n";
-            Analyze.assignments gr;
-            let skipped_labels = Replay.transform gr in
-            Dispatch.transform gr skipped_labels)
+          do_phase "dispatching" begin fun () ->
+            if !Compileopt.use_coroutines then
+              begin
+                Analyze.producers gr;
+                Analyze.relevance gr;
+                if !Compileopt.use_dbranch then
+                  Label.transform2 gr
+                else
+                  Label.transform gr;
+                if !Compileopt.check_labels then
+                  add_to_prologue gr
+                    "let _i (x,y) = if x=y then y else failwith(Printf.sprintf \"_i expected %d, got %d\" x y)\n";
+                Analyze.assignments gr;
+                let skipped_labels = Replay.transform gr in
+                Dispatch.transform gr skipped_labels
+              end
+            else begin
+               Ty_infer.infer false gr;
+               Dearrow.transform gr
+            end
+          end
       | Infer_ty_cmd ->
-          do_phase "inferring types" (fun () -> Ty_infer.infer gr)
+          do_phase "inferring types" (fun () -> Ty_infer.infer true gr)
+      | Dearrow_cmd ->
+          do_phase "desugaring arrow notation" (fun () -> Dearrow.transform gr)
       | Fuse_cmd ->
           if !Compileopt.coalesce then
             do_phase "coalescing actions" (fun () -> Fusion.fuse_gil gr)
       | Compile_cmd ->
-          do_compile gr
+          if !Compileopt.use_coroutines then
+            do_compile true gr
+          else
+            begin
+              (* redirect output to a temporary file *)
+              let (temp_file_name, temp_chan) = Filename.open_temp_file "yakker" ".ml" in
+
+              let module_name = Util.module_name_of_filename temp_file_name in
+
+              outch := temp_chan;
+
+              (* Compile without printing the epilogue. We save that for later. *)
+              do_compile false gr;
+
+              (* make sure compiled output is flushed *)
+              close_out temp_chan;
+
+              (* have ocaml compile the output *)
+              (* need to pass -I flag so that ocaml can find yakker.cmi etc. *)
+              (* currently the Makefile stashes this in buildinfo.ml, the build_dir
+                 is where those files end up during the build.
+                 TODO: eventually this ought to be the install location *)
+              let command = Printf.sprintf "ocamlc -c -I \"%s\" unix.cma yak.cma %s" Buildinfo.build_dir temp_file_name in
+              (match Unix.system command with
+                   Unix.WEXITED x ->   () (* Printf.eprintf "ocaml exited with %d\n%!" x        *)
+                 | Unix.WSIGNALED x -> () (* Printf.eprintf "ocaml exited with signal %d\n%!" x *)
+                 | Unix.WSTOPPED x ->  () (* Printf.eprintf "ocaml stopped with %d\n%!" x       *)
+              );
+
+              (* Generate sv-related type definitions. *)
+              let (n, tyargs) = get_type_info Filename.temp_dir_name module_name in
+              let abstract_ty_defs = Util.list_make n (Printf.sprintf "type %s%d\n" Tyspec.tyvar_prefix) in
+              let sv_ty_def = "type sv = " ^ tyargs ^ " _sv\n" in
+              add_to_epilogue gr sv_ty_def;
+              add_many_to_epilogue gr abstract_ty_defs;
+
+              (* Output epilogue. *)
+              let ch = open_out_gen [Open_append] 0o600 temp_file_name in
+              print_epilogue ch gr;
+              close_out ch;
+
+              (* Copy generated file to stdout *)
+              let ch = open_in temp_file_name in
+              Util.file_copy ch stdout;
+              close_in ch;
+
+              (* clean up temp file *)
+              Sys.remove temp_file_name
+            end
 
       | Exec_cmd ->
           begin
             (* If the commands come with no epilogue, default to parsing the start symbol. *)
             if gr.epilogue=[] then
               add_to_epilogue gr "Yak.Pami.Simple.run parse_file";
+
             (* redirect output to a temporary file *)
-            let (temp_file_name,temp_chan) = Filename.open_temp_file "yakker" ".ml" in
+            let (temp_file_name, temp_chan) = Filename.open_temp_file "yakker" ".ml" in
 
             outch := temp_chan;
 
-            do_compile gr;
+            do_compile true gr;
 
             (* make sure compiled output is flushed *)
             close_out temp_chan;
+
             (* have ocaml execute the output *)
             (* need to pass -I flag so that ocaml can find yakker.cmi etc. *)
             (* currently the Makefile stashes this in buildinfo.ml, the build_dir
@@ -388,6 +478,7 @@ let do_phases gr =
             (* clean up temp file *)
             Sys.remove temp_file_name
           end
+
       | Dot_cmd ->
           gil_dot gr.gildefs
       | Print_gil_cmd ->

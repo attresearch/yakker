@@ -35,6 +35,10 @@ type label = int
 
 type lookahead_spec =
   | CfgLA of label * nonterm
+      (** "Context-free" lookahead. Somewhat of an oxymoron. Just means
+          that no values from the grammar flow in -- but the position
+          and the input do and the nonterm specified can be
+          context-sensitive internally. *)
   | CsLA of Cs.t (** character-set lookahead *)
 
 let min_nonterm = 264

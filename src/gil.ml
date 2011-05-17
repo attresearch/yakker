@@ -21,20 +21,28 @@ type 'expr boxnull =
   | Runpred_null of 'expr (* run separate predicate to determine if box accepts null *)
 
 type 'expr rhs =
-    Symb of nonterminal * 'expr option * 'expr option
+    Symb of nonterminal
+         * 'expr option                 (* call function *)
+         * 'expr option                 (* merge functiono *)
   | Lit of bool * string              (* true iff case sensitive *)
   | CharRange of int * int
   | Action of 'expr
   | Box of 'expr * 'expr boxnull
-  | DBranch of 'expr * constr * 'expr
-      (** A deterministic branch on a constructor,
+  | DBranch of 'expr                    (** generating expression *)
+      * constr                          (** constructor information (means different things depending on
+                                            whether late_branch_only is on) *)
+      * 'expr                           (** branch function (unused when late_branch_only is on). *)
+      (** A deterministic branch on a datatype value,
           annotated with its type's wrap constructor. *)
   | When of 'expr * 'expr
   | When_special of 'expr   (* Used for inlining nullability predicates. *)
   | Seq of 'expr rhs * 'expr rhs
   | Alt of 'expr rhs * 'expr rhs
   | Star of 'expr rhs
-  | Lookahead of bool * 'expr rhs
+  | Lookahead of bool          (** flag indicating whether or not the rhs is
+                                   expected to succeed. *)
+      * 'expr rhs              (** Currently limited to character sets
+                                   or argument-free symbols. *)
 
 let charrange2alt low high =
   let rec loop i alt =

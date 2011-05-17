@@ -195,7 +195,7 @@ let get (start:int) ykb =
   Some(0,(ykb.buf.lex_curr_p))
 end
 # 2 "/var/folders/-C/-C4HD7Ho2RaVDk+F75Lr4++++TI/-Tmp-/yakkerdee5d8.mll"
-   
+
   let int_of_string x =
     (try int_of_string x with _ -> Printf.eprintf "FAILED INT_OF_STRING: %s\n%!" x; 0)
   type tok =
@@ -246,10 +246,10 @@ end
   | ATID of string
   | DOLLARID of string
   | ID of string
-  
+
 # 55 "/var/folders/-C/-C4HD7Ho2RaVDk+F75Lr4++++TI/-Tmp-/yakker3c5d5bml"
 let __ocaml_lex_tables = {
-  Lexing.lex_base = 
+  Lexing.lex_base =
    "\000\000\081\000\156\000\116\000\225\000\064\001\230\255\016\000\
     \233\255\234\255\235\255\236\255\238\255\126\001\184\001\241\255\
     \242\255\243\255\244\255\245\255\246\255\247\255\248\255\249\255\
@@ -270,7 +270,7 @@ let __ocaml_lex_tables = {
     \191\030\013\031\091\031\231\255\213\255\212\255\182\031\208\255\
     \209\255\210\255\169\000\189\000\063\002\005\032\079\000\095\000\
     \093\000\124\000\015\032\041\032\079\032\102\032";
-  Lexing.lex_backtrk = 
+  Lexing.lex_backtrk =
    "\255\255\049\000\048\000\255\255\044\000\255\255\255\255\023\000\
     \255\255\255\255\255\255\255\255\255\255\016\000\015\000\255\255\
     \255\255\255\255\255\255\255\255\255\255\255\255\255\255\255\255\
@@ -291,7 +291,7 @@ let __ocaml_lex_tables = {
     \051\000\051\000\028\000\255\255\255\255\255\255\255\255\255\255\
     \255\255\255\255\255\255\001\000\255\255\000\000\255\255\001\000\
     \255\255\000\000\255\255\001\000\255\255\000\000";
-  Lexing.lex_default = 
+  Lexing.lex_default =
    "\255\255\255\255\255\255\255\255\255\255\255\255\000\000\255\255\
     \000\000\000\000\000\000\000\000\000\000\255\255\255\255\000\000\
     \000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\
@@ -312,7 +312,7 @@ let __ocaml_lex_tables = {
     \255\255\255\255\255\255\000\000\000\000\000\000\255\255\000\000\
     \000\000\000\000\255\255\255\255\255\255\255\255\255\255\255\255\
     \255\255\255\255\255\255\255\255\255\255\255\255";
-  Lexing.lex_trans = 
+  Lexing.lex_trans =
    "\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\
     \000\000\027\000\029\000\029\000\027\000\028\000\032\000\036\000\
     \042\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\
@@ -1382,7 +1382,7 @@ let __ocaml_lex_tables = {
     \000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\
     \000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\
     \000\000\000\000\000\000\000\000\000\000\000\000\000\000";
-  Lexing.lex_check = 
+  Lexing.lex_check =
    "\255\255\255\255\255\255\255\255\255\255\255\255\255\255\255\255\
     \255\255\000\000\000\000\028\000\000\000\000\000\031\000\035\000\
     \041\000\255\255\255\255\255\255\255\255\255\255\255\255\255\255\
@@ -2452,7 +2452,7 @@ let __ocaml_lex_tables = {
     \255\255\255\255\255\255\255\255\255\255\255\255\255\255\255\255\
     \255\255\255\255\255\255\255\255\255\255\255\255\255\255\255\255\
     \255\255\255\255\255\255\255\255\255\255\255\255\255\255";
-  Lexing.lex_base_code = 
+  Lexing.lex_base_code =
    "\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\
     \000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\
     \000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\
@@ -2473,7 +2473,7 @@ let __ocaml_lex_tables = {
     \000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\
     \000\000\000\000\021\000\046\000\000\000\000\000\031\000\033\000\
     \000\000\000\000\056\000\079\000\000\000\000\000";
-  Lexing.lex_backtrk_code = 
+  Lexing.lex_backtrk_code =
    "\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\
     \000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\
     \000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\
@@ -2494,7 +2494,7 @@ let __ocaml_lex_tables = {
     \000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\
     \000\000\000\000\000\000\000\000\000\000\039\000\000\000\000\000\
     \000\000\039\000\000\000\000\000\000\000\039\000";
-  Lexing.lex_default_code = 
+  Lexing.lex_default_code =
    "\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\
     \000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\
     \000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\
@@ -2515,7 +2515,7 @@ let __ocaml_lex_tables = {
     \000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\
     \000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\
     \000\000\000\000\000\000\000\000\000\000\000\000";
-  Lexing.lex_trans_code = 
+  Lexing.lex_trans_code =
    "\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\
     \000\000\001\000\000\000\000\000\000\000\000\000\000\000\000\000\
     \000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\
@@ -2559,7 +2559,7 @@ let __ocaml_lex_tables = {
     \000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\
     \000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\
     ";
-  Lexing.lex_check_code = 
+  Lexing.lex_check_code =
    "\255\255\255\255\255\255\255\255\255\255\255\255\255\255\255\255\
     \255\255\025\000\038\000\255\255\255\255\038\000\255\255\255\255\
     \255\255\255\255\255\255\255\255\255\255\255\255\255\255\255\255\
@@ -2603,7 +2603,7 @@ let __ocaml_lex_tables = {
     \255\255\255\255\255\255\255\255\255\255\255\255\255\255\255\255\
     \255\255\255\255\255\255\255\255\255\255\255\255\255\255\255\255\
     ";
-  Lexing.lex_code = 
+  Lexing.lex_code =
    "\255\004\255\255\005\255\255\007\255\006\255\255\003\255\000\004\
     \001\005\255\007\255\255\006\255\007\255\255\000\004\001\005\003\
     \006\002\007\255\001\255\255\000\001\255";
@@ -3006,14 +3006,14 @@ let
 ;;
 
 # 139 "/var/folders/-C/-C4HD7Ho2RaVDk+F75Lr4++++TI/-Tmp-/yakkerdee5d8.mll"
-   
+
   let token = Yak.YkBuf.wrap_ocamllex tok
   let token_peek = Yak.YkBuf.peek_ocamllex tok
 
   let dec_range = Yak.YkBuf.wrap_ocamllex dec_range
   let bin_range = Yak.YkBuf.wrap_ocamllex bin_range
   let hex_range = Yak.YkBuf.wrap_ocamllex hex_range
-  
+
 # 2822 "/var/folders/-C/-C4HD7Ho2RaVDk+F75Lr4++++TI/-Tmp-/yakker3c5d5bml"
 type _yk_t =
 | Yk_x1
@@ -3100,11 +3100,11 @@ _r_rulelist(_n,_ps,ykinput) = (
  in (
  (let xs = (
  (let _x47 = (
- (let rec _x192 _x47 = 
+ (let rec _x192 _x47 =
  (match _n() with
  | Ykd_int(1417) -> (_x47)
  | _(*1418*) -> (_x192(
- (let _x46 = 
+ (let _x46 =
  (match _n() with
  | Ykd_int(1419) -> (
  (let rd = (_r_rule(_n,_ps,ykinput))
@@ -3164,14 +3164,14 @@ _r_hex_range(_n,_ps,ykinput) = (
 ))
 
  and
-_r_num_val(_n,_ps,ykinput) = 
+_r_num_val(_n,_ps,ykinput) =
  (match _n() with
  | Ykd_int(1464) -> (
  (let r = (_r_dec_range(_n,_ps,ykinput))
  in (
  (let rl = (
  (let _x50 = (
- (let rec _x199 _x50 = 
+ (let rec _x199 _x50 =
  (match _n() with
  | Ykd_int(1470) -> (_x50)
  | _(*1471*) -> (_x199(
@@ -3189,7 +3189,7 @@ _r_num_val(_n,_ps,ykinput) =
  in (
  (let rl = (
  (let _x52 = (
- (let rec _x197 _x52 = 
+ (let rec _x197 _x52 =
  (match _n() with
  | Ykd_int(1485) -> (_x52)
  | _(*1486*) -> (_x197(
@@ -3207,7 +3207,7 @@ _r_num_val(_n,_ps,ykinput) =
  in (
  (let rl = (
  (let _x54 = (
- (let rec _x195 _x54 = 
+ (let rec _x195 _x54 =
  (match _n() with
  | Ykd_int(1500) -> (_x54)
  | _(*1501*) -> (_x195(
@@ -3309,7 +3309,7 @@ _r_posn(_n,_ps,ykinput) = (
 _r_rulename(_n,_ps,ykinput) = (_r_ID(_n,_ps,ykinput))
 
  and
-_r_closed_text(_n,_ps,ykinput) = 
+_r_closed_text(_n,_ps,ykinput) =
  (match _n() with
  | Ykd_int(1587) -> (
  (let x = (_r_ID(_n,_ps,ykinput))
@@ -3321,7 +3321,7 @@ _r_closed_text(_n,_ps,ykinput) =
 ))
  )
  and
-_r_infix_op_stuff(_n,_ps,ykinput) = 
+_r_infix_op_stuff(_n,_ps,ykinput) =
  (match _n() with
  | Ykd_int(1597) -> (
  (let x = (_r_alternation(_n,_ps,ykinput))
@@ -3336,7 +3336,7 @@ _r_infix_op_stuff(_n,_ps,ykinput) =
 _r_alternation(_n,_ps,ykinput) = (
  (let x = (_r_concatenation(_n,_ps,ykinput))
  in (
- (let y = 
+ (let y =
  (match _n() with
  | Ykd_int(1610) -> (
  (let _x66 = (
@@ -3351,7 +3351,7 @@ _r_alternation(_n,_ps,ykinput) = (
 ))
 
  and
-_r_concatenation(_n,_ps,ykinput) = 
+_r_concatenation(_n,_ps,ykinput) =
  (match _n() with
  | Ykd_int(1619) -> (
  (let x = (_r_lookahead(_n,_ps,ykinput))
@@ -3367,7 +3367,7 @@ _r_concatenation(_n,_ps,ykinput) =
  | _(*1631*) -> (
  (let x = (_r_lookahead(_n,_ps,ykinput))
  in (
- (let e = 
+ (let e =
  (match _n() with
  | Ykd_int(1635) -> (
  (let _x68 = (
@@ -3378,7 +3378,7 @@ _r_concatenation(_n,_ps,ykinput) =
 ))
  | _(*1642*) -> (None)
  ) in (
- (let l = 
+ (let l =
  (match _n() with
  | Ykd_int(1644) -> (
  (let _x70 = (
@@ -3397,14 +3397,14 @@ _r_concatenation(_n,_ps,ykinput) =
 ))
  )
  and
-_r_element(_n,_ps,ykinput) = 
+_r_element(_n,_ps,ykinput) =
  (match _n() with
  | Ykd_int(1656) -> (
  (let x = (_r_rulename(_n,_ps,ykinput))
  in (
  (let p = (_r_params(_n,_ps,ykinput))
  in (
- (let z = 
+ (let z =
  (match _n() with
  | Ykd_int(1663) -> (
  (let _x72 = (
@@ -3443,7 +3443,7 @@ _r_element(_n,_ps,ykinput) =
  in ( mkWHEN x )
 ))
  | Ykd_int(1700) -> (
- (let y = 
+ (let y =
  (match _n() with
  | Ykd_int(1701) -> (
  (let _x74 = (_r_return_type(_n,_ps,ykinput))
@@ -3456,7 +3456,7 @@ _r_element(_n,_ps,ykinput) =
 ))
 ))
  | Ykd_int(1713) -> (
- (let y = 
+ (let y =
  (match _n() with
  | Ykd_int(1714) -> (
  (let _x76 = (_r_early_return(_n,_ps,ykinput))
@@ -3464,7 +3464,7 @@ _r_element(_n,_ps,ykinput) =
 ))
  | _(*1719*) -> (None)
  ) in (
- (let z = 
+ (let z =
  (match _n() with
  | Ykd_int(1721) -> (
  (let _x78 = (_r_boxnull(_n,_ps,ykinput))
@@ -3493,12 +3493,12 @@ _r_element(_n,_ps,ykinput) =
  | _(*1752*) -> (mkPOSITION false)
  )
  and
-_r_boxnull(_n,_ps,ykinput) = 
+_r_boxnull(_n,_ps,ykinput) =
  (match _n() with
  | Ykd_int(1754) -> (Never_null)
  | Ykd_int(1756) -> (Always_null)
  | _(*1758*) -> (
- (let x = 
+ (let x =
  (match _n() with
  | Ykd_int(1759) -> (
  (let _x80 = (_r_return_type(_n,_ps,ykinput))
@@ -3509,7 +3509,7 @@ _r_boxnull(_n,_ps,ykinput) =
 ))
  )
  and
-_r_params(_n,_ps,ykinput) = 
+_r_params(_n,_ps,ykinput) =
  (match _n() with
  | Ykd_int(1768) -> (
  (let t = (_r_Ocaml_until_RPAREN(_n,_ps,ykinput))
@@ -3539,7 +3539,7 @@ _r_option(_n,_ps,ykinput) = (
 ))
 
  and
-_r_lookahead(_n,_ps,ykinput) = 
+_r_lookahead(_n,_ps,ykinput) =
  (match _n() with
  | Ykd_int(1790) -> (
  (let e = (_r_repetition(_n,_ps,ykinput))
@@ -3634,7 +3634,7 @@ _r_lookahead(_n,_ps,ykinput) =
 ))
  )
  and
-_r_repetition(_n,_ps,ykinput) = 
+_r_repetition(_n,_ps,ykinput) =
  (match _n() with
  | Ykd_int(1907) -> (
  (let e = (_r_element(_n,_ps,ykinput))
@@ -3706,7 +3706,7 @@ _r_repetition(_n,_ps,ykinput) =
  )
  and
 _r_typestuff(_n,_ps,ykinput) = (
- (let x = 
+ (let x =
  (match _n() with
  | Ykd_int(1983) -> (
  (let _x82 = (_r_early_inputs(_n,_ps,ykinput))
@@ -3714,7 +3714,7 @@ _r_typestuff(_n,_ps,ykinput) = (
 ))
  | _(*1988*) -> (None)
  ) in (
- (let y = 
+ (let y =
  (match _n() with
  | Ykd_int(1990) -> (
  (let _x84 = (_r_early_outputs(_n,_ps,ykinput))
@@ -3722,7 +3722,7 @@ _r_typestuff(_n,_ps,ykinput) = (
 ))
  | _(*1995*) -> (None)
  ) in (
- (let z = 
+ (let z =
  (match _n() with
  | Ykd_int(1997) -> (
  (let _x86 = (_r_late_inputs(_n,_ps,ykinput))
@@ -3782,12 +3782,12 @@ _r_rettype(_n,_ps,ykinput) = (
 ))
 
  and
-_r_lexer_case(_n,_ps,ykinput) = 
+_r_lexer_case(_n,_ps,ykinput) =
  (match _n() with
  | Ykd_int(2043) -> (
  (let n = (_r_ID(_n,_ps,ykinput))
  in (
- (let t_opt = 
+ (let t_opt =
  (match _n() with
  | Ykd_int(2047) -> (
  (let _x88 = (_r_rettype(_n,_ps,ykinput))
@@ -3803,7 +3803,7 @@ _r_lexer_case(_n,_ps,ykinput) =
  | Ykd_int(2058) -> (
  (let n = (_r_ID(_n,_ps,ykinput))
  in (
- (let t_opt = 
+ (let t_opt =
  (match _n() with
  | Ykd_int(2062) -> (
  (let _x90 = (_r_rettype(_n,_ps,ykinput))
@@ -3816,7 +3816,7 @@ _r_lexer_case(_n,_ps,ykinput) =
  | Ykd_int(2069) -> (
  (let n = (_r_ID(_n,_ps,ykinput))
  in (
- (let t_opt = 
+ (let t_opt =
  (match _n() with
  | Ykd_int(2073) -> (
  (let _x92 = (_r_rettype(_n,_ps,ykinput))
@@ -3832,7 +3832,7 @@ _r_lexer_case(_n,_ps,ykinput) =
  | _(*2084*) -> (
  (let s = (_r_CHARVAL(_n,_ps,ykinput))
  in (
- (let t_opt = 
+ (let t_opt =
  (match _n() with
  | Ykd_int(2088) -> (
  (let _x94 = (_r_rettype(_n,_ps,ykinput))
@@ -3852,7 +3852,7 @@ _r_lexer_cases(_n,_ps,ykinput) = (
  in (
  (let tl = (
  (let _x96 = (
- (let rec _x201 _x96 = 
+ (let rec _x201 _x96 =
  (match _n() with
  | Ykd_int(2106) -> (_x96)
  | _(*2107*) -> (_x201(
@@ -3867,7 +3867,7 @@ _r_lexer_cases(_n,_ps,ykinput) = (
 ))
 
  and
-_r_lexer_declaration(_n,_ps,ykinput) = 
+_r_lexer_declaration(_n,_ps,ykinput) =
  (match _n() with
  | Ykd_int(2116) -> (
  (let n = (_r_ID(_n,_ps,ykinput))
@@ -3928,11 +3928,11 @@ _r_rule(_n,_ps,ykinput) = (
  and
 _r_prologue(_n,_ps,ykinput) = (
  (let _x98 = (
- (let rec _x203 _x98 = 
+ (let rec _x203 _x98 =
  (match _n() with
  | Ykd_int(2172) -> (_x98)
  | _(*2173*) -> (_x203(
- (let _x97 = 
+ (let _x97 =
  (match _n() with
  | Ykd_int(2176) -> (
  (let x = (_r_Ocaml_until_RBRACE(_n,_ps,ykinput))
@@ -3959,11 +3959,11 @@ _r_prologue(_n,_ps,ykinput) = (
  and
 _r_epilogue(_n,_ps,ykinput) = (
  (let _x100 = (
- (let rec _x205 _x100 = 
+ (let rec _x205 _x100 =
  (match _n() with
  | Ykd_int(2202) -> (_x100)
  | _(*2203*) -> (_x205(
- (let _x99 = 
+ (let _x99 =
  (match _n() with
  | Ykd_int(2206) -> (
  (let x = (_r_Ocaml_until_RBRACE(_n,_ps,ykinput))
@@ -3995,7 +3995,7 @@ _r_directive(_n,_ps,ykinput) = (
 ))
 ))
 
- 
+
 (*EARLY-LATE PROLOGUE*)
 (*TODO:sv,sv0,sv_compare*)
 type _uid = int (* for sharing *)
@@ -4468,7 +4468,7 @@ let rec nullable__x26 __lookahead _p0_ _x0_ = ((((Pred.andc (let symb_pred = nul
       | Some v2 -> Some (f_ret p v v2)) (fun _x1_ _x2_ _x3_ -> ((((let p = (_dwhen 1177) and n = (_dnext 1178) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None) _x1_) _x2_) ((((_d 1176)) ((Yak.YkBuf.get_offset) _x2_)) _x3_)))) __lookahead) _p0_) ((((fun _x0_ _x1_ -> (((_d 1173) _x0_) (((_d 1172) _x0_) (((_x322) _x0_) _x1_))))) ((Yak.YkBuf.get_offset) _p0_)) _x0_))
 
 and nullable_ATID = let __tbl = SV_hashtbl.create 11 in
-fun __lookahead _p0_ _x0_ -> 
+fun __lookahead _p0_ _x0_ ->
 let __p1 = Yak.YkBuf.get_offset _p0_ in
 try
 let (r, __p2)  = SV_hashtbl.find __tbl _x0_ in
@@ -4624,7 +4624,7 @@ and nullable_lexer_declaration __lookahead _p0_ _x0_ = ((((Pred.orc (Pred.andc (
       | Some v2 -> Some (f_ret p v v2))))) _x1_) _x2_) ((((_p 2143)) ((Yak.YkBuf.get_offset) _x2_)) _x3_)))))) __lookahead) _p0_) _x0_)
 
 and nullable_Ocaml_until_RPAREN = let __tbl = SV_hashtbl.create 11 in
-fun __lookahead _p0_ _x0_ -> 
+fun __lookahead _p0_ _x0_ ->
 let __p1 = Yak.YkBuf.get_offset _p0_ in
 try
 let (r, __p2)  = SV_hashtbl.find __tbl _x0_ in
@@ -4634,7 +4634,7 @@ with Not_found ->
   let x = ((((Pred.andc (Pred3.boxc ((fun _x0_ _x1_ _x2_ -> ((((_dbox 1526) (((_d 1525) _x1_) (((_p_pos_only 1524) _x1_) (((_x498) _x1_) _x0_)))) _x1_) _x2_)))) (fun _x1_ _x2_ _x3_ -> ((((let p = (_dwhen 1532) and n = (_dnext 1533) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None) _x1_) _x2_) ((((_p_pos_only 1528)) ((Yak.YkBuf.get_offset) _x2_)) _x3_)))) __lookahead) _p0_) _x0_) in SV_hashtbl.add __tbl _x0_ (x, __p1); x
 
 and nullable_alternation = let __tbl = SV_hashtbl.create 11 in
-fun __lookahead _p0_ _x0_ -> 
+fun __lookahead _p0_ _x0_ ->
 let __p1 = Yak.YkBuf.get_offset _p0_ in
 try
 let (r, __p2)  = SV_hashtbl.find __tbl _x0_ in
@@ -4660,7 +4660,7 @@ with Not_found ->
       | Some v2 -> Some (f_ret p v v2)) (fun _x1_ _x2_ _x3_ -> (Some ((((_p 1617)) ((Yak.YkBuf.get_offset) _x2_)) _x3_)))) __lookahead) _p0_) _x0_) in SV_hashtbl.add __tbl _x0_ (x, __p1); x
 
 and nullable__x27 = let __tbl = SV_hashtbl.create 11 in
-fun __lookahead _p0_ _x0_ -> 
+fun __lookahead _p0_ _x0_ ->
 let __p1 = Yak.YkBuf.get_offset _p0_ in
 try
 let (r, __p2)  = SV_hashtbl.find __tbl _x0_ in
@@ -4686,7 +4686,7 @@ with Not_found ->
       | Some v2 -> Some (f_ret p v v2)) (fun _x1_ _x2_ _x3_ -> ((((let p = (_dwhen 1185) and n = (_dnext 1186) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None) _x1_) _x2_) ((((_d 1184)) ((Yak.YkBuf.get_offset) _x2_)) _x3_)))) __lookahead) _p0_) ((((fun _x0_ _x1_ -> (((_d 1181) _x0_) (((_d 1180) _x0_) (((_x327) _x0_) _x1_))))) ((Yak.YkBuf.get_offset) _p0_)) _x0_)) in SV_hashtbl.add __tbl _x0_ (x, __p1); x
 
 and nullable__x28 = let __tbl = SV_hashtbl.create 11 in
-fun __lookahead _p0_ _x0_ -> 
+fun __lookahead _p0_ _x0_ ->
 let __p1 = Yak.YkBuf.get_offset _p0_ in
 try
 let (r, __p2)  = SV_hashtbl.find __tbl _x0_ in
@@ -4712,7 +4712,7 @@ with Not_found ->
       | Some v2 -> Some (f_ret p v v2)) (fun _x1_ _x2_ _x3_ -> ((((let p = (_dwhen 1193) and n = (_dnext 1194) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None) _x1_) _x2_) ((((_d 1192)) ((Yak.YkBuf.get_offset) _x2_)) _x3_)))) __lookahead) _p0_) ((((fun _x0_ _x1_ -> (((_d 1189) _x0_) (((_d 1188) _x0_) (((_x332) _x0_) _x1_))))) ((Yak.YkBuf.get_offset) _p0_)) _x0_)) in SV_hashtbl.add __tbl _x0_ (x, __p1); x
 
 and nullable_elements = let __tbl = SV_hashtbl.create 11 in
-fun __lookahead _p0_ _x0_ -> 
+fun __lookahead _p0_ _x0_ ->
 let __p1 = Yak.YkBuf.get_offset _p0_ in
 try
 let (r, __p2)  = SV_hashtbl.find __tbl _x0_ in
@@ -4738,7 +4738,7 @@ with Not_found ->
       | Some v2 -> Some (f_ret p v v2)) __lookahead) _p0_) _x0_) in SV_hashtbl.add __tbl _x0_ (x, __p1); x
 
 and nullable__x29 = let __tbl = SV_hashtbl.create 11 in
-fun __lookahead _p0_ _x0_ -> 
+fun __lookahead _p0_ _x0_ ->
 let __p1 = Yak.YkBuf.get_offset _p0_ in
 try
 let (r, __p2)  = SV_hashtbl.find __tbl _x0_ in
@@ -4764,7 +4764,7 @@ with Not_found ->
       | Some v2 -> Some (f_ret p v v2)) (fun _x1_ _x2_ _x3_ -> ((((let p = (_dwhen 1201) and n = (_dnext 1202) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None) _x1_) _x2_) ((((_d 1200)) ((Yak.YkBuf.get_offset) _x2_)) _x3_)))) __lookahead) _p0_) ((((fun _x0_ _x1_ -> (((_d 1197) _x0_) (((_d 1196) _x0_) (((_x337) _x0_) _x1_))))) ((Yak.YkBuf.get_offset) _p0_)) _x0_)) in SV_hashtbl.add __tbl _x0_ (x, __p1); x
 
 and nullable_bin_range = let __tbl = SV_hashtbl.create 11 in
-fun __lookahead _p0_ _x0_ -> 
+fun __lookahead _p0_ _x0_ ->
 let __p1 = Yak.YkBuf.get_offset _p0_ in
 try
 let (r, __p2)  = SV_hashtbl.find __tbl _x0_ in
@@ -4774,7 +4774,7 @@ with Not_found ->
   let x = ((((Pred.andc (Pred3.boxc ((fun _x0_ _x1_ _x2_ -> ((((_dbox 1451) (((_d 1450) _x1_) (((_x477) _x1_) _x0_))) _x1_) _x2_)))) (fun _x1_ _x2_ _x3_ -> (Some ((((_ddelay_only 1453)) ((Yak.YkBuf.get_offset) _x2_)) _x3_)))) __lookahead) _p0_) _x0_) in SV_hashtbl.add __tbl _x0_ (x, __p1); x
 
 and nullable_element = let __tbl = SV_hashtbl.create 11 in
-fun __lookahead _p0_ _x0_ -> 
+fun __lookahead _p0_ _x0_ ->
 let __p1 = Yak.YkBuf.get_offset _p0_ in
 try
 let (r, __p2)  = SV_hashtbl.find __tbl _x0_ in
@@ -5152,7 +5152,7 @@ with Not_found ->
       | Some v2 -> Some (f_ret p v v2)) (fun _x1_ _x2_ _x3_ -> (Some ((((_p 1752)) ((Yak.YkBuf.get_offset) _x2_)) _x3_))))))))))))))) __lookahead) _p0_) _x0_) in SV_hashtbl.add __tbl _x0_ (x, __p1); x
 
 and nullable_PROSEVAL = let __tbl = SV_hashtbl.create 11 in
-fun __lookahead _p0_ _x0_ -> 
+fun __lookahead _p0_ _x0_ ->
 let __p1 = Yak.YkBuf.get_offset _p0_ in
 try
 let (r, __p2)  = SV_hashtbl.find __tbl _x0_ in
@@ -5180,7 +5180,7 @@ with Not_found ->
 and nullable_Ocamllex_until_RBRACE __lookahead _p0_ _x0_ = ((((Pred.andc (Pred3.boxc ((fun _x0_ _x1_ _x2_ -> ((((_dbox 1568) (((_d 1567) _x1_) (((_p_pos_only 1566) _x1_) (((_x519) _x1_) _x0_)))) _x1_) _x2_)))) (fun _x1_ _x2_ _x3_ -> ((((let p = (_dwhen 1574) and n = (_dnext 1575) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None) _x1_) _x2_) ((((_p_pos_only 1570)) ((Yak.YkBuf.get_offset) _x2_)) _x3_)))) __lookahead) _p0_) _x0_)
 
 and nullable_closed_text = let __tbl = SV_hashtbl.create 11 in
-fun __lookahead _p0_ _x0_ -> 
+fun __lookahead _p0_ _x0_ ->
 let __p1 = Yak.YkBuf.get_offset _p0_ in
 try
 let (r, __p2)  = SV_hashtbl.find __tbl _x0_ in
@@ -5278,7 +5278,7 @@ and nullable_prologue __lookahead _p0_ _x0_ = (Some ((((_p 2172)) ((Yak.YkBuf.ge
 and nullable_posn __lookahead _p0_ _x0_ = ((((Pred.andc (Pred3.boxc ((fun _x0_ _x1_ _x2_ -> ((((_dbox 1580) (((_d 1579) _x1_) (((_x526) _x1_) _x0_))) _x1_) _x2_)))) (fun _x1_ _x2_ _x3_ -> (Some ((((_ddelay_only 1582)) ((Yak.YkBuf.get_offset) _x2_)) _x3_)))) __lookahead) _p0_) _x0_)
 
 and nullable_repetition = let __tbl = SV_hashtbl.create 11 in
-fun __lookahead _p0_ _x0_ -> 
+fun __lookahead _p0_ _x0_ ->
 let __p1 = Yak.YkBuf.get_offset _p0_ in
 try
 let (r, __p2)  = SV_hashtbl.find __tbl _x0_ in
@@ -5720,7 +5720,7 @@ with Not_found ->
       | Some v2 -> Some (f_ret p v v2)) _x1_) _x2_) ((((_p 1978)) ((Yak.YkBuf.get_offset) _x2_)) _x3_))))))))))))) __lookahead) _p0_) _x0_) in SV_hashtbl.add __tbl _x0_ (x, __p1); x
 
 and nullable_num_val = let __tbl = SV_hashtbl.create 11 in
-fun __lookahead _p0_ _x0_ -> 
+fun __lookahead _p0_ _x0_ ->
 let __p1 = Yak.YkBuf.get_offset _p0_ in
 try
 let (r, __p2)  = SV_hashtbl.find __tbl _x0_ in
@@ -5852,7 +5852,7 @@ and nullable_early_inputs __lookahead _p0_ _x0_ = ((((Pred.andc (let symb_pred =
       | Some v2 -> Some (f_ret p v v2)))) __lookahead) _p0_) _x0_)
 
 and nullable__x30 = let __tbl = SV_hashtbl.create 11 in
-fun __lookahead _p0_ _x0_ -> 
+fun __lookahead _p0_ _x0_ ->
 let __p1 = Yak.YkBuf.get_offset _p0_ in
 try
 let (r, __p2)  = SV_hashtbl.find __tbl _x0_ in
@@ -5878,7 +5878,7 @@ with Not_found ->
       | Some v2 -> Some (f_ret p v v2)) (fun _x1_ _x2_ _x3_ -> ((((let p = (_dwhen 1209) and n = (_dnext 1210) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None) _x1_) _x2_) ((((_d 1208)) ((Yak.YkBuf.get_offset) _x2_)) _x3_)))) __lookahead) _p0_) ((((fun _x0_ _x1_ -> (((_d 1205) _x0_) (((_d 1204) _x0_) (((_x342) _x0_) _x1_))))) ((Yak.YkBuf.get_offset) _p0_)) _x0_)) in SV_hashtbl.add __tbl _x0_ (x, __p1); x
 
 and nullable_defined_as = let __tbl = SV_hashtbl.create 11 in
-fun __lookahead _p0_ _x0_ -> 
+fun __lookahead _p0_ _x0_ ->
 let __p1 = Yak.YkBuf.get_offset _p0_ in
 try
 let (r, __p2)  = SV_hashtbl.find __tbl _x0_ in
@@ -5920,7 +5920,7 @@ with Not_found ->
       | Some v2 -> Some (f_ret p v v2))) __lookahead) _p0_) _x0_) in SV_hashtbl.add __tbl _x0_ (x, __p1); x
 
 and nullable__x3 = let __tbl = SV_hashtbl.create 11 in
-fun __lookahead _p0_ _x0_ -> 
+fun __lookahead _p0_ _x0_ ->
 let __p1 = Yak.YkBuf.get_offset _p0_ in
 try
 let (r, __p2)  = SV_hashtbl.find __tbl _x0_ in
@@ -5940,7 +5940,7 @@ and nullable_rulelist __lookahead _p0_ _x0_ = ((((Pred.andc (let p = (_dwhen 143
       | Some v2 -> Some (f_ret p v v2)) _x1_) _x2_) (((((_m 1438)) ((Yak.YkBuf.get_offset) _x2_)) _x3_) ((((_p 2202)) ((Yak.YkBuf.get_offset) _x2_)) ((((_e)) ((Yak.YkBuf.get_offset) _x2_)) _x3_)))))) __lookahead) _p0_) ((((_d_and_push 1417)) ((Yak.YkBuf.get_offset) _p0_)) ((((fun _x0_ _x1_ -> (((_d 1416) _x0_) (((_d 1415) _x0_) _x1_)))) ((Yak.YkBuf.get_offset) _p0_)) (((((_m 1413)) ((Yak.YkBuf.get_offset) _p0_)) ((((_x463)) ((Yak.YkBuf.get_offset) _p0_)) _x0_)) ((((_p 2172)) ((Yak.YkBuf.get_offset) _p0_)) ((((_e)) ((Yak.YkBuf.get_offset) _p0_)) ((((_x463)) ((Yak.YkBuf.get_offset) _p0_)) _x0_)))))))
 
 and nullable__x31 = let __tbl = SV_hashtbl.create 11 in
-fun __lookahead _p0_ _x0_ -> 
+fun __lookahead _p0_ _x0_ ->
 let __p1 = Yak.YkBuf.get_offset _p0_ in
 try
 let (r, __p2)  = SV_hashtbl.find __tbl _x0_ in
@@ -5968,7 +5968,7 @@ with Not_found ->
 and nullable_Ocaml_until_EQUAL __lookahead _p0_ _x0_ = ((((Pred.andc (Pred3.boxc ((fun _x0_ _x1_ _x2_ -> ((((_dbox 1540) (((_d 1539) _x1_) (((_p_pos_only 1538) _x1_) (((_x505) _x1_) _x0_)))) _x1_) _x2_)))) (fun _x1_ _x2_ _x3_ -> ((((let p = (_dwhen 1546) and n = (_dnext 1547) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None) _x1_) _x2_) ((((_p_pos_only 1542)) ((Yak.YkBuf.get_offset) _x2_)) _x3_)))) __lookahead) _p0_) _x0_)
 
 and nullable__x32 = let __tbl = SV_hashtbl.create 11 in
-fun __lookahead _p0_ _x0_ -> 
+fun __lookahead _p0_ _x0_ ->
 let __p1 = Yak.YkBuf.get_offset _p0_ in
 try
 let (r, __p2)  = SV_hashtbl.find __tbl _x0_ in
@@ -5994,7 +5994,7 @@ with Not_found ->
       | Some v2 -> Some (f_ret p v v2)) (fun _x1_ _x2_ _x3_ -> ((((let p = (_dwhen 1225) and n = (_dnext 1226) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None) _x1_) _x2_) ((((_d 1224)) ((Yak.YkBuf.get_offset) _x2_)) _x3_)))) __lookahead) _p0_) ((((fun _x0_ _x1_ -> (((_d 1221) _x0_) (((_d 1220) _x0_) (((_x352) _x0_) _x1_))))) ((Yak.YkBuf.get_offset) _p0_)) _x0_)) in SV_hashtbl.add __tbl _x0_ (x, __p1); x
 
 and nullable_Ocaml_until_RBRACE = let __tbl = SV_hashtbl.create 11 in
-fun __lookahead _p0_ _x0_ -> 
+fun __lookahead _p0_ _x0_ ->
 let __p1 = Yak.YkBuf.get_offset _p0_ in
 try
 let (r, __p2)  = SV_hashtbl.find __tbl _x0_ in
@@ -6004,7 +6004,7 @@ with Not_found ->
   let x = ((((Pred.andc (Pred3.boxc ((fun _x0_ _x1_ _x2_ -> ((((_dbox 1512) (((_d 1511) _x1_) (((_p_pos_only 1510) _x1_) (((_x491) _x1_) _x0_)))) _x1_) _x2_)))) (fun _x1_ _x2_ _x3_ -> ((((let p = (_dwhen 1518) and n = (_dnext 1519) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None) _x1_) _x2_) ((((_p_pos_only 1514)) ((Yak.YkBuf.get_offset) _x2_)) _x3_)))) __lookahead) _p0_) _x0_) in SV_hashtbl.add __tbl _x0_ (x, __p1); x
 
 and nullable__x33 = let __tbl = SV_hashtbl.create 11 in
-fun __lookahead _p0_ _x0_ -> 
+fun __lookahead _p0_ _x0_ ->
 let __p1 = Yak.YkBuf.get_offset _p0_ in
 try
 let (r, __p2)  = SV_hashtbl.find __tbl _x0_ in
@@ -6030,7 +6030,7 @@ with Not_found ->
       | Some v2 -> Some (f_ret p v v2)) (fun _x1_ _x2_ _x3_ -> ((((let p = (_dwhen 1233) and n = (_dnext 1234) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None) _x1_) _x2_) ((((_d 1232)) ((Yak.YkBuf.get_offset) _x2_)) _x3_)))) __lookahead) _p0_) ((((fun _x0_ _x1_ -> (((_d 1229) _x0_) (((_d 1228) _x0_) (((_x357) _x0_) _x1_))))) ((Yak.YkBuf.get_offset) _p0_)) _x0_)) in SV_hashtbl.add __tbl _x0_ (x, __p1); x
 
 and nullable__x6 = let __tbl = SV_hashtbl.create 11 in
-fun __lookahead _p0_ _x0_ -> 
+fun __lookahead _p0_ _x0_ ->
 let __p1 = Yak.YkBuf.get_offset _p0_ in
 try
 let (r, __p2)  = SV_hashtbl.find __tbl _x0_ in
@@ -6056,7 +6056,7 @@ with Not_found ->
       | Some v2 -> Some (f_ret p v v2)) (fun _x1_ _x2_ _x3_ -> ((((let p = (_dwhen 1017) and n = (_dnext 1018) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None) _x1_) _x2_) ((((_d 1016)) ((Yak.YkBuf.get_offset) _x2_)) _x3_)))) __lookahead) _p0_) ((((fun _x0_ _x1_ -> (((_d 1013) _x0_) (((_d 1012) _x0_) (((_x222) _x0_) _x1_))))) ((Yak.YkBuf.get_offset) _p0_)) _x0_)) in SV_hashtbl.add __tbl _x0_ (x, __p1); x
 
 and nullable__x34 = let __tbl = SV_hashtbl.create 11 in
-fun __lookahead _p0_ _x0_ -> 
+fun __lookahead _p0_ _x0_ ->
 let __p1 = Yak.YkBuf.get_offset _p0_ in
 try
 let (r, __p2)  = SV_hashtbl.find __tbl _x0_ in
@@ -6082,7 +6082,7 @@ with Not_found ->
       | Some v2 -> Some (f_ret p v v2)) (fun _x1_ _x2_ _x3_ -> ((((let p = (_dwhen 1241) and n = (_dnext 1242) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None) _x1_) _x2_) ((((_d 1240)) ((Yak.YkBuf.get_offset) _x2_)) _x3_)))) __lookahead) _p0_) ((((fun _x0_ _x1_ -> (((_d 1237) _x0_) (((_d 1236) _x0_) (((_x362) _x0_) _x1_))))) ((Yak.YkBuf.get_offset) _p0_)) _x0_)) in SV_hashtbl.add __tbl _x0_ (x, __p1); x
 
 and nullable__x7 = let __tbl = SV_hashtbl.create 11 in
-fun __lookahead _p0_ _x0_ -> 
+fun __lookahead _p0_ _x0_ ->
 let __p1 = Yak.YkBuf.get_offset _p0_ in
 try
 let (r, __p2)  = SV_hashtbl.find __tbl _x0_ in
@@ -6118,7 +6118,7 @@ and nullable_DOLLARID __lookahead _p0_ _x0_ = ((((Pred.andc (let symb_pred = nul
       | Some v2 -> Some (f_ret p v v2)) (fun _x1_ _x2_ _x3_ -> ((((Pred.andc (let p = (_dwhen 1403) and n = (_dnext 1404) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None) (fun _x4_ _x5_ _x6_ -> (Some ((((_ddelay_only 1406)) ((Yak.YkBuf.get_offset) _x5_)) _x6_)))) _x1_) _x2_) ((((fun _x0_ _x1_ -> (((_d 1402) _x0_) (((_d 1401) _x0_) _x1_)))) ((Yak.YkBuf.get_offset) _x2_)) _x3_)))) __lookahead) _p0_) ((((fun _x0_ _x1_ -> (((_d 1398) _x0_) (((_d 1397) _x0_) (((_x459) _x0_) _x1_))))) ((Yak.YkBuf.get_offset) _p0_)) _x0_))
 
 and nullable_lexer_cases = let __tbl = SV_hashtbl.create 11 in
-fun __lookahead _p0_ _x0_ -> 
+fun __lookahead _p0_ _x0_ ->
 let __p1 = Yak.YkBuf.get_offset _p0_ in
 try
 let (r, __p2)  = SV_hashtbl.find __tbl _x0_ in
@@ -6144,7 +6144,7 @@ with Not_found ->
       | Some v2 -> Some (f_ret p v v2)) (fun _x1_ _x2_ _x3_ -> (Some ((((_p 2106)) ((Yak.YkBuf.get_offset) _x2_)) _x3_)))) __lookahead) _p0_) _x0_) in SV_hashtbl.add __tbl _x0_ (x, __p1); x
 
 and nullable__x8 = let __tbl = SV_hashtbl.create 11 in
-fun __lookahead _p0_ _x0_ -> 
+fun __lookahead _p0_ _x0_ ->
 let __p1 = Yak.YkBuf.get_offset _p0_ in
 try
 let (r, __p2)  = SV_hashtbl.find __tbl _x0_ in
@@ -6200,7 +6200,7 @@ and nullable__x36 __lookahead _p0_ _x0_ = ((((Pred.andc (let symb_pred = nullabl
       | Some v2 -> Some (f_ret p v v2)) (fun _x1_ _x2_ _x3_ -> ((((let p = (_dwhen 1257) and n = (_dnext 1258) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None) _x1_) _x2_) ((((_d 1256)) ((Yak.YkBuf.get_offset) _x2_)) _x3_)))) __lookahead) _p0_) ((((fun _x0_ _x1_ -> (((_d 1253) _x0_) (((_d 1252) _x0_) (((_x372) _x0_) _x1_))))) ((Yak.YkBuf.get_offset) _p0_)) _x0_))
 
 and nullable_EOF = let __tbl = SV_hashtbl.create 11 in
-fun __lookahead _p0_ _x0_ -> 
+fun __lookahead _p0_ _x0_ ->
 let __p1 = Yak.YkBuf.get_offset _p0_ in
 try
 let (r, __p2)  = SV_hashtbl.find __tbl _x0_ in
@@ -6226,7 +6226,7 @@ with Not_found ->
       | Some v2 -> Some (f_ret p v v2)) (fun _x1_ _x2_ _x3_ -> ((((let p = (_dwhen 1009) and n = (_dnext 1010) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None) _x1_) _x2_) ((((_d 1008)) ((Yak.YkBuf.get_offset) _x2_)) _x3_)))) __lookahead) _p0_) ((((fun _x0_ _x1_ -> (((_d 1005) _x0_) (((_d 1004) _x0_) (((_x217) _x0_) _x1_))))) ((Yak.YkBuf.get_offset) _p0_)) _x0_)) in SV_hashtbl.add __tbl _x0_ (x, __p1); x
 
 and nullable_lookahead = let __tbl = SV_hashtbl.create 11 in
-fun __lookahead _p0_ _x0_ -> 
+fun __lookahead _p0_ _x0_ ->
 let __p1 = Yak.YkBuf.get_offset _p0_ in
 try
 let (r, __p2)  = SV_hashtbl.find __tbl _x0_ in
@@ -6252,7 +6252,7 @@ with Not_found ->
       | Some v2 -> Some (f_ret p v v2)) __lookahead) _p0_) ((((_p 1790)) ((Yak.YkBuf.get_offset) _p0_)) _x0_)) in SV_hashtbl.add __tbl _x0_ (x, __p1); x
 
 and nullable_dec_range = let __tbl = SV_hashtbl.create 11 in
-fun __lookahead _p0_ _x0_ -> 
+fun __lookahead _p0_ _x0_ ->
 let __p1 = Yak.YkBuf.get_offset _p0_ in
 try
 let (r, __p2)  = SV_hashtbl.find __tbl _x0_ in
@@ -6282,7 +6282,7 @@ and nullable__x38 __lookahead _p0_ _x0_ = ((((Pred.andc (let symb_pred = nullabl
       | Some v2 -> Some (f_ret p v v2)) (fun _x1_ _x2_ _x3_ -> ((((let p = (_dwhen 1273) and n = (_dnext 1274) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None) _x1_) _x2_) ((((_d 1272)) ((Yak.YkBuf.get_offset) _x2_)) _x3_)))) __lookahead) _p0_) ((((fun _x0_ _x1_ -> (((_d 1269) _x0_) (((_d 1268) _x0_) (((_x382) _x0_) _x1_))))) ((Yak.YkBuf.get_offset) _p0_)) _x0_))
 
 and nullable_DIGITS = let __tbl = SV_hashtbl.create 11 in
-fun __lookahead _p0_ _x0_ -> 
+fun __lookahead _p0_ _x0_ ->
 let __p1 = Yak.YkBuf.get_offset _p0_ in
 try
 let (r, __p2)  = SV_hashtbl.find __tbl _x0_ in
@@ -6338,7 +6338,7 @@ and nullable__x11 __lookahead _p0_ _x0_ = ((((Pred.andc (let symb_pred = nullabl
       | Some v2 -> Some (f_ret p v v2)) (fun _x1_ _x2_ _x3_ -> ((((let p = (_dwhen 1057) and n = (_dnext 1058) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None) _x1_) _x2_) ((((_d 1056)) ((Yak.YkBuf.get_offset) _x2_)) _x3_)))) __lookahead) _p0_) ((((fun _x0_ _x1_ -> (((_d 1053) _x0_) (((_d 1052) _x0_) (((_x247) _x0_) _x1_))))) ((Yak.YkBuf.get_offset) _p0_)) _x0_))
 
 and nullable__x12 = let __tbl = SV_hashtbl.create 11 in
-fun __lookahead _p0_ _x0_ -> 
+fun __lookahead _p0_ _x0_ ->
 let __p1 = Yak.YkBuf.get_offset _p0_ in
 try
 let (r, __p2)  = SV_hashtbl.find __tbl _x0_ in
@@ -6384,7 +6384,7 @@ and nullable__x14 __lookahead _p0_ _x0_ = ((((Pred.andc (let symb_pred = nullabl
       | Some v2 -> Some (f_ret p v v2)) (fun _x1_ _x2_ _x3_ -> ((((let p = (_dwhen 1081) and n = (_dnext 1082) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None) _x1_) _x2_) ((((_d 1080)) ((Yak.YkBuf.get_offset) _x2_)) _x3_)))) __lookahead) _p0_) ((((fun _x0_ _x1_ -> (((_d 1077) _x0_) (((_d 1076) _x0_) (((_x262) _x0_) _x1_))))) ((Yak.YkBuf.get_offset) _p0_)) _x0_))
 
 and nullable__x15 = let __tbl = SV_hashtbl.create 11 in
-fun __lookahead _p0_ _x0_ -> 
+fun __lookahead _p0_ _x0_ ->
 let __p1 = Yak.YkBuf.get_offset _p0_ in
 try
 let (r, __p2)  = SV_hashtbl.find __tbl _x0_ in
@@ -6412,7 +6412,7 @@ with Not_found ->
 and nullable_epilogue __lookahead _p0_ _x0_ = (Some ((((_p 2202)) ((Yak.YkBuf.get_offset) _p0_)) _x0_))
 
 and nullable__x16 = let __tbl = SV_hashtbl.create 11 in
-fun __lookahead _p0_ _x0_ -> 
+fun __lookahead _p0_ _x0_ ->
 let __p1 = Yak.YkBuf.get_offset _p0_ in
 try
 let (r, __p2)  = SV_hashtbl.find __tbl _x0_ in
@@ -6472,7 +6472,7 @@ and nullable_early_return __lookahead _p0_ _x0_ = ((((Pred.andc (let symb_pred =
       | Some v2 -> Some (f_ret p v v2))))) __lookahead) _p0_) _x0_)
 
 and nullable__x17 = let __tbl = SV_hashtbl.create 11 in
-fun __lookahead _p0_ _x0_ -> 
+fun __lookahead _p0_ _x0_ ->
 let __p1 = Yak.YkBuf.get_offset _p0_ in
 try
 let (r, __p2)  = SV_hashtbl.find __tbl _x0_ in
@@ -6498,7 +6498,7 @@ with Not_found ->
       | Some v2 -> Some (f_ret p v v2)) (fun _x1_ _x2_ _x3_ -> ((((let p = (_dwhen 1105) and n = (_dnext 1106) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None) _x1_) _x2_) ((((_d 1104)) ((Yak.YkBuf.get_offset) _x2_)) _x3_)))) __lookahead) _p0_) ((((fun _x0_ _x1_ -> (((_d 1101) _x0_) (((_d 1100) _x0_) (((_x277) _x0_) _x1_))))) ((Yak.YkBuf.get_offset) _p0_)) _x0_)) in SV_hashtbl.add __tbl _x0_ (x, __p1); x
 
 and nullable__x18 = let __tbl = SV_hashtbl.create 11 in
-fun __lookahead _p0_ _x0_ -> 
+fun __lookahead _p0_ _x0_ ->
 let __p1 = Yak.YkBuf.get_offset _p0_ in
 try
 let (r, __p2)  = SV_hashtbl.find __tbl _x0_ in
@@ -6524,7 +6524,7 @@ with Not_found ->
       | Some v2 -> Some (f_ret p v v2)) (fun _x1_ _x2_ _x3_ -> ((((let p = (_dwhen 1113) and n = (_dnext 1114) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None) _x1_) _x2_) ((((_d 1112)) ((Yak.YkBuf.get_offset) _x2_)) _x3_)))) __lookahead) _p0_) ((((fun _x0_ _x1_ -> (((_d 1109) _x0_) (((_d 1108) _x0_) (((_x282) _x0_) _x1_))))) ((Yak.YkBuf.get_offset) _p0_)) _x0_)) in SV_hashtbl.add __tbl _x0_ (x, __p1); x
 
 and nullable_rettype = let __tbl = SV_hashtbl.create 11 in
-fun __lookahead _p0_ _x0_ -> 
+fun __lookahead _p0_ _x0_ ->
 let __p1 = Yak.YkBuf.get_offset _p0_ in
 try
 let (r, __p2)  = SV_hashtbl.find __tbl _x0_ in
@@ -6614,7 +6614,7 @@ with Not_found ->
       | Some v2 -> Some (f_ret p v v2)))))) __lookahead) _p0_) _x0_) in SV_hashtbl.add __tbl _x0_ (x, __p1); x
 
 and nullable_hex_range = let __tbl = SV_hashtbl.create 11 in
-fun __lookahead _p0_ _x0_ -> 
+fun __lookahead _p0_ _x0_ ->
 let __p1 = Yak.YkBuf.get_offset _p0_ in
 try
 let (r, __p2)  = SV_hashtbl.find __tbl _x0_ in
@@ -6662,7 +6662,7 @@ and nullable__x40 __lookahead _p0_ _x0_ = ((((Pred.andc (let symb_pred = nullabl
       | Some v2 -> Some (f_ret p v v2)) (fun _x1_ _x2_ _x3_ -> ((((let p = (_dwhen 1289) and n = (_dnext 1290) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None) _x1_) _x2_) ((((_d 1288)) ((Yak.YkBuf.get_offset) _x2_)) _x3_)))) __lookahead) _p0_) ((((fun _x0_ _x1_ -> (((_d 1285) _x0_) (((_d 1284) _x0_) (((_x392) _x0_) _x1_))))) ((Yak.YkBuf.get_offset) _p0_)) _x0_))
 
 and nullable_lexer_case = let __tbl = SV_hashtbl.create 11 in
-fun __lookahead _p0_ _x0_ -> 
+fun __lookahead _p0_ _x0_ ->
 let __p1 = Yak.YkBuf.get_offset _p0_ in
 try
 let (r, __p2)  = SV_hashtbl.find __tbl _x0_ in
@@ -6852,7 +6852,7 @@ and nullable__x42 __lookahead _p0_ _x0_ = ((((Pred.andc (let symb_pred = nullabl
       | Some v2 -> Some (f_ret p v v2)) (fun _x1_ _x2_ _x3_ -> ((((let p = (_dwhen 1305) and n = (_dnext 1306) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None) _x1_) _x2_) ((((_d 1304)) ((Yak.YkBuf.get_offset) _x2_)) _x3_)))) __lookahead) _p0_) ((((fun _x0_ _x1_ -> (((_d 1301) _x0_) (((_d 1300) _x0_) (((_x402) _x0_) _x1_))))) ((Yak.YkBuf.get_offset) _p0_)) _x0_))
 
 and nullable__x43 = let __tbl = SV_hashtbl.create 11 in
-fun __lookahead _p0_ _x0_ -> 
+fun __lookahead _p0_ _x0_ ->
 let __p1 = Yak.YkBuf.get_offset _p0_ in
 try
 let (r, __p2)  = SV_hashtbl.find __tbl _x0_ in
@@ -6888,7 +6888,7 @@ and nullable_assoc_tag __lookahead _p0_ _x0_ = ((((let symb_pred = nullable_ATID
       | Some v2 -> Some (f_ret p v v2)) __lookahead) _p0_) _x0_)
 
 and nullable_concatenation = let __tbl = SV_hashtbl.create 11 in
-fun __lookahead _p0_ _x0_ -> 
+fun __lookahead _p0_ _x0_ ->
 let __p1 = Yak.YkBuf.get_offset _p0_ in
 try
 let (r, __p2)  = SV_hashtbl.find __tbl _x0_ in
@@ -6962,7 +6962,7 @@ with Not_found ->
       | Some v2 -> Some (f_ret p v v2)))) _x1_) _x2_) ((((_p 1623)) ((Yak.YkBuf.get_offset) _x2_)) _x3_)))) __lookahead) _p0_) _x0_) in SV_hashtbl.add __tbl _x0_ (x, __p1); x
 
 and nullable__x44 = let __tbl = SV_hashtbl.create 11 in
-fun __lookahead _p0_ _x0_ -> 
+fun __lookahead _p0_ _x0_ ->
 let __p1 = Yak.YkBuf.get_offset _p0_ in
 try
 let (r, __p2)  = SV_hashtbl.find __tbl _x0_ in
@@ -6988,7 +6988,7 @@ with Not_found ->
       | Some v2 -> Some (f_ret p v v2)) (fun _x1_ _x2_ _x3_ -> ((((let p = (_dwhen 1321) and n = (_dnext 1322) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None) _x1_) _x2_) ((((_d 1320)) ((Yak.YkBuf.get_offset) _x2_)) _x3_)))) __lookahead) _p0_) ((((fun _x0_ _x1_ -> (((_d 1317) _x0_) (((_d 1316) _x0_) (((_x412) _x0_) _x1_))))) ((Yak.YkBuf.get_offset) _p0_)) _x0_)) in SV_hashtbl.add __tbl _x0_ (x, __p1); x
 
 and nullable__x45 = let __tbl = SV_hashtbl.create 11 in
-fun __lookahead _p0_ _x0_ -> 
+fun __lookahead _p0_ _x0_ ->
 let __p1 = Yak.YkBuf.get_offset _p0_ in
 try
 let (r, __p2)  = SV_hashtbl.find __tbl _x0_ in
@@ -7072,7 +7072,7 @@ and nullable__x22 __lookahead _p0_ _x0_ = ((((Pred.andc (let symb_pred = nullabl
       | Some v2 -> Some (f_ret p v v2)) (fun _x1_ _x2_ _x3_ -> ((((let p = (_dwhen 1145) and n = (_dnext 1146) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None) _x1_) _x2_) ((((_d 1144)) ((Yak.YkBuf.get_offset) _x2_)) _x3_)))) __lookahead) _p0_) ((((fun _x0_ _x1_ -> (((_d 1141) _x0_) (((_d 1140) _x0_) (((_x302) _x0_) _x1_))))) ((Yak.YkBuf.get_offset) _p0_)) _x0_))
 
 and nullable__x23 = let __tbl = SV_hashtbl.create 11 in
-fun __lookahead _p0_ _x0_ -> 
+fun __lookahead _p0_ _x0_ ->
 let __p1 = Yak.YkBuf.get_offset _p0_ in
 try
 let (r, __p2)  = SV_hashtbl.find __tbl _x0_ in
@@ -7098,7 +7098,7 @@ with Not_found ->
       | Some v2 -> Some (f_ret p v v2)) (fun _x1_ _x2_ _x3_ -> ((((let p = (_dwhen 1153) and n = (_dnext 1154) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None) _x1_) _x2_) ((((_d 1152)) ((Yak.YkBuf.get_offset) _x2_)) _x3_)))) __lookahead) _p0_) ((((fun _x0_ _x1_ -> (((_d 1149) _x0_) (((_d 1148) _x0_) (((_x307) _x0_) _x1_))))) ((Yak.YkBuf.get_offset) _p0_)) _x0_)) in SV_hashtbl.add __tbl _x0_ (x, __p1); x
 
 and nullable__x24 = let __tbl = SV_hashtbl.create 11 in
-fun __lookahead _p0_ _x0_ -> 
+fun __lookahead _p0_ _x0_ ->
 let __p1 = Yak.YkBuf.get_offset _p0_ in
 try
 let (r, __p2)  = SV_hashtbl.find __tbl _x0_ in
@@ -7124,7 +7124,7 @@ with Not_found ->
       | Some v2 -> Some (f_ret p v v2)) (fun _x1_ _x2_ _x3_ -> ((((let p = (_dwhen 1161) and n = (_dnext 1162) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None) _x1_) _x2_) ((((_d 1160)) ((Yak.YkBuf.get_offset) _x2_)) _x3_)))) __lookahead) _p0_) ((((fun _x0_ _x1_ -> (((_d 1157) _x0_) (((_d 1156) _x0_) (((_x312) _x0_) _x1_))))) ((Yak.YkBuf.get_offset) _p0_)) _x0_)) in SV_hashtbl.add __tbl _x0_ (x, __p1); x
 
 and nullable_ID = let __tbl = SV_hashtbl.create 11 in
-fun __lookahead _p0_ _x0_ -> 
+fun __lookahead _p0_ _x0_ ->
 let __p1 = Yak.YkBuf.get_offset _p0_ in
 try
 let (r, __p2)  = SV_hashtbl.find __tbl _x0_ in
@@ -7164,7 +7164,7 @@ and nullable_typestuff __lookahead _p0_ _x0_ = (Some ((((_p 2002)) ((Yak.YkBuf.g
 and nullable_Ocaml_until_RBRACKET __lookahead _p0_ _x0_ = ((((Pred.andc (Pred3.boxc ((fun _x0_ _x1_ _x2_ -> ((((_dbox 1554) (((_d 1553) _x1_) (((_p_pos_only 1552) _x1_) (((_x512) _x1_) _x0_)))) _x1_) _x2_)))) (fun _x1_ _x2_ _x3_ -> ((((let p = (_dwhen 1560) and n = (_dnext 1561) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None) _x1_) _x2_) ((((_p_pos_only 1556)) ((Yak.YkBuf.get_offset) _x2_)) _x3_)))) __lookahead) _p0_) _x0_)
 
 and nullable_rulename = let __tbl = SV_hashtbl.create 11 in
-fun __lookahead _p0_ _x0_ -> 
+fun __lookahead _p0_ _x0_ ->
 let __p1 = Yak.YkBuf.get_offset _p0_ in
 try
 let (r, __p2)  = SV_hashtbl.find __tbl _x0_ in
@@ -7224,7 +7224,7 @@ and nullable_early_outputs __lookahead _p0_ _x0_ = ((((Pred.andc (let symb_pred 
       | Some v2 -> Some (f_ret p v v2))))) __lookahead) _p0_) _x0_)
 
 and nullable_CHARVAL = let __tbl = SV_hashtbl.create 11 in
-fun __lookahead _p0_ _x0_ -> 
+fun __lookahead _p0_ _x0_ ->
 let __p1 = Yak.YkBuf.get_offset _p0_ in
 try
 let (r, __p2)  = SV_hashtbl.find __tbl _x0_ in
@@ -9185,7 +9185,7 @@ let __binder180 = (_m 1855);;
 let __binder181 = (_m 1902);;
 let __binder182 = (_m 1858);;
 let __binder183 = (_m 1905);;
-let binders : (sv -> sv -> sv) array = [| |]
+let binders = [| |]
 let num_symbols = 94
 
 let symbol_table = function
@@ -9480,7 +9480,7 @@ let get_symb_start = function
   | _ -> raise Not_found
 
 open Yak.Pam_internal
-let program : (int * sv instruction list) list = [
+let program = [
 (383, [AWhenInstr3(__p379,__p378,493)]);
 (0, [ASimpleCont2Instr(357,__binder0,94);ASimpleCont2Instr(356,__binder0,93);ASimpleCont2Instr(355,__binder0,92);ASimpleCont2Instr(354,__binder0,91);ASimpleCont2Instr(353,__binder0,90);ASimpleCont2Instr(352,__binder0,89);ASimpleCont2Instr(351,__binder0,88);ASimpleCont2Instr(350,__binder0,87);ASimpleCont2Instr(349,__binder0,86);ASimpleCont2Instr(348,__binder0,85);ASimpleCont2Instr(347,__binder0,84);ASimpleCont2Instr(346,__binder0,83);ASimpleCont2Instr(345,__binder0,82);ASimpleCont2Instr(344,__binder0,81);ASimpleCont2Instr(343,__binder0,80);ASimpleCont2Instr(342,__binder0,79);ASimpleCont2Instr(341,__binder0,78);ASimpleCont2Instr(340,__binder0,77);ASimpleCont2Instr(339,__binder0,76);ASimpleCont2Instr(338,__binder0,75);ASimpleCont2Instr(337,__binder0,74);ASimpleCont2Instr(336,__binder0,73);ASimpleCont2Instr(335,__binder0,72);ASimpleCont2Instr(334,__binder0,71);ASimpleCont2Instr(333,__binder0,70);ASimpleCont2Instr(332,__binder0,69);ASimpleCont2Instr(331,__binder0,68);ASimpleCont2Instr(330,__binder0,67);ASimpleCont2Instr(329,__binder0,66);ASimpleCont2Instr(328,__binder0,65);ASimpleCont2Instr(327,__binder0,64);ASimpleCont2Instr(326,__binder0,63);ASimpleCont2Instr(325,__binder0,62);ASimpleCont2Instr(324,__binder0,61);ASimpleCont2Instr(323,__binder0,60);ASimpleCont2Instr(322,__binder0,59);ASimpleCont2Instr(321,__binder0,58);ASimpleCont2Instr(320,__binder0,57);ASimpleCont2Instr(319,__binder0,56);ASimpleCont2Instr(318,__binder0,55);ASimpleCont2Instr(317,__binder0,54);ASimpleCont2Instr(316,__binder0,53);ASimpleCont2Instr(315,__binder0,52);ASimpleCont2Instr(314,__binder0,51);ASimpleCont2Instr(313,__binder0,50);ASimpleCont2Instr(312,__binder0,49);ASimpleCont2Instr(311,__binder0,48);ASimpleCont2Instr(310,__binder0,47);ASimpleCont2Instr(309,__binder0,46);ASimpleCont2Instr(308,__binder0,45);ASimpleCont2Instr(307,__binder0,44);ASimpleCont2Instr(306,__binder0,43);ASimpleCont2Instr(305,__binder0,42);ASimpleCont2Instr(304,__binder0,41);ASimpleCont2Instr(303,__binder0,40);ASimpleCont2Instr(302,__binder0,39);ASimpleCont2Instr(301,__binder0,38);ASimpleCont2Instr(300,__binder0,37);ASimpleCont2Instr(299,__binder0,36);ASimpleCont2Instr(298,__binder0,35);ASimpleCont2Instr(297,__binder0,34);ASimpleCont2Instr(296,__binder0,33);ASimpleCont2Instr(295,__binder0,32);ASimpleCont2Instr(294,__binder0,31);ASimpleCont2Instr(293,__binder0,30);ASimpleCont2Instr(292,__binder0,29);ASimpleCont2Instr(291,__binder0,28);ASimpleCont2Instr(290,__binder0,27);ASimpleCont2Instr(289,__binder0,26);ASimpleCont2Instr(288,__binder0,25);ASimpleCont2Instr(287,__binder0,24);ASimpleCont2Instr(286,__binder0,23);ASimpleCont2Instr(285,__binder0,22);ASimpleCont2Instr(284,__binder0,21);ASimpleCont2Instr(283,__binder0,20);ASimpleCont2Instr(282,__binder0,19);ASimpleCont2Instr(281,__binder0,18);ASimpleCont2Instr(280,__binder0,17);ASimpleCont2Instr(279,__binder0,16);ASimpleCont2Instr(278,__binder0,15);ASimpleCont2Instr(277,__binder0,14);ASimpleCont2Instr(276,__binder0,13);ASimpleCont2Instr(275,__binder0,12);ASimpleCont2Instr(274,__binder0,11);ASimpleCont2Instr(273,__binder0,10);ASimpleCont2Instr(272,__binder0,9);ASimpleCont2Instr(271,__binder0,8);ASimpleCont2Instr(270,__binder0,7);ASimpleCont2Instr(269,__binder0,6);ASimpleCont2Instr(268,__binder0,5);ASimpleCont2Instr(267,__binder0,4);ASimpleCont2Instr(266,__binder0,3);ASimpleCont2Instr(265,__binder0,2);ASimpleCont2Instr(264,__binder0,1)]);
 (384, [AWhenInstr3(__p381,__p380,494)]);
@@ -10101,7 +10101,7 @@ let _wfe_data_ = Yak.PamJIT.DNELR.to_table (Yak.Pam_internal.load_internal_progr
   start_symb (get_symb_start start_symb) 264 num_symbols
   __default_call __default_ret
 
-let parse = Yak.Pami.Wfe.mk_parse P2__.parse _wfe_data_ sv0 
+let parse = Yak.Pami.Wfe.mk_parse P2__.parse _wfe_data_ sv0
     (fun ykinput (_,h) ->
       let _o = (h#traverse_postfix) in
       let _n() = (let (x,_) = _o#next() in x) in

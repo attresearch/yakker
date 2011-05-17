@@ -25,6 +25,7 @@ type command =
 | Compile_cmd
 | Copyrule_cmd
 | Desugar_cmd
+| Dearrow_cmd
 | Dispatch_cmd
 | Dot_cmd
 | Exec_cmd
@@ -81,6 +82,7 @@ phases = ; these commands can be controlled by -after
       | "copyrule" o                      { Copyrule_cmd }
       | "desugar" o                       { Desugar_cmd }
       | "hash" o                          { Hash_cmd }
+      | "arrow-notation" o                { Dearrow_cmd }
       | "infer-types" o                   { Infer_ty_cmd }
       | "inline-regular" o                { Inline_regular_cmd }
       | "lexer" o                         { Lexer_cmd }
@@ -119,6 +121,7 @@ command =
 
 args =
         "-after" o phases$p               { after := Some p } ""
+      | "-arrow-notation" o               { Compileopt.use_coroutines := false } ""
       | "-backend" o
           ( "fun" {Fun_BE}
           | "tx"  {Trans_BE}

@@ -314,7 +314,8 @@ let transform gr skipped_labels =
     | Assign _    -> Util.impossible "Dispatch.gul2gil.Assign"
     | Action _    -> Util.impossible "Dispatch.gul2gil.Action"
     | When _      -> Util.impossible "Dispatch.gul2gil.When"
-    | DBranch (e,c)   -> (* TODO-dbranch Util.impossible "Dispatch.gul2gil.DBranch" *)
+    | DBranch (e,c)   -> (* TODO-dbranch Util.impossible "Dispatch.gul2gil.DBranch". i.e., allow for relevant dbranches *)
+        (* note: presently, this is the only real use of dbranch. *)
         Gil.DBranch(e, c, "")
     | Symb(n,Some _,   _,     _) -> Util.impossible (Printf.sprintf "Dispatch.gul2gil.Symb(%s) with early arguments" n)
     | Symb(n,     _,_::_,     _) -> Util.impossible (Printf.sprintf "Dispatch.gul2gil.Symb(%s) with attributes" n)

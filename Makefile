@@ -40,13 +40,13 @@ CMIS:=$(ML_SOURCES:.ml=.cmi)
 CMOS:=$(ML_SOURCES:.ml=.cmo)
 CMXS:=$(ML_SOURCES:.ml=.cmx)
 
-FRONT_END_SOURCES := compileopt.ml variables.ml tgraph.ml meta_prog.ml gil.ml gul.ml pr.ml nullable_pred.ml \
+FRONT_END_SOURCES := compileopt.ml variables.ml tgraph.ml meta_prog.ml tyspec.ml gil.ml gul.ml pr.ml nullable_pred.ml \
                      minus.ml desugar.ml hash.ml copyrule.ml \
-                     analyze.ml unroll.ml lookahead.ml fusion.ml attributes.ml ty_infer.ml wrap.ml \
+                     analyze.ml unroll.ml lookahead.ml fusion.ml attributes.ml ty_infer.ml dearrow.ml wrap.ml \
                      coroutine.ml replay.ml \
                      dispatch.ml label.ml lift.ml inline_nullable.ml fsm.ml \
 		     extract_grammar.ml rfc.ml ocaml_lexer.mll ocamllex_lexer.mll yakker_grammar.ml \
-                     cmdline.ml gil_gen.ml version.ml lexutil.ml main.ml
+                     cmdline.ml gil_gen.ml version.ml lexutil.ml  main.ml
 FRONT_END_MLL_SOURCES := $(filter %.mll, $(FRONT_END_SOURCES))
 FRONT_END_ML_SOURCES := $(FRONT_END_MLL_SOURCES:.mll=.ml) $(filter %.ml, $(FRONT_END_SOURCES))
 FRONT_END_CMOS := $(FRONT_END_ML_SOURCES:.ml=.cmo)
@@ -412,11 +412,11 @@ show-%.mli : %.ml
 ########################################
 
 .PHONY: update-yakker restore-yakker
-.PHONY: bootstrap-yakker_grammar bootstrap-cmdline bootstrap-extract_grammar
+.PHONY: bootstrap-yakker_grammar bootstrap-cmdline bootstrap-extract_grammar bootstrap-tyspec
 .PHONY: gen-engine
-.PHONY: restore-yakker_grammar restore-cmdline restore-extract_grammar restore-engine
+.PHONY: restore-yakker_grammar restore-cmdline restore-extract_grammar restore-engine restore-tyspec
 
-bootstrap-yakker_grammar bootstrap-cmdline bootstrap-extract_grammar: bootstrap-%: $(SRCDIR)/syntax/%.bnf
+bootstrap-yakker_grammar bootstrap-cmdline bootstrap-extract_grammar bootstrap-tyspec: bootstrap-%: $(SRCDIR)/syntax/%.bnf
 	@echo checking bootstrapped file $*.ml
 	@./yakker compile $(SRCDIR)/syntax/$*.bnf |\
 		cmp -s - $(SRCDIR)/$*.ml ||\
@@ -427,12 +427,12 @@ gen-engine: gen-% : $(SRCDIR)/wfe.ml
 	@$(M4PP) $< | cmp -s - $(SRCDIR)/$*.ml ||\
 		(echo '    updating' $* && cp $(SRCDIR)/$*.ml $(SRCDIR)/prev_$*.ml && $(M4PP) $< > $(SRCDIR)/$*.ml)
 
-update-yakker: bootstrap-yakker_grammar bootstrap-cmdline bootstrap-extract_grammar gen-engine
+update-yakker: bootstrap-yakker_grammar bootstrap-cmdline bootstrap-extract_grammar bootstrap-tyspec gen-engine
 
-restore-yakker_grammar restore-cmdline restore-extract_grammar restore-engine: restore-%:
+restore-yakker_grammar restore-cmdline restore-extract_grammar restore-tyspec restore-engine: restore-%:
 	mv $(SRCDIR)/prev_$*.ml $(SRCDIR)/$*.ml
 
-restore-yakker: restore-yakker_grammar restore-cmdline restore-extract_grammar restore-engine
+restore-yakker: restore-yakker_grammar restore-cmdline restore-extract_grammar restore-tyspec restore-engine
 
 ########################################
 

@@ -49,7 +49,10 @@ let memsize () = Gc.full_major(); (Gc.stat()).Gc.live_words
 
 let nil = [] (* Used in some generated code because yakker parser currently chokes on [] sometimes *)
 
-(* piped processes *)
+(** piped processes [pipe_in_out command send_in get_out] where
+    [command] launches a process, [send_in] is function that writes
+    into input of the process and [get_out] is a function that reads
+    the output of the process. *)
 let pipe_in_out command send_in get_out =
   let r,w = Unix.open_process command in
 
@@ -57,7 +60,9 @@ let pipe_in_out command send_in get_out =
   send_in w;
   flush w;
   close_out w; (* close so command process stops waiting for input *)
-  (* This next because of a bug in the Batteries version of close_out *)
+  (* This next because of a bug in the Batteries version of close_out
+     TODO: YHM, 5/17/2011: Are we using the Batteries version of close_out
+     anymore? I don't think so.*)
   (try let fd = Unix.descr_of_out_channel w in Unix.close fd with _ -> ());
 
   (* Get results out of pipe *)
@@ -68,10 +73,32 @@ let pipe_in_out command send_in get_out =
     ignore(Unix.close_process (r,w))
   with _ -> ())
 
+(** Like [pipe_in_out], but returns the result from [get_out].
+    @raise [Failure] if process exits abnormally. *)
+let pipe_in_out_result command send_in get_out =
+  let r,w = Unix.open_process command in
+
+  (* Put data into pipe *)
+  send_in w;
+  flush w;
+  close_out w; (* close so command process stops waiting for input *)
+  (* This next because of a bug in the Batteries version of close_out *)
+  (try let fd = Unix.descr_of_out_channel w in Unix.close fd with _ -> ());
+
+  (* Get results out of pipe *)
+  let res = get_out r in
+
+  (* Clean up *)
+  begin match Unix.close_process (r,w) with
+    | Unix.WEXITED 0 ->   ()
+    | Unix.WEXITED x ->   failwith (Printf.sprintf "ocaml exited with %d\n" x)
+    | Unix.WSIGNALED x -> failwith (Printf.sprintf "ocaml exited with signal %d\n" x)
+    | Unix.WSTOPPED x ->  failwith (Printf.sprintf "ocaml stopped with signal %d\n" x)
+  end;
+
+  res
+
 let find_option t x = try Some(Hashtbl.find t x) with Not_found -> None (* in batteries not ocaml *)
-let is_some = function
-        | None -> false
-        | _ -> true
 
 let array_contains x xs =
   let rec loop x xs n i =
@@ -162,6 +189,14 @@ let option_fold f v = function None -> v | Some x -> f v x
 let option v f = function None -> v | Some x -> f x
 let option_get v = option v (fun z -> z)
 
+let is_some = function
+        | None -> false
+        | _ -> true
+
+(** extract a value in boxed in Some.
+    @raises [Not_found] if option is None.*)
+let from_some = function None -> raise Not_found | Some s -> s
+
 (* return the set of unique elements in the list *)
 let remove_dups xs =
   match List.fast_sort compare xs with
@@ -186,8 +221,30 @@ let list_make n f =
     if i < n then loop (i + 1) ((f i)::xs) else xs in
   List.rev (loop 0 [])
 
+let list_drop n xs =
+  let rec _d n xs =
+    match n, xs with
+      | 0, _ -> xs
+      | _, [] -> []
+      | _, x::xs -> _d (n - 1) xs in
+  if n <= 0 then xs
+  else _d n xs
+
 module Operators = struct
   let ($) f g x = f (g x)
   let ($|) f x = f x
 end
+
+
+let module_name_of_filename n =
+  String.capitalize (Filename.chop_suffix (Filename.basename n) ".ml")
+
+let file_copy inch outch =
+  let buffer = String.create 4096 in
+  let rec _fc ()  =
+    match input inch buffer 0 4096 with
+      | 0 -> ()
+      | n -> output outch buffer 0 n; _fc () in
+  _fc ();
+  flush outch
 

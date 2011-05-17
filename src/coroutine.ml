@@ -153,7 +153,10 @@ let transform r0 =
             (match loop_condition with
             | Accumulate(Some(x,e),_) -> x,e
             | Accumulate(None,_) (* in this case r1 must be early relevant so we need to track pre and post anyway *)
-            | Bounds _ -> Variables.fresh(),"_wv0") in
+            | Bounds _ -> Variables.fresh(),"_wv0"
+                (* This case of Bounds together with an early-relevant r1 can only occur if lifting was skipped. Otherwise,
+                   the star would have been lifted to accumulate a list of values. *)
+            ) in
           let g = Variables.fresh() in
           let assignments = string_of_varset r1.a.early_assignments in
           [(pre,

@@ -1,0 +1,189 @@
+@ocaml {
+(*******************************************************************************
+ * Copyright (c) 2010 AT&T.
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/legal/epl-v10.html
+ *
+ * Contributors:
+ *    Trevor Jim and Yitzhak Mandelbaum
+ *******************************************************************************)
+
+let pr = Printf.bprintf
+
+type id_map = {the_table: (string, string) Hashtbl.t; get_id : string -> string}
+
+let tyvar_prefix = "yk_svty"
+
+let freshn counter = Printf.sprintf "%s%d" tyvar_prefix (Yak.Util.postincr counter)
+
+let map_create n = 
+    let freetypes = Hashtbl.create n in
+    let counter = ref 0 in
+    {the_table = freetypes;
+     get_id = begin fun id -> 
+       match Yak.Util.find_option freetypes id with
+       | None -> 
+	 let x = freshn counter in
+	 Hashtbl.add freetypes id x;
+	 x
+       | Some x -> x end}
+
+}
+@counter(3)
+
+; Grammar handles cases all forms of type decl.: 0, 1, and many type variables. I guess
+; if there are 0, we don't need to run this, but that's easier said than done.
+
+start = 
+    {Buffer.create 11}$b
+    {map_create 11}$map
+    "val x : "                                        ; Header (unprocessed)
+    stream$(map.get_id,b)                             ; Stream of tokens to be processed
+    upper-ident "._sv Yak.Pam_internal.instruction"   ; Trailer (unprocessed)
+    [newline]
+    {Hashtbl.length map.the_table, Buffer.contents b}. ; return value
+
+
+CR = %d10.
+LF = %d13.
+CRLF = CR LF.
+SP = %d32.
+DIGIT = %d48-57.
+WSP = %d9|%d32.
+DQUOTE = %d34.
+CHAR8 = %d0-255.
+newline = CR|LF|CRLF.
+symbolchar = "!"|"$"|"%"|"&"|"*"|"+"|"-"|"."|"/"|":"|"<"|"="|">"|"?"|"@"|"^"|"|"|"~".
+id-body = %d48-57|%d65-90|%d97-122|"_"|"'".
+keyword = ("false"|"true"|"assert"|"begin"|"constraint"|"exception"|"external"|"for"|"fun"|"function"|"functor"|"if"|"include"|"lazy"|"let"|"match"|"module"|"mutable"|"new"|"object"|"virtual"|"method"|"initializer"|"class"|"inherit"|"open"|"private"|"rec"|"sig"|"struct"|"try"|"type"|"val"|"while"|"do"|"and"|"as"|"downto"|"else"|"in"|"of"|"or"|"then"|"to"|"when"|"with"|"done"|"end") !id-body.
+lwr-ident = !keyword (%d97-122|"_") *id-body !id-body.
+lwr-ident-esu = !keyword (%d97-122|"_" id-body) *id-body !id-body.
+upper-ident = %d65-90 *(%d48-57|%d65-90|%d97-122|"_"|"'") !id-body.
+qdtext = CHAR8 - DQUOTE|"\".
+char-for-backslash = "\"|"'"|DQUOTE|"n"|"t"|"b"|"r"|SP.
+char-for-decimal = DIGIT DIGIT DIGIT.
+char-for-hexadecimal = "x" (DIGIT|%d65-70|%d97-102) (DIGIT|%d65-70|%d97-102).
+string-escape = newline *WSP|char-for-decimal|char-for-hexadecimal|char-for-backslash.
+string = DQUOTE *(qdtext|"\" string-escape) DQUOTE.
+charlit-escape = char-for-decimal|char-for-hexadecimal|char-for-backslash.
+charlit-regexp = "'" (newline|(CHAR8 - "\"|"'"|CR|LF)|"\" charlit-escape) "'".
+comment-any-char = CHAR8 - DQUOTE|"("|"*".
+comment = "(*" !")" *(comment-any-char|string|charlit-regexp|comment|"(" !"*"|"*" !")") "*)"|"(*)".
+line-num-directive = "#" *WSP DIGIT *DIGIT *WSP [DQUOTE (CHAR8 - DQUOTE|CR|LF) DQUOTE] *(CHAR8 - CR|LF) newline.
+SHARP-la = "#".
+wsp-PDG = WSP|%d10|%d13.
+PDG = *(wsp-PDG *wsp-PDG !wsp-PDG|comment|line-num-directive).
+
+AS = "as" PDG.
+OF = "of" PDG.
+UNDERSCORE = "_" !id-body PDG.
+QUESTION = "?" !symbolchar PDG.
+OPTLABEL = "?" lwr-ident ":" PDG.
+LIDENT = lwr-ident-esu PDG.
+UIDENT = upper-ident PDG.
+SHARP = "#" PDG.
+AMPERSAND = "&" !"&" PDG.
+BACKQUOTE = "`" PDG.
+QUOTE = "'" PDG.
+LPAREN = "(" PDG.
+RPAREN = ")" PDG.
+STAR = "*" PDG.
+COMMA = "," PDG.
+MINUSGREATER = "->" !symbolchar PDG.
+DOT = "." !"." PDG.
+DOTDOT = ".." PDG.
+COLON = ":" !(":"|"="|">") PDG.
+SEMI = ";" !";" PDG.
+LESS = "<" !"-" PDG.
+LBRACKET = "[" !"|" PDG.
+LBRACKETLESS = "[<" PDG.
+LBRACKETGREATER = "[>" PDG.
+RBRACKET = "]" PDG.
+BAR = "|" !("|"|"]") PDG.
+GREATER = ">" !("]"|"}") PDG.
+
+
+nq-token = 
+  AS
+| OF
+| UNDERSCORE
+| QUESTION
+| OPTLABEL
+| LIDENT
+| UIDENT
+| SHARP
+| AMPERSAND
+| BACKQUOTE
+| LPAREN
+| RPAREN
+| STAR
+| COMMA
+| MINUSGREATER
+| DOT
+| DOTDOT
+| COLON
+| SEMI
+| LESS
+| LBRACKET
+| LBRACKETLESS
+| LBRACKETGREATER
+| RBRACKET
+| BAR
+| GREATER
+
+nqid-token = 
+  AS
+| OF
+| UNDERSCORE
+| QUESTION
+| OPTLABEL
+| SHARP
+| AMPERSAND
+| BACKQUOTE
+| LPAREN
+| RPAREN
+| STAR
+| COMMA
+| MINUSGREATER
+| DOT
+| DOTDOT
+| COLON
+| SEMI
+| LESS
+| LBRACKET
+| LBRACKETLESS
+| LBRACKETGREATER
+| RBRACKET
+| BAR
+| GREATER
+ 
+ident = (upper-ident | lwr-ident-esu)$x PDG {x}.
+
+
+; Can multiple QUOTEs occur in sequence?
+;          | (QUOTE *QUOTE)$qts	    
+stream$(map,b) = 
+         *( nq-token$tk {pr b "%s" tk} 
+          | QUOTE
+	    ( ident$id {match id.[0] with '_' -> 
+	                  pr b "%s " (map id) 
+                        | otherwise -> pr b "'%s" id } 
+            | nqid-token$tk {pr b "'%s" tk}
+)).
+
+
+
+@ocaml {
+
+let parse_channel ic = parse (Yak.YkBuf.from_channel ic) ;;
+
+(*
+Yak.Pami.Simple.qrun 
+  (fun file -> match parse_file file with 
+               | [n,s] -> 
+                 Printf.printf "\n%d variables to be remapped.\n%s\n" n s
+	       | _ -> failwith "Ambiguous parse.");;
+*)
+}

@@ -1126,10 +1126,14 @@ fun _ ykb v -> match f1 v with | Yk_done %s %s (%s) -> Some (f2 v (%s)) | _ -> N
             end;
             false
     in
+    if !Compileopt.use_coroutines then begin
     Printf.fprintf ch "module SV_hashtbl = Hashtbl.Make(struct
                           type t = sv
                           let equal a b = sv_compare a b = 0
-                          let hash = Hashtbl.hash end)\n";
+                          let hash = Hashtbl.hash end)\n"
+    end else begin
+      Printf.fprintf ch "module SV_hashtbl = Hashtbl\n"
+    end;
     Printf.fprintf ch "module Pred = Pred3\n";
     ignore (Hashtbl.fold print_pred preds true)
 

@@ -726,8 +726,8 @@ let fsm_transducer gr inch outch =
 
   (* The ignore set of transformers starts off calls with a fresh sv0 and ignores
      returned semantic values, keeping the previous semval instead. *)
-  Printf.fprintf outch "let __default_call _ _ = sv0;;\n";
-  Printf.fprintf outch "let __default_ret _ v1 _ = v1;;\n";
+  Printf.fprintf outch "let %s _ _ = sv0;;\n" default_call_tx;
+  Printf.fprintf outch "let %s _ v1 _ = v1;;\n" default_binder_tx;
 
   (* Print the nullability predicates. *)
   Printf.fprintf outch "module Pred3 = Yak.Pam_internal.Pred3\n";
@@ -742,8 +742,9 @@ let fsm_transducer gr inch outch =
   (* Print binders *)
   DynArray.iteri (fun i str -> Printf.fprintf outch "let %s%d = %s;;\n" binder_prefix i str) binders;
 
-  (* Generate vestigial binders table (empty): *)
-  Printf.fprintf outch "let binders : (sv -> sv -> sv) array = [| |]\n";
+  (* Generate vestigial binders table (empty):
+     YHM, 5/16/2011: why generate this? *)
+  Printf.fprintf outch "let binders = [| |]\n";
 
   Printf.fprintf outch "let num_symbols = %d\n\n" (Hashtbl.length tbl_ntnames);
 
@@ -771,7 +772,7 @@ let fsm_transducer gr inch outch =
 
 
   (* Version 1: [f1] is an action-like function, taking only the current position and semval. *)
-  let branches2instr1 (f1, c_t, cs) =
+  let branches2instr1 (f1, c_ty, cs) =
     let mkcase (c, f2, target) =
       if c.Gil.arity = 0 then
         Printf.sprintf "%s -> %s (), %d" c.cname f2 target
@@ -782,13 +783,13 @@ let fsm_transducer gr inch outch =
     let mkmatch x cs = "match " ^ x ^ " with " ^ String.concat " | " cs in
     let mkfunc f1 p e = "let f1 = "^ f1 ^" in fun p v -> match f1 p v with " ^ p ^ " -> " ^ e in
     let mkpat = Printf.sprintf "Yk_done(%s(%s))" in
-    Printf.sprintf "DetBranchInstr(%s)" (mkfunc f1 (mkpat c_t "x") $| mkmatch "x" (map mkcase cs)) in
+    Printf.sprintf "DetBranchInstr(%s)" (mkfunc f1 (mkpat c_ty "x") $| mkmatch "x" (map mkcase cs)) in
 
   (* Version 2: [f1] is an box-like function, taking the current position and semval and the ykbuf
      and returning an option like blackboxes.
      TODO-dbranch: Use this in late_only_dbranch case, rather than version3.
   *)
-  let branches2instr2 (f1, c_t, cs) =
+  let branches2instr2 (f1, c_ty, cs) =
     let spanvar = "n" in
     let xvar = "x" in
     let mkcase (c, f2, target) =
@@ -807,7 +808,7 @@ let fsm_transducer gr inch outch =
      ykbuf and returning an option like
      blackboxes.  This version is weaker than the previous in that any
      values carried by the matched constructor are ignored and it does not involve the semantic value at all. *)
-  let branches2instr3 (f1, c_t, cs) =
+  let branches2instr3 (f1, c_ty, cs) =
     let xvar = "x" in
     (* note that we ignore [f2] here. *)
     let mkcase (c, _, target) =
@@ -826,9 +827,10 @@ let fsm_transducer gr inch outch =
       branches2instr3
     else branches2instr1 in
 
-  Printf.fprintf outch "let program : (int * sv instruction list) list = [\n";
+  Printf.fprintf outch "let program = [\n";
   Hashtbl.iter
     (fun a (eats, ops, dbranches) ->
+       (* compare dbranches by generating function first and datatype second. *)
        let cmpdb (f1, c1, _, _) (f2, c2, _ ,_) =
          let c = String.compare f1 f2 in
          if c = 0 then String.compare c1.cty c2.cty else c in

@@ -141,7 +141,8 @@ let producers gr =
           then gr.late_producers <- PSet.add n gr.late_producers;
           (match PSet.mem n gr.early_producers,a.Attr.early_rettype with
           | true,None ->
-              Printf.eprintf "Error: %s returns a value but its type is not declared\n%!" n
+              if !Compileopt.use_coroutines then
+                Printf.eprintf "Error: %s returns a value but its type is not declared\n%!" n
           | false,Some _ ->
               Printf.eprintf "Error: %s declares a return type but does not return a value\n%!" n
           | _,_ -> ())

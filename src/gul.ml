@@ -216,6 +216,9 @@ let add_to_prologue gr s =
 let add_to_epilogue gr s =
   gr.epilogue <- (Ocaml s)::gr.epilogue
 
+let add_many_to_epilogue gr xs =
+  gr.epilogue <- List.rev_append (List.rev_map (fun s -> Ocaml s) xs) gr.epilogue
+
 (** [s] is a parameter and type declaration, e.g., "x:int", and this extracts the type *)
 let get_paramtype s =
   try

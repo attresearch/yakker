@@ -167,8 +167,8 @@ let rec relevance0 is_early_producer r =
       if late<>None then r.a.late_relevant <- true
   | Box _ ->
       r.a.early_relevant <- true
-  | Delay _ ->
-      r.a.early_relevant <- true;
+  | Delay(opn,_,_) ->
+      r.a.early_relevant <- opn;
       r.a.late_relevant <- true;
   | When _ ->
       r.a.early_relevant <- true

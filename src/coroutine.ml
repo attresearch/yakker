@@ -76,7 +76,7 @@ let transform r0 =
             let x = Variables.fresh() in
             Printf.sprintf "Yk_bind(function Yk_done(%s) -> %s | _ -> failwith \"bind=%d\")" x (k(x)) post in
           [(post, eta k)]
-      | Delay(e,_) ->
+      | Delay(_,e,_) ->
           let e = yk_delay (k"(_wv0)") e in
           [(pre,e)]
       | Position true ->

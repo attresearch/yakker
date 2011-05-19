@@ -204,7 +204,7 @@ let wrap gr =
 let transform_history gr =
   (* Get all delay types *)
   let add_types = lrfold_b
-    (fun r v_left -> match r.r with | Delay(_,Some t) -> PSet.add t v_left | _ -> v_left) in
+    (fun r v_left -> match r.r with | Delay(_,_,Some t) -> PSet.add t v_left | _ -> v_left) in
   let types = List.fold_left
     (fun types -> function | RuleDef(n,r,a) -> add_types r types | _ -> types)
     (PSet.add "int" PSet.empty)
@@ -234,7 +234,7 @@ let transform_history gr =
     (* Wrap and unwrap at delay. *)
     let rec loop r =
       match r.r with
-      | Delay(e,topt) ->
+      | Delay(opn,e,topt) ->
           let wrapped,unwrapped = fresh(),fresh() in
           let constructor =
             (match topt with None -> "Ykd_int"
@@ -244,7 +244,7 @@ let transform_history gr =
             Printf.sprintf "(match %s with %s(%s) -> %s | _ -> failwith \"@delay wrap\")"
               wrapped constructor unwrapped unwrapped in
           r.r <-
-            (mkSEQ2(mkDELAY(wrap_act,None),None,Some wrapped,mkACTION2(None,Some unwrap_act))).r
+            (mkSEQ2(mkRHS(Delay(opn,wrap_act,None)),None,Some wrapped,mkACTION2(None,Some unwrap_act))).r
 
       | Alt(r1,r2) | Seq(r1,_,_,r2) | Minus(r1,r2) ->
           loop r1; loop r2

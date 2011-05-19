@@ -57,7 +57,7 @@ and rhs0 =
   | Prose of string
   | Action of expr option * expr option
   | Box of expr * ty option * expr boxnull (* argument, return type, box nullability info *)
-  | Delay of expr * ty option         (* argument, return type *)
+  | Delay of bool * expr * ty option       (* requires early environments, argument, return type *)
   | When of expr
   | DBranch of expr * constr
   | Opt of rhs
@@ -252,7 +252,7 @@ let mkHASH(m,n,r)     = mkRHS(Hash(Bounds(m,n),r))
 let mkHASH2(a,r)      = mkRHS(Hash(a,r))
 let mkMINUS(r1,r2)    = mkRHS(Minus(r1,r2))
 let mkWHEN(e)         = mkRHS(When(e))
-let mkDELAY(e,topt)   = mkRHS(Delay(e,topt))
+let mkDELAY(e,topt)   = mkRHS(Delay(true,e,topt))
 let mkDBRANCH(e,c)   = mkRHS(DBranch(e,c))
 let mkBOX(e,topt,n)   = mkRHS(Box(e,topt,n))
 
@@ -294,7 +294,7 @@ module Curried_constructors = struct
  let mkHASH2 a r       = mkRHS(Hash(a,r))
  let mkMINUS r1 r2     = mkRHS(Minus(r1,r2))
  let mkWHEN e          = mkRHS(When(e))
- let mkDELAY e topt    = mkRHS(Delay(e,topt))
+ let mkDELAY e topt    = mkRHS(Delay(true,e,topt))
  let mkDBRANCH e c     = mkRHS(DBranch(e,c))
  let mkBOX e topt n    = mkRHS(Box(e,topt,n))
 

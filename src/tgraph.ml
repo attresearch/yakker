@@ -9,10 +9,15 @@
  *    Trevor Jim and Yitzhak Mandelbaum
  *******************************************************************************)
 
+(* A graph library, providing transitive closure and topological sort *)
+
 open Yak
 
 type 'a graph = ('a, 'a PSet.t) PMap.t
 
+(**********************)
+(* Graph constructors *)
+(**********************)
 let empty = PMap.empty
 
 let get_nodes g =
@@ -48,14 +53,21 @@ let remove_edges g source targets =
     (fun target g -> remove_edge g source target)
     g
 
+
+(*******************)
+(* Graph utilities *)
+(*******************)
+
 (* let fold_edges = PMap.foldi .|. (PSet.fold .|.) *)
 let fold_edges f = PMap.foldi (fun n1 -> PSet.fold (f n1))
-
-(* to_list *)
 
 let is_edge g source target =
   PSet.mem target (PMap.find source g)
 
+
+(********************)
+(* Topological sort *)
+(********************)
 exception Break
 let rec tsort0(input,output,vN,vS,x,k) =
   vS := x::!vS;
@@ -97,21 +109,26 @@ let tsort (input:'a graph) =
     sources;
   !output
 
-(* NOT YET TESTED *)
 
-(* A transitive closure algorithm, based on Esko Nuutila, "An
-   efficient transitive closure algorithm for cyclic digraphs,"
-   Information Processing Letters 52 (1994) 207-213.
-   Modified to allow self-loops. *)
+(**********************)
+(* Transitive closure *)
+(**********************)
+
+(* Based on Esko Nuutila, "An efficient transitive closure algorithm
+   for cyclic digraphs," Information Processing Letters 52 (1994)
+   207-213.  Modified to allow self-loops. *)
+
 type 'a nodestate = {
     mutable root: 'a;
     mutable c: int;
     mutable visitindex: int;
   }
+
 type 'a componentstate = {
     mutable succ: int PSet.t;
     mutable nodes: 'a PSet.t;
   }
+
 type 'a tcstate = {
     mutable visited: 'a PSet.t;
     mutable vsitindex: int;
@@ -121,7 +138,9 @@ type 'a tcstate = {
     mutable nstack: 'a list;
     mutable cstack: int list;
   }
+
 let union x y = PSet.fold PSet.add x y
+
 let rec comp_tc ts g v =
   ts.visited <- PSet.add v ts.visited;
   let nsv = {root=v; c=0; visitindex=ts.vsitindex} in
@@ -163,7 +182,6 @@ let rec comp_tc ts g v =
   | top::_ ->
       if (top <> v || is_edge g v v) (* check for self-loop *) then
         csCnew.succ <- PSet.add cnew csCnew.succ);
-
   for hnow = List.length ts.cstack downto hsaved+1 do
     let x = List.hd ts.cstack in
     ts.cstack <- List.tl ts.cstack;
@@ -172,8 +190,6 @@ let rec comp_tc ts g v =
       let s = union s (PMap.find x ts.cs).succ in
       csCnew.succ <- s
   done;
-
-
   let rec loop = function [] -> ()
     | w::tl ->
         ts.nstack <- tl;

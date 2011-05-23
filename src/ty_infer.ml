@@ -10,9 +10,14 @@
  *******************************************************************************)
 
 (* Infer types and wrap and unwrap semantic values across early calls.
- *
- * Early arguments and return values need a uniform type because they
- * end up in homogeneous data structures (like a semantic value stack).
+
+   Early arguments and return values need a uniform type because they
+   end up in homogeneous data structures (like a semantic value stack).
+
+   For detailed notes on the design of the code in this module please see:
+
+       https://yakker.research.att.com/wiki/Notes-on-the-arrow-notation-transformation
+
  *)
 
 open Yak

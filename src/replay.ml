@@ -14,164 +14,244 @@ open Yak
 open Gul
 open Variables
 
-let replay_prologue = "
-(*REPLAY PROLOGUE*)
-"
-let transform gr =
-  let skip_count = ref 0 in
-  let notskip_count = ref 0 in
-  let skipped_labels = ref PSet.empty in
-  let skip l =
-    if !Compileopt.skip_opt then
-      (skipped_labels := PSet.add l !skipped_labels; skip_count := !skip_count+1; true)
-    else (notskip_count := !notskip_count+1; false) in
-  let hproj = if gr.wrapped_history then "Ykd_int" else "" in
-  let match_cases = function
-    | [] -> Util.impossible "Replay.transform.match_cases([])"
-    | [(label,body)] ->
-        if skip label then
-          Printf.sprintf "(%s)\n" body
-        else begin
-          (* Could just use next case, but this prints a bit more nicely *)
-          if !Compileopt.check_labels then
-            Printf.sprintf "(_i(%d,_n()); %s)\n " label body (* NB _i defn is added to prologue by Main *)
-          else
-            Printf.sprintf "(ignore (*%d*) (_n()); %s)\n " label body (* prevent match warning *)
-        end
-    | cases ->
-        let b = Buffer.create 11 in
-        Printf.bprintf b "\n (match _n() with\n ";
-        let rec loop = function [] -> Util.impossible "Replay.transform.match_cases"
-          | (label,body)::[] ->
-              notskip_count := !notskip_count+1;
-              if !Compileopt.check_labels then
-                Printf.bprintf b "| %s(%d) -> (%s)\n " hproj label body
-              else
-                Printf.bprintf b "| _(*%d*) -> (%s)\n " label body (* prevent match warning *)
-          | (label,body)::tl ->
-              notskip_count := !notskip_count+1;
-              Printf.bprintf b "| %s(%d) -> (%s)\n " hproj label body;
-              loop tl
-        in loop cases;
-        Printf.bprintf b ")";
-        Buffer.contents b in
-  (* invariant: rp is only applied to late-relevant r, and returns a non-empty list *)
-  let rec rp r =
-    if not(r.a.late_relevant) then (Util.warn Util.Sys_warn "Invariant violated: replay transform on non-late-relevant rhs"; []) else
-    let (pre,post) = (r.a.pre,r.a.post) in
-    match r.r with
-      | Action (_,Some e) ->
-          [(pre,e)]
-      | Symb(n,_,_,Some e) -> (* TODO: attributes *)
-          [(pre,Printf.sprintf "_r_%s(_n,_ps,ykinput,%s)" (Variables.bnf2ocaml n) e)]
-      | Symb(n,_,_,None) -> (* TODO: attributes *)
-          [(pre,Printf.sprintf "_r_%s(_n,_ps,ykinput)" (Variables.bnf2ocaml n))]
-      | Delay _ ->
-          [(pre,"_n()")]
-      | Position false ->
-          [(pre,"_ps()")]
-      | Opt r1 ->
-          rp r1
-      | Alt(r1,r2) ->
-          (* written this way to preserve the invariant that rp is never applied to non-late-relevant rhs *)
-          if not(r1.a.late_relevant) then rp r2
-          else if not(r2.a.late_relevant) then rp r1
-          else (rp r1)@(rp r2)
-      | Assign(r1,_,late) ->
-          Util.impossible "TODO late attributes"
-      | Seq(r1,_,late,r2) ->
-          (match r1.a.late_relevant, r2.a.late_relevant with
-          | true,true ->
-              let y =
-                (match late with Some y -> y
-                | None -> Variables.fresh()) in (* this case handled by normalization in writeup *)
-              [(pre,
-                Printf.sprintf
-                  "\n (let %s = %s in %s)"
-                  y
-                  (match_cases (rp r1))
-                  (match_cases (rp r2)))]
-          | true,false ->
-              (*TJIM: WRITEUP IS WRONG, NEEDS TO SEND UNIT TO K*)
-              (*THEREFORE, ERASURE IN WRITEUP IS WRONG*)
-              (*FIX BY CHANGING NORMALIZATION IN WRITEUP?*)
-              (* NB unlike coroutine, we DO need to dispatch on pre to accomplish this *)
-              let y =
-                (match late with Some y -> y
-                | None -> Variables.fresh()) in (* this case handled by normalization in writeup *)
-              [(pre,
-                Printf.sprintf
-                  "\n (let %s = %s in ())"
-                  y
-                  (match_cases (rp r1)))]
-          | false,true ->
-              (match late with
-              | None ->
-                  rp r2 (* NB no dispatch required here... *)
-              | Some y ->
-                  [(pre, (* ...but here we must dispatch to bind x to unit *) (*HANDLED BY NORMALIZATION IN WRITEUP*)
-                    Printf.sprintf "(let %s=() in %s)" y (match_cases (rp r2)))])
-          | false,false ->
-              (* this case is impossible because our analysis marks this as not late relevant,
-                 regardless of whether there is a variable binding *)
-              Util.warn Util.Sys_warn "Impossible case in replay transformation: not late relevant.";
-              Pr.pr_rule_channel stderr r;
-              prerr_newline ();
-              [])
-      | Star(Accumulate(_,Some(x,e)),r1) ->
-          let g,y = fresh(),fresh() in
-          let body_cases =
-            List.map (fun (label,case) -> (label,Printf.sprintf "%s(%s)" g case)) (rp r1) in
-          let all_cases = (post,x)::body_cases in
-          [(pre,
-            Printf.sprintf
-              "\n (let rec %s %s = %s in %s(%s))"
-              g x (match_cases all_cases) g e)]
-      | Star(Accumulate(_,None),r1) (* r1 must be late relevant so we need to track pre and post anyway *)
-      | Star(Bounds _,r1) ->
-          (* like the last case, using a fresh variable for x and () for e *)
-          let e = "()" in
-          let x = Variables.fresh() in
-          (* from here on, identical --- refactor *)
-          let g,y = fresh(),fresh() in
-          let body_cases =
-            List.map (fun (label,case) -> (label,Printf.sprintf "%s(%s)" g case)) (rp r1) in
-          let all_cases = (post,x)::body_cases in
-          [(pre,
-            Printf.sprintf
-              "\n (let rec %s %s = %s in %s(%s))"
-              g x (match_cases all_cases) g e)]
+(* Generate the replay functions *)
+let replay gr =
+  let l = ref 2000 in
+  let uses_history = ref false in
+  let fresh() = uses_history := true; Util.postincr l in
 
-      (* cases below are not late relevant *)
-      | When _            -> Util.impossible "Replay.rp.When"
-      | Box _             -> Util.impossible "Replay.rp.Box"
-      | DBranch _         -> Util.impossible "Replay.rp.DBranch"
-      | Position true     -> Util.impossible "Replay.rp.Position true"
-      | Action(_,None)    -> Util.impossible "Replay.rp.Action(_,None)"
-      | CharRange _       -> Util.impossible "Replay.rp.CharRange"
-      | Prose _           -> Util.impossible "Replay.rp.Prose"
-      | Lookahead _       -> Util.impossible "Replay.rp.Lookahead"
-      | Lit _             -> Util.impossible "Replay.rp.Lit"
-      (* cases below should have been desugared *)
-      | Rcount _          -> Util.impossible "Replay.rp.Rcount"
-      | Hash _            -> Util.impossible "Replay.rp.Hash"
-      | Minus _           -> Util.impossible "Replay.rp.Minus"
-  in
-  add_to_prologue gr replay_prologue;
+  let b = Buffer.create 11 in
+  let pr fmt = Printf.bprintf b fmt in
+  let fname n = Printf.sprintf "_r_%s" (Variables.bnf2ocaml n) in
+
+  let rec loop r =
+    if not(r.a.late_relevant) then pr "()" else
+    match r.r with
+    | Action (early,Some e) ->
+        pr "%s" e
+    | Symb(n,x,y,Some e) ->
+        pr "%s(_n,ykinput,%s)" (fname n) e
+    | Symb(n,_,_,None) ->
+        pr "%s(_n,ykinput)" (fname n)
+    | Delay(false,_,_) ->
+        uses_history := true; pr "_n()"
+    | Position false ->
+        (* TODO: eliminate in favor of Delay(false,...) *)
+        uses_history := true; pr "_n()"
+    | Opt r1 ->
+        loop r1
+    | Alt _ ->
+        let alts = alt2rules r in
+        pr "(match _n() with";
+        List.iter
+          (fun r1 ->
+            let l = fresh() in
+            r1.a.pre <- l;
+            pr "\n | %d -> (" l;
+            loop r1;
+            pr ")")
+          alts;
+        pr "\n | _ -> raise Exit)"
+    | Assign(r1,_,late) ->
+        Util.impossible "TODO late attributes"
+    | Seq(r1,_,None,r2) ->
+        loop r1;
+        pr "; ";
+        loop r2
+    | Seq(r1,_,Some y,r2) ->
+        pr "(let %s = " y;
+        loop r1;
+        pr " in ";
+        loop r2;
+        pr ")"
+    | Star(Accumulate(_,Some(x,e)),r1) ->
+        let l_body = fresh() in
+        let l_done = fresh() in
+        r1.a.pre <- l_body;
+        r.a.post <- l_done;
+        let g = Variables.fresh() in
+        pr "(let rec %s %s =\n" g x;
+        pr "if %d=_n() then %s else\n%s(" l_done x g;
+        loop r1;
+        pr ")\nin %s(%s))" g e
+    | Star(_,r1) ->
+        let l_body = fresh() in
+        let l_done = fresh() in
+        r1.a.pre <- l_body;
+        r.a.post <- l_done;
+        pr "(while %d=_n() do\n" l_body;
+        loop r1;
+        pr "done)\n"
+
+          (* cases below are not late relevant *)
+    | When _            -> Util.impossible "Replay.replay.When"
+    | Box _             -> Util.impossible "Replay.replay.Box"
+    | DBranch _         -> Util.impossible "Replay.replay.DBranch"
+    | Delay(true,_,_)   -> Util.impossible "Replay.replay.Delay(true,_,_)"
+    | Position true     -> Util.impossible "Replay.replay.Position true"
+    | Action(_,None)    -> Util.impossible "Replay.replay.Action(_,None)"
+    | CharRange _       -> Util.impossible "Replay.replay.CharRange"
+    | Prose _           -> Util.impossible "Replay.replay.Prose"
+    | Lookahead _       -> Util.impossible "Replay.replay.Lookahead"
+    | Lit _             -> Util.impossible "Replay.replay.Lit"
+          (* cases below should have been desugared *)
+    | Rcount _          -> Util.impossible "Replay.replay.Rcount"
+    | Hash _            -> Util.impossible "Replay.replay.Hash"
+    | Minus _           -> Util.impossible "Replay.replay.Minus" in
   let first = ref true in
   List.iter
     (function RuleDef(n,r,a) ->
-      if r.a.late_relevant then begin
-        let replay_body = match_cases (rp r) in
-        add_to_prologue gr
-          (Printf.sprintf "%s_r_%s(_n,_ps,ykinput%s) = %s\n "
-             (if !first then "let rec\n" else "and\n")
-             (Variables.bnf2ocaml n)
-             (match a.Attr.late_params with None -> "" | Some x -> ","^x)
-             replay_body);
-        first := false
+      if not r.a.late_relevant then () else begin
+        pr "%s %s(_n,ykinput%s) = "
+          (if !first then "\nlet rec\n" else "\nand\n")
+          (fname n)
+          (match a.Attr.late_params with None -> "" | Some x -> ","^x);
+        first := false;
+        loop r
       end
       | _ -> ())
     gr.ds;
-  Yak.Logging.log Yak.Logging.Features.verbose "\nLabels skipped: %d ; not skipped: %d\n%!" !skip_count !notskip_count;
-  !skipped_labels
+  pr "\n";
+  add_to_prologue gr (Buffer.contents b);
+  !uses_history
+
+(* Generate the reversing functions *)
+let reverse gr =
+  let b = Buffer.create 11 in
+  let pr fmt = Printf.bprintf b fmt in
+  let fname n = Printf.sprintf "_rv_%s" (Variables.bnf2ocaml n) in
+
+  let rec loop r =
+    if not(r.a.late_relevant) then pr "()" else
+    match r.r with
+    | Action (early,Some e) ->
+        pr "()"
+    | Symb(n,_,_,_) ->
+        pr "%s()" (fname n)
+    | Delay _ ->
+        pr "push(_n())"
+    | Position false ->       (* TODO: eliminate in favor of Delay(false,...) *)
+        pr "push(_n())"
+    | Opt r1 ->
+        loop r1
+    | Alt _ ->
+        let alts = alt2rules r in
+        pr "(match _n() with";
+        List.iter
+          (fun r1 ->
+            let l = r1.a.pre in
+            pr "\n | %d -> (" l;
+            loop r1;
+            (* BUG: need hproj *)
+            pr "; push(%d))" l)
+          alts;
+        pr "\n | _ -> raise Exit)"
+    | Assign(r1,_,late) ->
+        Util.impossible "TODO late attributes"
+    | Seq(r1,_,_,r2) ->
+        loop r2;
+        pr ";";
+        loop r1
+    | Star(x,r1) ->
+        let l_body = r1.a.pre in
+        let l_done = r.a.post in
+        pr "push(%d); " l_done;
+        pr "while %d=_n() do\n " l_body;
+        loop r1;
+        (* BUG: need hproj *)
+        pr "; push(%d)\n" l_body;
+        pr "done\n"
+
+          (* cases below are not late relevant *)
+    | When _            -> Util.impossible "Replay.reverse.When"
+    | Box _             -> Util.impossible "Replay.reverse.Box"
+    | DBranch _         -> Util.impossible "Replay.reverse.DBranch"
+    | Position true     -> Util.impossible "Replay.reverse.Position true"
+    | Action(_,None)    -> Util.impossible "Replay.reverse.Action(_,None)"
+    | CharRange _       -> Util.impossible "Replay.reverse.CharRange"
+    | Prose _           -> Util.impossible "Replay.reverse.Prose"
+    | Lookahead _       -> Util.impossible "Replay.reverse.Lookahead"
+    | Lit _             -> Util.impossible "Replay.reverse.Lit"
+          (* cases below should have been desugared *)
+    | Rcount _          -> Util.impossible "Replay.reverse.Rcount"
+    | Hash _            -> Util.impossible "Replay.reverse.Hash"
+    | Minus _           -> Util.impossible "Replay.reverse.Minus" in
+  pr "class ['a] rvs (labels: 'a History.postfix) =\n";
+  pr "let s = ref [] in\n";
+  pr "let push x = s := x::!s in\n";
+  pr "let rec _n() = let (x,_) = labels#next() in x\n";
+  List.iter
+    (function RuleDef(n,r,a) ->
+      if not r.a.late_relevant then () else begin
+        pr "and %s() = " (fname n);
+        loop r;
+        pr "\n"
+      end
+      | _ -> ())
+    gr.ds;
+  pr "in\n";
+  pr "object (self)\n";
+  pr "method next() = (match !s with hd::tl -> (s := tl; hd) | _ -> raise Not_found)\n";
+  pr "initializer %s()\n" (fname gr.start_symbol);
+  pr "end\n";
+  add_to_prologue gr (Buffer.contents b)
+
+(* Transform a Gul grammar to explicitly push replay labels *)
+let transform gr =
+  if not gr.grammar_late_relevant then () else
+  let uses_history = replay gr in
+  if uses_history then reverse gr; (* some grammars have late actions but never push anything on the history *)
+  let mkOUTPUT x = mkRHS(Delay(false,string_of_int x,None)) in
+  let rec loop r =
+    if not(r.a.late_relevant) then () else
+    match r.r with
+    | Action (early,Some e) ->
+        () (*r.r <- (mkACTION2(early,None)).r*) (* Don't remove, so relevance stays the same *)
+    | Symb(n,x,y,Some e) ->
+        () (*r.r <- (mkSYMB2(n,x,y,None)).r*) (* Don't remove, so relevance stays the same *)
+    | Symb(_,_,_,None)
+    | Delay(false,_,_)
+    | Position false ->
+        ()
+    | Opt r1 ->
+        loop r1
+    | Alt _ ->
+        let alts = alt2rules r in
+        List.iter
+          (fun r ->
+            let l = r.a.pre in
+            loop r;
+            r.r <- (mkSEQ[dupRule r;mkOUTPUT(l)]).r)
+          alts
+    | Assign(r1,_,late) ->
+        Util.impossible "TODO late attributes"
+    | Seq(r1,x,y,r2) ->
+        loop r1;
+        loop r2;
+        () (*if y<>None then r.r <- (mkSEQ2(r1,x,None,r2)).r*)  (* Don't remove, so relevance stays the same *)
+    | Star(x,r1) ->
+        let l_body = r1.a.pre in
+        let l_done = r.a.post in
+        loop r1;
+        r.r <- (mkSEQ[mkOUTPUT(l_done);mkSTAR2(x,mkSEQ[r1;mkOUTPUT(l_body)])]).r
+
+            (* cases below are not late relevant *)
+    | When _            -> Util.impossible "Replay.transform.When"
+    | Box _             -> Util.impossible "Replay.transform.Box"
+    | DBranch _         -> Util.impossible "Replay.transform.DBranch"
+    | Delay(true,_,_)   -> Util.impossible "Replay.transform.Delay(true,_,_)"
+    | Position true     -> Util.impossible "Replay.transform.Position true"
+    | Action(_,None)    -> Util.impossible "Replay.transform.Action(_,None)"
+    | CharRange _       -> Util.impossible "Replay.transform.CharRange"
+    | Prose _           -> Util.impossible "Replay.transform.Prose"
+    | Lookahead _       -> Util.impossible "Replay.transform.Lookahead"
+    | Lit _             -> Util.impossible "Replay.transform.Lit"
+          (* cases below should have been desugared *)
+    | Rcount _          -> Util.impossible "Replay.transform.Rcount"
+    | Hash _            -> Util.impossible "Replay.transform.Hash"
+    | Minus _           -> Util.impossible "Replay.transform.Minus" in
+  List.iter
+    (function RuleDef(n,r,a) ->
+      if r.a.late_relevant then loop r
+      | _ -> ())
+    gr.ds

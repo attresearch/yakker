@@ -193,10 +193,9 @@ let parse = Yak.Pami.mk_parse_fun __parse %s
       let patt = if gr.grammar_early_relevant then "(_,h)" else "h" in
       Printf.sprintf "
     (fun ykinput %s ->
-      let _o = (h#traverse_postfix) in
-      let _n() = (let (x,_) = _o#next() in x) in
-      let _ps() = (let (_,p) = _o#next() in p) in
-      _r_%s(_n,_ps,ykinput)
+      let _o = new rvs (h#rtl) in
+      let _n() = _o#next() in
+      _r_%s(_n,ykinput)
     )
 "
         patt
@@ -380,9 +379,11 @@ let do_phases gr =
                 if !Compileopt.check_labels then
                   add_to_prologue gr
                     "let _i (x,y) = if x=y then y else failwith(Printf.sprintf \"_i expected %d, got %d\" x y)\n";
+                Replay.transform gr;
                 Analyze.assignments gr;
-                let skipped_labels = Replay.transform gr in
-                Dispatch.transform gr skipped_labels
+                Analyze.producers gr;
+                Analyze.relevance gr;
+                Dispatch.transform gr
               end
             else begin
                Ty_infer.infer false gr;

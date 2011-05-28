@@ -48,6 +48,7 @@ class type ['a,'lbl] history =
         method get_root : ('a,'lbl) root
 
         method traverse_postfix : 'a postfix
+        method rtl : 'a postfix
       end
 
 
@@ -75,6 +76,26 @@ class ['a] postfix_impl (r_init: ('a,'lbl) root) =
           | Root{v=v;branchings=[]} -> impossible())
   end
 
+(* right-to-left traversal *)
+class ['a] rtl (r_init: ('a,'lbl) root) =
+  object (self)
+    val mutable current = [Delayed (r_init)]
+    method next() =
+      match current with [] -> raise Not_found
+      | (Forced v)::tl -> current <- tl; v
+      | (Delayed r)::tl ->
+          (match r with
+          | Empty _ -> current <- tl; self#next()
+          | Root{v=v;branchings=(One r2)::_} -> (* silently throw away ambiguities with _ *)
+              current <- (Forced v)::(Delayed r2)::tl;
+              self#next()
+          | Root{v=v;branchings=(Two(r2,r3))::_} -> (* silently throw away ambiguities with _ *)
+              current <- (Delayed r3)::(Delayed r2)::tl;
+              (* NB: our replay functions expect a merge label to be omitted *)
+              self#next()
+          | Root{v=v;branchings=[]} -> impossible())
+  end
+
 (* The base history class.  uniq should be a memoizing function, use id for no memoization *)
 class ['a, 'lbl] history_impl (uniq: ('a,'lbl) info -> ('a,'lbl) info) =
   let mk_info k (v:'a) = (* memoized *)
@@ -98,6 +119,7 @@ class ['a, 'lbl] history_impl (uniq: ('a,'lbl) info -> ('a,'lbl) info) =
       {< root = Root inf >} (* copy of self with new root *)
 
     method traverse_postfix = new postfix_impl root
+    method rtl = new rtl root
   end
 
 module Label = struct

@@ -32,14 +32,12 @@ let add_early_late_prologue gr =
       "let _e p (_,h) = (Yk_done _wv0, h)
 let _p x p v = v
 let _p_pos x p v = v
-let _p_pos_only x p v = v
 let _m x p v v1 = v\n"
     else
       Printf.sprintf "let _e p (_,h) = (Yk_done _wv0, h#empty p)
 let _p x p = (fun(v,h)->(v,h#push p (%s(x),p)))
-let _p_pos x p = (fun(v,h)->(v,(h#push p (%s(x),p))#push p (%s(x),p)))
-let _p_pos_only x p = (fun(v,h)->(v,h#push p (%s(x),p)))
-let _m x p = (fun(v1,h1)->fun(_,h2)-> (v1,h1#merge p (%s(x),p) h2))\n" hproj hproj hproj hproj hproj in
+let _p_pos p = (fun(v,h)->(v,h#push p (%s(p),p)))
+let _m x p = (fun(v1,h1)->fun(_,h2)-> (v1,h1#merge p (%s(x),p) h2))\n" hproj hproj hproj in
   add_to_prologue gr (Printf.sprintf
   "
 (*EARLY-LATE PROLOGUE*)
@@ -219,14 +217,12 @@ let add_late_prologue gr =
       "let _e p h = h
 let _p x p h = h
 let _p_pos x p h = h
-let _p_pos_only x p h = h
 let _m x p h h1 = h\n"
     else
       Printf.sprintf "let _e p h = h#empty p
 let _p x p = (fun h->h#push p (%s(x),p))
-let _p_pos x p = (fun h->(h#push p (%s(x),p))#push p (%s(x),p))
-let _p_pos_only x p = (fun h->h#push p (%s(x),p))
-let _m x p = (fun h1 h2-> h1#merge p (%s(x),p) h2)\n" hproj hproj hproj hproj hproj in
+let _p_pos p = (fun h->h#push p (%s(p),p))
+let _m x p = (fun h1 h2-> h1#merge p (%s(x),p) h2)\n" hproj hproj hproj in
   add_to_prologue gr (Printf.sprintf
   "
 (*LATE PROLOGUE*)
@@ -250,7 +246,7 @@ module TDHashtable = Hashtbl.Make(struct type t = int * sv let equal = key_eq le
 
 "
 
-let transform gr skipped_labels =
+let transform gr =
   (match gr.grammar_early_relevant,gr.grammar_late_relevant with
   | true,true ->
       add_early_late_prologue gr
@@ -271,27 +267,12 @@ let transform gr skipped_labels =
   let disp_merge    = Printf.sprintf "_dmerge %d" in
   let merge         = Printf.sprintf "_m %d" in
 
-  let skip l = PSet.mem l skipped_labels in
-  let push l =
-    if skip l then
-      Gil.Lit(true,"")
-    else
-      Gil.Action(Printf.sprintf "_p %d" l) in
-  let disp_and_push l =
-    if skip l then
-      Gil.Action(Printf.sprintf "_d %d" l)
-    else
-      Gil.Action(Printf.sprintf "_d_and_push %d" l) in
-  let push_pos l    =
-    if skip l then
-      Gil.Action(Printf.sprintf "_p_pos_only %d" l)
-    else
-      Gil.Action(Printf.sprintf "_p_pos %d" l) in
+  let push e =
+    Gil.Action(Printf.sprintf "_p(%s)" e) in
+  let push_pos () =
+    Gil.Action("_p_pos") in
   let disp_delay l    =
-    if skip l then
-      Gil.Action(Printf.sprintf "_ddelay_only %d" l)
-    else
-      Gil.Action(Printf.sprintf "_ddelay %d" l) in
+    Gil.Action(Printf.sprintf "_ddelay %d" l) in
   let hist_empty = "_e" in
 
   (** Translate IRRELEVANT Gul right-parts to Gil. *)
@@ -332,12 +313,10 @@ let transform gr skipped_labels =
     if not(r.a.early_relevant || r.a.late_relevant) then gul2gil r else
     let (pre,post) = (r.a.pre,r.a.post) in
     match r.r with
-      | Action (Some _,Some _) ->
-          disp_and_push(pre)
       | Action (Some _,_) ->
           Gil.Action(disp(pre))
       | Action (_,Some _) ->
-          push(pre)
+          Gil.Lit(true,"") (* Action handled by replay *)
       | Action (None,None) ->
           Util.impossible "Dispatch.transform.d.Action(None,None)"
       | Symb(n,early_arg_opt,_,_) -> (* TODO: attributes *)
@@ -346,13 +325,11 @@ let transform gr skipped_labels =
             else Some (disp_arg pre) in
           (match r.a.early_relevant,r.a.late_relevant with
           | true,true ->
-              Gil.Seq(push(pre),
-                      Gil.Symb(n,f_arg (Some hist_empty),Some(disp_merge post)))
+              Gil.Symb(n,f_arg (Some hist_empty),Some(disp_merge post))
           | true,false ->
               Gil.Symb(n, f_arg None, Some (disp_ret post))
           | false,true ->
-              Gil.Seq(push(pre),
-                      Gil.Symb(n, Some hist_empty, Some (merge post)))
+              Gil.Symb(n, Some hist_empty, Some (merge post))
           | false,false ->
               (* impossible, would have been caught above *)
               gul2gil r)
@@ -365,17 +342,19 @@ let transform gr skipped_labels =
           else Gil.DBranch(disp_arg pre, c, disp_ret post)
       | Box (_, _, bn) ->
           Gil.Box(disp_box(pre), bn)
-      | Delay _ ->
+      | Delay(true,_,_) ->
           disp_delay(pre)
+      | Delay(false,e,_) ->
+          push(e)
       | Position true ->
           Gil.Action(disp(pre))
       | Position false ->
-          push_pos(pre)
+          push_pos()
       | Opt r1 ->
           Gil.Alt(Gil.Lit(false,""),d r1)
       | Alt(r1,r2) ->
           Gil.Alt(d r1,d r2)
-      | Seq(r1,early,late,r2) ->
+      | Seq(r1,early,_,r2) ->
           let disp_pre =
             (* See the corresponding code in case Seq in function coroutine *)
             match r1.a.early_relevant,r2.a.early_relevant with
@@ -383,56 +362,24 @@ let transform gr skipped_labels =
             | true,false -> false
             | false,true -> (early<>None)
             | false,false -> false in
-          let push_pre =
-            (* See the corresponding code in case Seq in function replay *)
-            match r1.a.late_relevant,r2.a.late_relevant with
-            | true,true -> true
-            | true,false -> true
-            | false,true -> (late<>None)
-            | false,false -> false in
-          (match disp_pre,push_pre with
-          | true,true ->
-              Gil.Seq(disp_and_push(pre),Gil.Seq(d r1,d r2))
-          | false,true ->
-              Gil.Seq(push(pre),Gil.Seq(d r1,d r2))
-          | true,false ->
-              Gil.Seq(Gil.Action(disp(pre)),Gil.Seq(d r1,d r2))
-          | false,false ->
-              Gil.Seq(d r1,d r2))
-      | Assign(r1,early,late) ->
-          let disp_pre =
-            (* See the corresponding code in case Assign in function coroutine *)
-            match early with
-            | Some _ -> true
-            | None -> false in
-          let push_pre =
-            (* See the corresponding code in case Assign in function replay *)
-            r1.a.late_relevant in
-          (match disp_pre,push_pre with
-          | true,true ->
-              Gil.Seq(disp_and_push(pre),d r1)
-          | false,true ->
-              Gil.Seq(push(pre),d r1)
-          | true,false ->
-              Gil.Seq(Gil.Action(disp(pre)),d r1)
-          | false,false ->
-              d r1)
+          if disp_pre then
+            Gil.Seq(Gil.Action(disp(pre)),Gil.Seq(d r1,d r2))
+          else
+            Gil.Seq(d r1,d r2)
+      | Assign(_,_,Some _) ->
+          Util.impossible "Late attribute assignment in Dispatch should have been eliminated by Replay"
+      | Assign(r1,early,_) ->
+          if early<>None then
+            Gil.Seq(Gil.Action(disp(pre)),d r1)
+          else
+            d r1
       | Star(_,r1) ->
-          (match r.a.early_relevant,r.a.late_relevant with
-          | true,true ->
-              Gil.Seq(disp_and_push(pre),
-                      Gil.Seq(Gil.Star(d r1),
-                              disp_and_push(post)))
-          | true,false ->
-              Gil.Seq(Gil.Action(disp(pre)),
-                      Gil.Seq(Gil.Star(d r1),
-                              Gil.Action(disp(post))))
-          | false,true ->
-              Gil.Seq(push(pre),
-                      Gil.Seq(Gil.Star(d r1),
-                              push(post)))
-          | false,false ->
-              Util.impossible "dispatch Star")
+          if r.a.early_relevant then
+            Gil.Seq(Gil.Action(disp(pre)),
+                    Gil.Seq(Gil.Star(d r1),
+                            Gil.Action(disp(post))))
+          else
+            Gil.Star(d r1)
       | CharRange(_,_)
       | Prose(_)
       | Lookahead _

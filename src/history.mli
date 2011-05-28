@@ -26,6 +26,7 @@ class type ['a,'lbl] history =
         method push : 'lbl -> 'a -> 'b
 
         method traverse_postfix : 'a postfix
+        method rtl : 'a postfix
         method get_root : ('a,'lbl) root
           (** would prefer to hide this method, but we can't. instead,
           we simply make it nearly useless by hiding the root

@@ -231,7 +231,7 @@ let transform_history gr =
       types;
     Printf.bprintf b ";;\nlet _l2hv x = Ykd_int(x);; (* label to hv *)\n";
     add_to_prologue gr (Buffer.contents b);
-    (* Wrap and unwrap at delay. *)
+    (* Wrap and unwrap at delay and late position. *)
     let rec loop r =
       match r.r with
       | Delay(opn,e,topt) ->
@@ -245,6 +245,14 @@ let transform_history gr =
               wrapped constructor unwrapped unwrapped in
           r.r <-
             (mkSEQ2(mkRHS(Delay(opn,wrap_act,None)),None,Some wrapped,mkACTION2(None,Some unwrap_act))).r
+      | Position false ->
+          let wrapped,unwrapped = fresh(),fresh() in
+          let constructor = "Ykd_int" in
+          let unwrap_act =
+            Printf.sprintf "(match %s with %s(%s) -> %s | _ -> failwith \"@delay wrap\")"
+              wrapped constructor unwrapped unwrapped in
+          r.r <-
+            (mkSEQ2(dupRule r,None,Some wrapped,mkACTION2(None,Some unwrap_act))).r
 
       | Alt(r1,r2) | Seq(r1,_,_,r2) | Minus(r1,r2) ->
           loop r1; loop r2
@@ -252,7 +260,7 @@ let transform_history gr =
       | Assign(r1,_,_) | Opt r1 | Lookahead (_,r1) | Rcount(_,r1) | Star(_,r1) | Hash(_,r1) ->
           loop r1
 
-      | Symb _ | Position _ | Lit(_,_) | CharRange(_,_) | Prose _
+      | Symb _ | Position true | Lit(_,_) | CharRange(_,_) | Prose _
       | Action _ | When _ | DBranch _ | Box _ ->
           ()
     in

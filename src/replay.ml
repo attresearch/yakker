@@ -24,6 +24,8 @@ let replay gr =
   let pr fmt = Printf.bprintf b fmt in
   let fname n = Printf.sprintf "_r_%s" (Variables.bnf2ocaml n) in
 
+  let hproj = if gr.wrapped_history then "Ykd_int" else "" in
+
   let rec loop r =
     if not(r.a.late_relevant) then pr "()" else
     match r.r with
@@ -47,7 +49,7 @@ let replay gr =
           (fun r1 ->
             let l = fresh() in
             r1.a.pre <- l;
-            pr "\n | %d -> (" l;
+            pr "\n | %s(%d) -> (" hproj l;
             loop r1;
             pr ")")
           alts;
@@ -71,15 +73,15 @@ let replay gr =
         r.a.post <- l_done;
         let g = Variables.fresh() in
         pr "(let rec %s %s =\n" g x;
-        pr "if %d=_n() then %s else\n%s(" l_done x g;
+        pr "(match _n() with %s(%d) -> %s | _ (*%d*) ->\n %s(" hproj l_done x l_body g;
         loop r1;
-        pr ")\nin %s(%s))" g e
+        pr "))\nin %s(%s))" g e
     | Star(_,r1) ->
         let l_body = fresh() in
         let l_done = fresh() in
         r1.a.pre <- l_body;
         r.a.post <- l_done;
-        pr "(while %d=_n() do\n" l_body;
+        pr "(while (match _n() with %s(%d) -> true | _ (*%d*) -> false) do\n" hproj l_body l_done;
         loop r1;
         pr "done)\n"
 
@@ -121,6 +123,8 @@ let reverse gr =
   let pr fmt = Printf.bprintf b fmt in
   let fname n = Printf.sprintf "_rv_%s" (Variables.bnf2ocaml n) in
 
+  let hproj = if gr.wrapped_history then "Ykd_int" else "" in
+
   let rec loop r =
     if not(r.a.late_relevant) then pr "()" else
     match r.r with
@@ -140,10 +144,9 @@ let reverse gr =
         List.iter
           (fun r1 ->
             let l = r1.a.pre in
-            pr "\n | %d -> (" l;
+            pr "\n | %s(%d) -> (" hproj l;
             loop r1;
-            (* BUG: need hproj *)
-            pr "; push(%d))" l)
+            pr "; push(%s(%d)))" hproj l)
           alts;
         pr "\n | _ -> raise Exit)"
     | Assign(r1,_,late) ->
@@ -156,10 +159,9 @@ let reverse gr =
         let l_body = r1.a.pre in
         let l_done = r.a.post in
         pr "push(%d); " l_done;
-        pr "while %d=_n() do\n " l_body;
+        pr "while (match _n() with %s(%d) -> true | _ (*%d*)-> false) do\n " hproj l_body l_done;
         loop r1;
-        (* BUG: need hproj *)
-        pr "; push(%d)\n" l_body;
+        pr "; push(%s(%d))\n" hproj l_body;
         pr "done\n"
 
           (* cases below are not late relevant *)

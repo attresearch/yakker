@@ -35,7 +35,7 @@ let replay gr =
         pr "%s(_n,ykinput,%s)" (fname n) e
     | Symb(n,_,_,None) ->
         pr "%s(_n,ykinput)" (fname n)
-    | Delay(false,_,_) ->
+    | Delay _ ->
         uses_history := true; pr "_n()"
     | Position false ->
         (* TODO: eliminate in favor of Delay(false,...) *)
@@ -89,7 +89,6 @@ let replay gr =
     | When _            -> Util.impossible "Replay.replay.When"
     | Box _             -> Util.impossible "Replay.replay.Box"
     | DBranch _         -> Util.impossible "Replay.replay.DBranch"
-    | Delay(true,_,_)   -> Util.impossible "Replay.replay.Delay(true,_,_)"
     | Position true     -> Util.impossible "Replay.replay.Position true"
     | Action(_,None)    -> Util.impossible "Replay.replay.Action(_,None)"
     | CharRange _       -> Util.impossible "Replay.replay.CharRange"
@@ -158,7 +157,7 @@ let reverse gr =
     | Star(x,r1) ->
         let l_body = r1.a.pre in
         let l_done = r.a.post in
-        pr "push(%d); " l_done;
+        pr "push(%s(%d)); " hproj l_done;
         pr "while (match _n() with %s(%d) -> true | _ (*%d*)-> false) do\n " hproj l_body l_done;
         loop r1;
         pr "; push(%s(%d))\n" hproj l_body;
@@ -212,7 +211,7 @@ let transform gr =
     | Symb(n,x,y,Some e) ->
         () (*r.r <- (mkSYMB2(n,x,y,None)).r*) (* Don't remove, so relevance stays the same *)
     | Symb(_,_,_,None)
-    | Delay(false,_,_)
+    | Delay _
     | Position false ->
         ()
     | Opt r1 ->
@@ -241,7 +240,6 @@ let transform gr =
     | When _            -> Util.impossible "Replay.transform.When"
     | Box _             -> Util.impossible "Replay.transform.Box"
     | DBranch _         -> Util.impossible "Replay.transform.DBranch"
-    | Delay(true,_,_)   -> Util.impossible "Replay.transform.Delay(true,_,_)"
     | Position true     -> Util.impossible "Replay.transform.Position true"
     | Action(_,None)    -> Util.impossible "Replay.transform.Action(_,None)"
     | CharRange _       -> Util.impossible "Replay.transform.CharRange"

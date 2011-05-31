@@ -254,4 +254,23 @@ let transform gr =
     (function RuleDef(n,r,a) ->
       if r.a.late_relevant then loop r
       | _ -> ())
-    gr.ds
+    gr.ds;
+  if !Compileopt.unit_history then
+    add_to_prologue gr
+      "let _e p h = h
+let _p x p h = h
+let _p_pos x p h = h
+let _m x p h h1 = h
+"
+  else if gr.wrapped_history then
+    add_to_prologue gr
+      "let _e p h = h#empty p
+let _p x p = (fun h->h#push p (Ykd_int(x),p))
+let _p_pos p = (fun h->h#push p (Ykd_int(p),p))
+let _m x p = (fun h1 h2-> h1#merge p (Ykd_int(x),p) h2)\n"
+  else
+    add_to_prologue gr
+      "let _e p h = h#empty p
+let _p x p = (fun h->h#push p (x,p))
+let _p_pos p = (fun h->h#push p (p,p))
+let _m x p = (fun h1 h2-> h1#merge p (x,p) h2)\n"

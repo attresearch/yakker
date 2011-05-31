@@ -88,7 +88,7 @@ let sv_hash (x,h) =
 
 let _d x p = function
     (Yk_more(_,t),h) -> (t x p,h)
-  | (ev,_) -> failwith (Printf.sprintf \"_d(%%s)\" (_ev_to_string ev))
+  | (ev,_) -> failwith (Printf.sprintf \"_d(%s)\" (_ev_to_string ev))
 let _darg x p = function (* YHM: close to _d *)
     (Yk_more(_,t),h) -> (t x p,h#empty p)
   | _ -> failwith \"_darg\"

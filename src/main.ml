@@ -372,6 +372,9 @@ let do_phases gr =
               begin
                 Analyze.producers gr;
                 Analyze.relevance gr;
+                Replay.transform gr;
+                Analyze.producers gr;
+                Analyze.relevance gr;
                 if !Compileopt.use_dbranch then
                   Label.transform2 gr
                 else
@@ -379,10 +382,7 @@ let do_phases gr =
                 if !Compileopt.check_labels then
                   add_to_prologue gr
                     "let _i (x,y) = if x=y then y else failwith(Printf.sprintf \"_i expected %d, got %d\" x y)\n";
-                Replay.transform gr;
                 Analyze.assignments gr;
-                Analyze.producers gr;
-                Analyze.relevance gr;
                 Dispatch.transform gr
               end
             else begin

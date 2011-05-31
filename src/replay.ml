@@ -203,6 +203,13 @@ let transform gr =
   let uses_history = replay gr in
   if uses_history then reverse gr; (* some grammars have late actions but never push anything on the history *)
   let mkOUTPUT x = mkRHS(Delay(false,string_of_int x,None)) in
+  let mkOUTAFTER r l =
+    (* Output after r, preserving early relevance *)
+    if r.a.early_relevant then
+      let x = Variables.fresh() in
+      mkSEQ2(r,Some x,None,mkSEQ[mkOUTPUT(l);mkACTION(x)])
+    else
+      mkSEQ[r;mkOUTPUT(l)] in
   let rec loop r =
     if not(r.a.late_relevant) then () else
     match r.r with
@@ -222,7 +229,7 @@ let transform gr =
           (fun r ->
             let l = r.a.pre in
             loop r;
-            r.r <- (mkSEQ[dupRule r;mkOUTPUT(l)]).r)
+            r.r <- (mkOUTAFTER(dupRule r)(l)).r)
           alts
     | Assign(r1,_,late) ->
         Util.impossible "TODO late attributes"
@@ -234,7 +241,7 @@ let transform gr =
         let l_body = r1.a.pre in
         let l_done = r.a.post in
         loop r1;
-        r.r <- (mkSEQ[mkOUTPUT(l_done);mkSTAR2(x,mkSEQ[r1;mkOUTPUT(l_body)])]).r
+        r.r <- (mkSEQ[mkOUTPUT(l_done);mkSTAR2(x,mkOUTAFTER r1 l_body)]).r
 
             (* cases below are not late relevant *)
     | When _            -> Util.impossible "Replay.transform.When"

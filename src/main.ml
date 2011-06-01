@@ -191,13 +191,7 @@ let parse = Yak.Pami.mk_parse_fun __parse %s
   let post_parse_function =
     if gr.grammar_late_relevant && not !Compileopt.unit_history  && not !Compileopt.repress_replay then
       let patt = if gr.grammar_early_relevant then "(_,h)" else "h" in
-      Printf.sprintf "
-    (fun ykinput %s ->
-      let _o = new rvs (h#rtl) in
-      let _n() = _o#next() in
-      _r_%s(_n,ykinput)
-    )
-"
+      Printf.sprintf "(fun ykinput %s -> _replay_%s ykinput h)"
         patt
         (Variables.bnf2ocaml gr.start_symbol)
     else

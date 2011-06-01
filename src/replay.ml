@@ -199,10 +199,29 @@ let reverse gr =
 
 (* Transform a Gul grammar to explicitly push replay labels *)
 let transform gr =
-  if not gr.grammar_late_relevant then () else
+  if not gr.grammar_late_relevant then () else begin
   let uses_history = replay gr in
-  if uses_history then reverse gr; (* some grammars have late actions but never push anything on the history *)
-  let mkOUTPUT x = mkRHS(Delay(false,string_of_int x,None)) in
+  if uses_history then begin
+    reverse gr; (* some grammars have late actions but never push anything on the history *)
+    add_to_prologue gr
+      (Printf.sprintf
+         "
+let _replay_%s ykinput h =
+  let _o = new rvs (h#rtl) in
+  let _n() = _o#next() in
+  _r_%s(_n,ykinput)"
+    (Variables.bnf2ocaml gr.start_symbol) (Variables.bnf2ocaml gr.start_symbol))
+  end else begin
+    add_to_prologue gr
+      (Printf.sprintf
+         "
+let _replay_%s ykinput h =
+  let _o = (h#traverse_postfix) in
+  let _n() = (let (x,_) = _o#next() in x) in
+  _r_%s(_n,ykinput)"
+    (Variables.bnf2ocaml gr.start_symbol) (Variables.bnf2ocaml gr.start_symbol))
+  end;
+  let mkOUTPUT l = mkRHS(Delay(false,string_of_int l,None)) in
   let mkOUTAFTER r l =
     (* Output after r, preserving early relevance *)
     if r.a.early_relevant then
@@ -262,6 +281,7 @@ let transform gr =
       if r.a.late_relevant then loop r
       | _ -> ())
     gr.ds;
+  add_to_prologue gr "(* History constructors *)";
   if !Compileopt.unit_history then
     add_to_prologue gr
       "let _e p h = h
@@ -281,3 +301,4 @@ let _m x p = (fun h1 h2-> h1#merge p (Ykd_int(x),p) h2)\n"
 let _p x p = (fun h->h#push p (x,p))
 let _p_pos p = (fun h->h#push p (p,p))
 let _m x p = (fun h1 h2-> h1#merge p (x,p) h2)\n"
+  end

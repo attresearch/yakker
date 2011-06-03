@@ -38,6 +38,7 @@ type command =
 | Print_gul_cmd
 | Print_npreds_cmd
 | Print_relevance_cmd
+| Replay_cmd
 | Rfc_cmd
 | Sort_cmd
 | Strip_late_actions_cmd
@@ -82,7 +83,7 @@ _r_cmd_line_args(_n,_ps,ykinput) = (
  (let c = (_r_command(_n,_ps,ykinput))
  in (
  (let _x19 = (
- (let rec _x22 _x20 = 
+ (let rec _x22 _x20 =
  (match _n() with
  | (1006) -> (_x20)
  | _(*1007*) -> (_x22(_r_args(_n,_ps,ykinput)))
@@ -92,7 +93,7 @@ _r_cmd_line_args(_n,_ps,ykinput) = (
 ))
 
  and
-_r_phases(_n,_ps,ykinput) = 
+_r_phases(_n,_ps,ykinput) =
  (match _n() with
  | (1013) -> ( Attributes_cmd )
  | (1016) -> ( Close_under_core_cmd )
@@ -111,7 +112,7 @@ _r_phases(_n,_ps,ykinput) =
  | _(*1055*) -> ( Wrap_cmd )
  )
  and
-_r_command(_n,_ps,ykinput) = 
+_r_command(_n,_ps,ykinput) =
  (match _n() with
  | (1056) -> (
  (let p = (_r_phases(_n,_ps,ykinput))
@@ -133,7 +134,7 @@ _r_command(_n,_ps,ykinput) =
  in (
  (let l = (
  (let _x8 = (
- (let rec _x24 _x8 = 
+ (let rec _x24 _x8 =
  (match _n() with
  | (1081) -> (_x8)
  | _(*1082*) -> (_x24(
@@ -184,7 +185,7 @@ _r_command(_n,_ps,ykinput) =
  | _(*1150*) -> ( Translate_dypgen_scannerless_cmd )
  )
  and
-_r_args(_n,_ps,ykinput) = 
+_r_args(_n,_ps,ykinput) =
  (match _n() with
  | (1153) -> (
  (let p = (_r_phases(_n,_ps,ykinput))
@@ -196,7 +197,7 @@ _r_args(_n,_ps,ykinput) =
  (let _x45 = ( Compileopt.use_coroutines := false )
  in ()))
  | (1164) -> (
- (let b = 
+ (let b =
  (match _n() with
  | (1166) -> (Fun_BE)
  | (1168) -> (Trans_BE)
@@ -301,7 +302,7 @@ _r_args(_n,_ps,ykinput) =
 ))
 ))
  )
- 
+
 (*LATE PROLOGUE*)
 type _pos = int (* input positions *)
 let hv_compare = Yk_History.compare
@@ -1075,7 +1076,7 @@ let _wfe_data_ = Yak.PamJIT.DNELR.to_table (Yak.Pam_internal.load_internal_progr
   start_symb (get_symb_start start_symb) 264 num_symbols
   __default_call __default_ret
 
-let parse = Yak.Pami.Wfe.mk_parse P2__.parse _wfe_data_ sv0 
+let parse = Yak.Pami.Wfe.mk_parse P2__.parse _wfe_data_ sv0
     (fun ykinput h ->
       let _o = (h#traverse_postfix) in
       let _n() = (let (x,_) = _o#next() in x) in

@@ -51,7 +51,7 @@ let phase_order = (* preorder on phases *)
         [Fuse_cmd;                 (* Gil transformer *)
          Dispatch_cmd;             (* transforms Gul.grammar to Gil *)
          (* Gul.grammar transformers *)
-         Wrap_cmd; Attributes_cmd; Lift_cmd; Desugar_cmd; Unroll_star_cmd;
+         Replay_cmd; Wrap_cmd; Attributes_cmd; Lift_cmd; Desugar_cmd; Unroll_star_cmd;
          Inline_regular_cmd; Copyrule_cmd; Hash_cmd; Minus_cmd;
          Tx_prec_cmd; Close_under_core_cmd; Subset_cmd; Lexer_cmd];
 
@@ -359,14 +359,16 @@ let do_phases gr =
           Pr.pr_grammar stdout gr
       | Print_gul_cmd ->
           Pr.pr_grammar stdout gr
+      | Replay_cmd ->
+          do_phase "replay transformation" (fun () ->
+            Replay.wrap_history gr;
+            Analyze.producers gr;
+            Analyze.relevance gr;
+            Replay.transform gr)
       | Dispatch_cmd ->
           do_phase "dispatching" begin fun () ->
-            Replay.wrap_history gr;
             if !Compileopt.use_coroutines then
               begin
-                Analyze.producers gr;
-                Analyze.relevance gr;
-                Replay.transform gr;
                 Analyze.producers gr;
                 Analyze.relevance gr;
                 if !Compileopt.use_dbranch then

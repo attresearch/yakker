@@ -45,6 +45,7 @@ type command =
 | Print_gul_cmd
 | Print_npreds_cmd
 | Print_relevance_cmd
+| Replay_cmd
 | Rfc_cmd
 | Sort_cmd
 | Strip_late_actions_cmd

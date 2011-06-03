@@ -361,9 +361,6 @@ let do_phases gr =
           Pr.pr_grammar stdout gr
       | Replay_cmd ->
           do_phase "replay transformation" (fun () ->
-            Replay.wrap_history gr;
-            Analyze.producers gr;
-            Analyze.relevance gr;
             Replay.transform gr)
       | Dispatch_cmd ->
           do_phase "dispatching" begin fun () ->

@@ -290,6 +290,9 @@ let reverse gr =
 (* Transform a Gul grammar to explicitly push replay labels *)
 let transform gr =
   if not gr.grammar_late_relevant then () else begin
+  wrap_history gr;
+  Analyze.producers gr;
+  Analyze.relevance gr;
   let uses_history = replay gr in
   if uses_history then begin
     reverse gr; (* some grammars have late actions but never push anything on the history *)

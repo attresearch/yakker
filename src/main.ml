@@ -337,7 +337,6 @@ let do_phases gr =
                 if gr.grammar_early_relevant || gr.grammar_late_relevant then begin
                   Wrap.force_alt_relevance gr; Analyze.relevance gr;
                 end;
-                Wrap.transform_history gr
               end
           end
       | Print_relevance_cmd ->
@@ -362,6 +361,7 @@ let do_phases gr =
           Pr.pr_grammar stdout gr
       | Dispatch_cmd ->
           do_phase "dispatching" begin fun () ->
+            Replay.wrap_history gr;
             if !Compileopt.use_coroutines then
               begin
                 Analyze.producers gr;

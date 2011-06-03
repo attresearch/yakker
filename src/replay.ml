@@ -14,6 +14,96 @@ open Yak
 open Gul
 open Variables
 
+(* Wrapping for histories.
+
+   Histories are a polymorphic type, class ['a] history, where in the
+   simplest case, 'a is int, the type of dispatch labels.  However, if
+   delay is used, 'a needs to include the delayed type.  History
+   wrapping finds all of the delayed types and constructs a datatype
+   if necessary, and inserts projections and injections as needed.
+ *)
+let wrap_history gr =
+  let find tbl x =
+    try
+      Hashtbl.find tbl x
+    with Not_found ->
+      (Printf.eprintf "Internal wrap error: could not find %S\n%!" x; raise Not_found) in
+  (* Get all delay types *)
+  let add_types = lrfold_b
+    (fun r v_left -> match r.r with | Delay(_,_,Some t) -> PSet.add t v_left | _ -> v_left) in
+  let types = List.fold_left
+    (fun types -> function | RuleDef(n,r,a) -> add_types r types | _ -> types)
+    (PSet.add "int" PSet.empty)
+    gr.ds in
+  if 1 = PSet.cardinal types
+  then
+    (* No need to wrap if we only use int *)
+    add_to_prologue gr "type hv = int\n;;\nlet _l2hv x = x;; (* label to hv *)\n"
+  else begin
+    (* Otherwise, each type gets a corresponding datatype constructor *)
+    gr.wrapped_history <- true;
+    let b = Buffer.create 11 in                     (* Print out the type declaration *)
+    Printf.bprintf b "type hv =\n";
+    Printf.bprintf b "| Ykd_int of int\n";          (* Hard-code this for use by labels, see dispatch.ml *)
+    let tbl_type_constructor = Hashtbl.create 11 in (* Map types to their constructors *)
+    Hashtbl.add tbl_type_constructor "int" "Ykd_int";
+    PSet.iter
+      (fun t ->
+        if t<>"int" then begin
+          let x = "Ykd"^(fresh()) in
+          Printf.bprintf b "| %s of (%s)\n" x t;    (* NB parens force a reference if t is a tuple type *)
+          Hashtbl.add tbl_type_constructor t x
+        end)
+      types;
+    Printf.bprintf b ";;\nlet _l2hv x = Ykd_int(x);; (* label to hv *)\n";
+    add_to_prologue gr (Buffer.contents b);
+    (* Wrap and unwrap at delay and late position. *)
+    let rec loop r =
+      match r.r with
+      | Delay(opn,e,topt) ->
+          let wrapped,unwrapped = fresh(),fresh() in
+          let constructor =
+            (match topt with None -> "Ykd_int"
+            | Some x -> find tbl_type_constructor x) in
+          let wrap_act = Printf.sprintf "%s(%s)" constructor e in
+          let unwrap_act =
+            Printf.sprintf "(match %s with %s(%s) -> %s | _ -> failwith \"@delay wrap\")"
+              wrapped constructor unwrapped unwrapped in
+          r.r <-
+            (mkSEQ2(mkRHS(Delay(opn,wrap_act,None)),None,Some wrapped,mkACTION2(None,Some unwrap_act))).r
+      | Position false ->
+          let wrapped,unwrapped = fresh(),fresh() in
+          let constructor = "Ykd_int" in
+          let unwrap_act =
+            Printf.sprintf "(match %s with %s(%s) -> %s | _ -> failwith \"@delay wrap\")"
+              wrapped constructor unwrapped unwrapped in
+          r.r <-
+            (mkSEQ2(dupRule r,None,Some wrapped,mkACTION2(None,Some unwrap_act))).r
+
+      | Alt(r1,r2) | Seq(r1,_,_,r2) | Minus(r1,r2) ->
+          loop r1; loop r2
+
+      | Assign(r1,_,_) | Opt r1 | Lookahead (_,r1) | Rcount(_,r1) | Star(_,r1) | Hash(_,r1) ->
+          loop r1
+
+      | Symb _ | Position true | Lit(_,_) | CharRange(_,_) | Prose _
+      | Action _ | When _ | DBranch _ | Box _ ->
+          ()
+    in
+    List.iter
+      (function RuleDef(n,r,a) -> loop r | _ -> ())
+      gr.ds
+  end;
+  add_to_prologue gr (Printf.sprintf "
+module Yk_Hashed = struct
+  type t = hv * int
+  let compare i j = compare i j
+  let hash i = Hashtbl.hash i
+  let memoize = %B
+end
+module Yk_History = Yak.History.Make(Yk_Hashed)
+" !Compileopt.memoize_history)
+
 (* Generate the replay functions *)
 let replay gr =
   let l = ref 2000 in

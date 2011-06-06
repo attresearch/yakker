@@ -172,7 +172,6 @@ type grammar = {
     mutable prologue: text list; (* in reverse order *)
     mutable epilogue: text list;
     start_symbol : nonterminal;
-    mutable wrapped_history : bool;
     (** Flag indicating whether elements saved in history need to be
         wrapped. *)
 
@@ -203,7 +202,6 @@ let mkGrammar ds m p e pd =
              None ds) with
      None -> (Printf.eprintf "Warning: grammar contains no rules\n%!"; "")
    | Some y -> y);
-   wrapped_history = false;
    has_single_lexer = false;
    tokmap = [];
    gildefs = [];
@@ -498,7 +496,6 @@ let remove_late_actions gr =
      early_producers=PSet.empty;
      late_producers=PSet.empty;
      grammar_late_relevant = false;
-     wrapped_history = false;
   }
 
 (** Lookahead is treated as a base case. *)

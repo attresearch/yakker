@@ -35,18 +35,17 @@ let wrap_history gr =
     (fun types -> function | RuleDef(n,r,a) -> add_types r types | _ -> types)
     (PSet.add "int" PSet.empty)
     gr.ds in
-  if 1 = PSet.cardinal types
-  then
+  let hproj = if 1 = PSet.cardinal types then "" else "Ykd_int" in
+  if 1 = PSet.cardinal types then
     (* No need to wrap if we only use int *)
     add_to_prologue gr "type hv = int\n;;\nlet _l2hv x = x;; (* label to hv *)\n"
   else begin
     (* Otherwise, each type gets a corresponding datatype constructor *)
-    gr.wrapped_history <- true;
     let b = Buffer.create 11 in                     (* Print out the type declaration *)
     Printf.bprintf b "type hv =\n";
-    Printf.bprintf b "| Ykd_int of int\n";          (* Hard-code this for use by labels, see dispatch.ml *)
+    Printf.bprintf b "| %s of int\n" hproj;         (* Hard-code this for use by labels, see dispatch.ml *)
     let tbl_type_constructor = Hashtbl.create 11 in (* Map types to their constructors *)
-    Hashtbl.add tbl_type_constructor "int" "Ykd_int";
+    Hashtbl.add tbl_type_constructor "int" hproj;
     PSet.iter
       (fun t ->
         if t<>"int" then begin
@@ -55,7 +54,6 @@ let wrap_history gr =
           Hashtbl.add tbl_type_constructor t x
         end)
       types;
-    Printf.bprintf b ";;\nlet _l2hv x = Ykd_int(x);; (* label to hv *)\n";
     add_to_prologue gr (Buffer.contents b);
     (* Wrap and unwrap at delay and late position. *)
     let rec loop r =
@@ -63,7 +61,7 @@ let wrap_history gr =
       | Delay(opn,e,topt) ->
           let wrapped,unwrapped = fresh(),fresh() in
           let constructor =
-            (match topt with None -> "Ykd_int"
+            (match topt with None -> hproj
             | Some x -> find tbl_type_constructor x) in
           let wrap_act = Printf.sprintf "%s(%s)" constructor e in
           let unwrap_act =
@@ -73,7 +71,7 @@ let wrap_history gr =
             (mkSEQ2(mkRHS(Delay(opn,wrap_act,None)),None,Some wrapped,mkACTION2(None,Some unwrap_act))).r
       | Position false ->
           let wrapped,unwrapped = fresh(),fresh() in
-          let constructor = "Ykd_int" in
+          let constructor = hproj in
           let unwrap_act =
             Printf.sprintf "(match %s with %s(%s) -> %s | _ -> failwith \"@delay wrap\")"
               wrapped constructor unwrapped unwrapped in
@@ -102,10 +100,11 @@ module Yk_Hashed = struct
   let memoize = %B
 end
 module Yk_History = Yak.History.Make(Yk_Hashed)
-" !Compileopt.memoize_history)
+" !Compileopt.memoize_history);
+  hproj
 
 (* Generate the replay functions *)
-let replay gr =
+let replay gr hproj =
   let l = ref 2000 in
   let uses_history = ref false in
   let fresh() = uses_history := true; Util.postincr l in
@@ -113,8 +112,6 @@ let replay gr =
   let b = Buffer.create 11 in
   let pr fmt = Printf.bprintf b fmt in
   let fname n = Printf.sprintf "_r_%s" (Variables.bnf2ocaml n) in
-
-  let hproj = if gr.wrapped_history then "Ykd_int" else "" in
 
   let rec loop r =
     if not(r.a.late_relevant) then pr "()" else
@@ -207,12 +204,10 @@ let replay gr =
   !uses_history
 
 (* Generate the reversing functions *)
-let reverse gr =
+let reverse gr hproj =
   let b = Buffer.create 11 in
   let pr fmt = Printf.bprintf b fmt in
   let fname n = Printf.sprintf "_rv_%s" (Variables.bnf2ocaml n) in
-
-  let hproj = if gr.wrapped_history then "Ykd_int" else "" in
 
   let rec loop r =
     if not(r.a.late_relevant) then pr "()" else
@@ -290,12 +285,12 @@ let reverse gr =
 (* Transform a Gul grammar to explicitly push replay labels *)
 let transform gr =
   if not gr.grammar_late_relevant then () else begin
-  wrap_history gr;
+  let hproj = wrap_history gr in
   Analyze.producers gr;
   Analyze.relevance gr;
-  let uses_history = replay gr in
+  let uses_history = replay gr hproj in
   if uses_history then begin
-    reverse gr; (* some grammars have late actions but never push anything on the history *)
+    reverse gr hproj; (* some grammars have late actions but never push anything on the history *)
     add_to_prologue gr
       (Printf.sprintf
          "
@@ -382,16 +377,11 @@ let _p x p h = h
 let _p_pos x p h = h
 let _m x p h h1 = h
 "
-  else if gr.wrapped_history then
-    add_to_prologue gr
-      "let _e p h = h#empty p
-let _p x p = (fun h->h#push p (Ykd_int(x),p))
-let _p_pos p = (fun h->h#push p (Ykd_int(p),p))
-let _m x p = (fun h1 h2-> h1#merge p (Ykd_int(x),p) h2)\n"
   else
     add_to_prologue gr
+      (Printf.sprintf
       "let _e p h = h#empty p
-let _p x p = (fun h->h#push p (x,p))
-let _p_pos p = (fun h->h#push p (p,p))
-let _m x p = (fun h1 h2-> h1#merge p (x,p) h2)\n"
+let _p x p = (fun h->h#push p (%s x,p))
+let _p_pos p = (fun h->h#push p (%s p,p))
+let _m x p = (fun h1 h2-> h1#merge p (%s x,p) h2)\n" hproj hproj hproj)
   end

@@ -31,7 +31,6 @@ let map_create n =
        | Some x -> x end}
 
 }
-@counter(3)
 
 ; Grammar handles cases all forms of type decl.: 0, 1, and many type variables. I guess
 ; if there are 0, we don't need to run this, but that's easier said than done.
@@ -39,9 +38,10 @@ let map_create n =
 start = 
     {Buffer.create 11}$b
     {map_create 11}$map
-    "val x : "                                        ; Header (unprocessed)
+    *CHAR8
+    "val __yk_get_type_info_ :" PDG                   ; Header (unprocessed)
     stream$(map.get_id,b)                             ; Stream of tokens to be processed
-    upper-ident "._sv Yak.Pam_internal.instruction"   ; Trailer (unprocessed)
+    "_sv Yak.Pam_internal.instruction"                ; Trailer (unprocessed)
     [newline]
     {Hashtbl.length map.the_table, Buffer.contents b}. ; return value
 

@@ -147,11 +147,15 @@ let elaborate g r =
     match r.r with
       | Lit _
       | CharRange _
-      | Lookahead _
       | Prose _
       | Delay _ | When _
       | DBranch _ | Position false
           -> r, unit_ty, no_cons
+      | Lookahead (b,r1) ->
+          let r1, ty1, c1 = _e g r1 in
+          {r with r = Lookahead (b,r1)},
+          unit_ty,
+          c1
       | Position true -> r, int_ty, no_cons
       | Action (Some early, late) ->
           let ty = inf_ty_of_expr g early in
@@ -203,7 +207,13 @@ let elaborate g r =
           {r with r=Star(l, r1)}
           ,unit_ty
           ,add_constraint c1 ty1 unit_ty
-      | otherwise -> r, "unit", no_cons in
+      | Assign (r1, Some x, lopt) ->
+          let r1, ty1, c1 = _e g r1 in
+          {r with r=Assign (r1, Some x, lopt)}
+          ,unit_ty
+          ,c1
+
+      | otherwise -> r, unit_ty, no_cons in
   _e g r
 
 let subs_apply_ty s ty = Util.option ty string_of_uterm (subs_lookup s ty)

@@ -120,18 +120,19 @@ let core =
     raise e
 
 (** @raise [Failure], if failure occurs in attempting to retrieve type information or parse is ambiguous. *)
-let get_type_info path name =
+let get_type_info filename =
   let res =
-    try Util.pipe_in_out_result
-      (Printf.sprintf "ocamlc -I %S -i -impl /dev/stdin" path)
-      (fun w -> Printf.fprintf w " let x = List.hd (snd (List.hd %s.program));;\n" name)
-      (* There is a space before the let, because, for some reason, the first byte of the file is eaten in this
-         process. not connected to Util.pipe_in_out_result -- happens if I
-         do the same using echo to send the command to ocamlc -i. *)
-      Tyspec.parse_channel
+    try
+      Util.pipe_in_out_result
+        (Printf.sprintf "ocamlc -i %s" filename)
+        (fun _ -> ())
+        (* There is a space before the let, because, for some reason, the first byte of the file is eaten in this
+           process. not connected to Util.pipe_in_out_result -- happens if I
+           do the same using echo to send the command to ocamlc -i. *)
+        Tyspec.parse_channel
     with _ -> failwith "Failure occurred while attempting to retrieve type information." in
   match res with
-    | [] -> Util.impossible "Tyspec.parse_channel must return at least on result (or raise an exception)."
+    | [] -> Util.impossible "Tyspec.parse_channel must return at least one result (or raise an exception)."
     | [x] -> x
     | _ -> Util.error Util.Sys_warn "Ambiguous parse of type information."; failwith "Ambigous parse of input."
 
@@ -269,6 +270,42 @@ let do_compile emit_epilogue gr =
       end;
   end
 
+let do_compile_for_arrow gr =
+  do_phase "compiling to backend" begin fun () ->
+    let print_prologue () = print_prologue !outch gr in
+
+    (match backend with
+    | Fun_BE ->
+        print_prologue ();
+        Gil_gen.pr_gil_definitions2 !outch gr.start_symbol gr.tokmap gr.gildefs
+    | Wadler_BE ->
+        gr.prologue <- [];
+        gr.epilogue <- [];
+        Gil_gen.Wadler.pr_definitions !outch gr.start_symbol gr.gildefs
+    | Peg_BE liberal ->
+        print_prologue ();
+        Gil_gen.Peg.pr_definitions !outch liberal gr.start_symbol gr.gildefs
+    | Trans_BE ->
+        let ch = !outch in
+        print_prologue ();
+        Printf.fprintf ch "module Internal : sig
+    val __default_call : 'a -> 'b -> sv
+    val __default_ret : 'a -> 'b -> 'c -> 'b
+    val num_symbols : int
+    val symbol_table : int -> string
+    val get_symb_action : string -> int
+    val get_symb_start : int -> int
+    val program : (int * sv Yak.Pam_internal.instruction list) list
+  end = struct\n";
+        gil_transducer gr.gildefs;
+        Printf.fprintf ch "end\nopen Internal;;\n\n";
+    );
+
+    add_boilerplate backend gr;
+
+    print_epilogue !outch gr
+  end
+
 let do_phases gr =
   List.iter
     (function
@@ -404,47 +441,32 @@ let do_phases gr =
               (* redirect output to a temporary file *)
               let (temp_file_name, temp_chan) = Filename.open_temp_file "yakker" ".ml" in
 
-              let module_name = Util.module_name_of_filename temp_file_name in
-
               outch := temp_chan;
 
-              (* Compile without printing the epilogue. We save that for later. *)
-              do_compile false gr;
+              (* Compile without printing the epilogue. We save that
+                 for later. First, duplicate the grammar to avoid any
+                 changes to original copy. *)
+              let gr2 = {gr with ds = gr.ds} in
+              do_compile false gr2;
+
+              Printf.fprintf temp_chan "\nlet __yk_get_type_info_ = List.hd (snd (List.hd program));;\n";
 
               (* make sure compiled output is flushed *)
               close_out temp_chan;
-
-              (* have ocaml compile the output *)
-              (* need to pass -I flag so that ocaml can find yakker.cmi etc. *)
-              (* currently the Makefile stashes this in buildinfo.ml, the build_dir
-                 is where those files end up during the build.
-                 TODO: eventually this ought to be the install location *)
-              let command = Printf.sprintf "ocamlc -c -I \"%s\" unix.cma yak.cma %s" Buildinfo.build_dir temp_file_name in
-              (match Unix.system command with
-                   Unix.WEXITED x ->   () (* Printf.eprintf "ocaml exited with %d\n%!" x        *)
-                 | Unix.WSIGNALED x -> () (* Printf.eprintf "ocaml exited with signal %d\n%!" x *)
-                 | Unix.WSTOPPED x ->  () (* Printf.eprintf "ocaml stopped with %d\n%!" x       *)
-              );
+              outch := stdout;
 
               (* Generate sv-related type definitions. *)
-              let (n, tyargs) = get_type_info Filename.temp_dir_name module_name in
+              let (n, tyargs) = get_type_info temp_file_name in
               let abstract_ty_defs = Util.list_make n (Printf.sprintf "type %s%d\n" Tyspec.tyvar_prefix) in
+              add_many_to_prologue gr abstract_ty_defs;
               let sv_ty_def = "type sv = " ^ tyargs ^ " _sv\n" in
-              add_to_epilogue gr sv_ty_def;
-              add_many_to_epilogue gr abstract_ty_defs;
+              add_to_prologue gr sv_ty_def;
 
-              (* Output epilogue. *)
-              let ch = open_out_gen [Open_append] 0o600 temp_file_name in
-              print_epilogue ch gr;
-              close_out ch;
+              (* Clean up temp file *)
+              Sys.remove temp_file_name;
 
-              (* Copy generated file to stdout *)
-              let ch = open_in temp_file_name in
-              Util.file_copy ch stdout;
-              close_in ch;
-
-              (* clean up temp file *)
-              Sys.remove temp_file_name
+              (* Output full version of compiled output *)
+              do_compile_for_arrow gr;
             end
 
       | Exec_cmd ->

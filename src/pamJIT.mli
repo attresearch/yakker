@@ -155,16 +155,18 @@ module DNELR :
       cbinder: 'a Pam_internal.binder2
     }
 
+    type 'a pnt_table = 'a pnt_entry array array array
+
     type 'a data = {
       start_symb : nonterm;
       start_state  : Pam_internal.label;
       term_table : 'a trans array;
       nonterm_table : Pam_internal.label array array;
-      p_nonterm_table : 'a pnt_entry array array;
+      p_nonterm_table : 'a pnt_table;
     }
 
-    val lookup_trans_pnt : 'a pnt_entry array array -> Pam_internal.label -> int
-      -> 'a pnt_entry
+    val lookup_trans_pnt : 'a pnt_table -> Pam_internal.label -> int
+      -> 'a pnt_entry array
 
     val to_table :
       'a Pam_internal.program -> Pam_internal.nonterm ->

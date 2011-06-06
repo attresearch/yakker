@@ -567,15 +567,17 @@ module DNELR = struct
 
   type 'a pnt_entry = {ctarget: PI.label; carg: 'a PI.action2; cbinder: 'a PI.binder2}
 
+  type 'a pnt_table = 'a pnt_entry array array array
+
   type 'a data = {
     start_symb : int;
     start_state  : PI.label;
     term_table : 'a trans array;
     nonterm_table : PI.label array array;
-    p_nonterm_table : 'a pnt_entry array array;
+    p_nonterm_table : 'a pnt_table;
   }
 
-  let lookup_trans_pnt (tbl : 'a pnt_entry array array) s nt = tbl.(s).(nt)
+  let lookup_trans_pnt (tbl : 'a pnt_table) s nt = tbl.(s).(nt)
 
   let name_of = function
     | No_trans -> "EMPTY"
@@ -633,8 +635,9 @@ module DNELR = struct
     let term_table = Array.make num_states No_trans in
     let nt_class = Array.make num_nonterms false in
     let nonterm_table = Array.make_matrix num_states num_nonterms 0 in
-    let p_nonterm_table = Array.make_matrix num_states num_nonterms
-      {ctarget = 0; carg = (fun p x -> x); cbinder = (fun p x _ -> x)} in
+(*     let p_nonterm_table = Array.make_matrix num_states num_nonterms *)
+(*       {ctarget = 0; carg = (fun p x -> x); cbinder = (fun p x _ -> x)} in *)
+    let p_nonterm_table = Array.make_matrix num_states num_nonterms [||] in
     let mk_scan c target =
       let a = Array.make col_size 0 in
       a.(c) <- target;
@@ -675,28 +678,31 @@ module DNELR = struct
        We only maintain two classifications: simple (no arg, no binder) and
        parameterized (at least one of arg and binder).
     *)
-    let add_nttrans s = function
+    let add_nttrans s xs = function
       | PI.ASimpleCont2Instr (nt, binder, target) ->
           let nt = ntid nt in
           if binder == f_no_binder then begin
             if nonterm_table.(s).(nt) = 0 then
               nonterm_table.(s).(nt) <- target
-            else fail_not_ELR0_msg s "nondeterministic continue"
+            else fail_not_ELR0_msg s "nondeterministic simple continue";
+            xs
           end else begin
             nt_class.(nt) <- true;
-            if p_nonterm_table.(s).(nt).ctarget = 0 then
-              p_nonterm_table.(s).(nt) <-
-                {ctarget = target; carg = f_no_arg; cbinder = binder;}
-            else fail_not_ELR0_msg s "nondeterministic continue"
+            (nt, {ctarget = target; carg = f_no_arg; cbinder = binder;}) :: xs
+(*             if p_nonterm_table.(s).(nt).ctarget = 0 then *)
+(*               p_nonterm_table.(s).(nt) <- *)
+(*                 {ctarget = target; carg = f_no_arg; cbinder = binder;} *)
+(*             else fail_not_ELR0_msg s "nondeterministic continue" *)
           end
 
       | PI.AContInstr3 (nt, arg, binder, target) ->
           let nt = ntid nt in
           nt_class.(nt) <- true;
-          if p_nonterm_table.(s).(nt).ctarget = 0 then begin
-            p_nonterm_table.(s).(nt) <-
-              {ctarget = target; carg = arg; cbinder = binder;}
-          end else fail_not_ELR0_msg s "nondeterministic continue"
+          (nt, {ctarget = target; carg = arg; cbinder = binder;}) :: xs
+(*           if p_nonterm_table.(s).(nt).ctarget = 0 then begin *)
+(*             p_nonterm_table.(s).(nt) <- *)
+(*               {ctarget = target; carg = arg; cbinder = binder;} *)
+(*           end else fail_not_ELR0_msg s "nondeterministic continue" *)
       | _ ->
           invalid_arg "Unexpected (non-continue) instructions." in
 
@@ -986,7 +992,16 @@ module DNELR = struct
       let blk = Array.unsafe_get p s in
 
       let ntinstrs = Util.array_extract_to_list is_nttrans blk in
-      List.iter (add_nttrans s) ntinstrs
+      let entries = List.fold_left (add_nttrans s) [] ntinstrs in
+      let grouped_entries =
+        Util.group_by (fun ( (nt1 : nonterm), _) ( (nt2 : nonterm), _) -> compare nt1 nt2)
+          entries in
+      List.iter begin function
+        | [] -> ()
+        | (nt, e1) :: xs ->
+            let _, es = List.split xs in
+            p_nonterm_table.(s).(nt) <- Array.of_list (e1 :: es)
+      end grouped_entries;
     done;
 
     for s = 1 to num_states - 1 do

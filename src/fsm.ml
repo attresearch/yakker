@@ -316,15 +316,14 @@ let rec thompson =  function
       (s2,f3)
   | Alt _ as r ->
       let (s,f) = fresh2() in
-      let rules = alt2rules(r) in
-      let n = List.length(rules) in
-      let w = INV_PROB(n) in
-      for i = 0 to n-1 do (* inefficient O(n^2) b/c of List.nth *)
-        let r0 = List.nth rules i in
+      let rules = alt2rules r in
+      let n = List.length rules in
+      let w = INV_PROB n in
+      List.iter begin fun r0 ->
         let (s2,f2) = thompson r0 in
-        etrans(s,s2,w);
-        etrans(f2,f, ONE);
-      done;
+        etrans(s, s2, w);
+        etrans(f2, f, ONE);
+      end rules;
       (s,f)
   | Star(r2) ->
       let (s,f) = fresh2() in

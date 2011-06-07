@@ -297,7 +297,7 @@ let transform gr =
 let _replay_%s ykinput h =
   let _o = new rvs (h#rtl) in
   let _n() = _o#next() in
-  _r_%s(_n,ykinput)"
+  _r_%s(_n,ykinput)\n"
     (Variables.bnf2ocaml gr.start_symbol) (Variables.bnf2ocaml gr.start_symbol))
   end else begin
     add_to_prologue gr
@@ -306,7 +306,7 @@ let _replay_%s ykinput h =
 let _replay_%s ykinput h =
   let _o = (h#traverse_postfix) in
   let _n() = (let (x,_) = _o#next() in x) in
-  _r_%s(_n,ykinput)"
+  _r_%s(_n,ykinput)\n"
     (Variables.bnf2ocaml gr.start_symbol) (Variables.bnf2ocaml gr.start_symbol))
   end;
   let mkOUTPUT l = mkRHS(Delay(false,string_of_int l,None)) in
@@ -369,7 +369,7 @@ let _replay_%s ykinput h =
       if r.a.late_relevant then loop r
       | _ -> ())
     gr.ds;
-  add_to_prologue gr "(* History constructors *)";
+  add_to_prologue gr "(* History constructors *)\n";
   if !Compileopt.unit_history then
     add_to_prologue gr
       "let _e p h = h

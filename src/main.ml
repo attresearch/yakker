@@ -86,7 +86,8 @@ let phases_of cmd =
     | Lift_cmd
     | Attributes_cmd
     | Infer_ty_cmd
-    | Wrap_cmd               -> Print_gul_cmd::phases
+    | Wrap_cmd
+    | Replay_cmd             -> Print_gul_cmd::phases
 
     | Dispatch_cmd
     | Dearrow_cmd

@@ -93,6 +93,7 @@ phases = ; these commands can be controlled by -after
       | "subset" o                        { Subset_cmd }
       | "unroll-star" o                   { Unroll_star_cmd }
       | "wrap" o                          { Wrap_cmd }
+      | "replay" o                        { Replay_cmd }
 command =
         phases$p                          { (match p with
                                                Inline_regular_cmd -> Compileopt.inline_regular := true

@@ -107,10 +107,6 @@ let _dwhen x p = function
   | _ -> failwith \"_dwhen\"
 let _ddelay x p =
   (function
-    | (Yk_more(_,t),h) -> (match t x p with Yk_delay(v,hv) -> (v, (_p x p h)#push p (hv,p)) | _ -> failwith \"_ddelay1\")
-    | _ -> failwith \"_ddelay2\")
-let _ddelay_only x p =
-  (function
     | (Yk_more(_,t),h) -> (match t x p with Yk_delay(v,hv) -> (v,h#push p (hv,p)) | _ -> failwith \"_ddelay1\")
     | _ -> failwith \"_ddelay2\")
 let _dret x p v1 v2 =

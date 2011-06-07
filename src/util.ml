@@ -23,6 +23,8 @@ type warn_classifier =
 let warn cl w = if !show_warn then Printf.eprintf "Warning: %s\n%!" w
 let error cl e = Printf.eprintf "Error: %s\n%!" e
 
+let sys_error = error Sys_warn
+
 let impossible s =
   Printf.eprintf "Impossible: %s\n%!" s;
   raise Exit
@@ -229,6 +231,13 @@ let list_drop n xs =
       | _, x::xs -> _d (n - 1) xs in
   if n <= 0 then xs
   else _d n xs
+
+let list_mem_and_remove x xs =
+  let rec _mnr zs = function
+    | [] -> false, xs
+    | y::ys when y = x -> true, List.rev_append zs ys
+    | y::ys -> _mnr (y :: zs) ys in
+  _mnr [] xs
 
 module Operators = struct
   let ($) f g x = f (g x)

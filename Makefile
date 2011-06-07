@@ -510,6 +510,33 @@ $(EXAMPLES_PCOMB_ML): %_pcomb.ml : examples/$$*/$$*.bnf yakker
 ########################################################################
 ##  Specialized tests
 ########################################################################
+.PHONY: test_tyinfer test_arrow
+
+test_tyinfer: tests/expr/expr_early2.bnf yakker-byte
+	(OCAMLRUNPARAM='b'; yakker-byte infer-types $<)
+
+test_arrow: expr_attr0 expr_attr1 expr_attr2 expr_attr3 \
+expr_attr4 expr_attr5 expr_attr6 expr_attr7
+
+
+# expr_early2.dot: tests/expr/expr_early2.bnf yakker-byte
+# 	(OCAMLRUNPARAM='b'; yakker-byte dot -arrow-notation $< > expr_early2.dot)
+
+expr_%.ml: tests/expr/expr_%.bnf yakker
+	yakker compile -arrow-notation $< > $@
+
+expr_%.dot: tests/expr/expr_%.bnf yakker
+	yakker dot -arrow-notation $< > $@
+
+expr_%-byte: yak.cma expr_%.cmo
+	@echo "--x> " $@
+	@$(OCAMLC) $(OCAML_FLAGS) -g $^ -package unix -linkpkg -o $@
+
+expr_%: yak.cmxa expr_%.cmx
+	@echo "--x> " $@
+	@$(OCAMLOPT) $(OCAMLOPT_FLAGS) $^ -package unix -linkpkg -o $@
+
+
 ifeq ($(shell whoami),yitzhakm)
 OCAML_COMP_DIR=/Users/yitzhakm/sw/godi/lib/ocaml/compiler-lib
 endif

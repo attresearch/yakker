@@ -72,7 +72,7 @@ and rhs0 =
 
 let dupAnnot a = {a with css=a.css } (* specify one field b/c syntax doesn't let us specify none. however, we just chose that one arbitrarily. All fields are duplicated.*)
 
-let rec mkAnnot = function
+let mkAnnot = function
   | None -> {css = None; early_relevant = false; late_relevant = false;
            pre = 0; post = 0; is_regular = false; precedence = Default_prec;
            early_assignments=PSet.empty;late_assignments=PSet.empty;
@@ -210,6 +210,9 @@ let mkGrammar ds m p e pd =
 
 let add_to_prologue gr s =
   gr.prologue <- (Ocaml s)::gr.prologue
+
+let add_many_to_prologue gr xs =
+  gr.prologue <- List.fold_left (fun pr s ->  (Ocaml s) :: pr) gr.prologue xs
 
 let add_to_epilogue gr s =
   gr.epilogue <- (Ocaml s)::gr.epilogue
@@ -386,6 +389,12 @@ let sort_definitions ds =
       | _,_ -> failwith "sort_definitions")
   in
   List.sort cmp ds
+
+let attribute_table_of_definitions ds =
+  let n = List.length ds in
+  let t = Hashtbl.create n in
+  List.iter (function RuleDef (n, _, a) -> Hashtbl.add t n a | _ -> ()) ds;
+  t
 
 (* return the subset of the definitions that are reachable from the roots. *)
 let get_reachable ds roots =

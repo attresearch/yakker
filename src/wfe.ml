@@ -479,70 +479,27 @@ module PJDN = PamJIT.DNELR
                        `IFE_TRUE(no_args, `(callset, _, _)', `(callset, sv, sv_arg)') ',
                        `let items = callset.data in
                        for l = 0 to Array.length items - 1 do
-                         let s_l, c_l = items.(l) in
+                         let s_l, socvas_l = items.(l) in
                          for k = 0 to m_nts do
                            let t = PJ.lookup_trans_nt nonterm_table s_l nts.(k) in
-                           if t > 0 then insert_many i ol cs t c_l;
+                           if t > 0 then insert_many i ol cs t socvas_l;
                            IFE_TRUE(no_args, `',
-                                    `let {PJDN.ctarget = t; carg = arg_act; cbinder = binder} = PJDN.lookup_trans_pnt p_nonterm_table s_l nts.(k) in
-                                    if t > 0 then begin
-                                      SOCVAS_ITER(`c_l', `(callset_s_l, sv_s_l, sv_arg_s_l)', `
-                                                    if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
-                                                      LOG(
-                                                        Logging.log Logging.Features.comp_ne "%d => %d [%d(_)]\n" s_l t nts.(k)
-                                                      );
-                                                      insert_one_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
-                                                        end')
-                                        end')
+                                    `match PJDN.lookup_trans_pnt p_nonterm_table s_l nts.(k) with
+                                      | [||] -> ()
+                                      | entries ->
+                                          for idx = 0 to Array.length entries - 1 do
+                                            let {PJDN.ctarget = t; carg = arg_act; cbinder = binder} = entries.(idx) in
+                                            LOGp(comp_ne, "@%d: %d => %d [%d(_)]? " callset.id s_l t nts.(k));
+                                            SOCVAS_ITER(`socvas_l', `(callset_s_l, sv_s_l, sv_arg_s_l)', `
+                                                          if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
+                                                            LOGp(comp_ne, "Y");
+                                                            insert_one_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
+                                                          end else LOGp(comp_ne, "N")');
+                                            LOGp(comp_ne, "\n");
+                                          done');
                          done
-                           done')
+                       done ')
        )')
-
-  DEF2(`NULL_COMPL', `nt', `new_sv', `(
-         let t1 = PJ.lookup_trans_nt nonterm_table s nt in
-         if t1 > 0 then begin
-           LOG(
-             Logging.log Logging.Features.comp_ne "%d => %d [%d]\n" s t1 nt
-           );
-           insert_many i ol cs t1 socvas_s;
-         end;
-
-         (* We can be sure the carg is irrelevant because the nonterminal is connected to
-            a parameterless call. (FIX: is this really true? how can we be sure that no
-            parametered calls share this state in the transducer?) *)
-   let {PJDN.ctarget = t1; carg = _; cbinder = binder} =
-     PJDN.lookup_trans_pnt p_nonterm_table s nt in
-   if t1 > 0 then begin
-     LOG(
-       Logging.log Logging.Features.comp_ne "%d => %d [%d(_)]\n" s t1 nt
-     );
-     SOCVAS_ITER(`socvas_s', `(callset, sv, sv_arg)', `
-                    insert_one_ig i ol cs t1 callset (binder curr_pos sv new_sv) sv_arg')
-   end;
-
-   if is_new then begin
-     let t1 = PJ.lookup_trans_nt nonterm_table target nt in
-     if t1 > 0 then begin
-       LOG(
-         Logging.log Logging.Features.comp_ne "%d => %d [%d]\n" target t1 nt
-       );
-       insert_one_ig i ol cs t1 current_callset sv0 sv0;
-     end;
-
-     let {PJDN.ctarget = t1; carg = _; cbinder = binder} =
-       PJDN.lookup_trans_pnt p_nonterm_table target nt in
-     if t1 > 0 then begin
-       LOG(
-         Logging.log Logging.Features.comp_ne "%d => %d [%d(_)]\n" target t1 nt
-       );
-       (* We only consider one triple for t1, rather than a set of them, because
-          we reason that state t1 is only reachable by call/call_p edges. Hence,
-          each call will independently handle its own (newly created) triple.
-          FIX: verify the validity of this reasoning. *)
-       insert_one_ig i ol cs t1 current_callset (binder curr_pos sv0 new_sv) sv0
-     end
-   end
-)')
 
 module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
 
@@ -927,38 +884,6 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
      ')
   )')
 
-  let mcomplete_code nonterm_table p_nonterm_table s i ol cs socvas_s current_callset nts no_args =
-    LOG(
-      if Logging.features_are_set Logging.Features.stats then begin
-        let n = Socvas.cardinal socvas_s in
-        Logging.Distributions.add_value
-          (if no_args then "CSS" else "CPSS")
-          n;
-      end;
-    );
-    let m_nts = Array.length nts - 1 in
-    let curr_pos = current_callset.id in
-    SOCVAS_ITER(`socvas_s', `(callset, sv, sv_arg)',
-      `let items = callset.data in
-      for l = 0 to Array.length items - 1 do
-        let s_l, c_l = items.(l) in
-        for k = 0 to m_nts do
-          let t = PJ.lookup_trans_nt nonterm_table s_l nts.(k) in
-          if t > 0 then insert_many i ol cs t c_l;
-          if no_args then () else
-            let {PJDN.ctarget = t; carg = arg_act; cbinder = binder} = PJDN.lookup_trans_pnt p_nonterm_table s_l nts.(k) in
-             if t > 0 then begin
-               SOCVAS_ITER(`c_l', `(callset_s_l, sv_s_l, sv_arg_s_l)', `
-                 if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then
-                   insert_one_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l')
-             end
-        done
-      done')
-
-  DEF2(`MCOMPLETE_CODE_W', `nts', `no_args',
-       `MCOMPLETE_CODE(nts, no_args)')
-
-  (*   `(mcomplete_code nonterm_table p_nonterm_table s i ol cs socvas_s current_callset nts no_args)') *)
 
   DEF4(`REGLA_CODE', `presence', `la_target', `la_nt', `target',`(
      let cp = YkBuf.save ykb in
@@ -1068,226 +993,6 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
       r
     end
 
-  (** Follow all single (deterministic) epsilon transitions without
-      recording state in Earley set. Place final result into [es], which
-      should *not* currently be being processed.
-
-      epsilon loops will be a problem,
-      but they generally are. ideally, do this statically.
-
-      12/01/10: current tests indicate slight negative impact from this "optimization".
-  *)
-  and epsilon_close
-      term_table curr_pos es (* don't change when called internally *)
-      s socvas_s =
-    let instr = term_table.(s) in
-    match instr with
-      | PJDN.No_trans -> () (* dead end, do nothing. *)
-
-      (* In any of the following cases, we've finished with our closure.
-         Add state [s] and its socvas to the Earley set [es]. *)
-      | PJDN.Scan_trans _ | PJDN.Det_trans _ | PJDN.Lexer_trans _ | PJDN.MScan_trans _
-      | PJDN.Lookahead_trans _ | PJDN.Det_multi_trans _
-      | PJDN.Box_trans _ | PJDN.Maybe_nullable_trans2 _ | PJDN.Many_trans _
-      | PJDN.TokLookahead_trans _ | PJDN.RegLookahead_trans _ | PJDN.ExtLookahead_trans _
-      | PJDN.MComplete_trans _ | PJDN.MComplete_p_trans _
-      | PJDN.Call_trans _ | PJDN.Call_p_trans _
-      | PJDN.Complete_trans _ | PJDN.Complete_p_trans _ ->
-          insert_many_nc es s socvas_s
-
-(*    | PJDN.RegLookahead_trans (presence, la_target, la_nt, target) ->  *)
-(*             REGLA_CODE(`presence', `la_target', `la_nt', `target') *)
-
-(*    | PJDN.ExtLookahead_trans (presence, la_target, la_nt, target) ->  *)
-(*             EXTLA_CODE(`presence', `la_target', `la_nt', `target') *)
-
-      (* In these cases, do something and then continue the closure. *)
-      | PJDN.Action_trans (act, target) ->
-          let image = SOCVAS_MAP(`socvas_s', `(callset, sv, sv_arg)', `(callset, (act curr_pos sv), sv_arg)') in
-          epsilon_close term_table curr_pos es target image
-
-      | PJDN.When_trans (p, next, target) ->
-          let image = SOCVAS_FOLD_S(`socvas_s', `(callset, sv, sv_arg)',
-                                    `if p curr_pos sv then Socvas.Singleton (callset, (next curr_pos sv), sv_arg)
-                                    else Socvas.Empty',
-                                    `image',
-                                    `if p curr_pos sv then Socvas.MS.add (callset, (next curr_pos sv), sv_arg) image else image') in
-          epsilon_close term_table curr_pos es target image
-
-  (** last argument, [i], is the current worklist index. *)
-  and epsilon_close_current
-      (term_table, nonterm_table, p_nonterm_table, sv0, ol, cs, ns,
-       pre_cc, current_callset, ykb, futuresq, nplookahead_fn as xyz)
-       s socvas_s i = function
-           | PJDN.No_trans -> ()
-           | PJDN.Scan_trans (c,t) ->
-               let c1 = Char.code (YkBuf.get_current ykb) in
-               if c1 = c then insert_many_nc ns t socvas_s
-(*             if c1 = c then epsilon_close term_table (current_callset.id + 1) ns t socvas_s *)
-           | PJDN.MScan_trans col ->
-               let c = Char.code (YkBuf.get_current ykb) in
-               let t = col.(c) in
-               if t > 0 then insert_many_nc ns t socvas_s
-          (*   if t > 0 then epsilon_close term_table (current_callset.id + 1) ns t socvas_s *)
-           | PJDN.Lookahead_trans col ->
-               let c = Char.code (YkBuf.get_current ykb) in
-               let t = col.(c) in
-               if t > 0 then epsilon_close_current xyz t socvas_s i term_table.(t)
-           | PJDN.Det_multi_trans col ->
-               let c = Char.code (YkBuf.get_current ykb) in
-               let x = col.(c) in
-               let x_action = x land 0x7F000000 in
-               let t = x land 0xFFFFFF in
-               if t > 0 then begin
-                 if x_action = 0
-                 then insert_many_nc ns t socvas_s
-                 else epsilon_close_current xyz t socvas_s i term_table.(t)
-               end
-           | PJDN.RegLookahead_trans (presence, la_target, la_nt, target) ->
-               let b = REGLA_CODE(`presence', `la_target', `la_nt', `target') in
-               if b then insert_many i ol cs target socvas_s
-(*             if b then epsilon_close_current xyz target socvas_s i term_table.(target) *)
-           | PJDN.ExtLookahead_trans (presence, la_target, la_nt, target) ->
-               if EXTLA_CODE(`presence', `la_target', `la_nt', `target') then
-                 insert_many i ol cs target socvas_s
-(*               epsilon_close_current xyz target socvas_s i term_table.(target) *)
-           | PJDN.Call_trans t ->
-               insert_many i ol cs s socvas_s;
-(*             CALL_CODE(`t',`true') *)
-           | PJDN.Call_p_trans (call_act, t) ->
-               insert_many i ol cs s socvas_s;
-(*             CALL_P_CODE(`t',`true',`call_act') *)
-
-           | PJDN.Complete_trans nt ->
-               LOG(
-                 if Logging.features_are_set Logging.Features.stats then begin
-                   let n = Socvas.cardinal socvas_s in
-                   Logging.Distributions.add_value "CSS" n;
-                 end;
-               );
-               SOCVAS_ITER(`socvas_s', `(callset, _, _)', `
-                 if CURRENT_CALLSET_GUARD then begin
-                   let items = callset.data in
-                   for l = 0 to Array.length items - 1 do
-                     let s_l, c_l = items.(l) in
-                     let t = PJ.lookup_trans_nt nonterm_table s_l nt in
-                     if t > 0 then insert_many i ol cs t c_l
-                   done
-                 end')
-
-           | PJDN.Complete_p_trans nt ->
-               LOG(
-                 if Logging.features_are_set Logging.Features.stats then begin
-                   let n = Socvas.cardinal socvas_s in
-                   Logging.Distributions.add_value "CPSS" n;
-                 end;
-               );
-               let curr_pos = current_callset.id in
-               SOCVAS_ITER(`socvas_s', `(callset, sv, sv_arg)', `
-                 let items = callset.data in
-                 for l = 0 to Array.length items - 1 do
-                   let s_l, c_l = items.(l) in
-
-                   let t = PJ.lookup_trans_nt nonterm_table s_l nt in
-                   if t > 0 then begin
-                     insert_many i ol cs t c_l;
-                     LOG(
-                       Logging.log Logging.Features.comp_ne "%d => %d [%d]\n" s_l t nt
-                     );
-                   end;
-
-                   let {PJDN.ctarget = t; carg = arg_act; cbinder = binder} =
-                     PJDN.lookup_trans_pnt p_nonterm_table s_l nt in
-                   if t > 0 then begin
-                     SOCVAS_ITER(`c_l', `(callset_s_l, sv_s_l, sv_arg_s_l)', `
-                                   if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
-                                     LOG(
-                                       Logging.log Logging.Features.comp_ne "%d => %d [%d(_)]\n" s_l t nt
-                                     );
-                                     insert_one_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
-                                   end')
-                   end
-                     done')
-
-           | PJDN.MComplete_trans nts -> MCOMPLETE_CODE_W(`nts',`true')
-           | PJDN.MComplete_p_trans nts -> MCOMPLETE_CODE_W(`nts',`false')
-
-           | PJDN.Many_trans trans ->
-               insert_many i ol cs s socvas_s
-(*             let n = Array.length trans in *)
-(*             for j = 0 to n-1 do *)
-(*               epsilon_close_current xyz s socvas_s i trans.(j) *)
-(*             done *)
-
-           | PJDN.Maybe_nullable_trans2 _ -> ()
-               (* only relevant immediately after a call *)
-
-           | PJDN.Action_trans (act, target) ->
-               let curr_pos = current_callset.id in
-               let image = SOCVAS_MAP(`socvas_s', `(callset, sv, sv_arg)', `(callset, (act curr_pos sv), sv_arg)') in
-               epsilon_close_current xyz target image i term_table.(target)
-
-           | PJDN.When_trans (p, next, target) ->
-               let curr_pos = current_callset.id in
-               let image = SOCVAS_FOLD_S(`socvas_s', `(callset, sv, sv_arg)',
-                                    `if p curr_pos sv then Socvas.Singleton (callset, (next curr_pos sv), sv_arg)
-                                    else Socvas.Empty',
-                                    `image',
-                                    `if p curr_pos sv then Socvas.MS.add (callset, (next curr_pos sv), sv_arg) image else image') in
-               epsilon_close_current xyz target image i term_table.(target)
-
-           | PJDN.Box_trans (box, target) ->
-               (SOCVAS_ITER(`socvas_s', `(callset, sv, sv_arg)',
-                           `let cp = YkBuf.save ykb in
-                           (match box sv current_callset.id ykb with
-                                Some (0, ret_sv) -> (* returns to current set *)
-                                  insert_one_ig i ol cs target callset ret_sv sv_arg
-                              | Some (1, ret_sv) -> (* returns to next set *)
-                                  insert_one_nc ns target (callset, ret_sv, sv_arg)
-                              | Some (n, ret_sv) ->
-                                  let curr_pos = current_callset.id in
-                                  let j = curr_pos + n in
-                                  insert_future futuresq j target (callset, ret_sv, sv_arg)
-                              | None -> ()
-                           );
-                           YkBuf.restore ykb cp'))
-
-  (** epsilon close to study effects of actions on call-collapsing.
-
-      last argument, [i], is the current worklist index. *)
-  and epsilon_close_instr
-      (term_table, nonterm_table, p_nonterm_table, sv0, ol, cs, ns,
-       pre_cc, current_callset, ykb, futuresq, nplookahead_fn as xyz)
-       s socvas_s i = function
-           | PJDN.No_trans -> ()
-
-           | PJDN.Maybe_nullable_trans2 _ -> ()
-               (* only relevant immediately after a call *)
-
-           | PJDN.Scan_trans _
-           | PJDN.MScan_trans _
-           | PJDN.Lookahead_trans _
-           | PJDN.Det_multi_trans _
-           | PJDN.RegLookahead_trans _
-           | PJDN.ExtLookahead_trans _
-           | PJDN.Call_trans _ | PJDN.Call_p_trans _
-           | PJDN.Complete_trans _ | PJDN.Complete_p_trans _
-           | PJDN.MComplete_trans _ | PJDN.MComplete_p_trans _
-           | PJDN.When_trans _
-           | PJDN.Box_trans _
-             -> insert_many i ol cs s socvas_s;
-
-           | PJDN.Many_trans trans ->
-               let n = Array.length trans in
-               for j = 0 to n-1 do
-                 epsilon_close_instr xyz s socvas_s i trans.(j)
-               done
-
-           | PJDN.Action_trans (act, target) ->
-               let curr_pos = current_callset.id in
-               let image = SOCVAS_MAP(`socvas_s', `(callset, sv, sv_arg)', `(callset, (act curr_pos sv), sv_arg)') in
-               epsilon_close_instr xyz target image i term_table.(target)
-
   and process_trans
       (term_table, nonterm_table, p_nonterm_table, sv0, ol, cs, ns,
        pre_cc, current_callset, ykb, futuresq, nplookahead_fn as xyz)
@@ -1296,7 +1001,6 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
            | PJDN.Scan_trans (c,t) ->
                let c1 = Char.code (YkBuf.get_current ykb) in
                if c1 = c then insert_many_nc ns t socvas_s
-(*             if c1 = c then epsilon_close term_table (current_callset.id + 1) ns t socvas_s *)
            | PJDN.Det_trans f ->
                let curr_pos = current_callset.id in
                (SOCVAS_ITER(`socvas_s', `(callset, sv, sv_arg)',
@@ -1306,12 +1010,10 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
                let c = Char.code (YkBuf.get_current ykb) in
                let t = col.(c) in
                if t > 0 then insert_many_nc ns t socvas_s
-          (*   if t > 0 then epsilon_close term_table (current_callset.id + 1) ns t socvas_s *)
            | PJDN.Lookahead_trans col ->
                let c = Char.code (YkBuf.get_current ykb) in
                let t = col.(c) in
                if t > 0 then insert_many i ol cs t socvas_s
-(*             if t > 0 then epsilon_close_current xyz t socvas_s i term_table.(t) *)
            | PJDN.Det_multi_trans col ->
                let c = Char.code (YkBuf.get_current ykb) in
   (*         (match col.(c) with *)
@@ -1325,7 +1027,6 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
                  if x_action = 0
                  then insert_many_nc ns t socvas_s
                  else insert_many i ol cs t socvas_s
-(*               else epsilon_close_current xyz t socvas_s i term_table.(t) *)
                end
            | PJDN.TokLookahead_trans (presence, f, target) ->
                let b = f ykb in
@@ -1333,11 +1034,9 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
            | PJDN.RegLookahead_trans (presence, la_target, la_nt, target) ->
                let b = REGLA_CODE(`presence', `la_target', `la_nt', `target') in
                if b then insert_many i ol cs target socvas_s
-(*             if b then epsilon_close_current xyz target socvas_s i term_table.(target) *)
            | PJDN.ExtLookahead_trans (presence, la_target, la_nt, target) ->
                if EXTLA_CODE(`presence', `la_target', `la_nt', `target') then
                  insert_many i ol cs target socvas_s
-(*               epsilon_close_current xyz target socvas_s i term_table.(target) *)
            | PJDN.Call_trans t -> CALL_CODE(`t',`true')
            | PJDN.Call_p_trans (call_act, t) -> CALL_P_CODE(`t',`true',`call_act')
 
@@ -1381,22 +1080,23 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
                      );
                    end;
 
-                   let {PJDN.ctarget = t; carg = arg_act; cbinder = binder} =
-                     PJDN.lookup_trans_pnt p_nonterm_table s_l nt in
-                   if t > 0 then begin
-                     LOGp(comp_ne, "@%d: %d => %d [%d(_)]? " callset.id s_l t nt);
-
-                     SOCVAS_ITER(`socvas_l', `(callset_s_l, sv_s_l, sv_arg_s_l)', `
-                                   if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
-                                     LOGp(comp_ne, "Y");
-                                     insert_one_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
-                                   end else LOGp(comp_ne, "N")');
-                     LOGp(comp_ne, "\n");
-                   end
+                   match PJDN.lookup_trans_pnt p_nonterm_table s_l nt with
+                     | [||] -> ()
+                     | entries ->
+                         for idx = 0 to Array.length entries - 1 do
+                           let {PJDN.ctarget = t; carg = arg_act; cbinder = binder} = entries.(idx) in
+                           LOGp(comp_ne, "@%d: %d => %d [%d(_)]? " callset.id s_l t nt);
+                           SOCVAS_ITER(`socvas_l', `(callset_s_l, sv_s_l, sv_arg_s_l)', `
+                                         if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
+                                           LOGp(comp_ne, "Y");
+                                           insert_one_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
+                                         end else LOGp(comp_ne, "N")');
+                           LOGp(comp_ne, "\n");
+                         done
                  done')
 
-           | PJDN.MComplete_trans nts -> MCOMPLETE_CODE_W(`nts',`true')
-           | PJDN.MComplete_p_trans nts -> MCOMPLETE_CODE_W(`nts',`false')
+           | PJDN.MComplete_trans nts -> MCOMPLETE_CODE(`nts',`true')
+           | PJDN.MComplete_p_trans nts -> MCOMPLETE_CODE(`nts',`false')
 
            | PJDN.Many_trans trans ->
                let n = Array.length trans in
@@ -1408,8 +1108,9 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
                (* only relevant immediately after a call *)
 
 
-(* PERF: In this old code, why are we repeatedly calling insert_one_ig, rather than
+(* PERF: In this code, why are we repeatedly calling insert_one_ig, rather than
    building a socvas and then inserting many? The same criticism holds for complete_p.
+   Compare to commented-out code following.
  *)
 
            | PJDN.Action_trans (act, target) ->
@@ -1509,17 +1210,25 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
                  if is_nt && callset.id = 0 then succeeded := true;
                  let items = callset.data in
                  for l = 0 to Array.length items - 1 do
-                   let s_l, c_l = items.(l) in
+                   let s_l, socvas_l = items.(l) in
 
                    let t = PJ.lookup_trans_nt nonterm_table s_l nt in
-                   if t > 0 then insert_many i ol cs t c_l;
+                   if t > 0 then insert_many i ol cs t socvas_l;
 
-                   let {PJDN.ctarget = t; carg = arg_act; cbinder = binder} = PJDN.lookup_trans_pnt p_nonterm_table s_l nt in
-                   if t > 0 then begin
-                     SOCVAS_ITER(`c_l', `(callset_s_l, sv_s_l, sv_arg_s_l)', `
-                       if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then
-                         insert_one_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l')
-                   end
+                   match PJDN.lookup_trans_pnt p_nonterm_table s_l nt with
+                     | [||] -> ()
+                     | entries ->
+                         for idx = 0 to Array.length entries - 1 do
+                           let {PJDN.ctarget = t; carg = arg_act; cbinder = binder} = entries.(idx) in
+                           LOGp(comp_ne, "@%d: %d => %d [%d(_)]? " callset.id s_l t nt);
+                           SOCVAS_ITER(`socvas_l', `(callset_s_l, sv_s_l, sv_arg_s_l)', `
+                                         if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
+                                           LOGp(comp_ne, "Y");
+                                           insert_one_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
+                                         end else LOGp(comp_ne, "N")');
+                           LOGp(comp_ne, "\n");
+                         done
+
                  done')
 
            | PJDN.MComplete_trans nts ->
@@ -1553,18 +1262,24 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
                        succeeded := true (* ... and do not bother performing the completion. *)
                      else
                        for l = 0 to m_items do
-                         let s_l, c_l = items.(l) in
+                         let s_l, socvas_l = items.(l) in
 
                          let t = PJ.lookup_trans_nt nonterm_table s_l nt in
-                         if t > 0 then insert_many i ol cs t c_l;
+                         if t > 0 then insert_many i ol cs t socvas_l;
 
-                         let {PJDN.ctarget = t; carg = arg_act; cbinder = binder} = PJDN.lookup_trans_pnt p_nonterm_table s_l nt in
-                         if t > 0 then begin
-                           SOCVAS_ITER(`c_l', `(callset_s_l, sv_s_l, sv_arg_s_l)', `
-                             if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then
-                               insert_one_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l'
-                            )
-                         end
+                         match PJDN.lookup_trans_pnt p_nonterm_table s_l nt with
+                           | [||] -> ()
+                           | entries ->
+                               for idx = 0 to Array.length entries - 1 do
+                                 let {PJDN.ctarget = t; carg = arg_act; cbinder = binder} = entries.(idx) in
+                                 LOGp(comp_ne, "@%d: %d => %d [%d(_)]? " callset.id s_l t nt);
+                                 SOCVAS_ITER(`socvas_l', `(callset_s_l, sv_s_l, sv_arg_s_l)', `
+                                               if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
+                                                 LOGp(comp_ne, "Y");
+                                                 insert_one_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
+                                               end else LOGp(comp_ne, "N")');
+                                 LOGp(comp_ne, "\n");
+                               done
                        done
                    done')
 

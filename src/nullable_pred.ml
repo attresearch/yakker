@@ -12,10 +12,12 @@
 open Yak
 let lookahead_name = "__lookahead"
 let nullable_pred_prefix = "nullable_"
+let nullable_pred_table_prefix = "npt_"
 
 let mk_var c = Printf.sprintf "_x%d_" c
 let mk_pvar c = Printf.sprintf "_p%d_" c
 let mk_npname n = Variables.bnf2ocaml (nullable_pred_prefix ^ n)
+let mk_nptblname n = Variables.bnf2ocaml (nullable_pred_table_prefix ^ n)
 
 let callc symb_pred action binder =
   (* The generated code binds expression to avoid capture. There are
@@ -1052,8 +1054,7 @@ fun _ ykb v -> match f1 v with | Yk_done %s %s (%s) -> Some (f2 v (%s)) | _ -> N
       | _ -> (match to_rhs e_n with None -> Maybe_n | Some r -> Rhs_n r)
 
   let process_grammar ch get_action get_start grm =
-    let preds =  preds_from_grammar grm in
-
+    let preds = preds_from_grammar grm in
     (* Record which nonterminals are called from other nonterminals
        (including themselves) that require predicates to be printed
        (i.e. if its called from a nonterminal for which we will not
@@ -1063,23 +1064,22 @@ fun _ ykb v -> match f1 v with | Yk_done %s %s (%s) -> Some (f2 v (%s)) | _ -> N
                                        | None -> DBL.note_called s e
                                        | Some _ -> s) preds (PSet.create compare) in
 
-    let print_pred nt e_p first =
+    (* To ensure "let rec" compatibility, we force all generated code to be a syntactic function.
+       We can special case functions, b/c they already meet the criterion, and eta-expand
+       everything else. *)
+    (* If the nonterminal is called from another predicate, then there
+       might be recursion and we should memoize the result. Otherwise,
+       it doesn't need to be memoized. However, because it could be
+       called directly from the grammar, it still needs a function. *)
+    let collect nt e_p acc =
       let ntcalled = PSet.mem nt called_set in
       (* if [e_p] is a boolean then it will have been inlined into any
          other calling contexts, so there's no reason to print the
          function. *)
       match get_expr_nullability e_p with
-        | No_n | Yes_n -> first
-        | Rhs_n _ when not ntcalled -> first
+        | No_n | Yes_n -> acc
+        | Rhs_n _ when not ntcalled -> acc
         | _ ->
-            if first then
-              Printf.fprintf ch "let rec "
-            else
-              Printf.fprintf ch "and ";
-            (* To ensure "let rec" compatibility, we force everything to be a syntactic function.
-               We can special case functions, b/c they already meet the criterion, and eta-expand
-               everything else.
-            *)
             let ykb = mk_pvar 0 in
             let v = mk_var 0 in
             let p = convert_from_dB e_p in
@@ -1097,45 +1097,45 @@ fun _ ykb v -> match f1 v with | Yk_done %s %s (%s) -> Some (f2 v (%s)) | _ -> N
                      | _ -> raise exc)
               | _ ->  app3 (p.e()) (Var lookahead_name) (Var ykb) (Var v)
             in
-            (* If the nonterminal is called from another predicate,
-               then there might be recursion and we should memoize the
-               result. Otherwise, it doesn't need to be
-               memoized. However, because it could be called directly
-               from the grammar, it still needs a function. *)
+            let tbls, preds = acc in
+            (* TODO: extend comment here to explain memoization process *)
             if ntcalled then begin
-              (* TODO: COMMENT HERE *)
-              Printf.fprintf ch "%s = let __tbl = SV_hashtbl.create 11 in\n\
-                         fun %s %s %s -> \n"
-                (mk_npname nt) lookahead_name ykb v;
               let body_code = to_string' gil_callc get_action get_start 1 body in
-              Printf.fprintf ch
-                "let __p1 = Yak.YkBuf.get_offset %s in\n\
-          try\n\
-            let (r, __p2)  = SV_hashtbl.find __tbl %s in\n\
-            if __p1 = __p2 then r else\n\
-            let x = %s in SV_hashtbl.replace __tbl %s (x, __p1); x\n\
-          with Not_found ->\n"
-                ykb v body_code v;
-              Printf.fprintf ch
-                "  let x = %s in SV_hashtbl.add __tbl %s (x, __p1); x\n\n"
-                body_code v
+              let tbl = mk_nptblname nt in
+              let pred = Printf.sprintf "%s %s %s %s = \n  \
+                let __p1 = Yak.YkBuf.get_offset %s in\n    \
+                  try\n      \
+                    let (r, __p2)  = SV_hashtbl.find %s %s in\n      \
+                    if __p1 = __p2 then r else\n      \
+                    let x = %s in SV_hashtbl.replace %s %s (x, __p1); x\n    \
+                  with Not_found ->\n      \
+                    let x = %s in SV_hashtbl.add %s %s (x, __p1); x\n\n"
+                (mk_npname nt) lookahead_name ykb v
+                ykb
+                tbl v
+                body_code tbl v
+                body_code tbl v in
+              nt :: tbls, pred :: preds
             end
             else begin
-              Printf.fprintf ch "%s %s %s %s = %s\n\n" (mk_npname nt) lookahead_name ykb v
-                (to_string' gil_callc get_action get_start 1 body)
-            end;
-            false
-    in
-    if !Compileopt.use_coroutines then begin
-    Printf.fprintf ch "module SV_hashtbl = Hashtbl.Make(struct
-                          type t = sv
-                          let equal a b = sv_compare a b = 0
-                          let hash = Hashtbl.hash end)\n"
-    end else begin
-      Printf.fprintf ch "module SV_hashtbl = Hashtbl\n"
-    end;
-    Printf.fprintf ch "module Pred = Pred3\n";
-    ignore (Hashtbl.fold print_pred preds true)
+              let pred = Printf.sprintf "%s %s %s %s = %s\n\n" (mk_npname nt) lookahead_name ykb v
+                (to_string' gil_callc get_action get_start 1 body) in
+              tbls, pred :: preds
+            end in
+    let print_table nt = Printf.fprintf ch "let %s = SV_hashtbl.create 11;;\n" (mk_nptblname nt) in
+    let print_pred = Printf.fprintf ch "and %s" in
+    let tbls, preds = Hashtbl.fold collect preds ([],[]) in
+    match List.rev preds with
+      | [] -> ()
+      | p::preds ->
+          Printf.fprintf ch "module SV_hashtbl = Hashtbl.Make(struct
+                    type t = sv
+                    let equal a b = sv_compare a b = 0
+                    let hash = Hashtbl.hash end)\n";
+          Printf.fprintf ch "module Pred = Pred3\n";
+          List.iter print_table tbls;
+          Printf.fprintf ch "let rec %s" p;
+          List.iter print_pred preds
 
   let get_symbol_nullability preds_tbl nt =
     get_expr_nullability (Hashtbl.find preds_tbl nt)

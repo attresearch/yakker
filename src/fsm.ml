@@ -597,9 +597,10 @@ let fsm_dot _ inch outch =
 let tbl_varnames = Hashtbl.create 11
 let varnum = ref 0
 (* varname maps strings to variable names. For strings which are already variable names,
-   the string is returned. For those which isn't, a suitable name is chosen (and remembered)
+   the string is returned. For those which are note, a suitable name is chosen (and remembered)
    based on a modification of the string and a prepending of the specified prefix along with a
    fresh digit.
+
    The function uses the prefix to ensure that if two strings map to the same variable after the
    standard modification, there is a way to distinguish them.
 *)
@@ -609,7 +610,8 @@ let varname prefix =
        | Some x -> x
        | None ->
            let v =
-             if Variables.already_var str then str else
+             if Variables.already_var str then str
+             else
                let num = Util.postincr varnum in
                Printf.sprintf "%s%d" prefix num in
            Hashtbl.add tbl_varnames str v;
@@ -729,22 +731,8 @@ let fsm_transducer gr inch outch =
   Printf.fprintf outch "let %s _ _ = sv0;;\n" default_call_tx;
   Printf.fprintf outch "let %s _ v1 _ = v1;;\n" default_binder_tx;
 
-  (* Print the nullability predicates. *)
-  Printf.fprintf outch "module Pred3 = Yak.Pam_internal.Pred3\n";
-  Nullable_pred.Gil.process_grammar outch (Hashtbl.find tbl_ntnames) (fun nt -> List.assoc nt !starts) gr;
 
-  Hashtbl.iter
-    (fun defn v ->
-      if v<>defn then
-        Printf.fprintf outch "let %s = %s;;\n" v defn)
-    tbl_varnames;
-
-  (* Print binders *)
-  DynArray.iteri (fun i str -> Printf.fprintf outch "let %s%d = %s;;\n" binder_prefix i str) binders;
-
-  (* Generate vestigial binders table (empty):
-     YHM, 5/16/2011: why generate this? *)
-  Printf.fprintf outch "let binders = [| |]\n";
+  (* Print various grammar/automaton metadata *)
 
   Printf.fprintf outch "let num_symbols = %d\n\n" (Hashtbl.length tbl_ntnames);
 
@@ -766,11 +754,34 @@ let fsm_transducer gr inch outch =
   List.iter (fun (nt,b) -> Printf.fprintf outch "  | %d -> %d\n" nt b) !starts;
   Printf.fprintf outch "  | _ -> raise Not_found\n\n";
 
-  Printf.fprintf outch "open Yak.Pam_internal\n";
 
-(* B_many(function Value(Yk_T x) -> match x with C1 -> t1 | C2 -> t2 | C3 -> t3) *)
+  (* *****************************************************************
+     Print the automaton itself (called [program]). We precede it with
+     various definitions used within the automaton, but not requiring
+     external visibility.
+     ***************************************************************** *)
 
+  (* Bind [Pred3] for use in nullability predicate definitions, and
+     open Yak.Pam_internal for use in the automaton definition.*)
+  Printf.fprintf outch "module Pred3 = Yak.Pam_internal.Pred3\n";
 
+  (* Print the nullability predicates. *)
+  Nullable_pred.Gil.process_grammar outch (Hashtbl.find tbl_ntnames) (fun nt -> List.assoc nt !starts) gr;
+
+  (* Print the expression bindings used in the automaton.
+
+     Note: for expressions which are already variables (defn = v), we
+     do not print a binding. *)
+  Hashtbl.iter
+    (fun defn v ->
+       if v <> defn then
+         Printf.fprintf outch "let %s = %s;;\n" v defn)
+    tbl_varnames;
+
+  (* Print binders *)
+  DynArray.iteri (fun i str -> Printf.fprintf outch "let %s%d = %s;;\n" binder_prefix i str) binders;
+
+  (* example: B_many(function Value(Yk_T x) -> match x with C1 -> t1 | C2 -> t2 | C3 -> t3) *)
   (* Version 1: [f1] is an action-like function, taking only the current position and semval. *)
   let branches2instr1 (f1, c_ty, cs) =
     let mkcase (c, f2, target) =
@@ -827,6 +838,8 @@ let fsm_transducer gr inch outch =
       branches2instr3
     else branches2instr1 in
 
+  (* Finally, print the automaton itself. *)
+  Printf.fprintf outch "open Yak.Pam_internal\n";
   Printf.fprintf outch "let program = [\n";
   Hashtbl.iter
     (fun a (eats, ops, dbranches) ->

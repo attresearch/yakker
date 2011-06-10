@@ -253,7 +253,9 @@ end
 let _replay_cmd_line_args ykinput h =
   let _o = new rvs (h#rtl) in
   let _n() = _o#next() in
-  _r_cmd_line_args(_n,ykinput)(* History constructors *)let _e p h = h#empty p
+  _r_cmd_line_args(_n,ykinput)
+(* History constructors *)
+let _e p h = h#empty p
 let _p x p = (fun h->h#push p ( x,p))
 let _p_pos p = (fun h->h#push p ( p,p))
 let _m x p = (fun h1 h2-> h1#merge p ( x,p) h2)
@@ -1026,7 +1028,7 @@ let _wfe_data_ = Yak.PamJIT.DNELR.to_table (Yak.Pam_internal.load_internal_progr
   start_symb (get_symb_start start_symb) 264 num_symbols
   __default_call __default_ret
 
-let parse = Yak.Pami.Wfe.mk_parse P2__.parse _wfe_data_ sv0 (fun ykinput h -> _replay_cmd_line_args ykinput h)
+let parse = Yak.Pami.Wfe.mk_parse P2__.parse _wfe_data_ sv0 _replay_cmd_line_args
 let visualize = parse
 let visualize_file = Yak.Pami.Simple.parse_file visualize
 let visualize_string = Yak.Pami.Simple.parse_string visualize

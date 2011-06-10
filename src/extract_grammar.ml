@@ -57,7 +57,9 @@ end
 let _replay_rfc ykinput h =
   let _o = new rvs (h#rtl) in
   let _n() = _o#next() in
-  _r_rfc(_n,ykinput)(* History constructors *)let _e p h = h#empty p
+  _r_rfc(_n,ykinput)
+(* History constructors *)
+let _e p h = h#empty p
 let _p x p = (fun h->h#push p ( x,p))
 let _p_pos p = (fun h->h#push p ( p,p))
 let _m x p = (fun h1 h2-> h1#merge p ( x,p) h2)

@@ -289,7 +289,7 @@ let transform gr =
   Analyze.producers gr;
   Analyze.relevance gr;
   let uses_history = replay gr hproj in
-  if uses_history then begin
+  if !Compileopt.postfix_history && uses_history then begin
     reverse gr hproj; (* some grammars have late actions but never push anything on the history *)
     add_to_prologue gr
       (Printf.sprintf
@@ -310,13 +310,18 @@ let _replay_%s ykinput h =
     (Variables.bnf2ocaml gr.start_symbol) (Variables.bnf2ocaml gr.start_symbol))
   end;
   let mkOUTPUT l = mkRHS(Delay(false,string_of_int l,None)) in
-  let mkOUTAFTER r l =
+  let mkBEFORE r l = mkSEQ[mkOUTPUT(l);r] in
+  let mkAFTER r l =
     (* Output after r, preserving early relevance *)
     if r.a.early_relevant then
       let x = Variables.fresh() in
       mkSEQ2(r,Some x,None,mkSEQ[mkOUTPUT(l);mkACTION(x)])
     else
       mkSEQ[r;mkOUTPUT(l)] in
+  let mkOUT r l =
+    if !Compileopt.postfix_history
+    then mkAFTER r l
+    else mkBEFORE r l in
   let rec loop r =
     if not(r.a.late_relevant) then () else
     match r.r with
@@ -336,7 +341,7 @@ let _replay_%s ykinput h =
           (fun r ->
             let l = r.a.pre in
             loop r;
-            r.r <- (mkOUTAFTER(dupRule r)(l)).r)
+            r.r <- (mkOUT(dupRule r)(l)).r)
           alts
     | Assign(r1,_,late) ->
         Util.impossible "TODO late attributes"
@@ -348,8 +353,10 @@ let _replay_%s ykinput h =
         let l_body = r1.a.pre in
         let l_done = r.a.post in
         loop r1;
-        r.r <- (mkSEQ[mkOUTPUT(l_done);mkSTAR2(x,mkOUTAFTER r1 l_body)]).r
-
+        r1.r <- (mkOUT (dupRule r1) l_body).r;
+        if !Compileopt.postfix_history
+        then r.r <- (mkBEFORE (dupRule r) l_done).r
+        else r.r <- (mkAFTER (dupRule r) l_done).r
             (* cases below are not late relevant *)
     | When _            -> Util.impossible "Replay.transform.When"
     | Box _             -> Util.impossible "Replay.transform.Box"

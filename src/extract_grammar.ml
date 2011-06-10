@@ -20,7 +20,6 @@ type _wv = _yk_t;;
 let _wv0 = Yk_x1;;
 type hv = int
 ;;
-let _l2hv x = x;; (* label to hv *)
 
 module Yk_Hashed = struct
   type t = hv * int

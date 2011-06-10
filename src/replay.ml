@@ -38,7 +38,7 @@ let wrap_history gr =
   let hproj = if 1 = PSet.cardinal types then "" else "Ykd_int" in
   if 1 = PSet.cardinal types then
     (* No need to wrap if we only use int *)
-    add_to_prologue gr "type hv = int\n;;\nlet _l2hv x = x;; (* label to hv *)\n"
+    add_to_prologue gr "type hv = int\n;;\n"
   else begin
     (* Otherwise, each type gets a corresponding datatype constructor *)
     let b = Buffer.create 11 in                     (* Print out the type declaration *)

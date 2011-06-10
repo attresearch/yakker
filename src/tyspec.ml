@@ -32,7 +32,6 @@ let map_create n =
 
 type hv = int
 ;;
-let _l2hv x = x;; (* label to hv *)
 
 module Yk_Hashed = struct
   type t = hv * int

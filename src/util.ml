@@ -239,6 +239,22 @@ let list_mem_and_remove x xs =
     | y::ys -> _mnr (y :: zs) ys in
   _mnr [] xs
 
+let list_intersect cmp xs ys =
+  let xs = List.sort cmp xs in
+  let ys = List.sort cmp ys in
+  let rec _loop1 xs ys result =
+    match ys with
+      | [] -> result
+      | y::ys -> _loop2 xs y ys result
+  and _loop2 xs y ys result =
+    match xs with
+      | [] -> result
+      | x::xs ->
+          if x < y then _loop2 xs y ys result
+          else if x > y then _loop2 ys x xs result
+          else (* x = y *) _loop1 xs ys (x :: result) in
+  _loop1 xs ys []
+
 module Operators = struct
   let ($) f g x = f (g x)
   let ($|) f x = f x

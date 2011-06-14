@@ -18,6 +18,7 @@ let case_sensitive = ref true
 let coalesce = ref true
 let memoize_history = ref true
 let check_labels = ref false
+let postfix_history = ref true
 
 let skip_opt = ref true
   (** Perform the label-skipping optimization for late actions. *)

@@ -31,8 +31,22 @@ open Util.Operators
 
 (* TODO:
    x fix assumption about shape of context on return from calls. Does not take extraneous attributes into account.
-   - handle input and output attributes.
+   x handle output attributes.
+   x handle input attributes.
+   x handle input attributes at Symb.
+   x handle output attributes at Symb.
+   - TESTING
+   - Add support for input/output attributes to type inference.
+   - Maintain attributes lists in sorted order. Then, optimize gen_ret in updateEnvMerge
+     for special case of return simply propogating the result of the ending nonterminal.
    - Consider special-casing environemnt updates when env is empty or singleton. *)
+
+
+(* TODO: improve error reporting *)
+let dearrow_error m =
+  Util.sys_error m;
+  raise Exit
+
 
 (* TODO: - move to Variables if deemed appropriate. *)
 
@@ -67,19 +81,29 @@ let fresh_wrt = fst $ freshen_wrt fresh_prefix 1
 module type CONTEXT = sig
   type pl                               (** "plain" - normal context, might have shadowed variables. *)
   type sf                               (** shadowing-free *)
+
+  type binding_class = Var | Attr
+
   type 'a ctxt
 
   val ctxt_size : 'a ctxt -> int
   val is_empty : 'a ctxt -> bool
 
-  val demote : sf ctxt -> pl ctxt
-    (** [demote g] coerces a shadowing-free context to a normal one. *)
+  val force_pl : 'a ctxt -> pl ctxt
+    (** [force_pl g] coerces a any context to a plain one. *)
+
+  val force_sf : 'a ctxt -> sf ctxt
+    (** [force_sf g] coerces any context to shadowing-free
+        one. Use should be accompanied by explanation validating its
+        use. *)
 
   val empty : sf ctxt
   val singleton_var : var -> ty -> sf ctxt
   val singleton_attr : var -> ty -> sf ctxt
   val ext_var : 'a ctxt -> var -> ty -> pl ctxt
   val ext_attr : 'a ctxt -> var -> ty -> pl ctxt
+
+  val lookup : 'a ctxt -> var -> binding_class * ty
 
   (** If context is already shadow-free, guaranteed not to change. *)
   val deshadow: 'a ctxt -> sf ctxt
@@ -131,10 +155,15 @@ module Context : CONTEXT = struct
   let ext_var g v t = (v,Var,t)::g
   let ext_attr g v t = (v,Attr,t)::g
 
+  let lookup g v =
+    let (_,c,t) = List.find (fun (v1,_,_) ->  v1 = v) g in
+    c,t
+
   let ctxt_size = List.length
   let is_empty = function [] -> true | _ -> false
 
-  let demote g = g
+  let force_pl g = g
+  let force_sf g = g
 
   let drop_n g n = Util.list_drop n g
 
@@ -179,6 +208,18 @@ end
 
 open Context
 
+let ext_attrs g attrs = List.fold_left (fun g (x,ty) -> ext_attr g x ty) (force_pl g) attrs
+
+(** "Attribute-union". Ordered union of the attributes sets in [g] and
+    the attribute * type list [attrs]. [g] is extended with any
+    attributes in [attrs] not already in [g].
+
+    Precondition: vars(g) /\ attr_names = {} *)
+let union_attrs g attrs =
+  let attrs_g = attrs_of_ctxt g in
+  let new_attrs = List.filter (fun (x,_) -> not $| List.mem x attrs_g) attrs in
+  ext_attrs g new_attrs
+
 module Meta_prog = struct
   type constructor = string
   type pat = string
@@ -198,11 +239,26 @@ open Meta_prog
 
 
 (** Binding qualifier. *)
-type bindq = No_bind | Bind | Var_bind of string | Return_bind
+type bindq = No_bind | Bind | Var_bind of string | Return_bind of var list
 
 (* TODO: improve error reporting for this check. *)
 let check_ctxt_eq g1 g2 =
   if not (g1 = g2) then Util.sys_error "Contexts not equal."
+
+(** Copy attributes [attrs] from [g1] to [g2]. Report
+    [missing_message] (applied to the missing variable) if any of the
+    names specified in [attrs] do not appear in [g1]. *)
+let copy_attrs g1 g2 attrs missing_message =
+  List.fold_left (fun g2 v ->
+                    try
+                      match lookup g1 v with
+                        | (Attr, ty) -> ext_attr g2 v ty
+                        | (Var, _) -> dearrow_error ("Expected " ^ v ^ " to be attribute but found variable instead.")
+                    with Not_found -> dearrow_error (missing_message v))
+    (force_pl g2) attrs
+
+let copy_out_attrs g1 g2 attrs = copy_attrs g1 g2 attrs
+  (fun v -> v ^ " specified as output attribute, but not found in context.")
 
 let transform gr =
 
@@ -222,7 +278,7 @@ let transform gr =
 
 
   (** An abbreviation for con_map . tys_of_ctxt *)
-  let mt g = (con_map (tys_of_ctxt g)) in
+  let mt = con_map $ tys_of_ctxt in
 
   let nm = names_of_ctxt in
 
@@ -237,21 +293,29 @@ let transform gr =
   let tuple_pat : pat list -> string =
     String.concat "," in
 
-  let tuple_exp : exp list -> string  =
-    tuple_pat in
+  let tuple_exp : exp list -> string = tuple_pat in
+
+  (** Convert a context to a string encoding the pattern of variables in the context.
+      Variables must be deshadowed first so that the pattern remains linear. First argument
+      is a list of variables to be converted to wildcards in the pattern. *)
+  let tuple_pat_of_ctxt_with_wild (xs : var list) : sf ctxt -> string =
+    tuple_pat $ List.map (fun x -> if List.mem x xs then "_" else x) $ nm in
+
+  (** Composes a number of the above operations. *)
+  let named_pat_of_ctxt_with_wild (xs : var list) : sf ctxt -> pat =
+    fun g ->
+      if is_empty g then con_map []
+      else mt g ^ "(" ^ tuple_pat_of_ctxt_with_wild xs g ^ ")" in
 
   (** Convert a context to a string encoding the pattern of variables in the context.
       Variables must be deshadowed first so that the pattern remains linear. *)
-
-  let tuple_pat_of_ctxt : sf ctxt -> string =
-    tuple_pat $ nm in
+  let tuple_pat_of_ctxt : sf ctxt -> string = tuple_pat $ nm in
 
   (** /G/ composes a number of the above operations. *)
   let named_pat_of_ctxt : sf ctxt -> pat =
     fun g ->
       if is_empty g then mt g
-      else
-        mt g ^ "(" ^ tuple_pat_of_ctxt g ^ ")" in
+      else mt g ^ "(" ^ tuple_pat_of_ctxt g ^ ")" in
 
   let named_exp_of_ctxt : sf ctxt -> exp = named_pat_of_ctxt in
 
@@ -287,15 +351,15 @@ let transform gr =
     match a with
       | Var_bind x when not $| List.mem x (attrs_of_ctxt g1) -> ext_attr g1 x ty
       | Var_bind _ | No_bind | Bind -> g1
-      | Return_bind -> demote empty in
+      | Return_bind out_attrs -> copy_out_attrs g1 (force_pl empty) out_attrs in
 
-  (* Wrap an expression [e] so that its free variables from [g] are properly bound. *)
-  let wrap g e ty =
+  (** Wrap expressions [args] so that their free variables from [g] are properly bound. *)
+  let wrap_args g args args_tys =
     let g = deshadow g in
     let pat_in = named_pat_of_ctxt g in
-    let c = mt (singleton_var "z" ty) in       (* [z] is arbitrary; we never make use
-                                                  of the variable name *)
-    action_template "_" pat_in (gen "%s(%s)" c e) in
+    let c = con_map args_tys in
+    let env_out = tuple_exp args in
+    action_template "_" pat_in (gen "%s(%s)" c env_out) in
 
   let wrapWhen g e =
     let g = deshadow g in
@@ -329,22 +393,23 @@ let transform gr =
                                                          shadow anything that will
                                                          appear in the return value
                                                          (which is based on [g1]). *)
-      let c = mt (ext_var g1 "z" ty) in       (* [z] is arbitrary; we never make use
-                                                 of the variable name *)
+      let g_out = ext_var g1_ds xvar ty in
+      let env_out = named_exp_of_ctxt (force_sf g_out) in (* Promotion is safe b/c [xvar] is generated
+                                                            fresh w.r.t. to [out_attrs]. *)
+      _gen xvar env_out in
 
-      let env_out = tuple_exp (nm g1_ds @ [xvar]) in
-      _gen xvar (gen "%s(%s)" c env_out) in
-
-    let gen_ret =
-      let xvar = "x" in
-      let c = mt (singleton_var "x" ty) in
-      _gen xvar (gen "%s(%s)" c xvar) in
+    let gen_ret out_attrs =
+      let xvar = fresh_wrt out_attrs in
+      let g_out = copy_out_attrs g1 (singleton_var xvar ty) out_attrs in
+      let env_out = named_exp_of_ctxt (force_sf g_out) in (* Promotion is safe b/c [xvar] is generated
+                                                            fresh w.r.t. to [out_attrs]. *)
+      _gen xvar env_out in
 
     match a with
       | No_bind -> gen_upd "_"
       | Var_bind x -> if List.mem x (attrs_of_ctxt g1) then gen_upd x else gen_ext
       | Bind -> gen_ext
-      | Return_bind -> gen_ret in
+      | Return_bind out_attrs -> gen_ret out_attrs in
 
 
   (** [updateEnvP ppat g_ds g xs a e ty]
@@ -363,66 +428,93 @@ let transform gr =
       _gen (gen "let %s = %s in %s" p e env_out) in
 
     let gen_ext =
-      let c = mt (ext_var g1 "z" ty) in       (* [z] is arbitrary; we never make use
-                                                 of the variable name *)
-      let env_out = tuple_exp (nm g1_ds @ [e]) in
-      _gen (gen "%s(%s)" c env_out) in
+      let xvar = fresh_wrt $| nm g1_ds in
+      let g_out = ext_var g1_ds xvar ty in
+      let env_out = named_exp_of_ctxt (force_sf g_out) in (* Promotion is safe b/c [xvar] is generated
+                                                            fresh w.r.t. to [out_attrs]. *)
+      _gen (gen "let %s = %s in %s" xvar e env_out) in
 
-    let gen_ret =
-      let c = mt (singleton_var "z" ty) in       (* [z] is arbitrary; we never make use
-                                                       of the variable name *)
-      let env_out = e in
-      _gen (gen "%s(%s)" c env_out) in
+    let gen_ret out_attrs =
+      let xvar = fresh_wrt out_attrs in
+      let g_out = copy_out_attrs g1 (singleton_var xvar ty) out_attrs in
+      let env_out = named_exp_of_ctxt (force_sf g_out) in (* Promotion is safe b/c [xvar] is generated
+                                                            fresh w.r.t. to [out_attrs]. *)
+      _gen (gen "let %s = %s in %s" xvar e env_out) in
 
     match a with
       | No_bind -> gen_upd "_"
       | Var_bind x -> if List.mem x (attrs_of_ctxt g1) then gen_upd x else gen_ext
       | Bind -> gen_ext
-      | Return_bind -> gen_ret in
+      | Return_bind out_attrs -> gen_ret out_attrs in
 
   let updateEnv g xs a e ty =
     let g_ds = deshadow g in
     updateEnvP "_" g_ds g xs a e ty in
 
-  let updateEnvMerge g xs a ty =
+  (*  PRE: vars(g) /\ attrs = {} *)
+  let updateEnvMerge g xs attrs a ty =
     let ppat = "_" in
+
     let g_ds = deshadow g in
+    let attr_names, attr_tys = List.split attrs in
+    (* Convert any overwritten attributes from original env. to
+       wildcards. We have no need them b/c their value is being
+       replaced by the new version. *)
+    let pat_in = named_pat_of_ctxt_with_wild attr_names g_ds in
+
+    (* Extend [g] with attributes from [attrs] not already in
+       [g]. Results hold for [g_ds] as well by preconditions of this
+       function. *)
+    let attrs_g = attrs_of_ctxt g in
+    let new_attrs = List.filter (fun (x,_) -> not $| List.mem x attrs_g) attrs in
+    let g = ext_attrs g new_attrs in
+    let g_ds = force_sf (ext_attrs g_ds new_attrs) in
+
     let g1 = drop_these g xs in
     let g1_ds = drop_these g_ds xs in
 
-    let pat_in = named_pat_of_ctxt g_ds in
-
     let _gen pat2 exp_result = merge_template ppat pat_in pat2 exp_result in
+
+    let mk_result_pat p_result =
+      match p_result, attrs with
+        | "_", [] -> "_"                (* optimization: avoid any pattern match at all. *)
+        | _ ->
+            let c = con_map $| ty :: attr_tys in
+            gen "%s(%s)" c $ tuple_pat $| p_result :: attr_names in
 
     (* code for update when we're ignoring the
        second (non-position) parameter. *)
-    let gen_upd_2wild = _gen "_" (named_exp_of_ctxt g1_ds) in
+    let gen_upd_2wild = _gen $| mk_result_pat "_" $| named_exp_of_ctxt g1_ds in
 
     let gen_upd x =
-      let pat_x = match x with
-        | "_" -> "_"
-        | _ -> named_pat_of_ctxt (singleton_var (ds_lookup g1 g1_ds x) ty) in
+      let pat_result = mk_result_pat $| ds_lookup g1 g1_ds x in
       let env_out = named_exp_of_ctxt g1_ds in
-      _gen pat_x env_out in
+      _gen pat_result env_out in
 
     let gen_ext =
       let xvar = fresh_wrt $| nm g1_ds in
-      let pat_x = named_pat_of_ctxt (singleton_var xvar ty) in
-      let c = mt (ext_var g1 "z" ty) in       (* [z] is arbitrary; we never make use
-                                             of the variable name *)
-      let env_out = tuple_exp (nm g1_ds @ [xvar]) in
-      _gen pat_x (gen "%s(%s)" c env_out) in
+      let pat_result = mk_result_pat $| ds_lookup g1 g1_ds xvar in
+      let g_out = ext_var g1_ds xvar ty in
+      let env_out = named_exp_of_ctxt (force_sf g_out) in (* Promotion is safe b/c [xvar] is generated
+                                                             fresh w.r.t. to [out_attrs]. *)
+      _gen pat_result env_out in
 
-    (* Simply need to propogate the merged value. *)
-    let gen_ret =
-      let xvar = "x" in
-      _gen xvar xvar in
+    let gen_ret out_attrs =
+      let xvar = fresh_wrt (attr_names @ out_attrs) in
+      (* Needs to be fresh w.r.t. [attr_names] so that the generated pattern for the result is valid.
+         Needs to be fresh w.r.t. [out_attrs] so that it doesn't shadow any of the attribute values that
+         need to be returned. *)
+      let pat_result = mk_result_pat xvar in
+      let g_out = copy_out_attrs g1 (singleton_var xvar ty) out_attrs in
+      let env_out = named_exp_of_ctxt (force_sf g_out) in (* Promotion is safe b/c [xvar] is generated
+                                                            fresh w.r.t. to [out_attrs]. *)
+      _gen pat_result env_out in
 
     match a with
       | No_bind -> gen_upd_2wild
       | Var_bind x -> if List.mem x (attrs_of_ctxt g1) then gen_upd x else gen_ext
       | Bind -> gen_ext
-      | Return_bind -> gen_ret in
+      | Return_bind out_attrs -> gen_ret out_attrs in
 
   (** Translate IRRELEVANT Gul right-parts to Gil. *)
   let rec gul2gil r = (* should only be called by dispatch, so invariants are satisfied *)
@@ -491,46 +583,41 @@ let transform gr =
       | Box (_, None, _) ->
           Util.impossible "Dearrow.transform._tr.Box"
 
-      (* Version 1 of symbol rules *)
-(*       | Symb (nt, e_opt, [], None) -> *)
-(*           let ty = Util.from_some r.a.inf_type in *)
-(*           let merge = match xs, bind_q with *)
-(*             | [], No_bind -> None *)
-(*             | _ -> Some (updateEnvMerge g xs bind_q ty) in *)
-(*           let wrap_arg e = *)
-(*             try *)
-(*               let a_nt = Hashtbl.find nt_attrs nt in *)
-(*               let arg_ty = Util.from_some a_nt.Attr.early_param_type in *)
-(*               wrap g e arg_ty *)
-(*             with Not_found -> Util.sys_error *)
-(*               (Printf.sprintf "Dearrow.transform._tr.Symb: Symbol %s has parameter but %s has unspecified argument type." *)
-(*                  nt nt); "ty_ERROR" in *)
-(*           updateCtxt g xs bind_q ty, Gil.Symb (nt, Util.option_map wrap_arg e_opt, merge) *)
+      | Symb (nt, e_opt, attrs, None) ->
+          begin try
+            let a_nt = Hashtbl.find nt_attrs nt in
+            let gil_arg =
+                let attr_names, attr_tys = List.split a_nt.Attr.input_attributes in
+                (* List the input attribute expressions according to their order in the format attributes. *)
+                let attr_exprs = List.map (fun x -> List.assoc x attrs) attr_names in
+                let args, args_tys = match e_opt with
+                  | None -> attr_exprs, attr_tys
+                  | Some e ->
+                      let arg_ty = Util.from_some a_nt.Attr.early_param_type in
+                      e :: attr_exprs, arg_ty :: attr_tys in
+                match args with
+                  | [] -> None
+                  | _ -> Some (wrap_args g args args_tys) in
+            let ty = Util.from_some r.a.inf_type in
+            let attrs_o = a_nt.Attr.output_attributes in
 
-      (* Version 2 of symbol rules *)
-      | Symb (nt, e_opt, [], None) ->
-          let ty = Util.from_some r.a.inf_type in
-          let merge = Some (updateEnvMerge g [] Bind ty) in
-          let wrap_arg e =
-            try
-              let a_nt = Hashtbl.find nt_attrs nt in
-              let arg_ty = Util.from_some a_nt.Attr.early_param_type in
-              wrap g e arg_ty
-            with Not_found -> Util.sys_error
-              (Printf.sprintf "Dearrow.transform._tr.Symb: Symbol %s has parameter but %s has unspecified argument type."
-                 nt nt); "ty_ERROR" in
-          let g = updateCtxt g [] Bind ty in
-          let xvar = "x" in
-          let g, r = _tr (ext_var g xvar ty) (xvar :: xs) bind_q ({r = Action(Some xvar, None);
-                                                                   a = {(mkAnnot None) with inf_type = Some ty}}) in
-          g, Gil.Seq (Gil.Symb (nt, Util.option_map wrap_arg e_opt, merge), r)
+            (* check: vars(g) /\ attr_names = {} *)
+            begin match Util.list_intersect String.compare (vars_of_ctxt g) (List.map fst attrs_o) with
+              | [] -> ()
+              | names -> dearrow_error (Printf.sprintf "Dearrow.transform._tr.Symb: The names of symbol %s's output attributes overlap with bound variable names: %s." nt (tuple_exp names))
+            end;
+
+            let merge = Some (updateEnvMerge g xs attrs_o Bind ty) in
+            let r1 = Gil.Symb (nt, gil_arg, merge) in
+            let g = updateCtxt (union_attrs g attrs_o) xs bind_q ty in
+            g, r1
+          with Not_found ->
+            dearrow_error (Printf.sprintf "Dearrow.transform._tr.Symb: Symbol %s has unspecified properties." nt)
+          end
 
       | Assign (r, Some x, None) ->
           if List.mem x $| vars_of_ctxt g then
-            begin
-              Util.sys_error ("Cannot assign " ^ x ^ " as attribute, because the name is already bound as a lexically-scoped variable.");
-              raise Exit
-            end;
+            dearrow_error ("Cannot assign " ^ x ^ " as attribute, because the name is already bound as a lexically-scoped variable.");
           let g', r1 = _tr g xs (Var_bind x) r in
           let r_gil = match bind_q with
             | No_bind -> r1
@@ -575,9 +662,9 @@ let transform gr =
           updateCtxt g xs bind_q unit_ty, r_gil
 
       | Delay _ ->
+          (* Essentially: @delay(e) => h = {h # push p (e, p)}
+             assuming a history attribute h and position attribute p. *)
           Util.todo "Dearrow.transform._tr.Delay: Not yet supported."
-      | Symb (_, _, _::_, None) ->
-          Util.todo "Dearrow.transform._tr.Symb: input attributes not yet supported."
       | Star (Accumulate _, _) ->
           Util.todo "Dearrow.transform._tr.Star: star with accumulate not yet supported."
       | Star (Bounds _, _) ->
@@ -611,13 +698,16 @@ let transform gr =
         List.map
           (function
              | RuleDef(n,r,a) ->
-                 let _, r = match a.Attr.early_params with
-                   | None -> _tr (demote empty) [] Return_bind r
+                 let initial_ctxt, drop_set = match a.Attr.early_params with
+                   | None -> empty, []
                    | Some s ->
                        let x = get_param s in
                        let ty = Util.from_some a.Attr.early_param_type in
-                       let g = singleton_var x ty in
-                       _tr (demote g) [x] Return_bind r in
+                       singleton_var x ty, [x] in
+                 let initial_ctxt = List.fold_left (fun g (v,ty) -> ext_attr g v ty)
+                   (force_pl initial_ctxt) a.Attr.input_attributes in
+                 let out_attrs = List.map fst a.Attr.output_attributes in
+                 let _, r = _tr initial_ctxt drop_set (Return_bind out_attrs) r in
                  [(n, r)]
              | _ -> [])
           gr.ds;

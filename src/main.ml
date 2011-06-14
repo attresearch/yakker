@@ -359,24 +359,24 @@ let do_phases gr =
             Analyze.relevance gr;
             Lift.transform gr)
       | Attributes_cmd ->
-          do_phase "attributes" (fun () ->
-            Analyze.producers gr;
-            Analyze.relevance gr;
-            Attributes.eliminate gr)
+          if !Compileopt.use_coroutines then
+            do_phase "attributes" begin fun () ->
+              Analyze.producers gr;
+              Analyze.relevance gr;
+              Attributes.eliminate gr
+            end
       | Wrap_cmd ->
-          do_phase "wrapping" begin fun () ->
-            if !Compileopt.use_coroutines then
-              begin
-                Analyze.producers gr;
-                Analyze.relevance gr;
-                if gr.grammar_early_relevant then begin
-                  Wrap.wrap gr; Analyze.relevance gr;
-                end;
-                if gr.grammar_early_relevant || gr.grammar_late_relevant then begin
-                  Wrap.force_alt_relevance gr; Analyze.relevance gr;
-                end;
-              end
-          end
+          if !Compileopt.use_coroutines then
+            do_phase "wrapping" begin fun () ->
+              Analyze.producers gr;
+              Analyze.relevance gr;
+              if gr.grammar_early_relevant then begin
+                Wrap.wrap gr; Analyze.relevance gr;
+              end;
+              if gr.grammar_early_relevant || gr.grammar_late_relevant then begin
+                Wrap.force_alt_relevance gr; Analyze.relevance gr;
+              end;
+            end
       | Print_relevance_cmd ->
           let outc = !outch in
           Analyze.producers gr;

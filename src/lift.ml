@@ -126,7 +126,7 @@ let transform gr =
           let extent_l = Printf.sprintf "Yak.YkBuf.get_string %s %s ykinput" before_l after_l in
           r.r <-
             (mkSEQ2(mkPOSITION false,None,Some before_l,
-                    mkSEQ2(dupRule r1,early,None,
+                    mkSEQ2(dupRhs r1,early,None,
                            mkSEQ2(mkPOSITION false,None,Some after_l,
                                   mkSEQ2(mkACTION2(None,
                                                    Some(extent_l)),
@@ -139,7 +139,7 @@ let transform gr =
           let before,after = fresh(),fresh() in
           r.r <-
             (mkSEQ2(mkPOSITION true,Some before,None,
-                    mkSEQ2(dupRule r1,(if need_early_extent then None else early),(if need_late_extent then None else late),
+                    mkSEQ2(dupRhs r1,(if need_early_extent then None else early),(if need_late_extent then None else late),
                            mkSEQ2(mkPOSITION true,Some after,None,
                                   if need_late_extent then
 (* This version requires ykinput as an arg to all replay functions---so entire input must be retained for replay *)

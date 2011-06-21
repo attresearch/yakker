@@ -910,7 +910,7 @@ let regular_inline gr trans =
                   if trans then
                     r.r <- newrdotr;
                   r.a.is_regular <- true;
-                  let newr = dupRule r in
+                  let newr = dupRhs r in
                     (Some newr, true, true)
                 end
                 else if ((is_regular1 || is_regular2) && (has_change1 || has_change2)) then begin
@@ -923,7 +923,7 @@ let regular_inline gr trans =
           | Symb (n1, _, _, _) -> (* TODO: attributes *)
               if PMap.mem n1 inline_map then
                 let r1 = PMap.find n1 inline_map in
-                let myr = dupRule r1 in
+                let myr = dupRhs r1 in
                   (
                     if trans then begin
                       r.a <- r1.a;
@@ -936,7 +936,7 @@ let regular_inline gr trans =
                 (None, false, false)
           | Lit _ | CharRange _  ->
               r.a.is_regular <- true;
-              let myr = dupRule r in
+              let myr = dupRhs r in
                 (Some myr, true, true)
           | Assign(r1,early,late) ->
               if (early<>None || late<>None) then (None, false, false) else
@@ -946,7 +946,7 @@ let regular_inline gr trans =
                 let newr1 = valOf myr1 in begin
                   if trans then r.r <- Assign(newr1,early,late);
                   r.a.is_regular <- true;
-                  let newr = dupRule r in
+                  let newr = dupRhs r in
                   (Some newr, true, true)
                 end
               else if has_change then (None, true, false)
@@ -961,7 +961,7 @@ let regular_inline gr trans =
                   if (is_regular1 && is_regular2) then begin
                     if trans then r.r <- newrdotr;
                     r.a.is_regular <- true;
-                    let newr = dupRule r in
+                    let newr = dupRhs r in
                       (Some newr, true, true)
                   end
                   else if ((is_regular1 || is_regular2) && (has_change1 || has_change2)) then begin
@@ -978,7 +978,7 @@ let regular_inline gr trans =
                   let newr1 = valOf myr1 in begin
                       if trans then r.r <- Opt newr1;
                       r.a.is_regular <- true;
-                      let newr = dupRule r in
+                      let newr = dupRhs r in
                         (Some newr, true, true)
                     end
                 else if has_change then (None, true, false)
@@ -992,7 +992,7 @@ let regular_inline gr trans =
                 if (is_regular1 && is_regular2) then begin
                   if trans then r.r <- newrdotr;
                   r.a.is_regular <- true;
-                  let newr = dupRule r in
+                  let newr = dupRhs r in
                     (Some newr, true, true)
                 end
                 else if ((is_regular1 || is_regular2) && (has_change1 || has_change2)) then begin
@@ -1009,7 +1009,7 @@ let regular_inline gr trans =
                   let newr1 = valOf myr1 in begin
                       if trans then r.r <- Star(e, newr1);
                       r.a.is_regular <- true;
-                      let newr = dupRule r in
+                      let newr = dupRhs r in
                         (Some newr, true, true)
                     end
                 else if has_change then (None, true, false)
@@ -1020,7 +1020,7 @@ let regular_inline gr trans =
                   let newr1 = valOf myr1 in begin
                       if trans then r.r <- Hash(e, newr1);
                       r.a.is_regular <- true;
-                      let newr = dupRule r in
+                      let newr = dupRhs r in
                         (Some newr, true, true)
                     end
                 else if has_change then (None, true, false)

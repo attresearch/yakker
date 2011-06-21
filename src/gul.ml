@@ -79,7 +79,7 @@ let mkAnnot = function
            inf_type = None;}
   | Some r -> let a = dupAnnot r.a in a.css <- None; a
 
-let dupRule r = {a=dupAnnot r.a;r=r.r}
+let dupRhs r = {a=dupAnnot r.a;r=r.r}
 
 (** only need to copy mutable material. (otherwise, there's no
     value to copying that I know of). So, leaves are copied shallowly.

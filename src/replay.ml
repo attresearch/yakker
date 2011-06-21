@@ -76,7 +76,7 @@ let wrap_history gr =
             Printf.sprintf "(match %s with %s(%s) -> %s | _ -> failwith \"@delay wrap\")"
               wrapped constructor unwrapped unwrapped in
           r.r <-
-            (mkSEQ2(dupRule r,None,Some wrapped,mkACTION2(None,Some unwrap_act))).r
+            (mkSEQ2(dupRhs r,None,Some wrapped,mkACTION2(None,Some unwrap_act))).r
 
       | Alt(r1,r2) | Seq(r1,_,_,r2) | Minus(r1,r2) ->
           loop r1; loop r2
@@ -341,7 +341,7 @@ let _replay_%s ykinput h =
           (fun r ->
             let l = r.a.pre in
             loop r;
-            r.r <- (mkOUT(dupRule r)(l)).r)
+            r.r <- (mkOUT(dupRhs r)(l)).r)
           alts
     | Assign(r1,_,late) ->
         Util.impossible "TODO late attributes"
@@ -353,10 +353,10 @@ let _replay_%s ykinput h =
         let l_body = r1.a.pre in
         let l_done = r.a.post in
         loop r1;
-        r1.r <- (mkOUT (dupRule r1) l_body).r;
+        r1.r <- (mkOUT (dupRhs r1) l_body).r;
         if !Compileopt.postfix_history
-        then r.r <- (mkBEFORE (dupRule r) l_done).r
-        else r.r <- (mkAFTER (dupRule r) l_done).r
+        then r.r <- (mkBEFORE (dupRhs r) l_done).r
+        else r.r <- (mkAFTER (dupRhs r) l_done).r
             (* cases below are not late relevant *)
     | When _            -> Util.impossible "Replay.transform.When"
     | Box _             -> Util.impossible "Replay.transform.Box"

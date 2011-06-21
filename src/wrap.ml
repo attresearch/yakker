@@ -122,9 +122,9 @@ let wrap gr =
               x project in
           if PSet.mem n gr.late_producers then
             let latev = fresh() in
-            r.r <- (mkSEQ2(dupRule r,Some x,Some latev,mkACTION2(Some act,Some latev))).r;
+            r.r <- (mkSEQ2(dupRhs r,Some x,Some latev,mkACTION2(Some act,Some latev))).r;
           else
-            r.r <- (mkSEQ2(dupRule r,Some x,None,mkACTION act)).r)
+            r.r <- (mkSEQ2(dupRhs r,Some x,None,mkACTION act)).r)
 
   | DBranch (e, c) ->
       if !Compileopt.late_only_dbranch then ()
@@ -160,7 +160,7 @@ let wrap gr =
                   let act =
                     Printf.sprintf "(match %s with %s(y) -> y | _ -> failwith \"projection\")"
                       x inject in
-                  r.r <- (mkSEQ2(mkACTION act,Some param,None,dupRule r)).r);
+                  r.r <- (mkSEQ2(mkACTION act,Some param,None,dupRhs r)).r);
            let ntp_opt = try find tbl_nt_project n with Not_found -> None in
            (match ntp_opt with
               | None ->
@@ -169,20 +169,20 @@ let wrap gr =
                   (match r.a.early_relevant, PSet.mem n gr.late_producers with
                     true,false ->
                       (* By appending "" we effectively return a wrapped unit value *)
-                      r.r <- (mkSEQ2(dupRule r,None,None,mkLIT "")).r
+                      r.r <- (mkSEQ2(dupRhs r,None,None,mkLIT "")).r
                   | true,true ->
                       (* Here we must instead clobber the unwrapped early value while preserving the late value *)
                       let latev = fresh() in
-                      r.r <- (mkSEQ2(dupRule r,None,Some latev,mkACTION2(None,Some latev))).r
+                      r.r <- (mkSEQ2(dupRhs r,None,Some latev,mkACTION2(None,Some latev))).r
                   | _ -> ())
               | Some project ->
                   let x = fresh() in
                   let act = Printf.sprintf "%s(%s)" project x in
                   if PSet.mem n gr.late_producers then
                     let latev = fresh() in
-                    r.r <- (mkSEQ2(dupRule r,Some x,Some latev,mkACTION2(Some act,Some latev))).r;
+                    r.r <- (mkSEQ2(dupRhs r,Some x,Some latev,mkACTION2(Some act,Some latev))).r;
                   else
-                    r.r <- (mkSEQ2(dupRule r,Some x,None,mkACTION act)).r;
+                    r.r <- (mkSEQ2(dupRhs r,Some x,None,mkACTION act)).r;
                   a.early_rettype <- Some(sv_type))
        | _ -> ())
     gr.ds;
@@ -220,7 +220,7 @@ let force_alt_relevance gr = (*TODO: move out of Wrap*)
             (if r.a.late_relevant && not x.a.late_relevant then (x.a.late_relevant <- true; Some "()") else None) in
           loop x; (* before possible assignment to x.r *)
           if early_action<>None || late_action<>None then
-            x.r <- (mkSEQ[mkACTION2(early_action,late_action);dupRule x]).r (* must put action first else "producerness" of x changes *)
+            x.r <- (mkSEQ[mkACTION2(early_action,late_action);dupRhs x]).r (* must put action first else "producerness" of x changes *)
           else () in
         force r1;
         force r2

@@ -308,7 +308,7 @@ module Curried_constructors = struct
 end
 
 (* Convert binary Alt representation to list of alternatives *)
-let alt2rules =
+let alts_of_rhs =
   let rec loop l r = match r.r with
   | Alt(r2,r3) -> loop (loop l r3) r2
   | _ -> r::l in

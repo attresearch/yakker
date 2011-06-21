@@ -189,7 +189,7 @@ let wrap gr =
   add_to_prologue gr (Buffer.contents b);
   ()
 
-let alt2rules = (* differs from bnf.ml b/c need to desugar Opt *) (*TODO: make default in Gul*)
+let alts_of_rhs = (* differs from bnf.ml b/c need to desugar Opt *) (*TODO: make default in Gul*)
   let rec loop l r = match r.r with
   | Alt(r1,r2) -> loop (loop l r2) r1
   | Opt(r1) ->

@@ -169,14 +169,14 @@ let transform gr =
         loop r2
     | Opt _
     | Alt _ ->
-        let alt2rules = (* differs from bnf.ml b/c need to desugar Opt *)
+        let alts_of_rhs = (* differs from bnf.ml b/c need to desugar Opt *)
           let rec loop l r = match r.r with
           | Alt(r1,r2) -> loop (loop l r2) r1
           | Opt(r1) ->
               r.r <- (mkALT[r1;mkLIT ""]).r; loop l r
           | _ -> r::l in
           loop [] in
-        let alts = alt2rules r in
+        let alts = alts_of_rhs r in
         let lift_p = List.map (fun r -> loop r) alts in
         let early_all_true  = List.for_all (fun (x,_) -> x)     lift_p in
         let early_all_false = List.for_all (fun (x,_) -> not x) lift_p in

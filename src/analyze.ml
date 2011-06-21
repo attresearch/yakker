@@ -482,7 +482,7 @@ let prec_dependency_graph ptbl tokmap ds =
     (fun g_result -> function
         RuleDef(n,r, _)->
           let g = Tgraph.add_node g_result n in
-          let rs = alt2rules r in
+          let rs = alts_of_rhs r in
           List.fold_left (fun g r_b ->
 
 (* TODO: refine further so that a dependency is not drawn for calls when they are not to the left/right of relevant nonterminal.
@@ -506,7 +506,7 @@ let build_prec_sets gr =
     | _ -> true in
   let is_primary = function
     | RuleDef (n, r, _) ->
-        let rules = alt2rules r in
+        let rules = alts_of_rhs r in
         if List.exists has_prec rules then Some n else None
     | _ -> None in
   let primary = List.fold_left (fun s x -> Stringset.add x s)
@@ -633,7 +633,7 @@ let prec_rewrite_complex gr =
         if Stringset.mem n relevant then begin
           a.Attr.input_attributes <- (prec_var, prec_type)::(pos_var, pos_type)::a.Attr.input_attributes;
 
-          let rs = alt2rules r in
+          let rs = alts_of_rhs r in
           List.iter (fun r_b ->
                        match get_prec ptbl tokmap r_b with
                          | None -> instantiate_attrs_copy r_b
@@ -752,7 +752,7 @@ let build_prec_sets_simple gr =
     | _ -> true in
   let is_primary = function
     | RuleDef (n, r, _) ->
-        let rules = alt2rules r in
+        let rules = alts_of_rhs r in
         if List.exists has_prec rules then Some n else None
     | _ -> None in
   let primary = List.fold_left (fun s x -> Stringset.add x s)
@@ -839,7 +839,7 @@ let prec_rewrite_simple gr =
         if Stringset.mem n primary then begin
 (*        a.Attr.output_attributes <- (prec_var, prec_type)::a.Attr.output_attributes; *)
           a.Attr.early_rettype <- Some prec_type;
-          let rs = alt2rules r in
+          let rs = alts_of_rhs r in
           List.iter (fun r_b ->
                        match get_prec ptbl tokmap r_b with
                          | None

@@ -130,7 +130,7 @@ let replay gr hproj =
     | Opt r1 ->
         loop r1
     | Alt _ ->
-        let alts = alt2rules r in
+        let alts = alts_of_rhs r in
         pr "(match _n() with";
         List.iter
           (fun r1 ->
@@ -223,7 +223,7 @@ let reverse gr hproj =
     | Opt r1 ->
         loop r1
     | Alt _ ->
-        let alts = alt2rules r in
+        let alts = alts_of_rhs r in
         pr "(match _n() with";
         List.iter
           (fun r1 ->
@@ -336,7 +336,7 @@ let _replay_%s ykinput h =
     | Opt r1 ->
         loop r1
     | Alt _ ->
-        let alts = alt2rules r in
+        let alts = alts_of_rhs r in
         List.iter
           (fun r ->
             let l = r.a.pre in

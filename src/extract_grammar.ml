@@ -487,7 +487,7 @@ module SV_hashtbl = Hashtbl.Make(struct
                     let hash = Hashtbl.hash end)
 module Pred = Pred3
 let npt_line = SV_hashtbl.create 11;;
-let rec nullable_line __lookahead _p0_ _x0_ = 
+let rec nullable_line __lookahead _p0_ _x0_ =
   let __p1 = Yak.YkBuf.get_offset _p0_ in
     try
       let (r, __p2)  = SV_hashtbl.find npt_line _x0_ in

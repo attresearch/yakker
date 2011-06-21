@@ -194,8 +194,8 @@ open Lexing
 let get (start:int) ykb =
   Some(0,(ykb.buf.lex_curr_p))
 end
-# 2 "/tmp/yakkerbc3e5b.mll"
-
+# 2 "/tmp/yakker26812e.mll"
+   
   let int_of_string x =
     (try int_of_string x with _ -> Printf.eprintf "FAILED INT_OF_STRING: %s\n%!" x; 0)
   type tok =
@@ -246,10 +246,10 @@ end
   | ATID of string
   | DOLLARID of string
   | ID of string
-
-# 55 "/tmp/yakker91bec8ml"
+  
+# 55 "/tmp/yakker2b6f3fml"
 let __ocaml_lex_tables = {
-  Lexing.lex_base =
+  Lexing.lex_base = 
    "\000\000\081\000\156\000\116\000\225\000\064\001\230\255\016\000\
     \233\255\234\255\235\255\236\255\238\255\126\001\184\001\241\255\
     \242\255\243\255\244\255\245\255\246\255\247\255\248\255\249\255\
@@ -270,7 +270,7 @@ let __ocaml_lex_tables = {
     \191\030\013\031\091\031\231\255\213\255\212\255\182\031\208\255\
     \209\255\210\255\169\000\189\000\063\002\005\032\079\000\095\000\
     \093\000\124\000\015\032\041\032\079\032\102\032";
-  Lexing.lex_backtrk =
+  Lexing.lex_backtrk = 
    "\255\255\049\000\048\000\255\255\044\000\255\255\255\255\023\000\
     \255\255\255\255\255\255\255\255\255\255\016\000\015\000\255\255\
     \255\255\255\255\255\255\255\255\255\255\255\255\255\255\255\255\
@@ -291,7 +291,7 @@ let __ocaml_lex_tables = {
     \051\000\051\000\028\000\255\255\255\255\255\255\255\255\255\255\
     \255\255\255\255\255\255\001\000\255\255\000\000\255\255\001\000\
     \255\255\000\000\255\255\001\000\255\255\000\000";
-  Lexing.lex_default =
+  Lexing.lex_default = 
    "\255\255\255\255\255\255\255\255\255\255\255\255\000\000\255\255\
     \000\000\000\000\000\000\000\000\000\000\255\255\255\255\000\000\
     \000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\
@@ -312,7 +312,7 @@ let __ocaml_lex_tables = {
     \255\255\255\255\255\255\000\000\000\000\000\000\255\255\000\000\
     \000\000\000\000\255\255\255\255\255\255\255\255\255\255\255\255\
     \255\255\255\255\255\255\255\255\255\255\255\255";
-  Lexing.lex_trans =
+  Lexing.lex_trans = 
    "\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\
     \000\000\027\000\029\000\029\000\027\000\028\000\032\000\036\000\
     \042\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\
@@ -1382,7 +1382,7 @@ let __ocaml_lex_tables = {
     \000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\
     \000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\
     \000\000\000\000\000\000\000\000\000\000\000\000\000\000";
-  Lexing.lex_check =
+  Lexing.lex_check = 
    "\255\255\255\255\255\255\255\255\255\255\255\255\255\255\255\255\
     \255\255\000\000\000\000\028\000\000\000\000\000\031\000\035\000\
     \041\000\255\255\255\255\255\255\255\255\255\255\255\255\255\255\
@@ -2452,7 +2452,7 @@ let __ocaml_lex_tables = {
     \255\255\255\255\255\255\255\255\255\255\255\255\255\255\255\255\
     \255\255\255\255\255\255\255\255\255\255\255\255\255\255\255\255\
     \255\255\255\255\255\255\255\255\255\255\255\255\255\255";
-  Lexing.lex_base_code =
+  Lexing.lex_base_code = 
    "\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\
     \000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\
     \000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\
@@ -2473,7 +2473,7 @@ let __ocaml_lex_tables = {
     \000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\
     \000\000\000\000\021\000\046\000\000\000\000\000\031\000\033\000\
     \000\000\000\000\056\000\079\000\000\000\000\000";
-  Lexing.lex_backtrk_code =
+  Lexing.lex_backtrk_code = 
    "\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\
     \000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\
     \000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\
@@ -2494,7 +2494,7 @@ let __ocaml_lex_tables = {
     \000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\
     \000\000\000\000\000\000\000\000\000\000\039\000\000\000\000\000\
     \000\000\039\000\000\000\000\000\000\000\039\000";
-  Lexing.lex_default_code =
+  Lexing.lex_default_code = 
    "\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\
     \000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\
     \000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\
@@ -2515,7 +2515,7 @@ let __ocaml_lex_tables = {
     \000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\
     \000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\
     \000\000\000\000\000\000\000\000\000\000\000\000";
-  Lexing.lex_trans_code =
+  Lexing.lex_trans_code = 
    "\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\
     \000\000\001\000\000\000\000\000\000\000\000\000\000\000\000\000\
     \000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\
@@ -2559,7 +2559,7 @@ let __ocaml_lex_tables = {
     \000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\
     \000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\
     ";
-  Lexing.lex_check_code =
+  Lexing.lex_check_code = 
    "\255\255\255\255\255\255\255\255\255\255\255\255\255\255\255\255\
     \255\255\025\000\038\000\255\255\255\255\038\000\255\255\255\255\
     \255\255\255\255\255\255\255\255\255\255\255\255\255\255\255\255\
@@ -2603,7 +2603,7 @@ let __ocaml_lex_tables = {
     \255\255\255\255\255\255\255\255\255\255\255\255\255\255\255\255\
     \255\255\255\255\255\255\255\255\255\255\255\255\255\255\255\255\
     ";
-  Lexing.lex_code =
+  Lexing.lex_code = 
    "\255\004\255\255\005\255\255\007\255\006\255\255\003\255\000\004\
     \001\005\255\007\255\255\006\255\007\255\255\000\004\001\005\003\
     \006\002\007\255\001\255\255\000\001\255";
@@ -2614,299 +2614,299 @@ lexbuf.Lexing.lex_mem <- Array.create 8 (-1) ;   __ocaml_lex_tok_rec lexbuf 0
 and __ocaml_lex_tok_rec lexbuf __ocaml_lex_state =
   match Lexing.new_engine __ocaml_lex_tables __ocaml_lex_state lexbuf with
       | 0 ->
-# 58 "/tmp/yakkerbc3e5b.mll"
+# 58 "/tmp/yakker26812e.mll"
       ( Ocaml_lexer.update_loc lexbuf None 1 false 0;
         tok lexbuf
       )
-# 2426 "/tmp/yakker91bec8ml"
+# 2426 "/tmp/yakker2b6f3fml"
 
   | 1 ->
-# 62 "/tmp/yakkerbc3e5b.mll"
+# 62 "/tmp/yakker26812e.mll"
       ( tok lexbuf )
-# 2431 "/tmp/yakker91bec8ml"
+# 2431 "/tmp/yakker2b6f3fml"
 
   | 2 ->
-# 64 "/tmp/yakkerbc3e5b.mll"
+# 64 "/tmp/yakker26812e.mll"
       ( Ocaml_lexer.update_loc lexbuf None 1 false 0;
         tok lexbuf )
-# 2437 "/tmp/yakker91bec8ml"
+# 2437 "/tmp/yakker2b6f3fml"
 
   | 3 ->
-# 67 "/tmp/yakkerbc3e5b.mll"
+# 67 "/tmp/yakker26812e.mll"
       (EOF)
-# 2442 "/tmp/yakker91bec8ml"
+# 2442 "/tmp/yakker2b6f3fml"
 
   | 4 ->
 let
-# 68 "/tmp/yakkerbc3e5b.mll"
+# 68 "/tmp/yakker26812e.mll"
                                    num
-# 2448 "/tmp/yakker91bec8ml"
+# 2448 "/tmp/yakker2b6f3fml"
 = Lexing.sub_lexeme lexbuf lexbuf.Lexing.lex_mem.(0) lexbuf.Lexing.lex_mem.(1)
 and
-# 69 "/tmp/yakkerbc3e5b.mll"
+# 69 "/tmp/yakker26812e.mll"
                                            name
-# 2453 "/tmp/yakker91bec8ml"
+# 2453 "/tmp/yakker2b6f3fml"
 = Lexing.sub_lexeme_opt lexbuf lexbuf.Lexing.lex_mem.(3) lexbuf.Lexing.lex_mem.(2) in
-# 71 "/tmp/yakkerbc3e5b.mll"
+# 71 "/tmp/yakker26812e.mll"
       ( Ocaml_lexer.update_loc lexbuf name (int_of_string num) true 0;
         tok lexbuf
       )
-# 2459 "/tmp/yakker91bec8ml"
+# 2459 "/tmp/yakker2b6f3fml"
 
   | 5 ->
-# 74 "/tmp/yakkerbc3e5b.mll"
+# 74 "/tmp/yakker26812e.mll"
                            (EOF)
-# 2464 "/tmp/yakker91bec8ml"
+# 2464 "/tmp/yakker2b6f3fml"
 
   | 6 ->
-# 75 "/tmp/yakkerbc3e5b.mll"
+# 75 "/tmp/yakker26812e.mll"
                            (LPAREN)
-# 2469 "/tmp/yakker91bec8ml"
+# 2469 "/tmp/yakker2b6f3fml"
 
   | 7 ->
-# 76 "/tmp/yakkerbc3e5b.mll"
+# 76 "/tmp/yakker26812e.mll"
                            (RPAREN)
-# 2474 "/tmp/yakker91bec8ml"
+# 2474 "/tmp/yakker2b6f3fml"
 
   | 8 ->
-# 77 "/tmp/yakkerbc3e5b.mll"
+# 77 "/tmp/yakker26812e.mll"
                            (LBRACE)
-# 2479 "/tmp/yakker91bec8ml"
+# 2479 "/tmp/yakker2b6f3fml"
 
   | 9 ->
-# 78 "/tmp/yakkerbc3e5b.mll"
+# 78 "/tmp/yakker26812e.mll"
                            (RBRACE)
-# 2484 "/tmp/yakker91bec8ml"
+# 2484 "/tmp/yakker2b6f3fml"
 
   | 10 ->
-# 79 "/tmp/yakkerbc3e5b.mll"
+# 79 "/tmp/yakker26812e.mll"
                            (LBRACK)
-# 2489 "/tmp/yakker91bec8ml"
+# 2489 "/tmp/yakker2b6f3fml"
 
   | 11 ->
-# 80 "/tmp/yakkerbc3e5b.mll"
+# 80 "/tmp/yakker26812e.mll"
                            (RBRACK)
-# 2494 "/tmp/yakker91bec8ml"
+# 2494 "/tmp/yakker2b6f3fml"
 
   | 12 ->
-# 81 "/tmp/yakkerbc3e5b.mll"
+# 81 "/tmp/yakker26812e.mll"
                            (RANGLE)
-# 2499 "/tmp/yakker91bec8ml"
+# 2499 "/tmp/yakker2b6f3fml"
 
   | 13 ->
-# 82 "/tmp/yakkerbc3e5b.mll"
+# 82 "/tmp/yakker26812e.mll"
                            (BAR)
-# 2504 "/tmp/yakker91bec8ml"
+# 2504 "/tmp/yakker2b6f3fml"
 
   | 14 ->
-# 83 "/tmp/yakkerbc3e5b.mll"
+# 83 "/tmp/yakker26812e.mll"
                            (DASH)
-# 2509 "/tmp/yakker91bec8ml"
+# 2509 "/tmp/yakker2b6f3fml"
 
   | 15 ->
-# 84 "/tmp/yakkerbc3e5b.mll"
+# 84 "/tmp/yakker26812e.mll"
                            (AT)
-# 2514 "/tmp/yakker91bec8ml"
+# 2514 "/tmp/yakker2b6f3fml"
 
   | 16 ->
-# 85 "/tmp/yakkerbc3e5b.mll"
+# 85 "/tmp/yakker26812e.mll"
                            (DOLLAR)
-# 2519 "/tmp/yakker91bec8ml"
+# 2519 "/tmp/yakker2b6f3fml"
 
   | 17 ->
-# 86 "/tmp/yakkerbc3e5b.mll"
+# 86 "/tmp/yakker26812e.mll"
                            (STAR)
-# 2524 "/tmp/yakker91bec8ml"
+# 2524 "/tmp/yakker2b6f3fml"
 
   | 18 ->
-# 87 "/tmp/yakkerbc3e5b.mll"
+# 87 "/tmp/yakker26812e.mll"
                            (HASH)
-# 2529 "/tmp/yakker91bec8ml"
+# 2529 "/tmp/yakker2b6f3fml"
 
   | 19 ->
-# 88 "/tmp/yakkerbc3e5b.mll"
+# 88 "/tmp/yakker26812e.mll"
                            (EXCL)
-# 2534 "/tmp/yakker91bec8ml"
+# 2534 "/tmp/yakker2b6f3fml"
 
   | 20 ->
-# 89 "/tmp/yakkerbc3e5b.mll"
+# 89 "/tmp/yakker26812e.mll"
                            (AMP)
-# 2539 "/tmp/yakker91bec8ml"
+# 2539 "/tmp/yakker2b6f3fml"
 
   | 21 ->
-# 90 "/tmp/yakkerbc3e5b.mll"
+# 90 "/tmp/yakker26812e.mll"
                            (DOT)
-# 2544 "/tmp/yakker91bec8ml"
+# 2544 "/tmp/yakker2b6f3fml"
 
   | 22 ->
-# 91 "/tmp/yakkerbc3e5b.mll"
+# 91 "/tmp/yakker26812e.mll"
                            (COLON)
-# 2549 "/tmp/yakker91bec8ml"
+# 2549 "/tmp/yakker2b6f3fml"
 
   | 23 ->
-# 92 "/tmp/yakkerbc3e5b.mll"
+# 92 "/tmp/yakker26812e.mll"
                            (EQ)
-# 2554 "/tmp/yakker91bec8ml"
+# 2554 "/tmp/yakker2b6f3fml"
 
   | 24 ->
-# 93 "/tmp/yakkerbc3e5b.mll"
+# 93 "/tmp/yakker26812e.mll"
                            (EQSLASH)
-# 2559 "/tmp/yakker91bec8ml"
+# 2559 "/tmp/yakker2b6f3fml"
 
   | 25 ->
-# 94 "/tmp/yakkerbc3e5b.mll"
+# 94 "/tmp/yakker26812e.mll"
                            (SLASH)
-# 2564 "/tmp/yakker91bec8ml"
+# 2564 "/tmp/yakker2b6f3fml"
 
   | 26 ->
-# 95 "/tmp/yakkerbc3e5b.mll"
+# 95 "/tmp/yakker26812e.mll"
                            (WHEN)
-# 2569 "/tmp/yakker91bec8ml"
+# 2569 "/tmp/yakker2b6f3fml"
 
   | 27 ->
-# 96 "/tmp/yakkerbc3e5b.mll"
+# 96 "/tmp/yakker26812e.mll"
                            (ATPOS)
-# 2574 "/tmp/yakker91bec8ml"
+# 2574 "/tmp/yakker2b6f3fml"
 
   | 28 ->
-# 97 "/tmp/yakkerbc3e5b.mll"
+# 97 "/tmp/yakker26812e.mll"
                            (DOLLARPOS)
-# 2579 "/tmp/yakker91bec8ml"
+# 2579 "/tmp/yakker2b6f3fml"
 
   | 29 ->
-# 98 "/tmp/yakkerbc3e5b.mll"
+# 98 "/tmp/yakker26812e.mll"
                            (DELAY)
-# 2584 "/tmp/yakker91bec8ml"
+# 2584 "/tmp/yakker2b6f3fml"
 
   | 30 ->
-# 99 "/tmp/yakkerbc3e5b.mll"
+# 99 "/tmp/yakker26812e.mll"
                            (BOX)
-# 2589 "/tmp/yakker91bec8ml"
+# 2589 "/tmp/yakker2b6f3fml"
 
   | 31 ->
-# 100 "/tmp/yakkerbc3e5b.mll"
+# 100 "/tmp/yakker26812e.mll"
                            (BEGIN)
-# 2594 "/tmp/yakker91bec8ml"
+# 2594 "/tmp/yakker2b6f3fml"
 
   | 32 ->
-# 101 "/tmp/yakkerbc3e5b.mll"
+# 101 "/tmp/yakker26812e.mll"
                            (END)
-# 2599 "/tmp/yakker91bec8ml"
+# 2599 "/tmp/yakker2b6f3fml"
 
   | 33 ->
-# 102 "/tmp/yakkerbc3e5b.mll"
+# 102 "/tmp/yakker26812e.mll"
                            (REPEAT)
-# 2604 "/tmp/yakker91bec8ml"
+# 2604 "/tmp/yakker2b6f3fml"
 
   | 34 ->
-# 103 "/tmp/yakkerbc3e5b.mll"
+# 103 "/tmp/yakker26812e.mll"
                            (COUNTER)
-# 2609 "/tmp/yakker91bec8ml"
+# 2609 "/tmp/yakker2b6f3fml"
 
   | 35 ->
-# 104 "/tmp/yakkerbc3e5b.mll"
+# 104 "/tmp/yakker26812e.mll"
                            (OCAML)
-# 2614 "/tmp/yakker91bec8ml"
+# 2614 "/tmp/yakker2b6f3fml"
 
   | 36 ->
-# 105 "/tmp/yakkerbc3e5b.mll"
+# 105 "/tmp/yakker26812e.mll"
                            (OCAMLLEX)
-# 2619 "/tmp/yakker91bec8ml"
+# 2619 "/tmp/yakker2b6f3fml"
 
   | 37 ->
-# 106 "/tmp/yakkerbc3e5b.mll"
+# 106 "/tmp/yakker26812e.mll"
                            (DYPGENLEX)
-# 2624 "/tmp/yakker91bec8ml"
+# 2624 "/tmp/yakker2b6f3fml"
 
   | 38 ->
-# 107 "/tmp/yakkerbc3e5b.mll"
+# 107 "/tmp/yakker26812e.mll"
                            (IMPLICIT_PARAMETERS)
-# 2629 "/tmp/yakker91bec8ml"
+# 2629 "/tmp/yakker2b6f3fml"
 
   | 39 ->
-# 108 "/tmp/yakkerbc3e5b.mll"
+# 108 "/tmp/yakker26812e.mll"
                            (DECLARE_LEXER)
-# 2634 "/tmp/yakker91bec8ml"
+# 2634 "/tmp/yakker2b6f3fml"
 
   | 40 ->
-# 109 "/tmp/yakkerbc3e5b.mll"
+# 109 "/tmp/yakker26812e.mll"
                            (DECLARE_LEXER2)
-# 2639 "/tmp/yakker91bec8ml"
+# 2639 "/tmp/yakker2b6f3fml"
 
   | 41 ->
-# 110 "/tmp/yakkerbc3e5b.mll"
+# 110 "/tmp/yakker26812e.mll"
                            (SET_LEXER)
-# 2644 "/tmp/yakker91bec8ml"
+# 2644 "/tmp/yakker2b6f3fml"
 
   | 42 ->
 let
-# 111 "/tmp/yakkerbc3e5b.mll"
+# 111 "/tmp/yakker26812e.mll"
                                             x
-# 2650 "/tmp/yakker91bec8ml"
+# 2650 "/tmp/yakker2b6f3fml"
 = Lexing.sub_lexeme lexbuf (lexbuf.Lexing.lex_start_pos + 1) (lexbuf.Lexing.lex_curr_pos + -1) in
-# 112 "/tmp/yakkerbc3e5b.mll"
+# 112 "/tmp/yakker26812e.mll"
                            (CHARVAL(x))
-# 2654 "/tmp/yakker91bec8ml"
+# 2654 "/tmp/yakker2b6f3fml"
 
   | 43 ->
 let
-# 113 "/tmp/yakkerbc3e5b.mll"
+# 113 "/tmp/yakker26812e.mll"
                                              x
-# 2660 "/tmp/yakker91bec8ml"
+# 2660 "/tmp/yakker2b6f3fml"
 = Lexing.sub_lexeme lexbuf (lexbuf.Lexing.lex_start_pos + 1) (lexbuf.Lexing.lex_curr_pos + -1) in
-# 114 "/tmp/yakkerbc3e5b.mll"
+# 114 "/tmp/yakker26812e.mll"
                            (if x="\"" then CHARVAL(x) else PROSEVAL(x))
-# 2664 "/tmp/yakker91bec8ml"
+# 2664 "/tmp/yakker2b6f3fml"
 
   | 44 ->
-# 115 "/tmp/yakkerbc3e5b.mll"
+# 115 "/tmp/yakker26812e.mll"
                            (LANGLE)
-# 2669 "/tmp/yakker91bec8ml"
+# 2669 "/tmp/yakker2b6f3fml"
 
   | 45 ->
-# 116 "/tmp/yakkerbc3e5b.mll"
+# 116 "/tmp/yakker26812e.mll"
                            (DECVAL)
-# 2674 "/tmp/yakker91bec8ml"
+# 2674 "/tmp/yakker2b6f3fml"
 
   | 46 ->
-# 117 "/tmp/yakkerbc3e5b.mll"
+# 117 "/tmp/yakker26812e.mll"
                            (BINVAL)
-# 2679 "/tmp/yakker91bec8ml"
+# 2679 "/tmp/yakker2b6f3fml"
 
   | 47 ->
-# 118 "/tmp/yakkerbc3e5b.mll"
+# 118 "/tmp/yakker26812e.mll"
                            (HEXVAL)
-# 2684 "/tmp/yakker91bec8ml"
+# 2684 "/tmp/yakker2b6f3fml"
 
   | 48 ->
-# 119 "/tmp/yakkerbc3e5b.mll"
+# 119 "/tmp/yakker26812e.mll"
                            (DIGITS(int_of_string(Lexing.lexeme lexbuf)))
-# 2689 "/tmp/yakker91bec8ml"
+# 2689 "/tmp/yakker2b6f3fml"
 
   | 49 ->
-# 121 "/tmp/yakkerbc3e5b.mll"
+# 121 "/tmp/yakker26812e.mll"
                            (ID(Lexing.lexeme lexbuf))
-# 2694 "/tmp/yakker91bec8ml"
+# 2694 "/tmp/yakker2b6f3fml"
 
   | 50 ->
 let
-# 122 "/tmp/yakkerbc3e5b.mll"
+# 122 "/tmp/yakker26812e.mll"
                                                                          x
-# 2700 "/tmp/yakker91bec8ml"
+# 2700 "/tmp/yakker2b6f3fml"
 = Lexing.sub_lexeme lexbuf (lexbuf.Lexing.lex_start_pos + 1) lexbuf.Lexing.lex_curr_pos in
-# 123 "/tmp/yakkerbc3e5b.mll"
+# 123 "/tmp/yakker26812e.mll"
                            (ATID(x))
-# 2704 "/tmp/yakker91bec8ml"
+# 2704 "/tmp/yakker2b6f3fml"
 
   | 51 ->
 let
-# 124 "/tmp/yakkerbc3e5b.mll"
+# 124 "/tmp/yakker26812e.mll"
                                                                          x
-# 2710 "/tmp/yakker91bec8ml"
+# 2710 "/tmp/yakker2b6f3fml"
 = Lexing.sub_lexeme lexbuf (lexbuf.Lexing.lex_start_pos + 1) lexbuf.Lexing.lex_curr_pos in
-# 125 "/tmp/yakkerbc3e5b.mll"
+# 125 "/tmp/yakker26812e.mll"
                            (DOLLARID(x))
-# 2714 "/tmp/yakker91bec8ml"
+# 2714 "/tmp/yakker2b6f3fml"
 
   | __ocaml_lex_state -> lexbuf.Lexing.refill_buff lexbuf; __ocaml_lex_tok_rec lexbuf __ocaml_lex_state
 
@@ -2916,28 +2916,28 @@ and __ocaml_lex_dec_range_rec lexbuf __ocaml_lex_state =
   match Lexing.new_engine __ocaml_lex_tables __ocaml_lex_state lexbuf with
       | 0 ->
 let
-# 127 "/tmp/yakkerbc3e5b.mll"
+# 127 "/tmp/yakker26812e.mll"
                    d1
-# 2726 "/tmp/yakker91bec8ml"
+# 2726 "/tmp/yakker2b6f3fml"
 = Lexing.sub_lexeme lexbuf lexbuf.Lexing.lex_start_pos lexbuf.Lexing.lex_mem.(0)
 and
-# 127 "/tmp/yakkerbc3e5b.mll"
+# 127 "/tmp/yakker26812e.mll"
                                           d2
-# 2731 "/tmp/yakker91bec8ml"
+# 2731 "/tmp/yakker2b6f3fml"
 = Lexing.sub_lexeme lexbuf (lexbuf.Lexing.lex_mem.(0) + 1) lexbuf.Lexing.lex_curr_pos in
-# 128 "/tmp/yakkerbc3e5b.mll"
+# 128 "/tmp/yakker26812e.mll"
                            (let d1,d2 = int_of_string d1,int_of_string d2 in mkCHARRANGE(d1,d2))
-# 2735 "/tmp/yakker91bec8ml"
+# 2735 "/tmp/yakker2b6f3fml"
 
   | 1 ->
 let
-# 129 "/tmp/yakkerbc3e5b.mll"
+# 129 "/tmp/yakker26812e.mll"
                   d
-# 2741 "/tmp/yakker91bec8ml"
+# 2741 "/tmp/yakker2b6f3fml"
 = Lexing.sub_lexeme lexbuf lexbuf.Lexing.lex_start_pos lexbuf.Lexing.lex_curr_pos in
-# 129 "/tmp/yakkerbc3e5b.mll"
+# 129 "/tmp/yakker26812e.mll"
                            (let d = int_of_string d in mkCHARRANGE(d,d))
-# 2745 "/tmp/yakker91bec8ml"
+# 2745 "/tmp/yakker2b6f3fml"
 
   | __ocaml_lex_state -> lexbuf.Lexing.refill_buff lexbuf; __ocaml_lex_dec_range_rec lexbuf __ocaml_lex_state
 
@@ -2947,28 +2947,28 @@ and __ocaml_lex_bin_range_rec lexbuf __ocaml_lex_state =
   match Lexing.new_engine __ocaml_lex_tables __ocaml_lex_state lexbuf with
       | 0 ->
 let
-# 131 "/tmp/yakkerbc3e5b.mll"
+# 131 "/tmp/yakker26812e.mll"
                    d1
-# 2757 "/tmp/yakker91bec8ml"
+# 2757 "/tmp/yakker2b6f3fml"
 = Lexing.sub_lexeme lexbuf lexbuf.Lexing.lex_start_pos lexbuf.Lexing.lex_mem.(0)
 and
-# 131 "/tmp/yakkerbc3e5b.mll"
+# 131 "/tmp/yakker26812e.mll"
                                           d2
-# 2762 "/tmp/yakker91bec8ml"
+# 2762 "/tmp/yakker2b6f3fml"
 = Lexing.sub_lexeme lexbuf (lexbuf.Lexing.lex_mem.(0) + 1) lexbuf.Lexing.lex_curr_pos in
-# 132 "/tmp/yakkerbc3e5b.mll"
+# 132 "/tmp/yakker26812e.mll"
                            (let d1,d2 = int_of_string("0b"^d1),int_of_string("0b"^d2) in mkCHARRANGE(d1,d2))
-# 2766 "/tmp/yakker91bec8ml"
+# 2766 "/tmp/yakker2b6f3fml"
 
   | 1 ->
 let
-# 133 "/tmp/yakkerbc3e5b.mll"
+# 133 "/tmp/yakker26812e.mll"
                   d
-# 2772 "/tmp/yakker91bec8ml"
+# 2772 "/tmp/yakker2b6f3fml"
 = Lexing.sub_lexeme lexbuf lexbuf.Lexing.lex_start_pos lexbuf.Lexing.lex_curr_pos in
-# 133 "/tmp/yakkerbc3e5b.mll"
+# 133 "/tmp/yakker26812e.mll"
                            (let d = int_of_string("0b"^d) in mkCHARRANGE(d,d))
-# 2776 "/tmp/yakker91bec8ml"
+# 2776 "/tmp/yakker2b6f3fml"
 
   | __ocaml_lex_state -> lexbuf.Lexing.refill_buff lexbuf; __ocaml_lex_bin_range_rec lexbuf __ocaml_lex_state
 
@@ -2978,43 +2978,43 @@ and __ocaml_lex_hex_range_rec lexbuf __ocaml_lex_state =
   match Lexing.new_engine __ocaml_lex_tables __ocaml_lex_state lexbuf with
       | 0 ->
 let
-# 135 "/tmp/yakkerbc3e5b.mll"
+# 135 "/tmp/yakker26812e.mll"
                                    d1
-# 2788 "/tmp/yakker91bec8ml"
+# 2788 "/tmp/yakker2b6f3fml"
 = Lexing.sub_lexeme lexbuf lexbuf.Lexing.lex_start_pos lexbuf.Lexing.lex_mem.(0)
 and
-# 135 "/tmp/yakkerbc3e5b.mll"
+# 135 "/tmp/yakker26812e.mll"
                                                                           d2
-# 2793 "/tmp/yakker91bec8ml"
+# 2793 "/tmp/yakker2b6f3fml"
 = Lexing.sub_lexeme lexbuf (lexbuf.Lexing.lex_mem.(0) + 1) lexbuf.Lexing.lex_curr_pos in
-# 136 "/tmp/yakkerbc3e5b.mll"
+# 136 "/tmp/yakker26812e.mll"
                            (let d1,d2 = int_of_string("0x"^d1),int_of_string("0x"^d2) in mkCHARRANGE(d1,d2))
-# 2797 "/tmp/yakker91bec8ml"
+# 2797 "/tmp/yakker2b6f3fml"
 
   | 1 ->
 let
-# 137 "/tmp/yakkerbc3e5b.mll"
+# 137 "/tmp/yakker26812e.mll"
                                   d
-# 2803 "/tmp/yakker91bec8ml"
+# 2803 "/tmp/yakker2b6f3fml"
 = Lexing.sub_lexeme lexbuf lexbuf.Lexing.lex_start_pos lexbuf.Lexing.lex_curr_pos in
-# 138 "/tmp/yakkerbc3e5b.mll"
+# 138 "/tmp/yakker26812e.mll"
                            (let d = int_of_string("0x"^d) in mkCHARRANGE(d,d))
-# 2807 "/tmp/yakker91bec8ml"
+# 2807 "/tmp/yakker2b6f3fml"
 
   | __ocaml_lex_state -> lexbuf.Lexing.refill_buff lexbuf; __ocaml_lex_hex_range_rec lexbuf __ocaml_lex_state
 
 ;;
 
-# 139 "/tmp/yakkerbc3e5b.mll"
-
+# 139 "/tmp/yakker26812e.mll"
+   
   let token = Yak.YkBuf.wrap_ocamllex tok
   let token_peek = Yak.YkBuf.peek_ocamllex tok
 
   let dec_range = Yak.YkBuf.wrap_ocamllex dec_range
   let bin_range = Yak.YkBuf.wrap_ocamllex bin_range
   let hex_range = Yak.YkBuf.wrap_ocamllex hex_range
-
-# 2822 "/tmp/yakker91bec8ml"
+  
+# 2822 "/tmp/yakker2b6f3fml"
 type _yk_t =
 | Yk_x1
 | Yk_x103 of (tok)

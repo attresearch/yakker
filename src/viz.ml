@@ -67,7 +67,7 @@ module Memo = History.Make(struct type t = extent let compare = compare
    On a call, the argument should be h#empty.
    Every callee should immediately do a h#push(Start pos_) to mark the left end.
    Every nonterminal n should do a h#push(End(n,pos_)) to mark the right end.
-   On return do a h#merge(Start 0), the value doesn't matter, as our postfix
+   On return do a h#merge(Start 0), the value doesn't matter, as our history
    traversal throws it away.
 
    Here's one that works:
@@ -78,7 +78,7 @@ module Memo = History.Make(struct type t = extent let compare = compare
     let h0 = Viz.Memo.new_history()
     type vhist = Viz.parse_forest
     let m0 = Viz.Start 0 (* throw-away extent used as merge label,
-                            discarded by postfix traversal *)
+                            discarded by history traversal *)
     }
     S = @{h0#push pos_ (Viz.Start pos_)}@h1
         S1
@@ -124,7 +124,7 @@ let mk_t input (pf:parse_forest) =
       leaves := (leaf i)::!leaves
     done;
     !leaves in
-  let traverse = pf#traverse_postfix in    (* Postfix traversal, gives sequence of extents *)
+  let traverse = pf#left_to_right in    (* Postfix traversal, gives sequence of extents *)
   let rec symbols left children =          (* Convert traversal to layout tree *)
     try
       match traverse#next() with

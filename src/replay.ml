@@ -262,7 +262,7 @@ let reverse gr hproj =
     | Rcount _          -> Util.impossible "Replay.reverse.Rcount"
     | Hash _            -> Util.impossible "Replay.reverse.Hash"
     | Minus _           -> Util.impossible "Replay.reverse.Minus" in
-  pr "class ['a] rvs (labels: 'a History.postfix) =\n";
+  pr "class ['a] rvs (labels: 'a History.enum) =\n";
   pr "let s = ref [] in\n";
   pr "let push x = s := x::!s in\n";
   pr "let rec _n() = let (x,_) = labels#next() in x\n";
@@ -295,7 +295,7 @@ let transform gr =
       (Printf.sprintf
          "
 let _replay_%s ykinput h =
-  let _o = new rvs (h#rtl) in
+  let _o = new rvs (h#right_to_left) in
   let _n() = _o#next() in
   _r_%s(_n,ykinput)\n"
     (Variables.bnf2ocaml gr.start_symbol) (Variables.bnf2ocaml gr.start_symbol))
@@ -304,7 +304,7 @@ let _replay_%s ykinput h =
       (Printf.sprintf
          "
 let _replay_%s ykinput h =
-  let _o = (h#traverse_postfix) in
+  let _o = (h#left_to_right) in
   let _n() = (let (x,_) = _o#next() in x) in
   _r_%s(_n,ykinput)\n"
     (Variables.bnf2ocaml gr.start_symbol) (Variables.bnf2ocaml gr.start_symbol))

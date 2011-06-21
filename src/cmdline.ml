@@ -162,7 +162,7 @@ and
  | (2067) -> ((); ();  Yak.Logging.add_features Yak.Logging.Features.verbose ; ())
  | (2068) -> ((let _x18 = _n() in (); (let _x17 = _n() in (let f = Yak.YkBuf.get_string _x18 _x17 ykinput in ();  files := f::!files ; ()))))
  | _ -> raise Exit)
-class ['a] rvs (labels: 'a History.postfix) =
+class ['a] rvs (labels: 'a History.enum) =
 let s = ref [] in
 let push x = s := x::!s in
 let rec _n() = let (x,_) = labels#next() in x
@@ -252,7 +252,7 @@ initializer _rv_cmd_line_args()
 end
 
 let _replay_cmd_line_args ykinput h =
-  let _o = new rvs (h#rtl) in
+  let _o = new rvs (h#right_to_left) in
   let _n() = _o#next() in
   _r_cmd_line_args(_n,ykinput)
 (* History constructors *)

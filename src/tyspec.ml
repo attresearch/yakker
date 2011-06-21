@@ -58,7 +58,7 @@ and
  | _ -> raise Exit))
  | _ -> raise Exit) in _x9::_x10)))
 in _x11(Yak.Util.nil)) in (List.rev _x10))
-class ['a] rvs (labels: 'a History.postfix) =
+class ['a] rvs (labels: 'a History.enum) =
 let s = ref [] in
 let push x = s := x::!s in
 let rec _n() = let (x,_) = labels#next() in x
@@ -81,7 +81,7 @@ initializer _rv_start()
 end
 
 let _replay_start ykinput h =
-  let _o = new rvs (h#rtl) in
+  let _o = new rvs (h#right_to_left) in
   let _n() = _o#next() in
   _r_start(_n,ykinput)
 (* History constructors *)

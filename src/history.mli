@@ -13,8 +13,8 @@
 
 type ('a,'b) root
 
-(* for postfix traversals of a history *)
-class type ['a] postfix =
+(* for traversals of a history *)
+class type ['a] enum =
       object
         method next : unit -> 'a
       end
@@ -25,8 +25,8 @@ class type ['a,'lbl] history =
         method merge : 'lbl -> 'a -> 'b -> 'b
         method push : 'lbl -> 'a -> 'b
 
-        method traverse_postfix : 'a postfix
-        method rtl : 'a postfix
+        method left_to_right : 'a enum
+        method right_to_left : 'a enum
         method get_root : ('a,'lbl) root
           (** would prefer to hide this method, but we can't. instead,
           we simply make it nearly useless by hiding the root

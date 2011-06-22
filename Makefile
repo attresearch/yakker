@@ -42,9 +42,9 @@ CMXS:=$(ML_SOURCES:.ml=.cmx)
 
 FRONT_END_SOURCES := compileopt.ml variables.ml tgraph.ml meta_prog.ml tyspec.ml gil.ml gul.ml pr.ml nullable_pred.ml \
                      minus.ml desugar.ml hash.ml copyrule.ml \
-                     analyze.ml unroll.ml lookahead.ml fusion.ml attributes.ml ty_infer.ml dearrow.ml wrap.ml \
+                     analyze.ml unroll.ml lookahead.ml fusion.ml attributes.ml label.ml wrap.ml \
                      coroutine.ml replay.ml \
-                     dispatch.ml label.ml lift.ml inline_nullable.ml fsm.ml \
+                     dispatch.ml ty_infer.ml dearrow.ml lift.ml inline_nullable.ml fsm.ml \
 		     extract_grammar.ml rfc.ml ocaml_lexer.mll ocamllex_lexer.mll yakker_grammar.ml \
                      cmdline.ml gil_gen.ml version.ml lexutil.ml  main.ml
 FRONT_END_MLL_SOURCES := $(filter %.mll, $(FRONT_END_SOURCES))
@@ -510,7 +510,11 @@ $(EXAMPLES_PCOMB_ML): %_pcomb.ml : examples/$$*/$$*.bnf yakker
 ########################################################################
 ##  Specialized tests
 ########################################################################
-.PHONY: test_tyinfer test_arrow
+.PHONY: test_tyinfer test_arrow test_arrow_replay
+
+test_tyspec: yak.cmxa tyspec.cmx tests/tyspec/tyspec_driver.ml
+	@echo "--x> " $@
+	@$(OCAMLOPT) $(OCAMLOPT_FLAGS) $^ -package unix -linkpkg -o $@
 
 test_tyinfer: tests/expr/expr_early2.bnf yakker-byte
 	(OCAMLRUNPARAM='b'; yakker-byte infer-types $<)
@@ -518,6 +522,7 @@ test_tyinfer: tests/expr/expr_early2.bnf yakker-byte
 test_arrow: expr_attr0 expr_attr1 expr_attr2 expr_attr3 \
 expr_attr4 expr_attr5 expr_attr6 expr_attr7
 
+test_arrow_replay: expr_replay1 expr_replay2
 
 # expr_early2.dot: tests/expr/expr_early2.bnf yakker-byte
 # 	(OCAMLRUNPARAM='b'; yakker-byte dot -arrow-notation $< > expr_early2.dot)
@@ -535,6 +540,9 @@ expr_%-byte: yak.cma expr_%.cmo
 expr_%: yak.cmxa expr_%.cmx
 	@echo "--x> " $@
 	@$(OCAMLOPT) $(OCAMLOPT_FLAGS) $^ -package unix -linkpkg -o $@
+
+
+
 
 
 ifeq ($(shell whoami),yitzhakm)

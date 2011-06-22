@@ -316,7 +316,7 @@ let rec thompson =  function
       (s2,f3)
   | Alt _ as r ->
       let (s,f) = fresh2() in
-      let rules = alt2rules r in
+      let rules = alts_of_rhs r in
       let n = List.length rules in
       let w = INV_PROB n in
       List.iter begin fun r0 ->
@@ -418,7 +418,7 @@ let rec merge = function
       (s,f,e)
   | Alt _ as r ->
       let (s,f,e) = fresh3() in
-      let rules = alt2rules(r) in
+      let rules = alts_of_rhs(r) in
       let n = List.length(rules) in
       let w = INV_PROB(n) in
       for i = 0 to n-1 do (* inefficient *)

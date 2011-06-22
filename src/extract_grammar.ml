@@ -36,7 +36,7 @@ let rec
  | (2003) -> ((); ())
  | _ -> raise Exit)done)
 
-class ['a] rvs (labels: 'a History.postfix) =
+class ['a] rvs (labels: 'a History.enum) =
 let s = ref [] in
 let push x = s := x::!s in
 let rec _n() = let (x,_) = labels#next() in x
@@ -54,7 +54,7 @@ initializer _rv_rfc()
 end
 
 let _replay_rfc ykinput h =
-  let _o = new rvs (h#rtl) in
+  let _o = new rvs (h#right_to_left) in
   let _n() = _o#next() in
   _r_rfc(_n,ykinput)
 (* History constructors *)
@@ -487,7 +487,7 @@ module SV_hashtbl = Hashtbl.Make(struct
                     let hash = Hashtbl.hash end)
 module Pred = Pred3
 let npt_line = SV_hashtbl.create 11;;
-let rec nullable_line __lookahead _p0_ _x0_ = 
+let rec nullable_line __lookahead _p0_ _x0_ =
   let __p1 = Yak.YkBuf.get_offset _p0_ in
     try
       let (r, __p2)  = SV_hashtbl.find npt_line _x0_ in

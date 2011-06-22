@@ -79,7 +79,7 @@ let mkAnnot = function
            inf_type = None;}
   | Some r -> let a = dupAnnot r.a in a.css <- None; a
 
-let dupRule r = {a=dupAnnot r.a;r=r.r}
+let dupRhs r = {a=dupAnnot r.a;r=r.r}
 
 (** only need to copy mutable material. (otherwise, there's no
     value to copying that I know of). So, leaves are copied shallowly.
@@ -91,18 +91,18 @@ let rec copy_b = function
     | When _ | Action _ | Box _ | Delay _ | DBranch _
     | CharRange _
     | Lit _) as x -> x
-  | Minus(r2,r3) -> Minus(copyRule r2,copyRule r3)
-  | Seq(r2,v_e,v_l,r3) -> Seq(copyRule r2,v_e,v_l,copyRule r3)
-  | Assign(r2,v_e,v_l) -> Assign(copyRule r2,v_e,v_l)
-  | Alt(r2,r3) -> Alt(copyRule r2,copyRule r3)
-  | Opt(r2) -> Opt (copyRule r2)
-  | Rcount(x,r2) -> Rcount(x,copyRule r2)
-  | Star(x,r2) -> Star(x,copyRule r2)
-  | Hash(x,r2) -> Hash(x,copyRule r2)
-  | Lookahead (b,r2) -> Lookahead (b, copyRule r2)
+  | Minus(r2,r3) -> Minus(copyRhs r2,copyRhs r3)
+  | Seq(r2,v_e,v_l,r3) -> Seq(copyRhs r2,v_e,v_l,copyRhs r3)
+  | Assign(r2,v_e,v_l) -> Assign(copyRhs r2,v_e,v_l)
+  | Alt(r2,r3) -> Alt(copyRhs r2,copyRhs r3)
+  | Opt(r2) -> Opt (copyRhs r2)
+  | Rcount(x,r2) -> Rcount(x,copyRhs r2)
+  | Star(x,r2) -> Star(x,copyRhs r2)
+  | Hash(x,r2) -> Hash(x,copyRhs r2)
+  | Lookahead (b,r2) -> Lookahead (b, copyRhs r2)
 
 (** deep copy *)
-and copyRule r = {a=dupAnnot r.a;r= copy_b r.r}
+and copyRhs r = {a=dupAnnot r.a;r= copy_b r.r}
 
 module Attr = struct
   type t = {mutable early_params: string option;
@@ -308,7 +308,7 @@ module Curried_constructors = struct
 end
 
 (* Convert binary Alt representation to list of alternatives *)
-let alt2rules =
+let alts_of_rhs =
   let rec loop l r = match r.r with
   | Alt(r2,r3) -> loop (loop l r3) r2
   | _ -> r::l in

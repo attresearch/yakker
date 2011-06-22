@@ -836,7 +836,7 @@ module Gul = struct
             begin
               (* Sanity check *)
               if not (DBL.is_closed e_n') then
-                Printf.eprintf "Nonterminal %s has open simpl-rewr predicate: \nbefore:   %s\nafter:  %s\n"
+                Printf.eprintf "Nonterminal %s has open simpl-rewr predicate:\nbefore:   %s\nafter:  %s\n"
                   n (Expr_gul.to_string_raw 0 e_n_rw) (Expr_gul.to_string_raw 0 e_n');
             end;
           Hashtbl.replace preds_tbl n e_n'
@@ -1030,7 +1030,7 @@ fun _ ykb v -> match f1 v with | Yk_done %s %s (%s) -> Some (f2 v (%s)) | _ -> N
         begin
           (* Sanity check *)
           if not (DBL.is_closed e_n') then
-            Printf.eprintf "Nonterminal %s has open simpl-rewr predicate: \nbefore:   %s\nafter:  %s\n"
+            Printf.eprintf "Nonterminal %s has open simpl-rewr predicate:\nbefore:   %s\nafter:  %s\n"
               n (Expr_gil.to_string_raw 0 e_n_rw) (Expr_gil.to_string_raw 0 e_n');
         end;
       Hashtbl.replace preds_tbl n e_n'
@@ -1102,7 +1102,7 @@ fun _ ykb v -> match f1 v with | Yk_done %s %s (%s) -> Some (f2 v (%s)) | _ -> N
             if ntcalled then begin
               let body_code = to_string' gil_callc get_action get_start 1 body in
               let tbl = mk_nptblname nt in
-              let pred = Printf.sprintf "%s %s %s %s = \n  \
+              let pred = Printf.sprintf "%s %s %s %s =\n  \
                 let __p1 = Yak.YkBuf.get_offset %s in\n    \
                   try\n      \
                     let (r, __p2)  = SV_hashtbl.find %s %s in\n      \

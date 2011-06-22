@@ -35,7 +35,7 @@ let get_label = function Empty p -> p | Root {label=p} -> p
 
 let impossible() = failwith "History.impossible"
 
-class type ['a] postfix =
+class type ['a] enum =
       object
         method next : unit -> 'a
       end
@@ -47,15 +47,15 @@ class type ['a,'lbl] history =
         method push : 'lbl -> 'a -> 'h
         method get_root : ('a,'lbl) root
 
-        method traverse_postfix : 'a postfix
-        method rtl : 'a postfix
+        method left_to_right : 'a enum
+        method right_to_left : 'a enum
       end
 
 
 type ('a,'lbl) lazyness = Forced of 'a | Delayed of ('a,'lbl) root
 
-(* class for lazy postfix traversals of histories *)
-class ['a] postfix_impl (r_init: ('a,'lbl) root) =
+(* build a left-to-right traversal of a history *)
+class ['a] left_to_right (r_init: ('a,'lbl) root) =
   object (self)
     val mutable current = [Delayed (r_init)] (* imperative state *)
     method next() =                        (* enumerator *)
@@ -76,8 +76,8 @@ class ['a] postfix_impl (r_init: ('a,'lbl) root) =
           | Root{v=v;branchings=[]} -> impossible())
   end
 
-(* right-to-left traversal *)
-class ['a] rtl (r_init: ('a,'lbl) root) =
+(* build a right-to-left traversal of a history *)
+class ['a] right_to_left (r_init: ('a,'lbl) root) =
   object (self)
     val mutable current = [Delayed (r_init)]
     method next() =
@@ -118,8 +118,8 @@ class ['a, 'lbl] history_impl (uniq: ('a,'lbl) info -> ('a,'lbl) info) =
       inf.branchings <- (Two(root,h2#get_root))::b;
       {< root = Root inf >} (* copy of self with new root *)
 
-    method traverse_postfix = new postfix_impl root
-    method rtl = new rtl root
+    method left_to_right = new left_to_right root
+    method right_to_left = new right_to_left root
   end
 
 module Label = struct
@@ -384,7 +384,7 @@ let compare = IntIntHistory.compare
 let hash = IntIntHistory.hash
 
 let traverse h =
-  let z = new postfix h in
+  let z = new enum h in
   (try
     while true do
       Printf.printf "%d %!" (z#next())
@@ -454,7 +454,7 @@ class ['a, 'lbl] history_impl2 (uniq: ('a,'lbl) sibling -> ('a,'lbl) sibling) =
       inf.branchings <- (Two(root,h2#get_root))::b;
       {< root = Root inf >} (* copy of self with new root *)
 
-    method traverse_postfix = new postfix_impl root
+    method left_to_right = new left_to_right root
   end
 
   *)

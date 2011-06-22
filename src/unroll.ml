@@ -30,7 +30,7 @@ let transform gr =
   let exp r m =
     let rec loop m =
       if m <= 0 then []
-      else (copyRule r)::(loop(m-1)) in
+      else (copyRhs r)::(loop(m-1)) in
     mkSEQ(loop m) in
 
   let rec loop r = (* transform r and return true iff r is a producer *)
@@ -43,10 +43,10 @@ let transform gr =
           r.r <-
             (match ub with
             | Infinity ->
-                mkSEQ [r1_m_times; mkSTAR(0,Infinity,copyRule r1)]
+                mkSEQ [r1_m_times; mkSTAR(0,Infinity,copyRhs r1)]
             | Num n ->
                 if m<n then
-                  mkSEQ [r1_m_times; mkSTAR(0,Num(n-m),copyRule r1)]
+                  mkSEQ [r1_m_times; mkSTAR(0,Num(n-m),copyRhs r1)]
                 else
                   r1_m_times).r;
           false

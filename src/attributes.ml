@@ -46,10 +46,10 @@ let extract source pattern var = Printf.sprintf "(match %s with (%s) -> %s)" sou
 let assign r source pattern attributes =
   List.iter
     (fun attribute ->
-      r.r <- (mkSEQ[mkASSIGN(mkACTION(extract source pattern attribute),Some attribute,None);dupRule r]).r)
+      r.r <- (mkSEQ[mkASSIGN(mkACTION(extract source pattern attribute),Some attribute,None);dupRhs r]).r)
     attributes
 let bind r source pattern var =
-  r.r <- (mkSEQ2(mkACTION(extract source pattern var),Some var,None,dupRule r)).r
+  r.r <- (mkSEQ2(mkACTION(extract source pattern var),Some var,None,dupRhs r)).r
 
 (* Main transformation *)
 (* Assumes all input attributes are present and sorted, this needs to be ensured by copyrule *)
@@ -114,7 +114,7 @@ let eliminate gr =
               match PSet.mem n gr.late_producers with
                 false -> None
               | true -> Some(Variables.fresh()) in
-            r.r <- (mkSEQ2(dupRule r,early,late,mkACTION2(act,late))).r;
+            r.r <- (mkSEQ2(dupRhs r,early,late,mkACTION2(act,late))).r;
             let o_type = output_type a in
             a.output_attributes <- [];
             a.early_rettype <- o_type;
@@ -176,7 +176,7 @@ let eliminate gr =
         | Some y ->
             bind r_body source pattern y);
 
-        r.r <- (mkSEQ2(dupRule r,Some source,late,r_body)).r;
+        r.r <- (mkSEQ2(dupRhs r,Some source,late,r_body)).r;
 
         ()
       end

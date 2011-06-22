@@ -482,7 +482,7 @@ let prec_dependency_graph ptbl tokmap ds =
     (fun g_result -> function
         RuleDef(n,r, _)->
           let g = Tgraph.add_node g_result n in
-          let rs = alt2rules r in
+          let rs = alts_of_rhs r in
           List.fold_left (fun g r_b ->
 
 (* TODO: refine further so that a dependency is not drawn for calls when they are not to the left/right of relevant nonterminal.
@@ -506,7 +506,7 @@ let build_prec_sets gr =
     | _ -> true in
   let is_primary = function
     | RuleDef (n, r, _) ->
-        let rules = alt2rules r in
+        let rules = alts_of_rhs r in
         if List.exists has_prec rules then Some n else None
     | _ -> None in
   let primary = List.fold_left (fun s x -> Stringset.add x s)
@@ -633,7 +633,7 @@ let prec_rewrite_complex gr =
         if Stringset.mem n relevant then begin
           a.Attr.input_attributes <- (prec_var, prec_type)::(pos_var, pos_type)::a.Attr.input_attributes;
 
-          let rs = alt2rules r in
+          let rs = alts_of_rhs r in
           List.iter (fun r_b ->
                        match get_prec ptbl tokmap r_b with
                          | None -> instantiate_attrs_copy r_b
@@ -752,7 +752,7 @@ let build_prec_sets_simple gr =
     | _ -> true in
   let is_primary = function
     | RuleDef (n, r, _) ->
-        let rules = alt2rules r in
+        let rules = alts_of_rhs r in
         if List.exists has_prec rules then Some n else None
     | _ -> None in
   let primary = List.fold_left (fun s x -> Stringset.add x s)
@@ -839,7 +839,7 @@ let prec_rewrite_simple gr =
         if Stringset.mem n primary then begin
 (*        a.Attr.output_attributes <- (prec_var, prec_type)::a.Attr.output_attributes; *)
           a.Attr.early_rettype <- Some prec_type;
-          let rs = alt2rules r in
+          let rs = alts_of_rhs r in
           List.iter (fun r_b ->
                        match get_prec ptbl tokmap r_b with
                          | None
@@ -910,7 +910,7 @@ let regular_inline gr trans =
                   if trans then
                     r.r <- newrdotr;
                   r.a.is_regular <- true;
-                  let newr = dupRule r in
+                  let newr = dupRhs r in
                     (Some newr, true, true)
                 end
                 else if ((is_regular1 || is_regular2) && (has_change1 || has_change2)) then begin
@@ -923,7 +923,7 @@ let regular_inline gr trans =
           | Symb (n1, _, _, _) -> (* TODO: attributes *)
               if PMap.mem n1 inline_map then
                 let r1 = PMap.find n1 inline_map in
-                let myr = dupRule r1 in
+                let myr = dupRhs r1 in
                   (
                     if trans then begin
                       r.a <- r1.a;
@@ -936,7 +936,7 @@ let regular_inline gr trans =
                 (None, false, false)
           | Lit _ | CharRange _  ->
               r.a.is_regular <- true;
-              let myr = dupRule r in
+              let myr = dupRhs r in
                 (Some myr, true, true)
           | Assign(r1,early,late) ->
               if (early<>None || late<>None) then (None, false, false) else
@@ -946,7 +946,7 @@ let regular_inline gr trans =
                 let newr1 = valOf myr1 in begin
                   if trans then r.r <- Assign(newr1,early,late);
                   r.a.is_regular <- true;
-                  let newr = dupRule r in
+                  let newr = dupRhs r in
                   (Some newr, true, true)
                 end
               else if has_change then (None, true, false)
@@ -961,7 +961,7 @@ let regular_inline gr trans =
                   if (is_regular1 && is_regular2) then begin
                     if trans then r.r <- newrdotr;
                     r.a.is_regular <- true;
-                    let newr = dupRule r in
+                    let newr = dupRhs r in
                       (Some newr, true, true)
                   end
                   else if ((is_regular1 || is_regular2) && (has_change1 || has_change2)) then begin
@@ -978,7 +978,7 @@ let regular_inline gr trans =
                   let newr1 = valOf myr1 in begin
                       if trans then r.r <- Opt newr1;
                       r.a.is_regular <- true;
-                      let newr = dupRule r in
+                      let newr = dupRhs r in
                         (Some newr, true, true)
                     end
                 else if has_change then (None, true, false)
@@ -992,7 +992,7 @@ let regular_inline gr trans =
                 if (is_regular1 && is_regular2) then begin
                   if trans then r.r <- newrdotr;
                   r.a.is_regular <- true;
-                  let newr = dupRule r in
+                  let newr = dupRhs r in
                     (Some newr, true, true)
                 end
                 else if ((is_regular1 || is_regular2) && (has_change1 || has_change2)) then begin
@@ -1009,7 +1009,7 @@ let regular_inline gr trans =
                   let newr1 = valOf myr1 in begin
                       if trans then r.r <- Star(e, newr1);
                       r.a.is_regular <- true;
-                      let newr = dupRule r in
+                      let newr = dupRhs r in
                         (Some newr, true, true)
                     end
                 else if has_change then (None, true, false)
@@ -1020,7 +1020,7 @@ let regular_inline gr trans =
                   let newr1 = valOf myr1 in begin
                       if trans then r.r <- Hash(e, newr1);
                       r.a.is_regular <- true;
-                      let newr = dupRule r in
+                      let newr = dupRhs r in
                         (Some newr, true, true)
                     end
                 else if has_change then (None, true, false)

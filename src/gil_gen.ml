@@ -526,7 +526,7 @@ let pr_gil_lex f use_refs r0 first_map follow_map n tokmap =
           else regular_alt ()
 
   and handle_alts cur_fls r =
-    let rs = Gil.alt2rules r in
+    let rs = Gil.alts_of_rhs r in
     if not !Compileopt.lookahead then begin
       bprintf f "(nalt [|";
       List.iter (fun r_i ->
@@ -817,7 +817,7 @@ let pr_gil f liberal use_refs use_arrays r0 =
           bprintf f "|])"
       | Gil.Alt _ when use_arrays ->
           bprintf f "(alt [|";
-          let rs = Gil.alt2rules r in
+          let rs = Gil.alts_of_rhs r in
           List.iter (fun r_i ->
                        bprintf f " ";
                        loop r_i;

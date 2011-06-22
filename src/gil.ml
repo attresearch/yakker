@@ -51,7 +51,7 @@ let charrange2alt low high =
   loop (low + 1) (CharRange(low,low))
 
 (** Convert binary Alt representation to list of alternatives *)
-let alt2rules r =
+let alts_of_rhs r =
   let rec loop l = function
   | Alt(r2,r3) -> loop (loop l r3) r2
   | r -> r::l in

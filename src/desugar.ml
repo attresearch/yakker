@@ -46,7 +46,7 @@ let desugar gr =
   Minus.cs_annot gr;
   let define r =
     let nt1 = Variables.fresh_nonterminal () in
-    gr.ds <- (RuleDef(nt1, (dupRule r), mkAttr()))::gr.ds;
+    gr.ds <- (RuleDef(nt1, (dupRhs r), mkAttr()))::gr.ds;
     Symb(nt1,None,[],None)
   in
   let rec loop r = match r.r with

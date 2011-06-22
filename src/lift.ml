@@ -126,7 +126,7 @@ let transform gr =
           let extent_l = Printf.sprintf "Yak.YkBuf.get_string %s %s ykinput" before_l after_l in
           r.r <-
             (mkSEQ2(mkPOSITION false,None,Some before_l,
-                    mkSEQ2(dupRule r1,early,None,
+                    mkSEQ2(dupRhs r1,early,None,
                            mkSEQ2(mkPOSITION false,None,Some after_l,
                                   mkSEQ2(mkACTION2(None,
                                                    Some(extent_l)),
@@ -139,7 +139,7 @@ let transform gr =
           let before,after = fresh(),fresh() in
           r.r <-
             (mkSEQ2(mkPOSITION true,Some before,None,
-                    mkSEQ2(dupRule r1,(if need_early_extent then None else early),(if need_late_extent then None else late),
+                    mkSEQ2(dupRhs r1,(if need_early_extent then None else early),(if need_late_extent then None else late),
                            mkSEQ2(mkPOSITION true,Some after,None,
                                   if need_late_extent then
 (* This version requires ykinput as an arg to all replay functions---so entire input must be retained for replay *)
@@ -169,14 +169,14 @@ let transform gr =
         loop r2
     | Opt _
     | Alt _ ->
-        let alt2rules = (* differs from bnf.ml b/c need to desugar Opt *)
+        let alts_of_rhs = (* differs from bnf.ml b/c need to desugar Opt *)
           let rec loop l r = match r.r with
           | Alt(r1,r2) -> loop (loop l r2) r1
           | Opt(r1) ->
               r.r <- (mkALT[r1;mkLIT ""]).r; loop l r
           | _ -> r::l in
           loop [] in
-        let alts = alt2rules r in
+        let alts = alts_of_rhs r in
         let lift_p = List.map (fun r -> loop r) alts in
         let early_all_true  = List.for_all (fun (x,_) -> x)     lift_p in
         let early_all_false = List.for_all (fun (x,_) -> not x) lift_p in

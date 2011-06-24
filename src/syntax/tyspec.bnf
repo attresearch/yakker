@@ -41,10 +41,20 @@ start =
     *CHAR8
     "val __yk_get_type_info_ :" PDG                   ; Header (unprocessed)
     stream$(map.get_id,b)                             ; Stream of tokens to be processed
-    "_sv Yak.Pam_internal.instruction"                ; Trailer (unprocessed)
+    "_ev"                                             ; Trailer (unprocessed)
     [newline]
     {Hashtbl.length map.the_table, Buffer.contents b}. ; return value
 
+; Can multiple QUOTEs occur in sequence?
+;          | (QUOTE *QUOTE)$qts	    
+stream$(map,b) = 
+         *( nq-token$tk {pr b "%s" tk} 
+          | QUOTE
+	    ( ident$id {match id.[0] with '_' -> 
+	                  pr b "%s " (map id) 
+                        | otherwise -> pr b "'%s" id } 
+            | nqid-token$tk {pr b "'%s" tk}
+)).
 
 CR = %d10.
 LF = %d13.
@@ -160,19 +170,6 @@ nqid-token =
 | GREATER
  
 ident = (upper-ident | lwr-ident-esu)$x PDG {x}.
-
-
-; Can multiple QUOTEs occur in sequence?
-;          | (QUOTE *QUOTE)$qts	    
-stream$(map,b) = 
-         *( nq-token$tk {pr b "%s" tk} 
-          | QUOTE
-	    ( ident$id {match id.[0] with '_' -> 
-	                  pr b "%s " (map id) 
-                        | otherwise -> pr b "'%s" id } 
-            | nqid-token$tk {pr b "'%s" tk}
-)).
-
 
 
 @ocaml {

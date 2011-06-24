@@ -96,7 +96,21 @@ class ['a] right_to_left (r_init: ('a,'lbl) root) =
           | Root{v=v;branchings=[]} -> impossible())
   end
 
-(* The base history class.  uniq should be a memoizing function, use id for no memoization *)
+(* The base history class.  uniq should be a memoizing function, use id for no memoization.
+
+   Each history internally has a "label" property, which is fetched by
+   applying "get_label" to the root value. This property stores the
+   left index of the history. It is set originally via the [p]
+   argument of the empty method. Thereafter, it is propogated by use
+   of [get_label].
+
+   The 'lbl-typed argument of the methods should be the current
+   position in the input. However, it is only used by [empty]. For
+   [push] and [merge] it is ignored, because we happen to know that it
+   is also bundled with the history value. (i think I have notes about
+   this redundancy elsewhere).
+
+*)
 class ['a, 'lbl] history_impl (uniq: ('a,'lbl) info -> ('a,'lbl) info) =
   let mk_info k (v:'a) = (* memoized *)
     uniq ({label=k; v=v; branchings=[]}) in

@@ -119,8 +119,8 @@ let transform gr =
     | Seq(r1,early,late,r2) ->
         let (e1,l1) = loop r1 in
         (* calculate extent for r1 if needed *)
-        let need_early_extent = not e1 && early<>None in
-        let need_late_extent = not l1 && late<>None in
+        let need_early_extent = not e1 && early <> None in
+        let need_late_extent = not l1 && late <> None in
         if not need_early_extent && need_late_extent then begin
           let before_l,after_l = fresh(),fresh() in
           let extent_l = Printf.sprintf "Yak.YkBuf.get_string %s %s ykinput" before_l after_l in

@@ -1053,8 +1053,8 @@ fun _ ykb v -> match f1 v with | Yk_done %s %s (%s) -> Some (f2 v (%s)) | _ -> N
       | DBL.Lam DBL.Lam DBL.Lam DBL.SomeE DBL.Var 2 -> Yes_n
       | _ -> (match to_rhs e_n with None -> Maybe_n | Some r -> Rhs_n r)
 
-  let process_grammar ch get_action get_start grm =
-    let preds = preds_from_grammar grm in
+  let process_grammar ch get_action get_start is_sv_known gr =
+    let preds = preds_from_grammar gr in
     (* Record which nonterminals are called from other nonterminals
        (including themselves) that require predicates to be printed
        (i.e. if its called from a nonterminal for which we will not
@@ -1128,10 +1128,12 @@ fun _ ykb v -> match f1 v with | Yk_done %s %s (%s) -> Some (f2 v (%s)) | _ -> N
     match List.rev preds with
       | [] -> ()
       | p::preds ->
-          Printf.fprintf ch "module SV_hashtbl = Hashtbl.Make(struct
-                    type t = sv
-                    let equal a b = sv_compare a b = 0
-                    let hash = Hashtbl.hash end)\n";
+          if is_sv_known then
+            Printf.fprintf ch "module SV_hashtbl = Hashtbl.Make(struct
+                      type t = sv
+                      let equal a b = sv_compare a b = 0
+                      let hash = Hashtbl.hash end)\n"
+          else Printf.fprintf ch "module SV_hashtbl = Hashtbl\n";
           Printf.fprintf ch "module Pred = Pred3\n";
           List.iter print_table tbls;
           Printf.fprintf ch "let rec %s" p;

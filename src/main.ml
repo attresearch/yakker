@@ -120,48 +120,30 @@ let core =
     Printf.eprintf "Internal error: exception %s when parsing core rules\n%!" (Printexc.to_string e);
     raise e
 
-(** @raise [Failure], if failure occurs in attempting to retrieve type information or parse is ambiguous. *)
-let get_type_info filename =
-  let res =
-    try
-      Util.pipe_in_out_result
-        (Printf.sprintf "ocamlc -i %s" filename)
-        (fun _ -> ())
-        (* There is a space before the let, because, for some reason, the first byte of the file is eaten in this
-           process. not connected to Util.pipe_in_out_result -- happens if I
-           do the same using echo to send the command to ocamlc -i. *)
-        Tyspec.parse_channel
-    with _ -> failwith "Failure occurred while attempting to retrieve type information." in
-  match res with
-    | [] -> Util.impossible "Tyspec.parse_channel must return at least one result (or raise an exception)."
-    | [x] -> x
-    | _ -> Util.error Util.Sys_warn "Ambiguous parse of type information."; failwith "Ambigous parse of input."
-
-
-let try_fsm f gr = (* FSM version *)
+let try_fsm f out gr = (* FSM version *)
   Util.pipe_in_out
     (Printf.sprintf
        "fsmcompile | fsmrmepsilon | fsmdeterminize | fsmprint | %s |fsmcompile | fsmrmepsilon | fsmdeterminize | fsmminimize | fsmprint"
        (Fsm.remove_CallEps()))
     (fun w -> Fsm.grammar_fsm w gr)
-    (fun r -> f gr r !outch)
+    (fun r -> f gr r out)
 
-let try_fst f gr = (* OpenFST version *)
+let try_fst f out gr = (* OpenFST version *)
   Util.pipe_in_out
     (Printf.sprintf
         "fstcompile --acceptor | fstrmepsilon | fstdeterminize | fstprint --acceptor | %s |fstcompile --acceptor | fstrmepsilon | fstdeterminize | fstminimize /dev/stdin | fstprint --acceptor"
        (Fsm.remove_CallEps())
     )
     (fun w -> Fsm.grammar_fsm w gr)
-    (fun r -> f gr r !outch)
+    (fun r -> f gr r out)
 
 let gil_transducer,gil_dot =
   if !Compileopt.use_fsm then
     (* FSM *)
-    try_fsm Fsm.fsm_transducer,try_fsm Fsm.fsm_dot
+    (fun is_sv_known -> try_fsm (Fsm.fsm_transducer is_sv_known)), try_fsm Fsm.fsm_dot
   else
     (* FST *)
-    try_fst Fsm.fsm_transducer,try_fst Fsm.fsm_dot
+    (fun is_sv_known -> try_fst (Fsm.fsm_transducer is_sv_known)), try_fst Fsm.fsm_dot
 
 let add_boilerplate backend gr =
   if backend = Wadler_BE then ()
@@ -236,53 +218,52 @@ let print_epilogue ch gr =
   end
     gr.epilogue
 
-let do_compile emit_epilogue gr =
+let do_compile is_sv_known out gr =
   do_phase "compiling to backend" begin fun () ->
-    let print_prologue () = print_prologue !outch gr in
-    let print_epilogue () = print_epilogue !outch gr in
+    let print_prologue () = print_prologue out gr in
+    let print_epilogue () = print_epilogue out gr in
 
     (match backend with
     | Fun_BE ->
         print_prologue ();
-        Gil_gen.pr_gil_definitions2 !outch gr.start_symbol gr.tokmap gr.gildefs
+        Gil_gen.pr_gil_definitions2 out gr.start_symbol gr.tokmap gr.gildefs
     | Wadler_BE ->
         gr.prologue <- [];
         gr.epilogue <- [];
-        Gil_gen.Wadler.pr_definitions !outch gr.start_symbol gr.gildefs
+        Gil_gen.Wadler.pr_definitions out gr.start_symbol gr.gildefs
     | Peg_BE liberal ->
         print_prologue ();
-        Gil_gen.Peg.pr_definitions !outch liberal gr.start_symbol gr.gildefs
+        Gil_gen.Peg.pr_definitions out liberal gr.start_symbol gr.gildefs
     | Trans_BE ->
         print_prologue ();
-        gil_transducer gr.gildefs);
+        gil_transducer is_sv_known out gr.gildefs);
 
     add_boilerplate backend gr;
 
-    if emit_epilogue then
+    if is_sv_known then
       begin
         print_epilogue ()
       end;
   end
 
-let do_compile_for_arrow gr =
+let do_compile_for_arrow out gr =
   do_phase "compiling to backend" begin fun () ->
-    let print_prologue () = print_prologue !outch gr in
+    let print_prologue () = print_prologue out gr in
 
     (match backend with
     | Fun_BE ->
         print_prologue ();
-        Gil_gen.pr_gil_definitions2 !outch gr.start_symbol gr.tokmap gr.gildefs
+        Gil_gen.pr_gil_definitions2 out gr.start_symbol gr.tokmap gr.gildefs
     | Wadler_BE ->
         gr.prologue <- [];
         gr.epilogue <- [];
-        Gil_gen.Wadler.pr_definitions !outch gr.start_symbol gr.gildefs
+        Gil_gen.Wadler.pr_definitions out gr.start_symbol gr.gildefs
     | Peg_BE liberal ->
         print_prologue ();
-        Gil_gen.Peg.pr_definitions !outch liberal gr.start_symbol gr.gildefs
+        Gil_gen.Peg.pr_definitions out liberal gr.start_symbol gr.gildefs
     | Trans_BE ->
-        let ch = !outch in
         print_prologue ();
-        Printf.fprintf ch "module Internal : sig
+        Printf.fprintf out "module Internal : sig
     val __default_call : 'a -> 'b -> sv
     val __default_ret : 'a -> 'b -> 'c -> 'b
     val num_symbols : int
@@ -291,13 +272,13 @@ let do_compile_for_arrow gr =
     val get_symb_start : int -> int
     val program : (int * sv Yak.Pam_internal.instruction list) list
   end = struct\n";
-        gil_transducer gr.gildefs;
-        Printf.fprintf ch "end\nopen Internal;;\n\n";
+        gil_transducer true out gr.gildefs;
+        Printf.fprintf out "end\nopen Internal;;\n\n";
     );
 
     add_boilerplate backend gr;
 
-    print_epilogue !outch gr
+    print_epilogue out gr
   end
 
 let do_phases gr =
@@ -402,10 +383,10 @@ let do_phases gr =
             Replay.transform gr)
       | Dispatch_cmd ->
           do_phase "dispatching" begin fun () ->
+            Analyze.producers gr;
+            Analyze.relevance gr;
             if !Compileopt.use_coroutines then
               begin
-                Analyze.producers gr;
-                Analyze.relevance gr;
                 if !Compileopt.use_dbranch then
                   Label.transform2 gr
                 else
@@ -430,38 +411,12 @@ let do_phases gr =
             do_phase "coalescing actions" (fun () -> Fusion.fuse_gil gr)
       | Compile_cmd ->
           if !Compileopt.use_coroutines then
-            do_compile true gr
+            do_compile true !outch gr
           else
             begin
-              (* redirect output to a temporary file *)
-              let (temp_file_name, temp_chan) = Filename.open_temp_file "yakker" ".ml" in
-
-              outch := temp_chan;
-
-              (* Compile without printing the epilogue. We save that
-                 for later. First, duplicate the grammar to avoid any
-                 changes to original copy. *)
-              let gr2 = {gr with ds = gr.ds} in
-              do_compile false gr2;
-
-              Printf.fprintf temp_chan "\nlet __yk_get_type_info_ = List.hd (snd (List.hd program));;\n";
-
-              (* make sure compiled output is flushed *)
-              close_out temp_chan;
-              outch := stdout;
-
-              (* Generate sv-related type definitions. *)
-              let (n, tyargs) = get_type_info temp_file_name in
-              let abstract_ty_defs = Util.list_make n (Printf.sprintf "type %s%d\n" Tyspec.tyvar_prefix) in
-              add_many_to_prologue gr abstract_ty_defs;
-              let sv_ty_def = "type sv = " ^ tyargs ^ " _sv\n" in
-              add_to_prologue gr sv_ty_def;
-
-              (* Clean up temp file *)
-              Sys.remove temp_file_name;
-
+              Dearrow.extend_prologue (do_compile false) gr;
               (* Output full version of compiled output *)
-              do_compile_for_arrow gr;
+              do_compile_for_arrow !outch gr;
             end
 
       | Exec_cmd ->
@@ -473,9 +428,7 @@ let do_phases gr =
             (* redirect output to a temporary file *)
             let (temp_file_name, temp_chan) = Filename.open_temp_file "yakker" ".ml" in
 
-            outch := temp_chan;
-
-            do_compile true gr;
+            do_compile true temp_chan gr;
 
             (* make sure compiled output is flushed *)
             close_out temp_chan;
@@ -497,7 +450,7 @@ let do_phases gr =
           end
 
       | Dot_cmd ->
-          gil_dot gr.gildefs
+          gil_dot !outch gr.gildefs
       | Print_gil_cmd ->
           begin
             let b = Buffer.create 11 in

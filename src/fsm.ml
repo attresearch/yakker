@@ -625,7 +625,7 @@ let varname prefix =
            Hashtbl.add tbl_varnames str v;
            v)
 
-let fsm_transducer gr inch outch =
+let fsm_transducer is_sv_known gr inch outch =
 
   let tbl_ntnames = Hashtbl.create 11 in
   let ntnum = ref min_symbol in
@@ -774,7 +774,7 @@ let fsm_transducer gr inch outch =
   Printf.fprintf outch "module Pred3 = Yak.Pam_internal.Pred3\n";
 
   (* Print the nullability predicates. *)
-  Nullable_pred.Gil.process_grammar outch (Hashtbl.find tbl_ntnames) (fun nt -> List.assoc nt !starts) gr;
+  Nullable_pred.Gil.process_grammar outch (Hashtbl.find tbl_ntnames) (fun nt -> List.assoc nt !starts) is_sv_known gr;
 
   (* Print the expression bindings used in the automaton.
 

@@ -18,16 +18,16 @@ let tyvar_prefix = "yk_svty"
 
 let freshn counter = Printf.sprintf "%s%d" tyvar_prefix (Yak.Util.postincr counter)
 
-let map_create n =
+let map_create n = 
     let freetypes = Hashtbl.create n in
     let counter = ref 0 in
     {the_table = freetypes;
-     get_id = begin fun id ->
+     get_id = begin fun id -> 
        match Yak.Util.find_option freetypes id with
-       | None ->
-         let x = freshn counter in
-         Hashtbl.add freetypes id x;
-         x
+       | None -> 
+	 let x = freshn counter in
+	 Hashtbl.add freetypes id x;
+	 x
        | Some x -> x end}
 
 type hv = int
@@ -49,8 +49,8 @@ and
  _x11((let _x7 = (match _n() with
  | (2002) -> ((let _x4 = _n() in (); (let _x3 = _n() in (let tk = Yak.YkBuf.get_string _x4 _x3 ykinput in pr b "%s" tk))))
  | (2003) -> ((); (match _n() with
- | (2004) -> ((let id = _r_ident(_n,ykinput) in match id.[0] with '_' ->
-                          pr b "%s " (map id)
+ | (2004) -> ((let id = _r_ident(_n,ykinput) in match id.[0] with '_' -> 
+	                  pr b "%s " (map id) 
                         | otherwise -> pr b "'%s" id ))
  | (2005) -> ((let _x6 = _n() in (); (let _x5 = _n() in (let tk = Yak.YkBuf.get_string _x6 _x5 ykinput in pr b "'%s" tk))))
  | _ -> raise Exit))
@@ -81,14 +81,9 @@ initializer _rv_start()
 end
 
 let _replay_start ykinput h =
- Yk_History.dot_show (fun (hv,p) -> Printf.sprintf "%d@%d" hv p) h;
-  raise Exit
-
-(* let _replay_start ykinput h = *)
-(*   let _o = new rvs (h#right_to_left) in *)
-(*   let _n() = _o#next() in *)
-(*   _r_start(_n,ykinput) *)
-
+  let _o = new rvs (h#right_to_left) in
+  let _n() = _o#next() in
+  _r_start(_n,ykinput)
 (* History constructors *)
 let _e p h = h#empty p
 let _p x p = (fun h->h#push p ( x,p))
@@ -721,9 +716,9 @@ let parse_string = Yak.Pami.Simple.parse_string parse
 let parse_channel ic = parse (Yak.YkBuf.from_channel ic) ;;
 
 (*
-Yak.Pami.Simple.qrun
-  (fun file -> match parse_file file with
-               | [n,s] ->
+Yak.Pami.Simple.qrun 
+  (fun file -> match parse_file file with 
+               | [n,s] -> 
                  Printf.printf "\n%d variables to be remapped.\n%s\n" n s
-               | _ -> failwith "Ambiguous parse.");;
+	       | _ -> failwith "Ambiguous parse.");;
 *)

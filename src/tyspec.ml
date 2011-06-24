@@ -1,6 +1,6 @@
 
 (*******************************************************************************
- * Copyright (c) 2010 AT&T.
+ * Copyright (c) 2011 AT&T.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -42,38 +42,37 @@ end
 module Yk_History = Yak.History.Make(Yk_Hashed)
 
 let rec
- _r_start(_n,ykinput) = (let b = Buffer.create 11 in (let map = map_create 11 in (); (); (); _r_stream(_n,ykinput,map.get_id,b); (); (); Hashtbl.length map.the_table, Buffer.contents b))
+ _r_start(_n,_p,ykinput) = (let b = Buffer.create 11 in (let map = map_create 11 in (); (); (); _r_stream(_n,_p,ykinput,map.get_id,b); (); (); Hashtbl.length map.the_table, Buffer.contents b))
 and
- _r_stream(_n,ykinput,map,b) = (let _x8 = (let rec _x11 _x8 =
+ _r_stream(_n,_p,ykinput,map,b) = (let _x8 = (let rec _x11 _x8 =
 (match _n() with (2001) -> _x8 | _ (*2000*) ->
  _x11((let _x7 = (match _n() with
- | (2002) -> ((let _x4 = _n() in (); (let _x3 = _n() in (let tk = Yak.YkBuf.get_string _x4 _x3 ykinput in pr b "%s" tk))))
- | (2003) -> ((); (match _n() with
- | (2004) -> ((let id = _r_ident(_n,ykinput) in match id.[0] with '_' -> 
-	                  pr b "%s " (map id) 
-                        | otherwise -> pr b "'%s" id ))
- | (2005) -> ((let _x6 = _n() in (); (let _x5 = _n() in (let tk = Yak.YkBuf.get_string _x6 _x5 ykinput in pr b "'%s" tk))))
+ | (2002) -> ((let _x4 = _p() in (); (let _x3 = _p() in (let tk = Yak.YkBuf.get_string _x4 _x3 ykinput in pr b "%s" tk))))
+ | (2005) -> ((); (match _n() with
+ | (2006) -> ((let id = _r_ident(_n,_p,ykinput) in pr b "%s " (map id)))
+ | (2007) -> ((let _x6 = _p() in (); (let _x5 = _p() in (let tk = Yak.YkBuf.get_string _x6 _x5 ykinput in pr b "'%s" tk))))
  | _ -> raise Exit))
  | _ -> raise Exit) in _x7::_x8)))
 in _x11(Yak.Util.nil)) in (List.rev _x8))
 and
- _r_ident(_n,ykinput) = (let _x10 = _n() in (); (let _x9 = _n() in (let x = Yak.YkBuf.get_string _x10 _x9 ykinput in (); x)))
+ _r_ident(_n,_p,ykinput) = (let _x10 = _p() in (); (let _x9 = _p() in (let x = Yak.YkBuf.get_string _x10 _x9 ykinput in (); x)))
 class ['a] rvs (labels: 'a History.enum) =
 let s = ref [] in
 let push x = s := x::!s in
-let rec _n() = let (x,_) = labels#next() in x
-and _rv_start() = ();();();_rv_stream();();();();();()
+let _n() = let (x,_) = labels#next() in x in
+let _p() = let (_,p) = labels#next() in p in
+let rec _rv_start() = ();();();_rv_stream();();();();();()
 and _rv_stream() = ();push((2001)); while (match _n() with (2000) -> true | _ (*2001*)-> false) do
  ();(match _n() with
- | (2002) -> (();();push(_n());();push(_n()); push((2002)))
- | (2003) -> ((match _n() with
- | (2004) -> (();_rv_ident(); push((2004)))
- | (2005) -> (();();push(_n());();push(_n()); push((2005)))
- | _ -> raise Exit);(); push((2003)))
+ | (2002) -> (();();push(_p());();push(_p()); push((2002)))
+ | (2005) -> ((match _n() with
+ | (2006) -> (();_rv_ident(); push((2006)))
+ | (2007) -> (();();push(_p());();push(_p()); push((2007)))
+ | _ -> raise Exit);(); push((2005)))
  | _ -> raise Exit); push((2000))
 done
 
-and _rv_ident() = ();();();push(_n());();push(_n())
+and _rv_ident() = ();();();push(_p());();push(_p())
 in
 object (self)
 method next() = (match !s with hd::tl -> (s := tl; hd) | _ -> raise Not_found)
@@ -83,7 +82,7 @@ end
 let _replay_start ykinput h =
   let _o = new rvs (h#right_to_left) in
   let _n() = _o#next() in
-  _r_start(_n,ykinput)
+  _r_start(_n,_n,ykinput)
 (* History constructors *)
 let _e p h = h#empty p
 let _p x p = (fun h->h#push p ( x,p))
@@ -308,8 +307,9 @@ module SV_hashtbl = Hashtbl.Make(struct
 module Pred = Pred3
 let rec nullable_stream __lookahead _p0_ _x0_ = (Some ((((_p(2001))) ((Yak.YkBuf.get_offset) _p0_)) _x0_))
 
-let __a3 = (_p(2004));;
-let __p8 = (let symb_pred = nullable_stream
+let __a7 = (fun _x0_ _x1_ -> (((_p(2007)) _x0_) (((_p(2009)) _x0_) _x1_)));;
+let __a4 = (_p(2011));;
+let __p11 = (let symb_pred = nullable_stream
        and f_call = (_e)
        and f_ret = (_m 1009)
     in
@@ -318,13 +318,15 @@ let __p8 = (let symb_pred = nullable_stream
      match symb_pred la ykb (f_call p v) with
         None -> None
       | Some v2 -> Some (f_ret p v v2));;
-let __a6 = (_p(2003));;
-let __a1 = (_p_pos);;
+let __a10 = (_p(2003));;
+let __a6 = (fun _x0_ _x1_ -> (((_p(2002)) _x0_) (((_p(2004)) _x0_) _x1_)));;
+let __a3 = (_p(2008));;
+let __a1 = (_p(2010));;
 let __a0 = (_p(2001));;
-let __a5 = (fun _x0_ _x1_ -> (((_p(2005)) _x0_) (((_p_pos) _x0_) _x1_)));;
+let __a5 = (_p(2006));;
 let __g2 = (_e);;
-let __a7 = (_p(2000));;
-let __a4 = (fun _x0_ _x1_ -> (((_p(2002)) _x0_) (((_p_pos) _x0_) _x1_)));;
+let __a8 = (_p(2000));;
+let __a9 = (_p(2005));;
 let __binder0 = __default_ret;;
 let __binder1 = (_m 1035);;
 let __binder2 = (_m 1009);;
@@ -372,7 +374,7 @@ let program = [
 (19, [EatInstr(114,95);EatInstr(98,95);EatInstr(92,95);EatInstr(39,95);EatInstr(34,70);EatInstr(110,95);EatInstr(116,95);EatInstr(32,67);ASimpleCont2Instr(272,__binder0,95);ASimpleCont2Instr(269,__binder0,95)]);
 (211, [CompleteInstr(321);ACallInstr3(__default_call,31);ASimpleCont2Instr(294,__binder0,274)]);
 (20, [EatInstr(57,68);EatInstr(56,68);EatInstr(55,68);EatInstr(54,68);EatInstr(53,68);EatInstr(52,68);EatInstr(51,68);EatInstr(50,68);EatInstr(49,68);EatInstr(48,68);ASimpleCont2Instr(270,__binder0,96)]);
-(212, [AAction2Instr(__a1,275)]);
+(212, [AAction2Instr(__a4,275)]);
 (21, [EatInstr(120,97)]);
 (213, [EatInstr(90,173);EatInstr(89,173);EatInstr(88,173);EatInstr(87,173);EatInstr(86,173);EatInstr(85,173);EatInstr(84,173);EatInstr(83,173);EatInstr(82,173);EatInstr(81,173);EatInstr(80,173);EatInstr(79,173);EatInstr(78,173);EatInstr(77,173);EatInstr(76,173);EatInstr(75,173);EatInstr(74,173);EatInstr(73,173);EatInstr(72,173);EatInstr(71,173);EatInstr(70,173);EatInstr(69,173);EatInstr(68,173);EatInstr(67,173);EatInstr(66,173);EatInstr(65,173);ALookaheadInstr(false,CfgLA (14,277),93)]);
 (22, [EatInstr(120,97);EatInstr(114,95);EatInstr(98,95);EatInstr(92,95);EatInstr(39,95);EatInstr(34,70);EatInstr(57,68);EatInstr(56,68);EatInstr(55,68);EatInstr(54,68);EatInstr(53,68);EatInstr(52,68);EatInstr(51,68);EatInstr(50,68);EatInstr(49,68);EatInstr(48,68);EatInstr(13,65);EatInstr(10,64);EatInstr(110,95);EatInstr(116,95);EatInstr(32,67);ASimpleCont2Instr(284,__binder0,98);ASimpleCont2Instr(283,__binder0,98);ASimpleCont2Instr(282,__binder0,98);ASimpleCont2Instr(274,__binder0,177);ASimpleCont2Instr(272,__binder0,95);ASimpleCont2Instr(270,__binder0,96);ASimpleCont2Instr(269,__binder0,95);ASimpleCont2Instr(268,__binder0,72);ASimpleCont2Instr(267,__binder0,72);ASimpleCont2Instr(266,__binder0,71)]);
@@ -380,11 +382,11 @@ let program = [
 (23, [EatInstr(34,70);ASimpleCont2Instr(272,__binder0,248)]);
 (215, [EatInstr(32,301)]);
 (24, [EatInstr(120,97);EatInstr(114,95);EatInstr(98,95);EatInstr(92,95);EatInstr(39,95);EatInstr(34,70);EatInstr(57,68);EatInstr(56,68);EatInstr(55,68);EatInstr(54,68);EatInstr(53,68);EatInstr(52,68);EatInstr(51,68);EatInstr(50,68);EatInstr(49,68);EatInstr(48,68);EatInstr(110,95);EatInstr(116,95);EatInstr(32,67);ASimpleCont2Instr(284,__binder0,99);ASimpleCont2Instr(283,__binder0,99);ASimpleCont2Instr(282,__binder0,99);ASimpleCont2Instr(272,__binder0,95);ASimpleCont2Instr(270,__binder0,96);ASimpleCont2Instr(269,__binder0,95)]);
-(216, [ACallInstr3(__default_call,60);ASimpleCont2Instr(323,__binder0,276)]);
+(216, [AAction2Instr(__a5,304)]);
 (25, [EatInstr(39,100)]);
-(217, [AAction2Instr(__a3,303)]);
+(217, [ACallInstr3(__default_call,60);ASimpleCont2Instr(323,__binder0,276)]);
 (26, [EatInstr(255,101);EatInstr(254,101);EatInstr(253,101);EatInstr(252,101);EatInstr(251,101);EatInstr(250,101);EatInstr(249,101);EatInstr(248,101);EatInstr(247,101);EatInstr(246,101);EatInstr(245,101);EatInstr(244,101);EatInstr(243,101);EatInstr(242,101);EatInstr(241,101);EatInstr(240,101);EatInstr(239,101);EatInstr(238,101);EatInstr(237,101);EatInstr(236,101);EatInstr(235,101);EatInstr(234,101);EatInstr(233,101);EatInstr(232,101);EatInstr(231,101);EatInstr(230,101);EatInstr(229,101);EatInstr(228,101);EatInstr(227,101);EatInstr(226,101);EatInstr(225,101);EatInstr(224,101);EatInstr(223,101);EatInstr(222,101);EatInstr(221,101);EatInstr(220,101);EatInstr(219,101);EatInstr(218,101);EatInstr(217,101);EatInstr(216,101);EatInstr(215,101);EatInstr(214,101);EatInstr(213,101);EatInstr(212,101);EatInstr(211,101);EatInstr(210,101);EatInstr(209,101);EatInstr(208,101);EatInstr(207,101);EatInstr(206,101);EatInstr(205,101);EatInstr(204,101);EatInstr(203,101);EatInstr(202,101);EatInstr(201,101);EatInstr(200,101);EatInstr(199,101);EatInstr(198,101);EatInstr(197,101);EatInstr(196,101);EatInstr(195,101);EatInstr(194,101);EatInstr(193,101);EatInstr(192,101);EatInstr(191,101);EatInstr(190,101);EatInstr(189,101);EatInstr(188,101);EatInstr(187,101);EatInstr(186,101);EatInstr(185,101);EatInstr(184,101);EatInstr(183,101);EatInstr(182,101);EatInstr(181,101);EatInstr(180,101);EatInstr(179,101);EatInstr(178,101);EatInstr(177,101);EatInstr(176,101);EatInstr(175,101);EatInstr(174,101);EatInstr(173,101);EatInstr(172,101);EatInstr(171,101);EatInstr(170,101);EatInstr(169,101);EatInstr(168,101);EatInstr(167,101);EatInstr(166,101);EatInstr(165,101);EatInstr(164,101);EatInstr(163,101);EatInstr(162,101);EatInstr(161,101);EatInstr(160,101);EatInstr(159,101);EatInstr(158,101);EatInstr(157,101);EatInstr(156,101);EatInstr(155,101);EatInstr(154,101);EatInstr(153,101);EatInstr(152,101);EatInstr(151,101);EatInstr(150,101);EatInstr(149,101);EatInstr(148,101);EatInstr(147,101);EatInstr(146,101);EatInstr(145,101);EatInstr(144,101);EatInstr(143,101);EatInstr(142,101);EatInstr(141,101);EatInstr(140,101);EatInstr(139,101);EatInstr(138,101);EatInstr(137,101);EatInstr(136,101);EatInstr(135,101);EatInstr(134,101);EatInstr(133,101);EatInstr(132,101);EatInstr(131,101);EatInstr(130,101);EatInstr(129,101);EatInstr(128,101);EatInstr(127,101);EatInstr(126,101);EatInstr(125,101);EatInstr(124,101);EatInstr(123,101);EatInstr(122,101);EatInstr(120,101);EatInstr(119,101);EatInstr(117,101);EatInstr(115,101);EatInstr(114,101);EatInstr(113,101);EatInstr(109,101);EatInstr(106,101);EatInstr(104,101);EatInstr(100,101);EatInstr(99,101);EatInstr(98,101);EatInstr(96,101);EatInstr(94,101);EatInstr(93,101);EatInstr(92,101);EatInstr(91,101);EatInstr(90,101);EatInstr(89,101);EatInstr(88,101);EatInstr(87,101);EatInstr(86,101);EatInstr(85,101);EatInstr(84,101);EatInstr(83,101);EatInstr(82,101);EatInstr(81,101);EatInstr(80,101);EatInstr(79,101);EatInstr(78,101);EatInstr(77,101);EatInstr(76,101);EatInstr(75,101);EatInstr(74,101);EatInstr(73,101);EatInstr(72,101);EatInstr(71,101);EatInstr(70,101);EatInstr(69,101);EatInstr(68,101);EatInstr(67,101);EatInstr(66,101);EatInstr(65,101);EatInstr(64,101);EatInstr(63,101);EatInstr(62,101);EatInstr(61,101);EatInstr(60,101);EatInstr(59,101);EatInstr(47,101);EatInstr(46,101);EatInstr(45,101);EatInstr(44,101);EatInstr(43,101);EatInstr(41,101);EatInstr(39,101);EatInstr(38,101);EatInstr(37,101);EatInstr(36,101);EatInstr(35,101);EatInstr(33,101);EatInstr(31,101);EatInstr(30,101);EatInstr(29,101);EatInstr(28,101);EatInstr(27,101);EatInstr(26,101);EatInstr(25,101);EatInstr(24,101);EatInstr(23,101);EatInstr(22,101);EatInstr(21,101);EatInstr(20,101);EatInstr(19,101);EatInstr(18,101);EatInstr(17,101);EatInstr(16,101);EatInstr(15,101);EatInstr(14,101);EatInstr(12,101);EatInstr(11,101);EatInstr(8,101);EatInstr(7,101);EatInstr(6,101);EatInstr(5,101);EatInstr(4,101);EatInstr(3,101);EatInstr(2,101);EatInstr(1,101);EatInstr(0,101);EatInstr(9,101);EatInstr(57,101);EatInstr(56,101);EatInstr(55,101);EatInstr(54,101);EatInstr(53,101);EatInstr(52,101);EatInstr(51,101);EatInstr(50,101);EatInstr(49,101);EatInstr(48,101);EatInstr(13,101);EatInstr(10,101);EatInstr(58,101);EatInstr(111,101);EatInstr(102,101);EatInstr(110,101);EatInstr(105,101);EatInstr(112,101);EatInstr(116,101);EatInstr(101,101);EatInstr(103,101);EatInstr(107,101);EatInstr(121,101);EatInstr(95,101);EatInstr(32,101);EatInstr(108,101);EatInstr(97,101);EatInstr(118,101)]);
-(218, [AAction2Instr(__a4,304)]);
+(218, [AAction2Instr(__a6,303)]);
 (27, [EatInstr(40,102)]);
 (219, [EatInstr(116,277)]);
 (28, [EatInstr(35,182)]);
@@ -500,7 +502,7 @@ let program = [
 (83, [EatInstr(117,157);EatInstr(111,156);EatInstr(97,155)]);
 (275, [CompleteInstr(324);ACallInstr3(__default_call,31);ASimpleCont2Instr(294,__binder0,300)]);
 (84, [EatInstr(114,288);EatInstr(98,158);EatInstr(102,288);EatInstr(112,150)]);
-(276, [AAction2Instr(__a5,303)]);
+(276, [AAction2Instr(__a7,304)]);
 (85, [EatInstr(101,159)]);
 (277, [EatInstr(117,321)]);
 (86, [EatInstr(111,161);EatInstr(108,160)]);
@@ -554,11 +556,11 @@ let program = [
 (110, [CompleteInstr(300);ACallInstr3(__default_call,31);ASimpleCont2Instr(294,__binder0,190)]);
 (302, [EatInstr(95,328)]);
 (111, [CompleteInstr(301);ACallInstr3(__default_call,31);ASimpleCont2Instr(294,__binder0,191)]);
-(303, [AAction2Instr(__a6,304)]);
+(303, [AAction2Instr(__a8,305)]);
 (112, [CompleteInstr(302);ACallInstr3(__default_call,31);ASimpleCont2Instr(294,__binder0,192)]);
-(304, [AAction2Instr(__a7,305)]);
+(304, [AAction2Instr(__a9,303)]);
 (113, [ALookaheadInstr(false, CsLA(let cs = Yak.Cs.empty() in Yak.Cs.insert cs 38; cs), 193)]);
-(305, [CompleteInstr(265);AAction2Instr(__a1,141);ACallInstr3(__default_call,42);ASimpleCont2Instr(305,__binder0,140)]);
+(305, [CompleteInstr(265);AAction2Instr(__a10,141);ACallInstr3(__default_call,42);ASimpleCont2Instr(305,__binder0,140)]);
 (114, [CompleteInstr(304);ACallInstr3(__default_call,31);ASimpleCont2Instr(294,__binder0,194)]);
 (306, [EatInstr(110,321)]);
 (115, [CompleteInstr(305);ACallInstr3(__default_call,31);ASimpleCont2Instr(294,__binder0,195)]);
@@ -611,7 +613,7 @@ let program = [
 (330, [EatInstr(105,332)]);
 (139, [EatInstr(97,214)]);
 (331, [EatInstr(105,333)]);
-(140, [AContInstr3(324,__g2,__binder1,217);AAction2Instr(__a1,216);ACallInstr3(__g2,61)]);
+(140, [AAction2Instr(__a3,217);AContInstr3(324,__g2,__binder1,216);ACallInstr3(__g2,61)]);
 (332, [EatInstr(122,336)]);
 (141, [ACallInstr3(__default_call,59);ASimpleCont2Instr(322,__binder0,218)]);
 (333, [EatInstr(110,325)]);
@@ -652,11 +654,11 @@ let program = [
 (159, [EatInstr(103,231)]);
 (351, [EatInstr(58,352)]);
 (160, [EatInstr(97,232)]);
-(352, [WhenSpecialInstr(__p8,353);AContInstr3(265,__g2,__binder2,353);ACallInstr3(__g2,2);ACallInstr3(__default_call,31);ASimpleCont2Instr(294,__binder0,354)]);
+(352, [WhenSpecialInstr(__p11,353);AContInstr3(265,__g2,__binder2,353);ACallInstr3(__g2,2);ACallInstr3(__default_call,31);ASimpleCont2Instr(294,__binder0,354)]);
 (161, [EatInstr(110,233)]);
 (353, [EatInstr(95,355)]);
 (162, [EatInstr(119,234);EatInstr(110,324);ALookaheadInstr(false,CfgLA (13,276),221)]);
-(354, [WhenSpecialInstr(__p8,353);AContInstr3(265,__g2,__binder2,353);ACallInstr3(__g2,2)]);
+(354, [WhenSpecialInstr(__p11,353);AContInstr3(265,__g2,__binder2,353);ACallInstr3(__g2,2)]);
 (163, [EatInstr(116,235)]);
 (355, [EatInstr(101,356)]);
 (164, [EatInstr(116,236)]);

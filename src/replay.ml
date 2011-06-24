@@ -103,7 +103,7 @@ module Yk_History = Yak.History.Make(Yk_Hashed)
 " !Compileopt.memoize_history);
   hproj
 
-(* Generate the replay functions *)
+(* Generate the replay functions and add labels to rhs as needed. Side-effects the AST.*)
 let replay gr hproj =
   let l = ref 2000 in
   let uses_history = ref false in
@@ -119,14 +119,15 @@ let replay gr hproj =
     | Action (early,Some e) ->
         pr "%s" e
     | Symb(n,x,y,Some e) ->
-        pr "%s(_n,ykinput,%s)" (fname n) e
+        pr "%s(_n,_p,ykinput,%s)" (fname n) e
     | Symb(n,_,_,None) ->
-        pr "%s(_n,ykinput)" (fname n)
+        pr "%s(_n,_p,ykinput)" (fname n)
     | Delay _ ->
         uses_history := true; pr "_n()"
     | Position false ->
-        (* TODO: eliminate in favor of Delay(false,...) *)
-        uses_history := true; pr "_n()"
+        let l = fresh() in
+        r.a.pre <- l;
+        pr "_p()"
     | Opt r1 ->
         loop r1
     | Alt _ ->
@@ -134,11 +135,11 @@ let replay gr hproj =
         pr "(match _n() with";
         List.iter
           (fun r1 ->
-            let l = fresh() in
-            r1.a.pre <- l;
-            pr "\n | %s(%d) -> (" hproj l;
-            loop r1;
-            pr ")")
+             let l = fresh() in
+             r1.a.pre <- l;
+             pr "\n | %s(%d) -> (" hproj l;
+             loop r1;
+             pr ")")
           alts;
         pr "\n | _ -> raise Exit)"
     | Assign(r1,_,late) ->
@@ -190,7 +191,7 @@ let replay gr hproj =
   List.iter
     (function RuleDef(n,r,a) ->
       if not r.a.late_relevant then () else begin
-        pr "%s %s(_n,ykinput%s) = "
+        pr "%s %s(_n,_p,ykinput%s) = "
           (if !first then "\nlet rec\n" else "\nand\n")
           (fname n)
           (match a.Attr.late_params with None -> "" | Some x -> ","^x);
@@ -219,7 +220,7 @@ let reverse gr hproj =
     | Delay _ ->
         pr "push(_n())"
     | Position false ->       (* TODO: eliminate in favor of Delay(false,...) *)
-        pr "push(_n())"
+        pr "push(_p())"
     | Opt r1 ->
         loop r1
     | Alt _ ->
@@ -265,16 +266,20 @@ let reverse gr hproj =
   pr "class ['a] rvs (labels: 'a History.enum) =\n";
   pr "let s = ref [] in\n";
   pr "let push x = s := x::!s in\n";
-  pr "let rec _n() = let (x,_) = labels#next() in x\n";
-  List.iter
+  pr "let _n() = let (x,_) = labels#next() in x in\n";
+  pr "let _p() = let (_,p) = labels#next() in p in\n";
+  ignore (List.fold_left begin fun first ->
     (function RuleDef(n,r,a) ->
-      if not r.a.late_relevant then () else begin
-        pr "and %s() = " (fname n);
-        loop r;
-        pr "\n"
-      end
-      | _ -> ())
-    gr.ds;
+      if not r.a.late_relevant then first else
+        begin
+          if first then pr "let rec %s() = " (fname n) else pr "and %s() = " (fname n);
+          loop r;
+          pr "\n";
+          false
+        end
+      | _ -> first)
+  end
+    true gr.ds);
   pr "in\n";
   pr "object (self)\n";
   pr "method next() = (match !s with hd::tl -> (s := tl; hd) | _ -> raise Not_found)\n";
@@ -291,14 +296,20 @@ let transform gr =
   let uses_history = replay gr hproj in
   if !Compileopt.postfix_history && uses_history then begin
     reverse gr hproj; (* some grammars have late actions but never push anything on the history *)
+
+    (* Since we're using postfix history, we'll already have
+       pre-processed the history in the course of reversing it,
+       including extracting positions with [_p()]. Hence, there will
+       be no need for a special [_p] now -- so we just pass two copies
+       of [_n]. *)
     add_to_prologue gr
       (Printf.sprintf
          "
 let _replay_%s ykinput h =
   let _o = new rvs (h#right_to_left) in
   let _n() = _o#next() in
-  _r_%s(_n,ykinput)\n"
-    (Variables.bnf2ocaml gr.start_symbol) (Variables.bnf2ocaml gr.start_symbol))
+  _r_%s(_n,_n,ykinput)\n"
+         (Variables.bnf2ocaml gr.start_symbol) (Variables.bnf2ocaml gr.start_symbol))
   end else begin
     add_to_prologue gr
       (Printf.sprintf
@@ -306,10 +317,12 @@ let _replay_%s ykinput h =
 let _replay_%s ykinput h =
   let _o = (h#left_to_right) in
   let _n() = (let (x,_) = _o#next() in x) in
-  _r_%s(_n,ykinput)\n"
-    (Variables.bnf2ocaml gr.start_symbol) (Variables.bnf2ocaml gr.start_symbol))
+  let _p() = (let (_,p) = _o#next() in p) in
+  _r_%s(_n,_p,ykinput)\n"
+         (Variables.bnf2ocaml gr.start_symbol) (Variables.bnf2ocaml gr.start_symbol))
   end;
-  let mkOUTPUT l = mkRHS(Delay(false,string_of_int l,None)) in
+  let mkOutput l = Delay(false,string_of_int l,None) in
+  let mkOUTPUT l = mkRHS (mkOutput l) in
   let mkBEFORE r l = mkSEQ[mkOUTPUT(l);r] in
   let mkAFTER r l =
     (* Output after r, preserving early relevance *)
@@ -318,10 +331,10 @@ let _replay_%s ykinput h =
       mkSEQ2(r,Some x,None,mkSEQ[mkOUTPUT(l);mkACTION(x)])
     else
       mkSEQ[r;mkOUTPUT(l)] in
-  let mkOUT r l =
+  let mkOUT =
     if !Compileopt.postfix_history
-    then mkAFTER r l
-    else mkBEFORE r l in
+    then mkAFTER
+    else mkBEFORE in
   let rec loop r =
     if not(r.a.late_relevant) then () else
     match r.r with
@@ -329,19 +342,21 @@ let _replay_%s ykinput h =
         () (*r.r <- (mkACTION2(early,None)).r*) (* Don't remove, so relevance stays the same *)
     | Symb(n,x,y,Some e) ->
         () (*r.r <- (mkSYMB2(n,x,y,None)).r*) (* Don't remove, so relevance stays the same *)
-    | Symb(_,_,_,None)
-    | Delay _
-    | Position false ->
+    | Symb(_,_,_,None) | Delay _ ->
         ()
+    | Position false ->
+        (* Desugar late position into a call to delay. Since delay is
+           late-relevant, does not change relevance. *)
+        r.r <- mkOutput r.a.pre
     | Opt r1 ->
         loop r1
     | Alt _ ->
         let alts = alts_of_rhs r in
         List.iter
           (fun r ->
-            let l = r.a.pre in
-            loop r;
-            r.r <- (mkOUT(dupRhs r)(l)).r)
+             let l = r.a.pre in
+             loop r;
+             r.r <- (mkOUT(dupRhs r)(l)).r)
           alts
     | Assign(r1,_,late) ->
         Util.impossible "TODO late attributes"

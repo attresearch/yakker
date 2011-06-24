@@ -1,6 +1,6 @@
 @ocaml {
 (*******************************************************************************
- * Copyright (c) 2010 AT&T.
+ * Copyright (c) 2011 AT&T.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -31,6 +31,8 @@ let map_create n =
        | Some x -> x end}
 
 }
+; Remaps type variables in the _ev declaration to abstract variables. Doesn't matter whether 
+; the type variables are generalizable or not.
 
 ; Grammar handles cases all forms of type decl.: 0, 1, and many type variables. I guess
 ; if there are 0, we don't need to run this, but that's easier said than done.
@@ -50,9 +52,7 @@ start =
 stream$(map,b) = 
          *( nq-token$tk {pr b "%s" tk} 
           | QUOTE
-	    ( ident$id {match id.[0] with '_' -> 
-	                  pr b "%s " (map id) 
-                        | otherwise -> pr b "'%s" id } 
+	    ( ident$id {pr b "%s " (map id)} 
             | nqid-token$tk {pr b "'%s" tk}
 )).
 

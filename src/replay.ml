@@ -396,7 +396,6 @@ let _replay_%s ykinput h =
     add_to_prologue gr
       "let _e p h = h
 let _p x p h = h
-let _p_pos x p h = h
 let _m x p h h1 = h
 "
   else
@@ -404,6 +403,5 @@ let _m x p h h1 = h
       (Printf.sprintf
       "let _e p h = h#empty p
 let _p x p = (fun h->h#push p (%s x,p))
-let _p_pos p = (fun h->h#push p (%s p,p))
-let _m x p = (fun h1 h2-> h1#merge p (%s x,p) h2)\n" hproj hproj hproj)
+let _m x p = (fun h1 h2-> h1#merge p (%s x,p) h2)\n" hproj hproj)
   end

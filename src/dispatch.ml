@@ -90,7 +90,7 @@ let _d x p = function
     (Yk_more(_,t),h) -> (t x p,h)
   | (ev,_) -> failwith (Printf.sprintf \"_d(%s)\" (_ev_to_string ev))
 let _darg x p = function (* YHM: close to _d *)
-    (Yk_more(_,t),h) -> (t x p,h#empty p)
+    (Yk_more(_,t),h) -> (t x p, _e p h)
   | _ -> failwith \"_darg\"
 let _dbox x = function
     (Yk_more(_,t),h) ->
@@ -134,7 +134,6 @@ let _dnext x p = function (*TJIM: same as _d without p *)
 (* Redefine history constructors *)
 let _e p (_,h) = (Yk_done _wv0, _e p h)
 let _p x p (v,h) = (v, _p x p h)
-let _p_pos p (v,h) = (v, _p_pos p h)
 let _m x p (v1,h1) (_,h2) = (v1, _m x p h1 h2)
 "
 
@@ -239,8 +238,6 @@ let transform gr =
 
   let push e =
     Gil.Action(Printf.sprintf "_p(%s)" e) in
-  let push_pos () =
-    Gil.Action("_p_pos") in
   let disp_delay l    =
     Gil.Action(Printf.sprintf "_ddelay %d" l) in
   let hist_empty = "_e" in
@@ -286,7 +283,7 @@ let transform gr =
       | Action (Some _,_) ->
           Gil.Action(disp(pre))
       | Action (_,Some _) ->
-          Gil.Lit(true,"") (* Action handled by replay *)
+          Gil.Lit(true,"") (* Action handled by replay. Left intact so as not to effect relevance. *)
       | Action (None,None) ->
           Util.impossible "Dispatch.transform.d.Action(None,None)"
       | Symb(n,early_arg_opt,_,_) -> (* TODO: attributes *)
@@ -318,8 +315,6 @@ let transform gr =
           push(e)
       | Position true ->
           Gil.Action(disp(pre))
-      | Position false ->
-          push_pos()
       | Opt r1 ->
           Gil.Alt(Gil.Lit(false,""),d r1)
       | Alt(r1,r2) ->
@@ -350,6 +345,7 @@ let transform gr =
                             Gil.Action(disp(post))))
           else
             Gil.Star(d r1)
+      | Position false                  (* should have been desugared by replay *)
       | CharRange(_,_)
       | Prose(_)
       | Lookahead _

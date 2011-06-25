@@ -30,20 +30,21 @@ end
 module Yk_History = Yak.History.Make(Yk_Hashed)
 
 let rec
- _r_rfc(_n,ykinput) = (); (); (while (match _n() with (2000) -> true | _ (*2001*) -> false) do
+ _r_rfc(_n,_p,ykinput) = (); (); (while (match _n() with (2000) -> true | _ (*2001*) -> false) do
 (match _n() with
- | (2002) -> ((let _x4 = _n() in (); (let _x3 = _n() in (let x = Yak.YkBuf.get_string _x4 _x3 ykinput in  output_string !outch x; output_string !outch "\n";  ; ()))))
- | (2003) -> ((); ())
+ | (2002) -> ((let _x4 = _p() in (); (let _x3 = _p() in (let x = Yak.YkBuf.get_string _x4 _x3 ykinput in  output_string !outch x; output_string !outch "\n";  ; ()))))
+ | (2005) -> ((); ())
  | _ -> raise Exit)done)
 
 class ['a] rvs (labels: 'a History.enum) =
 let s = ref [] in
 let push x = s := x::!s in
-let rec _n() = let (x,_) = labels#next() in x
-and _rv_rfc() = push((2001)); while (match _n() with (2000) -> true | _ (*2001*)-> false) do
+let _n() = let (x,_) = labels#next() in x in
+let _p() = let (_,p) = labels#next() in p in
+let rec _rv_rfc() = push((2001)); while (match _n() with (2000) -> true | _ (*2001*)-> false) do
  (match _n() with
- | (2002) -> (();();();push(_n());();push(_n()); push((2002)))
- | (2003) -> (();(); push((2003)))
+ | (2002) -> (();();();push((_p()));();push((_p())); push((2002)))
+ | (2005) -> (();(); push((2005)))
  | _ -> raise Exit); push((2000))
 done
 ;();()
@@ -56,11 +57,10 @@ end
 let _replay_rfc ykinput h =
   let _o = new rvs (h#right_to_left) in
   let _n() = _o#next() in
-  _r_rfc(_n,ykinput)
+  _r_rfc(_n,_n,ykinput)
 (* History constructors *)
 let _e p h = h#empty p
 let _p x p = (fun h->h#push p ( x,p))
-let _p_pos p = (fun h->h#push p ( p,p))
 let _m x p = (fun h1 h2-> h1#merge p ( x,p) h2)
 
 (*EARLY-LATE PROLOGUE*)
@@ -126,7 +126,7 @@ let _d x p = function
     (Yk_more(_,t),h) -> (t x p,h)
   | (ev,_) -> failwith (Printf.sprintf "_d(%s)" (_ev_to_string ev))
 let _darg x p = function (* YHM: close to _d *)
-    (Yk_more(_,t),h) -> (t x p,h#empty p)
+    (Yk_more(_,t),h) -> (t x p, _e p h)
   | _ -> failwith "_darg"
 let _dbox x = function
     (Yk_more(_,t),h) ->
@@ -170,7 +170,6 @@ let _dnext x p = function (*TJIM: same as _d without p *)
 (* Redefine history constructors *)
 let _e p (_,h) = (Yk_done _wv0, _e p h)
 let _p x p (v,h) = (v, _p x p h)
-let _p_pos p (v,h) = (v, _p_pos p h)
 let _m x p (v1,h1) (_,h2) = (v1, _m x p h1 h2)
 let sv_eq x y = sv_compare x y = 0
 let key_eq (i,v1) (j,v2) = i = j &&  sv_eq v1 v2
@@ -482,9 +481,9 @@ let get_symb_start = function
 
 module Pred3 = Yak.Pam_internal.Pred3
 module SV_hashtbl = Hashtbl.Make(struct
-                    type t = sv
-                    let equal a b = sv_compare a b = 0
-                    let hash = Hashtbl.hash end)
+                      type t = sv
+                      let equal a b = sv_compare a b = 0
+                      let hash = Hashtbl.hash end)
 module Pred = Pred3
 let npt_line = SV_hashtbl.create 11;;
 let rec nullable_line __lookahead _p0_ _x0_ =
@@ -517,6 +516,7 @@ let __g70 = (_darg 1038);;
 let __a41 = (_d 1030);;
 let __a30 = (_d 1116);;
 let __p53 = (_dwhen 1063);;
+let __a33 = (_p(2005));;
 let __g18 = (_darg 1093);;
 let __p59 = (let symb_pred = nullable_o
        and f_call = (_darg 1100)
@@ -631,12 +631,11 @@ let __p69 = (let symb_pred = nullable_o
      match symb_pred la ykb (f_call p v) with
         None -> None
       | Some v2 -> Some (f_ret p v v2));;
+let __a48 = (_p(2003));;
 let __g20 = (_darg 1130);;
-let __a33 = (_p(2003));;
-let __a40 = (fun _x0_ _x1_ -> (((_p(2002)) _x0_) (((_p_pos) _x0_) _x1_)));;
+let __a40 = (fun _x0_ _x1_ -> (((_p(2002)) _x0_) (((_p(2004)) _x0_) _x1_)));;
 let __a25 = (fun _x0_ _x1_ -> (((_d 1058) _x0_) (((_d 1057) _x0_) _x1_)));;
 let __g64 = (_darg 1184);;
-let __a48 = (_p_pos);;
 let __a2 = (fun _x0_ _x1_ -> (((_d 1040) _x0_) (((_x42) _x0_) _x1_)));;
 let __a7 = (fun _x0_ _x1_ -> (((_d 1112) _x0_) (((_d 1111) _x0_) (((_d 1110) _x0_) (((_d 1109) _x0_) (((_d 1108) _x0_) (((_d 1107) _x0_) (((_x95) _x0_) _x1_))))))));;
 let __a15 = (fun _x0_ _x1_ -> (((_d 1175) _x0_) (((_d 1174) _x0_) (((_d 1173) _x0_) (((_d 1172) _x0_) (((_d 1171) _x0_) (((_x140) _x0_) _x1_)))))));;

@@ -220,7 +220,7 @@ let reverse gr hproj =
     | Delay _ ->
         pr "push(_n())"
     | Position false ->       (* TODO: eliminate in favor of Delay(false,...) *)
-        pr "push(_p())"
+        pr "push(%s(_p()))" hproj
     | Opt r1 ->
         loop r1
     | Alt _ ->

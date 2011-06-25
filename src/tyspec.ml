@@ -64,15 +64,15 @@ let _p() = let (_,p) = labels#next() in p in
 let rec _rv_start() = ();();();_rv_stream();();();();();()
 and _rv_stream() = ();push((2001)); while (match _n() with (2000) -> true | _ (*2001*)-> false) do
  ();(match _n() with
- | (2002) -> (();();push(_p());();push(_p()); push((2002)))
+ | (2002) -> (();();push((_p()));();push((_p())); push((2002)))
  | (2005) -> ((match _n() with
  | (2006) -> (();_rv_ident(); push((2006)))
- | (2007) -> (();();push(_p());();push(_p()); push((2007)))
+ | (2007) -> (();();push((_p()));();push((_p())); push((2007)))
  | _ -> raise Exit);(); push((2005)))
  | _ -> raise Exit); push((2000))
 done
 
-and _rv_ident() = ();();();push(_p());();push(_p())
+and _rv_ident() = ();();();push((_p()));();push((_p()))
 in
 object (self)
 method next() = (match !s with hd::tl -> (s := tl; hd) | _ -> raise Not_found)
@@ -86,7 +86,6 @@ let _replay_start ykinput h =
 (* History constructors *)
 let _e p h = h#empty p
 let _p x p = (fun h->h#push p ( x,p))
-let _p_pos p = (fun h->h#push p ( p,p))
 let _m x p = (fun h1 h2-> h1#merge p ( x,p) h2)
 
 (*LATE PROLOGUE*)

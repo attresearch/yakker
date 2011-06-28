@@ -562,7 +562,7 @@ early-inputs =
   "@" "("  Ocaml_until_RPAREN$t        ;;; example: @(a:int,b:bool;x:string;y:bool*int list)
   { match split t ';' with
       [] -> (Some t,[])
-(*    | ""::tl -> (None,List.map var_typ tl)  *)
+    | ""::tl -> (None,List.map var_typ tl)
     | hd::tl -> (Some hd,List.map var_typ tl) }
 .
 early-outputs =

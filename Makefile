@@ -416,11 +416,21 @@ show-%.mli : %.ml
 .PHONY: gen-engine
 .PHONY: restore-yakker_grammar restore-cmdline restore-extract_grammar restore-engine restore-tyspec
 
-bootstrap-yakker_grammar bootstrap-cmdline bootstrap-extract_grammar bootstrap-tyspec: bootstrap-%: $(SRCDIR)/syntax/%.bnf
+bootstrap-cmdline bootstrap-extract_grammar bootstrap-tyspec: bootstrap-%: $(SRCDIR)/syntax/%.bnf
 	@echo checking bootstrapped file $*.ml
-	@./yakker compile $(SRCDIR)/syntax/$*.bnf |\
-		cmp -s - $(SRCDIR)/$*.ml ||\
-		(echo '    updating' $* && cp $(SRCDIR)/$*.ml $(SRCDIR)/prev_$*.ml && ./yakker compile $(SRCDIR)/syntax/$*.bnf > $(SRCDIR)/$*.ml)
+	@./yakker compile $(SRCDIR)/syntax/$*.bnf \
+		| cmp -s - $(SRCDIR)/$*.ml ||\
+		  (echo '    '$*': updating' && cp $(SRCDIR)/$*.ml $(SRCDIR)/prev_$*.ml && ./yakker compile $(SRCDIR)/syntax/$*.bnf > $(SRCDIR)/$*.ml)
+
+bootstrap-yakker_grammar: bootstrap-%: $(SRCDIR)/syntax/%.bnf
+	@echo checking bootstrapped file $*.ml
+	@./yakker compile $(SRCDIR)/syntax/$*.bnf \
+                | perl -p -e 's/# ([0-9]+) "[^"]*ml".*$$/# \1 "yakker_grammar_lexer.ml"/g;' -e 's/# ([0-9]+) "[^"]*mll".*$$/# \1 "yakker_grammar_lexer.mll"/g' \
+		| cmp -s - $(SRCDIR)/$*.ml ||\
+		(echo '    '$*': updating and normalizing line directives' && cp $(SRCDIR)/$*.ml $(SRCDIR)/prev_$*.ml \
+                       && (./yakker compile $(SRCDIR)/syntax/$*.bnf \
+                           | perl -p -e 's/# ([0-9]+) "[^"]*ml".*$$/# \1 "yakker_grammar_lexer.ml"/g;' -e 's/# ([0-9]+) "[^"]*mll".*$$/# \1 "yakker_grammar_lexer.mll"/g' \
+                           > $(SRCDIR)/$*.ml))
 
 gen-engine: gen-% : $(SRCDIR)/wfe.ml
 	@echo checking generated file $*.ml

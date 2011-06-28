@@ -44,7 +44,7 @@ FRONT_END_SOURCES := compileopt.ml variables.ml tgraph.ml meta_prog.ml tyspec.ml
                      minus.ml desugar.ml hash.ml copyrule.ml \
                      analyze.ml unroll.ml lookahead.ml fusion.ml attributes.ml label.ml wrap.ml \
                      coroutine.ml replay.ml \
-                     dispatch.ml ty_infer.ml dearrow.ml lift.ml inline_nullable.ml fsm.ml \
+                     dispatch.ml ty_infer.ml lift.ml inline_nullable.ml fsm.ml dearrow.ml \
 		     extract_grammar.ml rfc.ml ocaml_lexer.mll ocamllex_lexer.mll yakker_grammar.ml \
                      cmdline.ml gil_gen.ml version.ml lexutil.ml  main.ml
 FRONT_END_MLL_SOURCES := $(filter %.mll, $(FRONT_END_SOURCES))

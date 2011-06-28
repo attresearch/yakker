@@ -35,6 +35,7 @@ open Util.Operators
    x handle input attributes.
    x handle input attributes at Symb.
    x handle output attributes at Symb.
+   - Optimize non-producer returns so that even if the environment is non-empty, not action is produced.
    - We seem to be producing too many context constructors -- some are never used in the
      output code. Figure out why, and fix as need be.
    - Modify Return_bind semantics to only conditionally bind -- if it is a semantically relevant binding. In general, we give semantic irrelevance the unit type, but for these purposes we should avoid binding altogether. Aside from optimization, doesn't interact well with relevance analysis used to determine late/early relevance. Once we change late actions to be desugared into early, this issue won't come up, but still will be wasteful.
@@ -43,7 +44,8 @@ open Util.Operators
    x Modify history-only args codegen to just use "_e" rather than its eta-expansion. Same for _m.
    - Modify codegen templates to avoid using "function" when pattern is irrefutable.
      Or, at least, when it is a variable.
-   - Use late-relevance information to only place merge functions on nonterminals that need them.
+   - Use late-relevance information to only place merge functions on nonterminals
+     that need them.
    - Add support for input/output attributes to type inference.
    - Maintain attributes lists in sorted order. Then, optimize gen_ret in updateEnvMerge
      for special case of return simply propogating the result of the ending nonterminal.
@@ -313,15 +315,15 @@ let box_template env_pat box_exp some_pat some_exp =
     | None -> None
     | Some (n, %s) -> Some (n, %s)
     end
-| _ -> failwith \"Expected %s\"" env_pat box_exp some_pat some_exp env_pat
+| _ -> raise (Failure  \"Expected %s\")" env_pat box_exp some_pat some_exp env_pat
 
 let action_template pos_pat env_pat result_exp =
-  gen "fun %s -> function %s -> %s | _ -> failwith \"Expected %s\"" pos_pat env_pat result_exp env_pat
+  gen "fun %s -> function %s -> %s | _ -> raise (Failure  \"Expected %s\")" pos_pat env_pat result_exp env_pat
 
 let merge_template pos_pat env_pat child_pat result_exp : string =
   gen "fun %s v1 v2 -> match (v1,v2) with
 | (%s, %s) -> %s
-| _ -> failwith \"Expected %s and %s\"" pos_pat env_pat child_pat result_exp env_pat child_pat
+| _ -> raise (Failure  \"Expected %s and %s\")" pos_pat env_pat child_pat result_exp env_pat child_pat
 
 (* The following [mk_]-prefixed functions provide an abstraction
    from the code generation into which we insert handling of
@@ -442,7 +444,8 @@ module Neither_combs = struct
     Util.impossible "Dearrow.Neither_combs.mk_action: grammar not relevant."
 
   let mk_merge _ _ _ =
-    Util.impossible "Dearrow.Neither_combs.mk_merge: grammar not relevant."
+    Util.warn Util.Sys_warn "Dearrow.Neither_combs.mk_merge: grammar not relevant.";
+    Fsm.default_binder_tx
 
   let mk_push _ =
     Util.impossible "Dearrow.Neither_combs.mk_push: grammar not relevant."
@@ -726,14 +729,48 @@ let transform gr =
     | Prose _     -> Util.impossible "Dearrow.transform.gul2gil.Prose" in
 
   let rec _tr (g : pl ctxt) xs bind_q r : 'a ctxt * 'b Gil.rhs=
+    (** Should only be used for Gul rules which are *not* considered early producers. *)
     let _do_base g xs a r =
       (* Optimize special cases of xs, bind_q *)
       let r_gil = match xs, a with
         | [], No_bind -> r
-        | [], Return_bind [] -> r       (* Semantically irrelevant, so we bind nothing. *)
+        | _, Return_bind [] when is_empty g -> r
+(*         | [], Return_bind [] -> r       (\* Semantically irrelevant, so we bind nothing. *\) *)
+            (* BUG: the above code and comment are flawed in two ways. 1) still need to drop attributes
+               which shouldn't be propogated. 2) calling code is expecting
+               the return environment to contain unit.
+
+               The previous bug claim is no longer true. We used to
+               merge for all nonterminals, which resulted in the two
+               problems below. However, we now use relevance/producer
+               status to determine applicability of merge. Therefore,
+               non-producing nonterminals with no out attributes don't
+               need to return anything. That, together with the
+               precondition on [_do_base] that [r] not be derived from
+               an early producer, allows us to infer that if the rule
+               is marked as [Return_bind], then it is safe to ignore
+               all but the out attributes in deciding whether to treat
+               as "no-bind."
+
+               There's one catch: if a symbol has an argument or other
+               binding (so is relevant) but is not a producer, then
+               the above does not apply. The proper fix is to take
+               producerness into account when handling symbols, but,
+               for now, we'll just distinguish by looking at the
+               environment, which will be non-empty if there's an
+               argument. Not quite correct, because it can be
+               empty but still relevant and still be a non-producer,
+               but good enough for regressions for now.
+
+               Fundamentally, need more systematic/explicit treatment
+               of return. The bind_q type needs to explicitly indicate
+               what to do.
+
+*)
         | _ -> Gil.Seq (r, Gil.Action (updateEnv g xs a unit_val unit_ty)) in
       updateCtxt g xs a unit_ty, r_gil in
     let do_base r = _do_base g xs bind_q r in
+    if not(r.a.early_relevant || r.a.late_relevant) then do_base (gul2gil r) else
     match r.r with
       | Lit (b,s) -> do_base $| Gil.Lit (b, s)
       | DBranch (e, c) -> do_base $| Gil.DBranch (e, c, "")
@@ -752,8 +789,8 @@ let transform gr =
       | When e ->
           let f = match xs, bind_q with
             | [], No_bind -> "fun _ x -> x"
-            | _ -> updateEnv g xs bind_q true_val bool_ty in
-          updateCtxt g xs bind_q bool_ty, Gil.When (wrapWhen g e, f)
+            | _ -> updateEnv g xs bind_q unit_val unit_ty in
+          updateCtxt g xs bind_q unit_ty, Gil.When (wrapWhen g e, f)
 
       | Box (e, Some ty, bn) ->
           let f = match xs, bind_q with
@@ -846,9 +883,24 @@ let transform gr =
           let _, r1 = _tr g [] No_bind r1 in
           do_base (Gil.Alt(Gil.Lit(false,""), r1))
 
-      | Star (Bounds (0, Infinity), r1) ->
+      | Star (Bounds (0, Infinity), r1) | Star (Accumulate (None, _), r1)->
           let _, r1 = _tr g [] No_bind r1 in
           do_base (Gil.Star r1)
+
+      | Star (Accumulate (Some (x,e),_), r1) ->
+          let ty = Util.from_some r.a.inf_type in
+          let g', r_e =
+            let xs = [] in
+            let f = updateEnv g xs Bind e ty in
+            updateCtxt g xs Bind ty, Gil.Action f in
+          let g2 = ext_var g' x ty in
+          let g2', r = _tr g2 [x] Bind r1 in
+          check_ctxt_eq g' g2';
+          let g3, r_x =
+            let xs = x :: xs in         (* add [x] now so as to delete it from context.  *)
+            let f = updateEnv g2 xs bind_q x ty in
+            updateCtxt g2 xs bind_q ty, Gil.Action f in
+          g3, Gil.Seq (r_e, Gil.Seq(Gil.Star r, r_x))
 
       | Position true ->
           let r_gil = match xs, bind_q with
@@ -868,8 +920,6 @@ let transform gr =
                                               guarantees that [e] is closed. *)
       | Delay (true, _, _) ->
           Util.todo "Dearrow.transform._tr.Delay(true,...): Not yet supported."
-      | Star (Accumulate _, _) ->
-          Util.todo "Dearrow.transform._tr.Star: star with early accumulate not yet supported."
       | Star (Bounds _, _) ->
           Util.todo "Dearrow.transform._tr.Star: star with early closed bounds not yet supported."
       | Assign (_, _, Some _) ->
@@ -896,15 +946,19 @@ let transform gr =
           (function
              | RuleDef(n,r,a) ->
                  let initial_ctxt, drop_set = match a.Attr.early_params with
-                   | None -> empty, []
+                   | None | Some "" (* FIX: bug workaround! field early_params should never be the empty string. *)
+                       -> empty, []
                    | Some s ->
                        let x = get_param s in
                        let ty = Util.from_some a.Attr.early_param_type in
                        singleton_var x ty, [x] in
                  let initial_ctxt = List.fold_left (fun g (v,ty) -> ext_attr g v ty)
                    (force_pl initial_ctxt) a.Attr.input_attributes in
-                 let _, r = _tr initial_ctxt drop_set (Return_bind a.Attr.output_attributes) r in
-                 [(n, r)]
+                 if not (r.a.early_relevant || r.a.late_relevant) && is_empty initial_ctxt then
+                   [(n,gul2gil r)]
+                 else
+                   let _, r = _tr initial_ctxt drop_set (Return_bind a.Attr.output_attributes) r in
+                   [(n, r)]
              | _ -> [])
           gr.ds;
   let free_tyvars = Util.remove_dups $| Hashtbl.fold begin fun tys _ ft ->
@@ -963,11 +1017,11 @@ let get_type_info filename =
            process. not connected to Util.pipe_in_out_result -- happens if I
            do the same using echo to send the command to ocamlc -i. *)
         Tyspec.parse_channel
-    with _ -> failwith "Failure occurred while attempting to retrieve type information." in
+    with _ -> raise (Failure "Failure occurred while attempting to retrieve type information.") in
   match res with
     | [] -> Util.impossible "Tyspec.parse_channel must return at least one result (or raise an exception)."
     | [x] -> x
-    | _ -> Util.error Util.Sys_warn "Ambiguous parse of type information."; failwith "Ambigous parse of input."
+    | _ -> Util.error Util.Sys_warn "Ambiguous parse of type information."; raise (Failure  "Ambigous parse of input.")
 
 (* must be early relevant. argument [is_late_rel] tells us whether it is late relevant as well. *)
 let extend_prologue pcompile gr =

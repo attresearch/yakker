@@ -148,7 +148,8 @@ let elaborate g r =
       | Lit _
       | CharRange _
       | Prose _
-      | Delay _ | When _
+      | When _
+      | Delay _
       | DBranch _ | Position false
           -> r, unit_ty, no_cons
       | Lookahead (b,r1) ->
@@ -282,7 +283,8 @@ let infer print_subs gr =
       (function
         RuleDef(nt, r, a) ->
           (match a.Attr.early_params with
-          | None ->
+          | None
+          | Some "" -> (* FIX: bug workaround! field early_params should never be the empty string. *)
               let r, ty, constraints = elaborate C.empty r in
               let constraints = add_constraint constraints ty (nonterm_tyvar nt) in
               constraints, RuleDef(nt, r, a)
@@ -310,8 +312,10 @@ let infer print_subs gr =
           (* Add argument-type annotation, as applicable. *)
           let a =
             {a with Attr.early_param_type =
-                Util.option_map (fun _ -> string_of_uterm (subs_lookup_try s (nonterm_arg_tyvar nt)))
-                  a.Attr.early_params} in
+                match a.Attr.early_params with
+                  | None | Some "" -> None (* FIX: bug workaround! field early_params should never be the empty string. *)
+                  | Some _ -> Some (string_of_uterm (subs_lookup_try s (nonterm_arg_tyvar nt)))
+            } in
           RuleDef(nt, subs_apply s r, a)
       | x -> x
     end

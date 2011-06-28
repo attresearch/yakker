@@ -283,7 +283,10 @@ let infer print_subs gr =
       (function
         RuleDef(nt, r, a) ->
           (match a.Attr.early_params with
-          | None
+          | None ->
+              let r, ty, constraints = elaborate C.empty r in
+              let constraints = add_constraint constraints ty (nonterm_tyvar nt) in
+              constraints, RuleDef(nt, r, a)
           | Some x ->
               let r, ty, constraints = elaborate (C.ext C.empty (get_param x) (nonterm_arg_tyvar nt)) r in
               let constraints = add_constraint constraints ty (nonterm_tyvar nt) in

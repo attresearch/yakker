@@ -946,8 +946,7 @@ let transform gr =
           (function
              | RuleDef(n,r,a) ->
                  let initial_ctxt, drop_set = match a.Attr.early_params with
-                   | None | Some "" (* FIX: bug workaround! field early_params should never be the empty string. *)
-                       -> empty, []
+                   | None -> empty, []
                    | Some s ->
                        let x = get_param s in
                        let ty = Util.from_some a.Attr.early_param_type in

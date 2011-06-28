@@ -284,10 +284,6 @@ let infer print_subs gr =
         RuleDef(nt, r, a) ->
           (match a.Attr.early_params with
           | None
-          | Some "" -> (* FIX: bug workaround! field early_params should never be the empty string. *)
-              let r, ty, constraints = elaborate C.empty r in
-              let constraints = add_constraint constraints ty (nonterm_tyvar nt) in
-              constraints, RuleDef(nt, r, a)
           | Some x ->
               let r, ty, constraints = elaborate (C.ext C.empty (get_param x) (nonterm_arg_tyvar nt)) r in
               let constraints = add_constraint constraints ty (nonterm_tyvar nt) in
@@ -313,7 +309,7 @@ let infer print_subs gr =
           let a =
             {a with Attr.early_param_type =
                 match a.Attr.early_params with
-                  | None | Some "" -> None (* FIX: bug workaround! field early_params should never be the empty string. *)
+                  | None -> None
                   | Some _ -> Some (string_of_uterm (subs_lookup_try s (nonterm_arg_tyvar nt)))
             } in
           RuleDef(nt, subs_apply s r, a)

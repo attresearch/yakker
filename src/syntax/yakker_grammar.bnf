@@ -452,7 +452,7 @@ Ocaml_until_RBRACKET = @box >@(Ocaml_lexer.Parser.token) (Ocaml.until_RBRACKET)@
 Ocamllex_until_RBRACE = @box >@(Ocamllex_lexer.Parser.token) (Ocamllex.until_RBRACE)@y$x @when(y=Ocamllex_lexer.Parser.RBRACE) { all_but_last x }
 .
 
-posn = (@box >@(int*int) (Posn.get))@x @delay{Lexing.position}(x)
+;posn = (@box >@(int*int) (Posn.get))@x @delay{Lexing.position}(x)
 
 
 ;;

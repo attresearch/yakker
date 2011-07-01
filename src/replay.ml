@@ -14,6 +14,8 @@ open Yak
 open Gul
 open Variables
 
+(* The variable [hproj] is used for the int constructor of the history-value data type. *)
+
 (* Wrapping for histories.
 
    Histories are a polymorphic type, class ['a] history, where in the
@@ -35,27 +37,32 @@ let wrap_history gr =
     (fun types -> function | RuleDef(n,r,a) -> add_types r types | _ -> types)
     (PSet.add "int" PSet.empty)
     gr.ds in
-  let hproj = if 1 = PSet.cardinal types then "" else "Ykd_int" in
+  let hproj =
+    if 1 = PSet.cardinal types then "" else "Ykd_int" in
   if 1 = PSet.cardinal types then
     (* No need to wrap if we only use int *)
     add_to_prologue gr "type hv = int\n;;\n"
   else begin
-    (* Otherwise, each type gets a corresponding datatype constructor *)
+    (* Otherwise, each type gets a corresponding datatype constructor. *)
     let b = Buffer.create 11 in                     (* Print out the type declaration *)
     Printf.bprintf b "type hv =\n";
     Printf.bprintf b "| %s of int\n" hproj;         (* Hard-code this for use by labels, see dispatch.ml *)
     let tbl_type_constructor = Hashtbl.create 11 in (* Map types to their constructors *)
     Hashtbl.add tbl_type_constructor "int" hproj;
     PSet.iter
-      (fun t ->
-        if t<>"int" then begin
-          let x = "Ykd"^(fresh()) in
-          Printf.bprintf b "| %s of (%s)\n" x t;    (* NB parens force a reference if t is a tuple type *)
-          Hashtbl.add tbl_type_constructor t x
-        end)
+      (function
+         | "int" -> ()
+         | t ->
+             let x = "Ykd"^(fresh()) in
+             Printf.bprintf b "| %s of (%s)\n" x t;    (* NB parens force a reference if t is a tuple type *)
+             Hashtbl.add tbl_type_constructor t x)
       types;
+    (* Note: at this point, [hproj] and all entries in
+       [tbl_type_constructor] will map types to a constructor with one
+       argument. We rely on this invariant in the code for Delay,
+       below. *)
     add_to_prologue gr (Buffer.contents b);
-    (* Wrap and unwrap at delay and late position. *)
+    (* Wrap and unwrap at delay. *)
     let rec loop r =
       match r.r with
       | Delay(opn,e,topt) ->
@@ -69,14 +76,6 @@ let wrap_history gr =
               wrapped constructor unwrapped unwrapped in
           r.r <-
             (mkSEQ2(mkRHS(Delay(opn,wrap_act,None)),None,Some wrapped,mkACTION2(None,Some unwrap_act))).r
-      | Position false ->
-          let wrapped,unwrapped = fresh(),fresh() in
-          let constructor = hproj in
-          let unwrap_act =
-            Printf.sprintf "(match %s with %s(%s) -> %s | _ -> failwith \"@delay wrap\")"
-              wrapped constructor unwrapped unwrapped in
-          r.r <-
-            (mkSEQ2(dupRhs r,None,Some wrapped,mkACTION2(None,Some unwrap_act))).r
 
       | Alt(r1,r2) | Seq(r1,_,_,r2) | Minus(r1,r2) ->
           loop r1; loop r2
@@ -84,7 +83,7 @@ let wrap_history gr =
       | Assign(r1,_,_) | Opt r1 | Lookahead (_,r1) | Rcount(_,r1) | Star(_,r1) | Hash(_,r1) ->
           loop r1
 
-      | Symb _ | Position true | Lit(_,_) | CharRange(_,_) | Prose _
+      | Symb _ | Position _ | Lit(_,_) | CharRange(_,_) | Prose _
       | Action _ | When _ | DBranch _ | Box _ ->
           ()
     in
@@ -94,7 +93,7 @@ let wrap_history gr =
   end;
   add_to_prologue gr (Printf.sprintf "
 module Yk_Hashed = struct
-  type t = hv * int
+  type t = int * hv * int
   let compare i j = compare i j
   let hash i = Hashtbl.hash i
   let memoize = %B
@@ -220,7 +219,7 @@ let reverse gr hproj =
     | Delay _ ->
         pr "push(_n())"
     | Position false ->       (* TODO: eliminate in favor of Delay(false,...) *)
-        pr "push(%s(_p()))" hproj
+        pr "push_pos(_p())"
     | Opt r1 ->
         loop r1
     | Alt _ ->
@@ -266,18 +265,19 @@ let reverse gr hproj =
   pr "class ['a] rvs (labels: 'a History.enum) =\n";
   pr "let s = ref [] in\n";
   pr "let push x = s := x::!s in\n";
-  pr "let _n() = let (x,_) = labels#next() in x in\n";
-  pr "let _p() = let (_,p) = labels#next() in p in\n";
+  pr "let push_pos p = s := (%s p)::!s in\n" hproj;
+  pr "let _n() = (let (_,x,_) = labels#next() in x) in\n";
+  pr "let _p() = (let (_,_,p) = labels#next() in p) in\n";
   ignore (List.fold_left begin fun first ->
     (function RuleDef(n,r,a) ->
-      if not r.a.late_relevant then first else
-        begin
-          if first then pr "let rec %s() = " (fname n) else pr "and %s() = " (fname n);
-          loop r;
-          pr "\n";
-          false
-        end
-      | _ -> first)
+       if not r.a.late_relevant then first else
+         begin
+           if first then pr "let rec %s() = " (fname n) else pr "and %s() = " (fname n);
+           loop r;
+           pr "\n";
+           false
+         end
+       | _ -> first)
   end
     true gr.ds);
   pr "in\n";
@@ -296,32 +296,31 @@ let transform gr =
   let uses_history = replay gr hproj in
   if !Compileopt.postfix_history && uses_history then begin
     reverse gr hproj; (* some grammars have late actions but never push anything on the history *)
-
-    (* Since we're using postfix history, we'll already have
-       pre-processed the history in the course of reversing it,
-       including extracting positions with [_p()]. Hence, there will
-       be no need for a special [_p] now -- so we just pass two copies
-       of [_n]. *)
+    (* define [getp] based on hproj to avoid warning over unnecessary match case. *)
+    let getp = if hproj = "" then "_o#next()" else Printf.sprintf "match _o#next() with | %s(p) -> p | _ -> failwith \"wrong constructor for position.\"" hproj in
     add_to_prologue gr
       (Printf.sprintf
          "
 let _replay_%s ykinput h =
   let _o = new rvs (h#right_to_left) in
   let _n() = _o#next() in
-  _r_%s(_n,_n,ykinput)\n"
-         (Variables.bnf2ocaml gr.start_symbol) (Variables.bnf2ocaml gr.start_symbol))
+  let _p() = %s in
+  _r_%s(_n,_p,ykinput)\n"
+         (Variables.bnf2ocaml gr.start_symbol)
+         getp
+         (Variables.bnf2ocaml gr.start_symbol))
   end else begin
     add_to_prologue gr
       (Printf.sprintf
          "
 let _replay_%s ykinput h =
   let _o = (h#left_to_right) in
-  let _n() = (let (x,_) = _o#next() in x) in
-  let _p() = (let (_,p) = _o#next() in p) in
+  let _n() = (let (_,x,_) = _o#next() in x) in
+  let _p() = (let (_,_,p) = _o#next() in p) in
   _r_%s(_n,_p,ykinput)\n"
          (Variables.bnf2ocaml gr.start_symbol) (Variables.bnf2ocaml gr.start_symbol))
   end;
-  let mkOutput l = Delay(false,string_of_int l,None) in
+  let mkOutput l = Delay(false,Printf.sprintf "%s(%d)" hproj l,None) in
   let mkOUTPUT l = mkRHS (mkOutput l) in
   let mkBEFORE r l = mkSEQ[mkOUTPUT(l);r] in
   let mkAFTER r l =
@@ -395,13 +394,17 @@ let _replay_%s ykinput h =
   if !Compileopt.unit_history then
     add_to_prologue gr
       "let _e p h = h
-let _p x p h = h
-let _m x p h h1 = h
+let _p lbl hv p h = h
+let _m lbl p h h1 = h
 "
   else
+    (* merge doesn't carry a value -- all that matters is the
+       label. However, to fit the costraint of the type (a triple), we
+       have to put something in the second position, so we duplicate the
+       label. *)
     add_to_prologue gr
       (Printf.sprintf
-      "let _e p h = h#empty p
-let _p x p = (fun h->h#push p (%s x,p))
-let _m x p = (fun h1 h2-> h1#merge p (%s x,p) h2)\n" hproj hproj)
+         "let _e p h = h#empty p
+let _p lbl hv p = (fun h->h#push p (lbl, hv, p))
+let _m lbl p = (fun h1 h2-> h1#merge p (lbl, %s lbl, p) h2)\n" hproj)
   end

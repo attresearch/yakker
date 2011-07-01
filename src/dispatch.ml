@@ -56,7 +56,7 @@ let _fresh_t_id () =
   incr _t_count;
   count
 let _t f = Yk_more(_fresh_t_id(),f)
-type sv = _wv ev * (hv*_pos, Yak.History.label) Yak.History.history
+type sv = _wv ev * (int * hv * _pos, Yak.History.label) Yak.History.history
 let sv0 = (Yk_done _wv0, Yk_History.new_history())
 let sv_compare (x1,x2) (y1,y2) =
   (match ev_compare x1 y1 with
@@ -107,7 +107,7 @@ let _dwhen x p = function
   | _ -> failwith \"_dwhen\"
 let _ddelay x p =
   (function
-    | (Yk_more(_,t),h) -> (match t x p with Yk_delay(v,hv) -> (v,h#push p (hv,p)) | _ -> failwith \"_ddelay1\")
+    | (Yk_more(_,t),h) -> (match t x p with Yk_delay(v,hv) -> (v,_p x hv p h) | _ -> failwith \"_ddelay1\")
     | _ -> failwith \"_ddelay2\")
 let _dret x p v1 v2 =
   match v1 with
@@ -124,17 +124,14 @@ let _dmerge x p =
           | Yk_bind(f) -> (f r, _m x p h1 h2)
           | _ -> failwith \"_dmerge1\")
     | _ -> failwith \"_dmerge3\")
-let _d_and_push x p = function
-    (Yk_more(_,t),h) -> (t x p, _p x p h)
-  | _ -> failwith \"_d_and_push\"
 let _dnext x p = function (*TJIM: same as _d without p *)
     (Yk_more(_,t),h) -> (t x p,h)
   | _ -> failwith \"_dnext\"
 
 (* Redefine history constructors *)
 let _e p (_,h) = (Yk_done _wv0, _e p h)
-let _p x p (v,h) = (v, _p x p h)
-let _m x p (v1,h1) (_,h2) = (v1, _m x p h1 h2)
+let _p lbl hv p (v,h) = (v, _p lbl hv p h)
+let _m lbl p (v1,h1) (_,h2) = (v1, _m lbl p h1 h2)
 "
 
 let early_prologue = "
@@ -200,7 +197,7 @@ let add_late_prologue gr =
 (*LATE PROLOGUE*)
 type _pos = int (* input positions *)
 let hv_compare = Yk_History.compare
-type sv = (hv*_pos, Yak.History.label) Yak.History.history
+type sv = (int * hv * _pos, Yak.History.label) Yak.History.history
 let sv0 = Yk_History.new_history()
 let sv_compare = hv_compare
 let sv_hash = Yk_History.hash
@@ -236,8 +233,8 @@ let transform gr =
   let disp_merge    = Printf.sprintf "_dmerge %d" in
   let merge         = Printf.sprintf "_m %d" in
 
-  let push e =
-    Gil.Action(Printf.sprintf "_p(%s)" e) in
+  let push l e =
+    Gil.Action(Printf.sprintf "_p %d (%s)" l e) in
   let disp_delay l    =
     Gil.Action(Printf.sprintf "_ddelay %d" l) in
   let hist_empty = "_e" in
@@ -312,7 +309,7 @@ let transform gr =
       | Delay(true,_,_) ->
           disp_delay(pre)
       | Delay(false,e,_) ->
-          push(e)
+          push pre e
       | Position true ->
           Gil.Action(disp(pre))
       | Opt r1 ->

@@ -349,21 +349,21 @@ module EL_combs = struct
     action_template "_" (hist_in_pat_wild env_pat) result_exp
   let mk_action pos_pat env_pat result_exp =
     action_template pos_pat (hist_in_pat env_pat) (hist_out_exp result_exp)
-  let mk_merge fresh_lbl env_pat child_pat result_exp =
+  let mk_merge lbl env_pat child_pat result_exp =
     merge_template reserved_pos_var (hist_in_pat1 env_pat) (hist_in_pat2 child_pat)
-      (hist_merge_exp result_exp $| fresh_lbl ())
+      (hist_merge_exp result_exp lbl)
 
-  (** Precondition: argument [e] closed. *)
-  let mk_push e =
-    let body =
-      (*  okay not to use fresh variables b/c e is closed. *)
-      gen "(v,_p %s %s h)" e reserved_pos_var in
-    action_template reserved_pos_var (hist_in_pat "v") body
+  let mk_push l env_pat e =
+    let v = Variables.freshn "v" in
+    let env_pat = gen "(%s as %s)" env_pat v in
+    let h = Variables.freshn "h" in
+    action_template
+      reserved_pos_var
+      (gen "(%s,%s)" env_pat h)
+      (gen "(%s,_p %d (%s) %s %s)" v l e reserved_pos_var h)
 
   let init () =
-    let current = ref Label.start_labels_at in
-    let f () = Variables.postincr current in
-    mk_box, mk_args_empty, mk_args, mk_when, mk_action, mk_merge f, mk_push
+    mk_box, mk_args_empty, mk_args, mk_when, mk_action, mk_merge, mk_push
 
 end
 
@@ -383,11 +383,10 @@ module E_combs = struct
   let mk_action pos_pat env_pat result_exp =
     action_template pos_pat env_pat result_exp
 
-  let mk_merge env_pat child_pat result_exp =
+  let mk_merge _ env_pat child_pat result_exp =
     merge_template "_" env_pat child_pat result_exp
 
-  (** Precondition: argument [e] closed. *)
-  let mk_push e = Util.impossible "Dearrow.ECombs.mk_push: grammar not late-relevant."
+  let mk_push _ _ _ = Util.impossible "Dearrow.ECombs.mk_push: grammar not late-relevant."
 
   let init () = mk_box, mk_args_empty, mk_args, mk_when, mk_action, mk_merge, mk_push
 
@@ -417,14 +416,15 @@ module L_combs = struct
   let mk_action _ _ _ =
     Util.impossible "Dearrow.LCombs.mk_action: grammar not early-relevant."
 
-  let mk_merge fresh_lbl _ _ _ = hist_merge_exp $| fresh_lbl ()
+  let mk_merge lbl _ _ _ = hist_merge_exp lbl
 
-  let mk_push e = gen "_p %s" e
+  let mk_push l pat e =
+    match pat with
+      | "_" -> gen "_p %d (%s)" l e
+      | _ -> Util.impossible "Dearrow.LCombs.mk_action: grammar not early-relevant."
 
   let init () =
-    let current = ref Label.start_labels_at in
-    let f () = Variables.postincr current in
-    mk_box, mk_args_empty, mk_args, mk_when, mk_action, mk_merge f, mk_push
+    mk_box, mk_args_empty, mk_args, mk_when, mk_action, mk_merge, mk_push
 end
 
 module Neither_combs = struct
@@ -443,11 +443,11 @@ module Neither_combs = struct
   let mk_action _ _ _ =
     Util.impossible "Dearrow.Neither_combs.mk_action: grammar not relevant."
 
-  let mk_merge _ _ _ =
+  let mk_merge _ _ _ _ =
     Util.warn Util.Sys_warn "Dearrow.Neither_combs.mk_merge: grammar not relevant.";
     Fsm.default_binder_tx
 
-  let mk_push _ =
+  let mk_push _ _ _ =
     Util.impossible "Dearrow.Neither_combs.mk_push: grammar not relevant."
 
   let init () = mk_box, mk_args_empty, mk_args, mk_when, mk_action, mk_merge, mk_push
@@ -633,7 +633,7 @@ let transform gr =
     updateEnvP "_" g_ds g xs a e ty in
 
   (*  PRE: vars(g) /\ attrs = {} *)
-  let updateEnvMerge g xs attrs a ty : string =
+  let updateEnvMerge g xs attrs a ty lbl : string =
     let g_ds = deshadow g in
     let attr_names, attr_tys = List.split attrs in
     (* Convert any overwritten attributes from original env. to
@@ -652,7 +652,7 @@ let transform gr =
     let g1 = drop_these g xs in
     let g1_ds = drop_these g_ds xs in
 
-    let _gen pat2 exp_result = mk_merge pat_in pat2 exp_result in
+    let _gen pat2 exp_result = mk_merge lbl pat_in pat2 exp_result in
 
     let mk_result_pat p_result =
       match p_result, attrs with
@@ -777,13 +777,18 @@ let transform gr =
       | CharRange (m,n) -> do_base $| Gil.CharRange (m,n)
       | Lookahead (b, r1) -> do_base $| Gil.Lookahead (b, gul2gil r1)
 
-      | Action (Some e, None) ->
+      (* Late actions were already handled by replay.  If present, was
+         left intact so as not to effect relevance. So, we can
+         ignore. *)
+      | Action (Some e, _) ->
           let ty = Util.from_some r.a.inf_type in
           let f = updateEnv g xs bind_q e ty in
           updateCtxt g xs bind_q ty, Gil.Action f
 
-      (* Late action was already handled by replay. It was left intact so as not to effect relevance. *)
-      | Action (_, Some _) ->
+      (* Late actions were already handled by replay.  If present, was
+         left intact so as not to effect relevance. So, we can
+         ignore -- treat as epsilon. *)
+      | Action (None, Some _) ->
           do_base $| Gil.Lit(true, "")
 
       | When e ->
@@ -839,8 +844,8 @@ let transform gr =
 (* Optimization: *)
 (*             let merge = match xs, attrs_o, bind_q with *)
 (*               | [], [], No_bind when not_late_relevant nt -> None *)
-(*               | _ -> Some (updateEnvMerge g xs attrs_o bind_q ty) in *)
-            let merge = Some (updateEnvMerge g xs attrs_o bind_q ty) in
+(*               | _ -> Some (updateEnvMerge g xs attrs_o bind_q ty r.a.post) in *)
+            let merge = Some (updateEnvMerge g xs attrs_o bind_q ty r.a.post) in
             let r1 = Gil.Symb (nt, gil_arg, merge) in
             let g = updateCtxt (union_attrs g attrs_o) xs bind_q ty in
             g, r1
@@ -916,10 +921,11 @@ let transform gr =
          assuming a history attribute h and position attribute p.
          In current framework, it is a bit more hackish. *)
       | Delay (false, e, _) ->
-          do_base $| Gil.Action(mk_push e) (* Safe to use [mk_push] because Delay(false...)
-                                              guarantees that [e] is closed. *)
-      | Delay (true, _, _) ->
-          Util.todo "Dearrow.transform._tr.Delay(true,...): Not yet supported."
+          do_base $| Gil.Action(mk_push r.a.pre "_" e)
+      | Delay (true, e, _) ->
+          let g = deshadow g in
+          let pat_in = named_pat_of_ctxt g in
+          do_base $| Gil.Action(mk_push r.a.pre pat_in e)
       | Star (Bounds _, _) ->
           Util.todo "Dearrow.transform._tr.Star: star with early closed bounds not yet supported."
       | Assign (_, _, Some _) ->
@@ -984,7 +990,7 @@ type _pos = int (* input positions *)
 
 let hv_compare = Yk_History.compare
 
-type sv = ev * (hv * _pos, Yak.History.label) Yak.History.history
+type sv = ev * (int * hv * _pos, Yak.History.label) Yak.History.history
 let sv0 = (ev0, Yk_History.new_history())
 let sv_compare (x1,x2) (y1,y2) =
   (match ev_compare x1 y1 with

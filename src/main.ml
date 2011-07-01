@@ -398,6 +398,7 @@ let do_phases gr =
                 Dispatch.transform gr
               end
             else begin
+               Label.transform gr;
                Ty_infer.infer false gr;
                Dearrow.transform gr
             end

@@ -239,7 +239,7 @@ yakker-lex-pcomb-parser.opt: tgraph.cmx bnf.cmx yak.cmxa
 # TJIM: removed "history" test below, temporary, conflict with new history.ml
 #R_TESTS = expr int255 intFW scott_example3 yxml2 extract2 t000 t001 t002 t003 t004 recur_w_args staract blackbox empty eof
 # YHM: removed "extract2" test below, because it has been broken for a while.
-R_TESTS = expr int255 intFW scott_example3 yxml2 t000 t001 t002 t003 t004 blackbox empty eof t006 t007 oldtyspec
+R_TESTS = expr int255 intFW scott_example3 yxml2 t000 t001 t002 t003 t004 blackbox empty eof t006 oldtyspec
 R_EXAMPLES = pexpr pyexpr mailapp python
 
 C_T := $(foreach i,$(R_TESTS),$(i)-parser.opt)

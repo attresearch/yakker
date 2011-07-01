@@ -56,6 +56,10 @@ OCAMLDOC_SOURCES := $(filter %.mli, $(YAKKER_SOURCES)) $(filter %.mli, $(FRONT_E
 
 M4PP = m4
 
+ifdef $(USE_ARROW)
+  YOPTS+=-arrow-notation
+endif
+
 #OCAMLOPT_FLAGS = -g
 ifeq ($(DO_PROF),1)
   OCAMLC=ocamlfind ocamlcp
@@ -506,7 +510,7 @@ $(EXAMPLES_PCOMB_EXE): %-pcomb-parser: yak.cma %_pcomb.cmo
 	@echo "--x> " $@
 	@$(OCAMLC) $(OCAML_FLAGS) $^ -g -package unix -linkpkg -o $@
 
-$(EXAMPLES_ICS_ML): YOPTS+=-inline-cs
+$(EXAMPLES_ICS_ML): YOPTS += -inline-cs
 ocamlparser_regular: YOPTS+=-memoize-history
 
 $(EXAMPLES_ML): %.ml : examples/$$*/$$*.bnf yakker

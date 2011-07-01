@@ -14,7 +14,7 @@ open Yak
 open Gul
 open Variables
 
-(* The variable [hproj] is used for the int constructor of the history-value data type. *)
+(* The variable [i_con] is used for the int constructor of the history-value data type. *)
 
 (* Wrapping for histories.
 
@@ -37,7 +37,7 @@ let wrap_history gr =
     (fun types -> function | RuleDef(n,r,a) -> add_types r types | _ -> types)
     (PSet.add "int" PSet.empty)
     gr.ds in
-  let hproj =
+  let i_con =
     if 1 = PSet.cardinal types then "" else "Ykd_int" in
   if 1 = PSet.cardinal types then
     (* No need to wrap if we only use int *)
@@ -46,9 +46,9 @@ let wrap_history gr =
     (* Otherwise, each type gets a corresponding datatype constructor. *)
     let b = Buffer.create 11 in                     (* Print out the type declaration *)
     Printf.bprintf b "type hv =\n";
-    Printf.bprintf b "| %s of int\n" hproj;         (* Hard-code this for use by labels, see dispatch.ml *)
+    Printf.bprintf b "| %s of int\n" i_con;         (* Hard-code this for use by labels, see dispatch.ml *)
     let tbl_type_constructor = Hashtbl.create 11 in (* Map types to their constructors *)
-    Hashtbl.add tbl_type_constructor "int" hproj;
+    Hashtbl.add tbl_type_constructor "int" i_con;
     PSet.iter
       (function
          | "int" -> ()
@@ -57,7 +57,7 @@ let wrap_history gr =
              Printf.bprintf b "| %s of (%s)\n" x t;    (* NB parens force a reference if t is a tuple type *)
              Hashtbl.add tbl_type_constructor t x)
       types;
-    (* Note: at this point, [hproj] and all entries in
+    (* Note: at this point, [i_con] and all entries in
        [tbl_type_constructor] will map types to a constructor with one
        argument. We rely on this invariant in the code for Delay,
        below. *)
@@ -68,7 +68,7 @@ let wrap_history gr =
       | Delay(opn,e,topt) ->
           let wrapped,unwrapped = fresh(),fresh() in
           let constructor =
-            (match topt with None -> hproj
+            (match topt with None -> i_con
             | Some x -> find tbl_type_constructor x) in
           let wrap_act = Printf.sprintf "%s(%s)" constructor e in
           let unwrap_act =
@@ -100,10 +100,10 @@ module Yk_Hashed = struct
 end
 module Yk_History = Yak.History.Make(Yk_Hashed)
 " !Compileopt.memoize_history);
-  hproj
+  i_con
 
 (* Generate the replay functions and add labels to rhs as needed. Side-effects the AST.*)
-let replay gr hproj =
+let replay gr i_con =
   let l = ref 2000 in
   let uses_history = ref false in
   let fresh() = uses_history := true; Util.postincr l in
@@ -136,7 +136,7 @@ let replay gr hproj =
           (fun r1 ->
              let l = fresh() in
              r1.a.pre <- l;
-             pr "\n | %s(%d) -> (" hproj l;
+             pr "\n | %s(%d) -> (" i_con l;
              loop r1;
              pr ")")
           alts;
@@ -160,7 +160,7 @@ let replay gr hproj =
         r.a.post <- l_done;
         let g = Variables.fresh() in
         pr "(let rec %s %s =\n" g x;
-        pr "(match _n() with %s(%d) -> %s | _ (*%d*) ->\n %s(" hproj l_done x l_body g;
+        pr "(match _n() with %s(%d) -> %s | _ (*%d*) ->\n %s(" i_con l_done x l_body g;
         loop r1;
         pr "))\nin %s(%s))" g e
     | Star(_,r1) ->
@@ -168,7 +168,7 @@ let replay gr hproj =
         let l_done = fresh() in
         r1.a.pre <- l_body;
         r.a.post <- l_done;
-        pr "(while (match _n() with %s(%d) -> true | _ (*%d*) -> false) do\n" hproj l_body l_done;
+        pr "(while (match _n() with %s(%d) -> true | _ (*%d*) -> false) do\n" i_con l_body l_done;
         loop r1;
         pr "done)\n"
 
@@ -204,7 +204,7 @@ let replay gr hproj =
   !uses_history
 
 (* Generate the reversing functions *)
-let reverse gr hproj =
+let reverse gr i_con =
   let b = Buffer.create 11 in
   let pr fmt = Printf.bprintf b fmt in
   let fname n = Printf.sprintf "_rv_%s" (Variables.bnf2ocaml n) in
@@ -228,9 +228,9 @@ let reverse gr hproj =
         List.iter
           (fun r1 ->
             let l = r1.a.pre in
-            pr "\n | %s(%d) -> (" hproj l;
+            pr "\n | %s(%d) -> (" i_con l;
             loop r1;
-            pr "; push(%s(%d)))" hproj l)
+            pr "; push(%s(%d)))" i_con l)
           alts;
         pr "\n | _ -> raise Exit)"
     | Assign(r1,_,late) ->
@@ -242,10 +242,10 @@ let reverse gr hproj =
     | Star(x,r1) ->
         let l_body = r1.a.pre in
         let l_done = r.a.post in
-        pr "push(%s(%d)); " hproj l_done;
-        pr "while (match _n() with %s(%d) -> true | _ (*%d*)-> false) do\n " hproj l_body l_done;
+        pr "push(%s(%d)); " i_con l_done;
+        pr "while (match _n() with %s(%d) -> true | _ (*%d*)-> false) do\n " i_con l_body l_done;
         loop r1;
-        pr "; push(%s(%d))\n" hproj l_body;
+        pr "; push(%s(%d))\n" i_con l_body;
         pr "done\n"
 
           (* cases below are not late relevant *)
@@ -265,7 +265,7 @@ let reverse gr hproj =
   pr "class ['a] rvs (labels: 'a History.enum) =\n";
   pr "let s = ref [] in\n";
   pr "let push x = s := x::!s in\n";
-  pr "let push_pos p = s := (%s p)::!s in\n" hproj;
+  pr "let push_pos p = s := (%s p)::!s in\n" i_con;
   pr "let _n() = (let (_,x,_) = labels#next() in x) in\n";
   pr "let _p() = (let (_,_,p) = labels#next() in p) in\n";
   ignore (List.fold_left begin fun first ->
@@ -290,14 +290,14 @@ let reverse gr hproj =
 (* Transform a Gul grammar to explicitly push replay labels *)
 let transform gr =
   if not gr.grammar_late_relevant then () else begin
-  let hproj = wrap_history gr in
+  let i_con = wrap_history gr in
   Analyze.producers gr;
   Analyze.relevance gr;
-  let uses_history = replay gr hproj in
+  let uses_history = replay gr i_con in
   if !Compileopt.postfix_history && uses_history then begin
-    reverse gr hproj; (* some grammars have late actions but never push anything on the history *)
-    (* define [getp] based on hproj to avoid warning over unnecessary match case. *)
-    let getp = if hproj = "" then "_o#next()" else Printf.sprintf "match _o#next() with | %s(p) -> p | _ -> failwith \"wrong constructor for position.\"" hproj in
+    reverse gr i_con; (* some grammars have late actions but never push anything on the history *)
+    (* define [getp] based on i_con to avoid warning over unnecessary match case. *)
+    let getp = if i_con = "" then "_o#next()" else Printf.sprintf "match _o#next() with | %s(p) -> p | _ -> failwith \"wrong constructor for position.\"" i_con in
     add_to_prologue gr
       (Printf.sprintf
          "
@@ -320,7 +320,7 @@ let _replay_%s ykinput h =
   _r_%s(_n,_p,ykinput)\n"
          (Variables.bnf2ocaml gr.start_symbol) (Variables.bnf2ocaml gr.start_symbol))
   end;
-  let mkOutput l = Delay(false,Printf.sprintf "%s(%d)" hproj l,None) in
+  let mkOutput l = Delay(false,Printf.sprintf "%s(%d)" i_con l,None) in
   let mkOUTPUT l = mkRHS (mkOutput l) in
   let mkBEFORE r l = mkSEQ[mkOUTPUT(l);r] in
   let mkAFTER r l =
@@ -406,5 +406,5 @@ let _m lbl p h h1 = h
       (Printf.sprintf
          "let _e p h = h#empty p
 let _p lbl hv p = (fun h->h#push p (lbl, hv, p))
-let _m lbl p = (fun h1 h2-> h1#merge p (lbl, %s lbl, p) h2)\n" hproj)
+let _m lbl p = (fun h1 h2-> h1#merge p (lbl, %s lbl, p) h2)\n" i_con)
   end

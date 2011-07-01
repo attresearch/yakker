@@ -334,12 +334,12 @@ let rec thompson =  function
       etrans(f2,f,     PROB(0.5));
       (s,f)
   | Lookahead (b, Symb(nt,None,None)) -> thompson_base (ELookahead (b, nt))
-  | Lookahead (b, e) ->
-      (match to_cs e with
+  | Lookahead (b, r1) as r ->
+      (match to_cs r1 with
          | Some cs -> thompson_base (ELookaheadCS (b, cs))
          | None ->
              Util.error Util.Sys_warn
-               "lookahead limited to character sets or argument-free symbols.\n";
+               (Printf.sprintf "lookahead limited to character sets or argument-free symbols.\nRule: %s\n" $| Pr.Gil.Pretty.rule2string r);
              thompson (Lit(true,"")))
 
 (************************************************************************)
@@ -447,12 +447,12 @@ let rec merge = function
       etrans(fcall,f,     PROB(0.5));
       (s,f,e)
   | Lookahead (b, Symb(nt,None,None)) -> merge_base (ELookahead (b, nt))
-  | Lookahead (b, e) ->
-      (match to_cs e with
+  | Lookahead (b, r1) as r ->
+      (match to_cs r1 with
          | Some cs -> merge_base (ELookaheadCS (b, cs))
          | None ->
              Util.error Util.Sys_warn
-               "lookahead limited to character sets or argument-free symbols.\n";
+               (Printf.sprintf "lookahead limited to character sets or argument-free symbols.\nRule: %s\n" $| Pr.Gil.Pretty.rule2string r);
              merge (Lit(true,"")))
 
 (************************************************************************)
@@ -462,8 +462,6 @@ let gen_maybe_empty = Nullable_pred.Gil.preds_from_grammar
 (* Output an FSM transducer for a grammar *)
 let grammar_fsm ch gr =
   let npreds = gen_maybe_empty gr in (* what nonterminals are nullable? *)
-
-
   let gr = Desugar.desugar_gil (Inline_nullable.inline npreds gr) in
 
   init_nfa ch;

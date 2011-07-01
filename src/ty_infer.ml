@@ -158,7 +158,7 @@ let elaborate g r =
           unit_ty,
           c1
       | Position true -> r, int_ty, no_cons
-      | Action (Some early, late) ->
+      | Action (Some early, _) ->
           let ty = inf_ty_of_expr g early in
           ty_annot r ty, ty, no_cons
       | Action (None,_) -> r, unit_ty, no_cons

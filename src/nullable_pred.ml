@@ -988,12 +988,13 @@ fun _ ykb v -> match f1 v with | Yk_done %s %s (%s) -> Some (f2 v (%s)) | _ -> N
   | Gil.Alt (r1,r2) -> OrE (trans' r1, trans' r2)
   | Gil.Star _ -> true_e ()
   | Gil.Lookahead (b, Gil.Symb(nt,None,None)) -> CfgLookaheadE(b,nt)
-  | Gil.Lookahead (b, r) ->
-      (match Gil.to_cs r with
+  | Gil.Lookahead (b, r1) as r ->
+      (match Gil.to_cs r1 with
          | Some cs -> CsLookaheadE(b,cs)
          | None ->
              Util.error Util.Sys_warn
-               "lookahead limited to character sets and argument-free symbols.\n";
+               (Printf.sprintf "lookahead limited to character sets or argument-free symbols.\nRule: %s\n"
+                  (Pr.Gil.Pretty.rule2string r));
              false_e()
       )
 

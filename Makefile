@@ -96,6 +96,16 @@ EXAMPLES_PCOMB_OPT_EXE := $(foreach example,$(EXAMPLES),$(example)-pcomb-parser.
 EXAMPLES_ML := $(foreach example,$(EXAMPLES),$(example).ml)
 EXAMPLES_PCOMB_ML := $(foreach example,$(EXAMPLES),$(example)_pcomb.ml)
 
+REGRESSIONS = expr_attr1 expr_attr2 expr_attr3 expr_attr4 \
+	expr_attr5 expr_attr6 expr_attr7 expr_attr8
+
+REGRESSIONS_EXE := $(foreach regression,$(REGRESSIONS),$(regression)-parser)
+REGRESSIONS_OPT_EXE := $(foreach regression,$(REGRESSIONS),$(regression)-parser.opt)
+REGRESSIONS_PCOMB_EXE := $(foreach regression,$(REGRESSIONS),$(regression)-pcomb-parser)
+REGRESSIONS_PCOMB_OPT_EXE := $(foreach regression,$(REGRESSIONS),$(regression)-pcomb-parser.opt)
+REGRESSIONS_ML := $(foreach regression,$(REGRESSIONS),$(regression).ml)
+REGRESSIONS_PCOMB_ML := $(foreach regression,$(REGRESSIONS),$(regression)_pcomb.ml)
+
 ARCHIVE_base = yakker
 ARCHIVE = ${ARCHIVE_base}.cma
 XARCHIVE = ${ARCHIVE_base}.cmxa
@@ -241,34 +251,56 @@ yakker-lex-pcomb-parser.opt: tgraph.cmx bnf.cmx yak.cmxa
 # YHM: removed "extract2" test below, because it has been broken for a while.
 R_TESTS = expr int255 intFW scott_example3 yxml2 t000 t001 t002 t003 t004 blackbox empty eof t006 oldtyspec
 R_EXAMPLES = pexpr pyexpr mailapp python
+R_REGRESSIONS := $(REGRESSIONS)
 
 C_T := $(foreach i,$(R_TESTS),$(i)-parser.opt)
 C_E := $(foreach i,$(R_EXAMPLES),$(i)-parser.opt)
+C_R := $(foreach i,$(R_REGRESSIONS),$(i)-parser.opt)
+
 R_T := $(foreach i,$(R_TESTS),run-t-$(i))
 R_E := $(foreach i,$(R_EXAMPLES),run-e-$(i))
+R_R := $(foreach i,$(R_REGRESSIONS),run-r-$(i))
+
 U_T := $(foreach i,$(R_TESTS),update-t-$(i))
 U_E := $(foreach i,$(R_EXAMPLES),update-e-$(i))
+U_R := $(foreach i,$(R_REGRESSIONS),update-r-$(i))
+
 S_T := $(foreach i,$(R_TESTS),show-t-$(i))
 S_E := $(foreach i,$(R_EXAMPLES),show-e-$(i))
+S_R := $(foreach i,$(R_REGRESSIONS),show-r-$(i))
+
 P_T := $(foreach i,$(R_TESTS),perf-t-$(i))
 P_E := $(foreach i,$(R_EXAMPLES),perf-e-$(i)) perf-e-ocaml
+P_R := $(foreach i,$(R_REGRESSIONS),perf-r-$(i))
+
 RP_T := $(foreach i,$(R_TESTS),recperf-t-$(i))
 RP_E := $(foreach i,$(R_EXAMPLES),recperf-e-$(i))
+RP_R := $(foreach i,$(R_REGRESSIONS),recperf-r-$(i))
+
 PC_T := $(foreach i,$(R_TESTS),pc-perf-t-$(i))
 PC_E := $(foreach i,$(R_EXAMPLES),pc-perf-e-$(i)) pc-perf-e-ocaml
+PC_R := $(foreach i,$(R_REGRESSIONS),pc-perf-r-$(i))
 
 .PHONY: regress update-regress show-regress compile-regress perf-test record-perf-test
 
-regress: $(R_T) $(R_E)
-compile-regress: $(C_T) $(C_E)
-update-regress: $(U_T) $(U_E)
-show-regress: $(S_T) $(S_E)
-perf-test: $(P_T) $(P_E)
-record-perf-test: $(RP_T) $(RP_E)
+regress:          $(R_T)  $(R_E)  $(R_R)
+compile-regress:  $(C_T)  $(C_E)  $(C_R)
+update-regress:   $(U_T)  $(U_E)  $(U_R)
+show-regress:     $(S_T)  $(S_E)  $(S_R)
+perf-test:        $(P_T)  $(P_E)  $(P_R)
+record-perf-test: $(RP_T) $(RP_E) $(RP_R)
+pc-perf-test:     $(PC_T) $(PC_E) $(PC_R)
 
-.PHONY: $(R_T) $(R_E) $(U_T) $(U_R) $(S_T) $(S_R) $(P_T) $(P_E) $(PC_T) $(PC_E) $(RP_T) $(RP_E)
+.PHONY: $(R_T)  $(R_E)  $(R_R) \
+	$(U_T)  $(U_E)  $(U_R) \
+	$(S_T)  $(S_E)  $(S_R) \
+	$(P_T)  $(P_E)  $(P_R) \
+	$(PC_T) $(PC_E) $(PC_R) \
+	$(RP_T) $(RP_E) $(RP_R)
+
 run-t-% update-t-% show-t-% perf-t-% pc-perf-t-% recperf-t-%: D=../tests
 run-e-% update-e-% show-e-% perf-e-% pc-perf-e-% recperf-e-%: D=../examples
+run-r-% update-r-% show-r-% perf-r-% pc-perf-r-% recperf-r-%: D=../regress
 
 define run-regression
 	@echo testing $*
@@ -345,10 +377,16 @@ $(R_T): run-t-% : %-parser.opt
 $(R_E): run-e-% : %-parser.opt
 	$(run-regression)
 
+$(R_R): run-r-% : %-parser.opt
+	$(run-regression)
+
 $(U_T): update-t-% : %-parser.opt
 	$(update-regression)
 
 $(U_E): update-e-% : %-parser.opt
+	$(update-regression)
+
+$(U_R): update-r-% : %-parser.opt
 	$(update-regression)
 
 $(S_T): show-t-% : %-parser.opt
@@ -357,10 +395,16 @@ $(S_T): show-t-% : %-parser.opt
 $(S_E): show-e-% : %-parser.opt
 	$(show-regression)
 
+$(S_R): show-r-% : %-parser.opt
+	$(show-regression)
+
 $(P_T): perf-t-% : %-parser.opt %-pcomb-parser.opt
 	@($(show-perf-test))
 
 $(P_E): perf-e-% : %-parser.opt %-pcomb-parser.opt
+	@($(show-perf-test))
+
+$(P_R): perf-r-% : %-parser.opt %-pcomb-parser.opt
 	@($(show-perf-test))
 
 $(PC_T): pc-perf-t-% : %-pcomb-parser.opt
@@ -369,10 +413,16 @@ $(PC_T): pc-perf-t-% : %-pcomb-parser.opt
 $(PC_E): pc-perf-e-% : %-pcomb-parser.opt
 	@($(show-perf-test-pc))
 
+$(PC_R): pc-perf-r-% : %-pcomb-parser.opt
+	@($(show-perf-test-pc))
+
 $(RP_T): recperf-t-% : %-parser.opt %-pcomb-parser.opt
 	@($(record-perf-test))
 
 $(RP_E): recperf-e-% : %-parser.opt %-pcomb-parser.opt
+	@($(record-perf-test))
+
+$(RP_R): recperf-r-% : %-parser.opt %-pcomb-parser.opt
 	@($(record-perf-test))
 
 ############################## PATTERNS ##############################
@@ -461,63 +511,40 @@ yakker: yak.cmxa strings.cmx rfcs.cmx buildinfo.cmx $(FRONT_END_CMXS)
 endif
 
 ########################################################################
-##   Tests
+##   Standardized Tests and Examples
 ########################################################################
+
+$(TESTS_ML) $(TESTS_PCOMB_ML): D=tests
+$(EXAMPLES_ML) $(EXAMPLES_PCOMB_ML): D=examples
+$(REGRESSIONS_ML) $(REGRESSIONS_PCOMB_ML): D=regress
+# TODO: get coroutines to work with these regressions
+$(REGRESSIONS_ML) $(REGRESSIONS_PCOMB_ML): YOPTS+=-arrow-notation
 
 t006.ml : YOPTS+=-memoize-history
-
-$(TESTS_OPT_EXE): %-parser.opt: yak.cmxa %.cmx
-	@echo "--x> " $@
-	@$(OCAMLOPT) $^ -package unix -linkpkg -o $@
-
-$(TESTS_PCOMB_OPT_EXE): %-pcomb-parser.opt: yak.cmxa %_pcomb.cmx
-	@echo "--x> " $@
-	@$(OCAMLOPT) $^ -package unix -linkpkg -o $@
-
-$(TESTS_EXE): %-parser: yak.cma %.cmo
-	@echo "--x> " $@
-	@$(OCAMLC) $^ -g -package unix -linkpkg -o $@
-
-$(TESTS_PCOMB_EXE): %-pcomb-parser: yak.cma %_pcomb.cmo
-	@echo "--x> " $@
-	@$(OCAMLC) $^ -g -package unix -linkpkg -o $@
-
-$(TESTS_ML): %.ml : tests/$$*/$$*.bnf yakker
-	@echo "x--> " $@
-	@./yakker compile $(YOPTS) $< > $@
-
-$(TESTS_PCOMB_ML): %_pcomb.ml : tests/$$*/$$*.bnf yakker
-	@echo "x--> " $@
-	@./yakker compile -backend fun $< > $@
-
-########################################################################
-##   Standardized examples
-########################################################################
-
-$(EXAMPLES_OPT_EXE): %-parser.opt: yak.cmxa %.cmx
-	@echo "--x> " $@
-	@$(OCAMLOPT) $(OCAMLOPT_FLAGS) $^ -package unix -linkpkg -o $@
-
-$(EXAMPLES_PCOMB_OPT_EXE): %-pcomb-parser.opt: yak.cmxa %_pcomb.cmx
-	@echo "--x> " $@
-	@$(OCAMLOPT) $(OCAMLOPT_FLAGS) $^ -package unix -linkpkg -o $@
-
-$(EXAMPLES_EXE): %-parser: yak.cma %.cmo
-	@echo "--x> " $@
-	@$(OCAMLC) $(OCAML_FLAGS) $^ -g -package unix -linkpkg -o $@
-
-$(EXAMPLES_PCOMB_EXE): %-pcomb-parser: yak.cma %_pcomb.cmo
-	@echo "--x> " $@
-	@$(OCAMLC) $(OCAML_FLAGS) $^ -g -package unix -linkpkg -o $@
-
 $(EXAMPLES_ICS_ML): YOPTS += -inline-cs
 ocamlparser_regular: YOPTS+=-memoize-history
 
-$(EXAMPLES_ML): %.ml : examples/$$*/$$*.bnf yakker
+$(TESTS_OPT_EXE) $(EXAMPLES_OPT_EXE) $(REGRESSIONS_OPT_EXE): %-parser.opt: yak.cmxa %.cmx
+	@echo "--x> " $@
+	@$(OCAMLOPT) $(OCAMLOPT_FLAGS) $^ -package unix -linkpkg -o $@
+
+$(TESTS_PCOMB_OPT_EXE) $(EXAMPLES_PCOMB_OPT_EXE) $(REGRESSIONS_PCOMB_OPT_EXE): %-pcomb-parser.opt: yak.cmxa %_pcomb.cmx
+	@echo "--x> " $@
+	@$(OCAMLOPT) $(OCAMLOPT_FLAGS) $^ -package unix -linkpkg -o $@
+
+$(TESTS_EXE) $(EXAMPLES_EXE) $(REGRESSIONS_EXE): %-parser: yak.cma %.cmo
+	@echo "--x> " $@
+	@$(OCAMLC) $(OCAML_FLAGS) $^ -g -package unix -linkpkg -o $@
+
+$(TESTS_PCOMB_EXE) $(EXAMPLES_PCOMB_EXE) $(REGRESSIONS_PCOMB_EXE): %-pcomb-parser: yak.cma %_pcomb.cmo
+	@echo "--x> " $@
+	@$(OCAMLC) $(OCAML_FLAGS) $^ -g -package unix -linkpkg -o $@
+
+$(TESTS_ML) $(EXAMPLES_ML) $(REGRESSIONS_ML): %.ml : $$(D)/$$*/$$*.bnf yakker
 	@echo "x--> " $@
 	@./yakker compile $(YOPTS) $< > $@
 
-$(EXAMPLES_PCOMB_ML): %_pcomb.ml : examples/$$*/$$*.bnf yakker
+$(TESTS_PCOMB_ML) $(EXAMPLES_PCOMB_ML) $(REGRESSIONS_PCOMB_ML): %_pcomb.ml : $$(D)/$$*/$$*.bnf yakker
 	@echo "x--> " $@
 	@./yakker compile -backend fun $< > $@
 

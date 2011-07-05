@@ -1,0 +1,19 @@
+; Mixes attributes and lexically-scoped variables in the same
+; rule.
+
+start = o E@e o EOF @{Printf.eprintf " %d" e}.
+
+EOF = !OCTET.
+
+WSP = %d9|%d32|CR|LF.
+o = *WSP !WSP.
+wsp = [WSP].
+INT = (DIGIT *DIGIT)@i @{int_of_string i}.
+
+E = (E > @x) o "+" o T@y @{x+y} | T.
+T = T@x o "*" o F@y @{x*y} | F.
+F = "(" o E@e o ")" @{e} | INT.
+
+@end {
+  Yak.Pami.Simple.test_parse parse_file (fun () -> ())
+}

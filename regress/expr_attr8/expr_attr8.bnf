@@ -1,0 +1,32 @@
+; Expression example with using attributes for returning values, 
+; and some lexical scoping.
+
+start = o E o EOF @{Printf.eprintf " %d" ret} "".
+
+EOF = !OCTET.
+
+WSP = %d9|%d32|CR|LF.
+o = *WSP !WSP.
+wsp = [WSP].
+INT>@(;ret:int) = (DIGIT *DIGIT)@i (@{int_of_string i} > @ret) "".
+
+T>@(;ret:int) = T @{ret}@x o "*" o F (@{x*ret} > @ret) "" | F.
+E>@(;ret:int) = E @{ret}@x o "+" o T (@{x+ret} > @ret) "" | T.
+F>@(;ret:int) = "(" o E o ")" | INT.
+
+; start = o E@e$e o EOF ${Printf.eprintf " %d" e} @{Printf.eprintf " %d" e}.
+
+; EOF = !OCTET.
+
+; WSP = %d9|%d32|CR|LF.
+; o = *WSP !WSP.
+; wsp = [WSP].
+; INT = ((DIGIT *DIGIT)@i @{i})@i$i ${int_of_string i} @{int_of_string i}.
+
+; E = E@x$x o "+" o T@y$y ${x+y} @{x+y} | T.
+; T = T@x$x o "*" o F@y$y ${x*y} @{x*y} | F.
+; F = "(" o E@e$e o ")" ${e} @{e} | INT.
+
+@end {
+  Yak.Pami.Simple.test_parse parse_file (fun () -> ())
+}

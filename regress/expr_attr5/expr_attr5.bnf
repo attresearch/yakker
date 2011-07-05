@@ -1,0 +1,13 @@
+; This example resulted in a compilation problem because the type of 
+; the nullability predicates involved variables which could not
+; be generalized. Ultimately, I modified the code to make those
+; predicates (locally) let bound, which solved the problem. 
+; This example can stick around as a regression test.
+
+start =  (@{3} > @x) @{5}@x EOF @{Printf.eprintf " %d" x}.
+
+EOF = !OCTET.
+
+@end {
+  Yak.Pami.Simple.test_parse parse_file (fun () -> ())
+}

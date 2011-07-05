@@ -1,0 +1,9 @@
+; Shadows an attribute with a bound variable.
+
+start =  (@{3} > @x) "+" @{5}@x EOF @{Printf.eprintf " %d" x}.
+
+EOF = !OCTET.
+
+@end {
+  Yak.Pami.Simple.test_parse parse_file (fun () -> ())
+}

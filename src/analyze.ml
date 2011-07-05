@@ -252,17 +252,23 @@ let rec late_relevance late_relevant r =
       ()
 
 (* main function *)
+(** Calculate early and late relevance for a grammar. Early relevance
+    is *shallow* -- it describes only the direct relevance of the contents
+    of a rhs, without the transitive closure. E.g. if A includes B in its
+    definition, and B is relevant, but has no arguments and its result is
+    not bound, then A is not judged relevant because of B. In contrast,
+    late relevance does involve transitive closure. *)
 let relevance gr =
   gr.grammar_early_relevant <- false;
   gr.grammar_late_relevant <- false;
   let is_early_producer n = PSet.mem n gr.early_producers in
   List.iter
     (function
-        RuleDef(n,r,a) ->
-          relevance0 is_early_producer r;
-          if r.a.early_relevant then gr.grammar_early_relevant <- true;
-          if r.a.late_relevant then gr.grammar_late_relevant <- true
-      | _ -> ())
+         RuleDef(n,r,a) ->
+           relevance0 is_early_producer r;
+           if r.a.early_relevant then gr.grammar_early_relevant <- true;
+           if r.a.late_relevant then gr.grammar_late_relevant <- true
+       | _ -> ())
     gr.ds;
   let g = Tgraph.tc(dependency_graph gr.ds) in (* transitive but NOT reflexive closure *)
   let directly_late_relevant =

@@ -35,6 +35,7 @@ open Util.Operators
    x handle input attributes.
    x handle input attributes at Symb.
    x handle output attributes at Symb.
+   - Consider changing type inference to not produce a type if the nonterminal is not a producer. Seems more accurate than marking as unit.
    - Optimize non-producer returns so that even if the environment is non-empty, not action is produced.
    - We seem to be producing too many context constructors -- some are never used in the
      output code. Figure out why, and fix as need be.
@@ -259,7 +260,9 @@ open Meta_prog
 
 (** Binding qualifier. *)
 type bindq = No_bind | Bind | Var_bind of string
-             | Return_bind of (var * string) list (* (attribute, type) pairs. *)
+             | Return_bind of
+                 bool                   (* flag: returns value *)
+                 * (var * string) list  (* (out-attribute, type) pairs. *)
 
 (* TODO: improve error reporting for this check. *)
 let check_ctxt_eq g1 g2 =
@@ -273,10 +276,10 @@ let check_ctxt_eq g1 g2 =
 let check_attrs_mem attrs g missing_message =
   List.iter begin fun (v,_) ->
     try
-      match lookup g v with
+      (match lookup g v with
         | (Attr, _) -> ()
-        | (Var, _) -> dearrow_error ("Expected " ^ v ^ " to be attribute but found variable instead.")
-    with Not_found -> dearrow_error (missing_message v)
+        | (Var, _) -> dearrow_error ("Expected " ^ v ^ " to be attribute but found variable instead."))
+    with Not_found -> dearrow_error ((missing_message v) ^ gen "\nContext: %s\n" (String.concat "," $| names_of_ctxt g))
   end
     attrs
 
@@ -454,6 +457,76 @@ module Neither_combs = struct
 
 end
 
+
+let exp_empty_env = "Ykctxt_empty"
+let pat_empty_env = "_"
+  (* We use wildcard as an optimization:
+
+     1. When environment is empty, we have nothing to benefit from the
+     pattern matching (other than error checking), so skip it.
+
+     2. Call-collapsing assumes that if a nonterminal has no
+     arguments, then its call can be collapsed. But that won't be
+     true, if we match against the empty environment, because then we'll
+     have a match failure if a caller has a non-empty environment and it
+     calls a callee without arguments and the call is collapsed.
+  *)
+
+
+
+(* On the proper treatment of symbols:
+
+   When dealing with symbols, we must take care for the result of
+   the symbol to align with any merge code used for that symbol. The
+   invariant regarding symbols must take into account a number of
+   factors: relevance, producerness and out attributes. Only
+   producerness and out attributes require a non-trivial merge function.
+
+   The issues under consideration are primarily relevant, then, to
+   two pieces of code: the choice of merge function in the Symb case
+   below, and the handling of Return_bind. In considering the
+   latter, we face a design choice: do we encode the proper course
+   of action in the Return_bind constrruction itself (perhaps
+   splitting it into two different constructors), or do we derive it
+   from the context of the code? The latter choice seems natural in
+   some sense, just because we can, but it runs into the issue of
+   the code falling out of sync with the relevance analysis. On the
+   other hand, if we take the former approach, then will be
+   implicitly relying on the relevance analysis aligning with our
+   expectations in this code. That might be the right way to go, but
+   I'd be more comfortable with it if I knew we had a way to quickly
+   place "blame" if something goes wrong, which I don't. Or, if I
+   could be sure that if we consistently rely on it, that it won't
+   result in any bugs. In so far as the concern for us is
+   consistency between merge code and return code, as long as they
+   both rely on the same analysis, I think we'll be fine.
+
+   Note: I chose the latter path, and made the code more general
+   than necessary at present so that if relevance analysis changes
+   it will still work. more later...
+
+
+   Done:
+
+   1. We guide the returning of a value based on the judged
+   "producerness" of a nonterminal.  We mark returns a priori with
+   need to bind or not based on the early_producer set, and
+   correspondingly modifying code that handles returns.
+
+   2. In generating merge code, we take into account the "producerness"
+   of nonterminal.
+
+   3. Special-case handling of empty context not to pattern match
+   against it (which is fine because it carries nothing), which will
+   allow call-collapsing to work in cases where caller does *not* have
+   an empty context but callee has no arguments.
+
+   4. We can't just skip irrelevant rhs because they might have
+   out-attribute producing symbols. Our code considers both
+   "producerness" and output attributes, for considerations of what
+   and when to add elements to the environment.
+
+*)
 let transform gr =
   let mk_box, mk_args_empty, mk_args, mk_when, mk_action, mk_merge, mk_push =
     match gr.grammar_early_relevant,gr.grammar_late_relevant with
@@ -465,7 +538,7 @@ let transform gr =
   (** a global map from ordered lists of types to
       constructors. *)
   let con_table : (ty list, constructor) Hashtbl.t = Hashtbl.create 11 in
-  Hashtbl.add con_table [] "Ykctxt_empty";
+  Hashtbl.add con_table [] exp_empty_env;
   let con_map  (l : ty list) : constructor =
     match Util.find_option con_table l with
       | None ->
@@ -484,8 +557,7 @@ let transform gr =
 
   (*
     WARNING: tricky, because if we use a wildcard in the pattern, then we can run into
-    trouble when trying to reconstruct later. We should distinguish between generating
-    patterns and expressions.
+    trouble when trying to reconstruct later.
 
     Solution: provide "deshadowing" of contexts.
   *)
@@ -504,7 +576,7 @@ let transform gr =
   (** Composes a number of the above operations. *)
   let named_pat_of_ctxt_with_wild (xs : var list) : sf ctxt -> pat =
     fun g ->
-      if is_empty g then con_map []
+      if is_empty g then pat_empty_env
       else mt g ^ "(" ^ tuple_pat_of_ctxt_with_wild xs g ^ ")" in
 
   (** Convert a context to a string encoding the pattern of variables in the context.
@@ -514,10 +586,13 @@ let transform gr =
   (** /G/ composes a number of the above operations. *)
   let named_pat_of_ctxt : sf ctxt -> pat =
     fun g ->
-      if is_empty g then mt g
+      if is_empty g then pat_empty_env
       else mt g ^ "(" ^ tuple_pat_of_ctxt g ^ ")" in
 
-  let named_exp_of_ctxt : sf ctxt -> exp = named_pat_of_ctxt in
+  let named_exp_of_ctxt : sf ctxt -> exp =
+    fun g ->
+      if is_empty g then exp_empty_env
+      else mt g ^ "(" ^ tuple_pat_of_ctxt g ^ ")" in
 
   (** [ds_lookup g1 g2 x]
       Consider [g1] and [g2] together as a map from original names to
@@ -531,9 +606,10 @@ let transform gr =
     match a with
       | Var_bind x when not $| List.mem x (attrs_of_ctxt g1) -> ext_attr g1 x ty
       | Var_bind _ | No_bind | Bind -> g1
-      | Return_bind out_attrs -> ext_out_attrs out_attrs g1 (force_pl empty) in
+      | Return_bind (_, out_attrs) -> ext_out_attrs out_attrs g1 (force_pl empty) in
 
-  (** Wrap expressions [args] so that their free variables from [g] are properly bound. *)
+  (** Wrap expressions [args] so that their free variables from [g] are properly bound.
+      pre-condition: [args] is non-empty. *)
   let wrap_args g args args_tys =
     let g = deshadow g in
     let pat_in = named_pat_of_ctxt g in
@@ -579,18 +655,22 @@ let transform gr =
                                                             fresh w.r.t. to [out_attrs]. *)
       _gen xvar env_out in
 
-    let gen_ret out_attrs =
-      let xvar = fresh_wrt $| List.map fst out_attrs in
-      let g_out = ext_out_attrs out_attrs g1 (singleton_var xvar ty) in
-      let env_out = named_exp_of_ctxt (force_sf g_out) in (* Promotion is safe b/c [xvar] is generated
-                                                            fresh w.r.t. to [out_attrs]. *)
-      _gen xvar env_out in
+    let gen_ret bind_ret out_attrs =
+      let p, g_out =
+        if bind_ret then
+          let xvar = fresh_wrt $| List.map fst out_attrs in
+          xvar, ext_out_attrs out_attrs g1 (singleton_var xvar ty)
+        else
+          "_", ext_out_attrs out_attrs g1 (force_pl empty) in
+      let env_out = named_exp_of_ctxt (force_sf g_out) in (* Promotion is safe b/c [p] is
+                                                             fresh w.r.t. to [out_attrs]. *)
+      _gen p env_out in
 
     match a with
       | No_bind -> gen_upd "_"
       | Var_bind x -> if List.mem x (attrs_of_ctxt g1) then gen_upd x else gen_ext
       | Bind -> gen_ext
-      | Return_bind out_attrs -> gen_ret out_attrs in
+      | Return_bind (b, out_attrs) -> gen_ret b out_attrs in
 
 
   (** [updateEnvP ppat g_ds g xs a e ty]
@@ -615,25 +695,29 @@ let transform gr =
                                                             fresh w.r.t. to [out_attrs]. *)
       _gen (gen "let %s = %s in %s" xvar e env_out) in
 
-    let gen_ret out_attrs =
-      let xvar = fresh_wrt $| List.map fst out_attrs in
-      let g_out = ext_out_attrs out_attrs g1 (singleton_var xvar ty) in
+    let gen_ret bind_ret out_attrs =
+      let p, g_out =
+        if bind_ret then
+          let xvar = fresh_wrt $| List.map fst out_attrs in
+          xvar, ext_out_attrs out_attrs g1 (singleton_var xvar ty)
+        else
+          "_", ext_out_attrs out_attrs g1 (force_pl empty) in
       let env_out = named_exp_of_ctxt (force_sf g_out) in (* Promotion is safe b/c [xvar] is generated
-                                                            fresh w.r.t. to [out_attrs]. *)
-      _gen (gen "let %s = %s in %s" xvar e env_out) in
+                                                             fresh w.r.t. to [out_attrs]. *)
+      _gen (gen "let %s = %s in %s" p e env_out) in
 
     match a with
       | No_bind -> gen_upd "_"
       | Var_bind x -> if List.mem x (attrs_of_ctxt g1) then gen_upd x else gen_ext
       | Bind -> gen_ext
-      | Return_bind out_attrs -> gen_ret out_attrs in
+      | Return_bind (b, out_attrs) -> gen_ret b out_attrs in
 
   let updateEnv g xs a e ty =
     let g_ds = deshadow g in
     updateEnvP "_" g_ds g xs a e ty in
 
   (*  PRE: vars(g) /\ attrs = {} *)
-  let updateEnvMerge g xs attrs a ty lbl : string =
+  let updateEnvMerge g xs attrs a ty_opt lbl : string option =
     let g_ds = deshadow g in
     let attr_names, attr_tys = List.split attrs in
     (* Convert any overwritten attributes from original env. to
@@ -658,8 +742,11 @@ let transform gr =
       match p_result, attrs with
         | "_", [] -> "_"                (* optimization: avoid any pattern match at all. *)
         | _ ->
-            let c = con_map $| ty :: attr_tys in
-            gen "%s(%s)" c $ tuple_pat $| p_result :: attr_names in
+            let names, tys = match ty_opt with
+              | None -> attr_names, attr_tys
+              | Some ty -> p_result :: attr_names, ty :: attr_tys in
+            let c = con_map tys in
+            gen "%s(%s)" c $| tuple_pat names in
 
     (* code for update when we're ignoring the
        second (non-position) parameter. *)
@@ -670,30 +757,45 @@ let transform gr =
       let env_out = named_exp_of_ctxt g1_ds in
       _gen pat_result env_out in
 
-    let gen_ext =
+    (* We suspend the computation because [from_some] is only
+       guaranteed to succeed under specific circumstances, so [gen_ext]
+       should only be invoked under those circumstances. *)
+    let gen_ext () =
       let xvar = fresh_wrt $| nm g1_ds in
       let pat_result = mk_result_pat xvar in
-      let g_out = ext_var g1_ds xvar ty in
+      let g_out = ext_var g1_ds xvar (Util.from_some ty_opt) in
       let env_out = named_exp_of_ctxt (force_sf g_out) in (* Promotion is safe b/c [xvar] is generated
                                                              fresh w.r.t. to [out_attrs]. *)
       _gen pat_result env_out in
 
-    let gen_ret out_attrs =
-      let xvar = fresh_wrt (attr_names @ List.map fst out_attrs) in
-      (* Needs to be fresh w.r.t. [attr_names] so that the generated pattern for the result is valid.
-         Needs to be fresh w.r.t. [out_attrs] so that it doesn't shadow any of the attribute values that
-         need to be returned. *)
-      let pat_result = mk_result_pat xvar in
-      let g_out = ext_out_attrs out_attrs g1 (singleton_var xvar ty) in
-      let env_out = named_exp_of_ctxt (force_sf g_out) in (* Promotion is safe b/c [xvar] is generated
-                                                            fresh w.r.t. to [out_attrs]. *)
-      _gen pat_result env_out in
-
+    (* In this function, we distinguish various cases of return:
+       return nothing, return just attributes, return at least a
+       value. We don't need to specially consider just a value,
+       because ext_out_attrs won't have any effect if there are no
+       out_attrs. *)
+    let gen_ret bind_ret out_attrs =
+      if not bind_ret && out_attrs = [] then
+        None
+      else
+        let p, g_out =
+          if bind_ret then
+            let xvar = fresh_wrt (attr_names @ List.map fst out_attrs) in
+            (* Needs to be fresh w.r.t.
+               - [attr_names], so that the generated pattern for the result is valid;
+               - [out_attrs], so that it doesn't shadow any of the attribute values that
+               need to be returned. *)
+            xvar, ext_out_attrs out_attrs g1 (singleton_var xvar $| Util.from_some ty_opt)
+          else
+            "_", ext_out_attrs out_attrs g1 (force_pl empty) in
+        let pat_result = mk_result_pat p in
+        let env_out = named_exp_of_ctxt (force_sf g_out) in (* Promotion is safe b/c [pat_result] is
+                                                               fresh w.r.t. to [out_attrs]. *)
+        Some (_gen pat_result env_out) in
     match a with
-      | No_bind -> gen_upd_2wild
-      | Var_bind x -> if List.mem x (attrs_of_ctxt g1) then gen_upd x else gen_ext
-      | Bind -> gen_ext
-      | Return_bind out_attrs -> gen_ret out_attrs in
+      | No_bind -> (match xs, attrs with [],[] -> None | _ -> Some gen_upd_2wild)
+      | Var_bind x -> Some (if List.mem x (attrs_of_ctxt g1) then gen_upd x else gen_ext ())
+      | Bind -> Some (gen_ext ())
+      | Return_bind (b, out_attrs) -> gen_ret b out_attrs in
 
   (** Translate IRRELEVANT Gul right-parts to Gil. *)
   let rec gul2gil r = (* should only be called by dispatch, so invariants are satisfied *)
@@ -729,12 +831,23 @@ let transform gr =
     | Prose _     -> Util.impossible "Dearrow.transform.gul2gil.Prose" in
 
   let rec _tr (g : pl ctxt) xs bind_q r : 'a ctxt * 'b Gil.rhs=
-    (** Should only be used for Gul rules which are *not* considered early producers. *)
+
+    (** Should only be used for Gul rules which are *not* considered
+        early producers. *)
     let _do_base g xs a r =
       (* Optimize special cases of xs, bind_q *)
       let r_gil = match xs, a with
         | [], No_bind -> r
-        | _, Return_bind [] when is_empty g -> r
+        | _, Return_bind (false, []) -> r
+            (* Does not return a value and has not output attributes,
+               so we don't need to take any action now. *)
+
+        | _, Return_bind (true, _) ->
+            Util.impossible
+              (Printf.sprintf "Dearrow.transform._tr._do_base: relevant rhs passed to _do_base: %s" $|
+                   Pr.Gil.Pretty.rule2string r)
+              (* Violates pre-condition of [_do_base] *)
+
 (*         | [], Return_bind [] -> r       (\* Semantically irrelevant, so we bind nothing. *\) *)
             (* BUG: the above code and comment are flawed in two ways. 1) still need to drop attributes
                which shouldn't be propogated. 2) calling code is expecting
@@ -754,23 +867,26 @@ let transform gr =
 
                There's one catch: if a symbol has an argument or other
                binding (so is relevant) but is not a producer, then
-               the above does not apply. The proper fix is to take
-               producerness into account when handling symbols, but,
-               for now, we'll just distinguish by looking at the
-               environment, which will be non-empty if there's an
-               argument. Not quite correct, because it can be
-               empty but still relevant and still be a non-producer,
-               but good enough for regressions for now.
+               the above does not apply: the symbol will be judged
+               relevant and, hence, references to it will be processed
+               by the normal Symb case, rather than shortcut. In this
+               case, we will once again have the situation wherein
+               references to the symbol will merge and check for a
+               unit return value, while the above code will not
+               generate the action needed to ensure that the symbol in
+               fact returns the unit value.
 
-               Fundamentally, need more systematic/explicit treatment
-               of return. The bind_q type needs to explicitly indicate
-               what to do.
-
-*)
+               The proper fix is to take producerness into account
+               when handling symbols, but, for now, we'll just
+               distinguish by looking at the environment, which will
+               be non-empty if there's an argument. Not quite correct,
+               because the context can be empty while r is still
+               relevant and a non-producer, but good enough for
+               regressions for now.
+            *)
         | _ -> Gil.Seq (r, Gil.Action (updateEnv g xs a unit_val unit_ty)) in
       updateCtxt g xs a unit_ty, r_gil in
     let do_base r = _do_base g xs bind_q r in
-    if not(r.a.early_relevant || r.a.late_relevant) then do_base (gul2gil r) else
     match r.r with
       | Lit (b,s) -> do_base $| Gil.Lit (b, s)
       | DBranch (e, c) -> do_base $| Gil.DBranch (e, c, "")
@@ -841,13 +957,11 @@ let transform gr =
               | names -> dearrow_error (Printf.sprintf "Dearrow.transform._tr.Symb: The names of symbol %s's output attributes overlap with bound variable names: %s." nt (tuple_exp names))
             end;
 
-(* Optimization: *)
-(*             let merge = match xs, attrs_o, bind_q with *)
-(*               | [], [], No_bind when not_late_relevant nt -> None *)
-(*               | _ -> Some (updateEnvMerge g xs attrs_o bind_q ty r.a.post) in *)
-            let merge = Some (updateEnvMerge g xs attrs_o bind_q ty r.a.post) in
+            let ty_opt = if PSet.mem nt gr.early_producers then Some ty else None in
+            let merge = updateEnvMerge g xs attrs_o bind_q ty_opt r.a.post in
             let r1 = Gil.Symb (nt, gil_arg, merge) in
             let g = updateCtxt (union_attrs g attrs_o) xs bind_q ty in
+(*             Printf.eprintf "\nArrow: Context after %s: %s\n%!" nt (String.concat "," $| names_of_ctxt g); *)
             g, r1
           end
 
@@ -959,11 +1073,10 @@ let transform gr =
                        singleton_var x ty, [x] in
                  let initial_ctxt = List.fold_left (fun g (v,ty) -> ext_attr g v ty)
                    (force_pl initial_ctxt) a.Attr.input_attributes in
-                 if not (r.a.early_relevant || r.a.late_relevant) && is_empty initial_ctxt then
-                   [(n,gul2gil r)]
-                 else
-                   let _, r = _tr initial_ctxt drop_set (Return_bind a.Attr.output_attributes) r in
-                   [(n, r)]
+
+                 let r = snd $| _tr initial_ctxt drop_set
+                     (Return_bind (PSet.mem n gr.early_producers, a.Attr.output_attributes)) r in
+                 [(n, r)]
              | _ -> [])
           gr.ds;
   let free_tyvars = Util.remove_dups $| Hashtbl.fold begin fun tys _ ft ->

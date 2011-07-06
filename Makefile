@@ -97,7 +97,8 @@ EXAMPLES_ML := $(foreach example,$(EXAMPLES),$(example).ml)
 EXAMPLES_PCOMB_ML := $(foreach example,$(EXAMPLES),$(example)_pcomb.ml)
 
 REGRESSIONS = expr_attr1 expr_attr2 expr_attr3 expr_attr4 \
-	expr_attr5 expr_attr6 expr_attr7 expr_attr8
+	expr_attr5 expr_attr6 expr_attr7 expr_attr8 \
+        expr_replay1 expr_replay2 expr_replay3 expr_replay4
 
 REGRESSIONS_EXE := $(foreach regression,$(REGRESSIONS),$(regression)-parser)
 REGRESSIONS_OPT_EXE := $(foreach regression,$(REGRESSIONS),$(regression)-parser.opt)
@@ -551,37 +552,6 @@ $(TESTS_PCOMB_ML) $(EXAMPLES_PCOMB_ML) $(REGRESSIONS_PCOMB_ML): %_pcomb.ml : $$(
 ########################################################################
 ##  Specialized tests
 ########################################################################
-.PHONY: test_tyinfer test_arrow test_arrow_replay
-
-test_tyinfer: tests/expr/expr_early2.bnf yakker-byte
-	(OCAMLRUNPARAM='b'; yakker-byte infer-types $<)
-
-test_arrow: expr_attr0 expr_attr1 expr_attr2 expr_attr3 \
-expr_attr4 expr_attr5 expr_attr6 expr_attr7
-
-test_arrow_replay: expr_replay1 expr_replay2
-
-# expr_early2.dot: tests/expr/expr_early2.bnf yakker-byte
-# 	(OCAMLRUNPARAM='b'; yakker-byte dot -arrow-notation $< > expr_early2.dot)
-
-expr_%.ml: tests/expr/expr_%.bnf yakker
-	yakker compile -arrow-notation $< > $@
-
-expr_%.dot: tests/expr/expr_%.bnf yakker
-	yakker dot -arrow-notation $< > $@
-
-expr_%-byte: yak.cma expr_%.cmo
-	@echo "--x> " $@
-	@$(OCAMLC) $(OCAML_FLAGS) -g $^ -package unix -linkpkg -o $@
-
-expr_%: yak.cmxa expr_%.cmx
-	@echo "--x> " $@
-	@$(OCAMLOPT) $(OCAMLOPT_FLAGS) $^ -package unix -linkpkg -o $@
-
-
-
-
-
 ifeq ($(shell whoami),yitzhakm)
 OCAML_COMP_DIR=/Users/yitzhakm/sw/godi/lib/ocaml/compiler-lib
 endif

@@ -98,7 +98,7 @@ EXAMPLES_PCOMB_ML := $(foreach example,$(EXAMPLES),$(example)_pcomb.ml)
 
 REGRESSIONS = expr_attr1 expr_attr2 expr_attr3 expr_attr4 \
 	expr_attr5 expr_attr6 expr_attr7 expr_attr8 \
-        expr_replay1 expr_replay2 expr_replay3 expr_replay4
+        expr_replay1 expr_replay4
 
 REGRESSIONS_EXE := $(foreach regression,$(REGRESSIONS),$(regression)-parser)
 REGRESSIONS_OPT_EXE := $(foreach regression,$(REGRESSIONS),$(regression)-parser.opt)

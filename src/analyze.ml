@@ -45,7 +45,62 @@ let pr_tokmap tokmap =
 
 (******************************************************************************)
 
-(* Figure out what nonterminals are producers *)
+(** [is_rhs_producer early_producers late_producers r] determines whether right-side [r] is a (early,late) producer given
+    the provided sets of producing nonterminals.
+    Designed for post-lifting semantics. *)
+let is_rhs_producer early_producers late_producers r =
+  let is_early_producer n = PSet.mem n early_producers in
+  let is_late_producer n = PSet.mem n late_producers in
+  let rec loop r =
+    match r.r with
+      | Symb (nt,_,_,_) -> is_early_producer nt, is_late_producer nt
+      | Action(early,late) -> early <> None, late <> None
+      | Position b -> (b, not b)
+      | DBranch(_,{arity=0}) -> false, false
+          (*        TODO-dbranch: extend to support late production
+                    | DBranch _ -> if !Compileopt.late_only_dbranch then late_producer() else early_producer() *)
+      | DBranch _ -> if !Compileopt.late_only_dbranch then false, false else (true, false)
+      | Box(_,Some _,_) -> true, false
+      | Box(_,None,_) -> false, false
+      | Delay _ -> false, true
+      | Assign _ | Lit _ | CharRange _ | Prose _ | When _
+      | Lookahead _ -> (* NB Lookahead can't be a producer *)
+          false, false
+      | Seq(r1,_,_,r2) -> loop r2
+      | Minus(r1,r2) -> false, false
+      | Alt(r1,r2) ->
+          let x = loop r1 in
+          let y = loop r2 in
+          if x <> y then Util.impossible "Analyze.is_rhs_producer.loop: mismatched alternatives."
+          else x
+      | Opt(r1) ->
+          let x = loop r1 in
+          let y = false, false in
+          if x <> y then Util.impossible "Analyze.is_rhs_producer.loop: mismatched option."
+          else y
+      | Rcount(_,r1) ->
+          (* Rcount can (potentially) repeat zero times, so we force [r1] not to be a producer. *)
+          let x = loop r1 in
+          let y = false, false in
+          if x <> y then Util.impossible "Analyze.is_rhs_producer.loop: mismatched repeat."
+          else y
+      | Star(Accumulate (early,late),r1) -> early <> None, late <> None
+      | Star(Bounds(0,_),r1) ->
+          let x = loop r1 in
+          let y = false, false in
+          if x <> y then Util.impossible "Analyze.is_rhs_producer.loop: mismatched star."
+          else y
+      | Star(Bounds(_,_),r1) -> loop r1
+      | Hash(Accumulate (early,late),r1) -> early <> None, late <> None
+      | Hash(Bounds(0,_),r1) ->
+          let x = loop r1 in
+          let y = false, false in
+          if x <> y then Util.impossible "Analyze.is_rhs_producer.loop: mismatched star."
+          else y
+      | Hash(Bounds(_,_),r1) -> loop r1 in
+  loop r
+
+(** Figure out what nonterminals are producers *)
 let producers gr =
   let direct_producers gr =
     gr.early_producers <- PSet.empty;
@@ -116,29 +171,32 @@ let producers gr =
     | Hash(_,r1) ->
         loop g n r1
     in
-    Tgraph.tc
-      (List.fold_left
-         (fun result ->
-           (function
-             RuleDef(n,r, _)->
-               loop (Tgraph.add_node result n) n r
-             | _ -> result))
-         Tgraph.empty
-         gr.ds)
+    let direct_tail_graph =
+      List.fold_left begin fun result -> function
+        | RuleDef(n, r, _)-> loop (Tgraph.add_node result n) n r
+        | _ -> result
+      end
+        Tgraph.empty
+        gr.ds in
+    Tgraph.tc direct_tail_graph
   in
   direct_producers gr;
   let direct_early_producers = gr.early_producers in
   let direct_late_producers = gr.late_producers in
   let g = tail_graph gr in
   let intersect x y = PSet.filter (fun a -> PSet.mem a x) y in
+  let reaches tails producers = not (PSet.is_empty(intersect tails producers)) in
   List.iter
     (function
-        RuleDef(n,r,a) ->
+       | RuleDef(n,r,a) ->
           let tails = Tgraph.get_targets g n in
-          if not(PSet.is_empty(intersect tails direct_early_producers))
+
+          if reaches tails direct_early_producers
           then gr.early_producers <- PSet.add n gr.early_producers;
-          if not(PSet.is_empty(intersect tails direct_late_producers))
+
+          if reaches tails direct_late_producers
           then gr.late_producers <- PSet.add n gr.late_producers;
+
           (match PSet.mem n gr.early_producers,a.Attr.early_rettype with
           | true,None ->
               if !Compileopt.use_coroutines then

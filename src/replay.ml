@@ -320,12 +320,13 @@ let _replay_%s ykinput h =
   _r_%s(_n,_p,ykinput)\n"
          (Variables.bnf2ocaml gr.start_symbol) (Variables.bnf2ocaml gr.start_symbol))
   end;
+  let is_early_producer r = fst (Analyze.is_rhs_producer gr.early_producers gr.late_producers r) in
   let mkOutput l = Delay(false,Printf.sprintf "%s(%d)" i_con l,None) in
   let mkOUTPUT l = mkRHS (mkOutput l) in
   let mkBEFORE r l = mkSEQ[mkOUTPUT(l);r] in
   let mkAFTER r l =
-    (* Output after r, preserving early relevance *)
-    if r.a.early_relevant then
+    (* Output after r, while preserving early producerness *)
+    if is_early_producer r then
       let x = Variables.fresh() in
       mkSEQ2(r,Some x,None,mkSEQ[mkOUTPUT(l);mkACTION(x)])
     else

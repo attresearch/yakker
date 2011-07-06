@@ -341,6 +341,7 @@ module EL_combs = struct
   let hist_out_exp = gen "(%s,h)"
   let hist_new_exp s = gen "(%s,_e %s h)" s reserved_pos_var
   let hist_merge_exp s i = gen "(%s,_m %d %s h1 h2)" s i reserved_pos_var
+  let hist_prop_exp = gen "(%s,h1)"
 
   let mk_box env_pat box_exp some_pat some_exp =
     box_template (hist_in_pat env_pat) box_exp some_pat (hist_out_exp some_exp)
@@ -352,9 +353,9 @@ module EL_combs = struct
     action_template "_" (hist_in_pat_wild env_pat) result_exp
   let mk_action pos_pat env_pat result_exp =
     action_template pos_pat (hist_in_pat env_pat) (hist_out_exp result_exp)
-  let mk_merge lbl env_pat child_pat result_exp =
+  let mk_merge is_late_prod lbl env_pat child_pat result_exp =
     merge_template reserved_pos_var (hist_in_pat1 env_pat) (hist_in_pat2 child_pat)
-      (hist_merge_exp result_exp lbl)
+      (if is_late_prod then hist_merge_exp result_exp lbl else hist_prop_exp result_exp)
 
   let mk_push l env_pat e =
     let v = Variables.freshn "v" in
@@ -386,7 +387,7 @@ module E_combs = struct
   let mk_action pos_pat env_pat result_exp =
     action_template pos_pat env_pat result_exp
 
-  let mk_merge _ env_pat child_pat result_exp =
+  let mk_merge _ _ env_pat child_pat result_exp =
     merge_template "_" env_pat child_pat result_exp
 
   let mk_push _ _ _ = Util.impossible "Dearrow.ECombs.mk_push: grammar not late-relevant."
@@ -419,7 +420,8 @@ module L_combs = struct
   let mk_action _ _ _ =
     Util.impossible "Dearrow.LCombs.mk_action: grammar not early-relevant."
 
-  let mk_merge lbl _ _ _ = hist_merge_exp lbl
+  let mk_merge is_late_prod lbl _ _ _ =
+    if is_late_prod then hist_merge_exp lbl else Fsm.default_binder_tx
 
   let mk_push l pat e =
     match pat with
@@ -446,7 +448,7 @@ module Neither_combs = struct
   let mk_action _ _ _ =
     Util.impossible "Dearrow.Neither_combs.mk_action: grammar not relevant."
 
-  let mk_merge _ _ _ _ =
+  let mk_merge _ _ _ _ _ =
     Util.warn Util.Sys_warn "Dearrow.Neither_combs.mk_merge: grammar not relevant.";
     Fsm.default_binder_tx
 
@@ -717,7 +719,7 @@ let transform gr =
     updateEnvP "_" g_ds g xs a e ty in
 
   (*  PRE: vars(g) /\ attrs = {} *)
-  let updateEnvMerge g xs attrs a ty_opt lbl : string option =
+  let updateEnvMerge g xs attrs a ty_opt is_late_prod lbl : string option =
     let g_ds = deshadow g in
     let attr_names, attr_tys = List.split attrs in
     (* Convert any overwritten attributes from original env. to
@@ -736,7 +738,11 @@ let transform gr =
     let g1 = drop_these g xs in
     let g1_ds = drop_these g_ds xs in
 
-    let _gen pat2 exp_result = mk_merge lbl pat_in pat2 exp_result in
+    (* code for simply propogating current environment. Useful in
+       conjunction with histories, when history needs to be merged. *)
+    let _gen_prop = if is_late_prod then Some (mk_merge true lbl "x" "_" "x") else None in
+
+    let _gen pat2 exp_result = mk_merge is_late_prod lbl pat_in pat2 exp_result in
 
     let mk_result_pat p_result =
       match p_result, attrs with
@@ -792,7 +798,7 @@ let transform gr =
                                                                fresh w.r.t. to [out_attrs]. *)
         Some (_gen pat_result env_out) in
     match a with
-      | No_bind -> (match xs, attrs with [],[] -> None | _ -> Some gen_upd_2wild)
+      | No_bind -> (match xs, attrs with [],[] -> _gen_prop | _ -> Some gen_upd_2wild)
       | Var_bind x -> Some (if List.mem x (attrs_of_ctxt g1) then gen_upd x else gen_ext ())
       | Bind -> Some (gen_ext ())
       | Return_bind (b, out_attrs) -> gen_ret b out_attrs in
@@ -844,7 +850,7 @@ let transform gr =
 
         | _, Return_bind (true, _) ->
             Util.impossible
-              (Printf.sprintf "Dearrow.transform._tr._do_base: relevant rhs passed to _do_base: %s" $|
+              (Printf.sprintf "Dearrow.transform._tr._do_base: producer rhs passed to _do_base: %s" $|
                    Pr.Gil.Pretty.rule2string r)
               (* Violates pre-condition of [_do_base] *)
 
@@ -942,7 +948,8 @@ let transform gr =
                 | None -> attr_exprs, attr_tys
                 | Some e ->
                     let arg_ty = try Util.from_some a_nt.Attr.early_param_type with
-                        Not_found -> dearrow_error (gen "Dearrow.transform._tr.Symb: Symbol %s called with paramater, but definition does not include a parameter type." nt) in
+                        Not_found -> dearrow_error (gen "Dearrow.transform._tr.Symb: Symbol %s called with paramater, \
+                                                         but definition does not include a parameter type." nt) in
                     e :: attr_exprs, arg_ty :: attr_tys in
               match args with
                 | [] -> mk_args_empty
@@ -954,11 +961,12 @@ let transform gr =
             (* check: vars(g) /\ attr_names = {} *)
             begin match Util.list_intersect String.compare (vars_of_ctxt g) (List.map fst attrs_o) with
               | [] -> ()
-              | names -> dearrow_error (Printf.sprintf "Dearrow.transform._tr.Symb: The names of symbol %s's output attributes overlap with bound variable names: %s." nt (tuple_exp names))
+              | names -> dearrow_error (Printf.sprintf "Dearrow.transform._tr.Symb: The names of symbol %s's \
+                                                        output attributes overlap with bound variable names: %s." nt (tuple_exp names))
             end;
 
             let ty_opt = if PSet.mem nt gr.early_producers then Some ty else None in
-            let merge = updateEnvMerge g xs attrs_o bind_q ty_opt r.a.post in
+            let merge = updateEnvMerge g xs attrs_o bind_q ty_opt (PSet.mem nt gr.late_producers) r.a.post in
             let r1 = Gil.Symb (nt, gil_arg, merge) in
             let g = updateCtxt (union_attrs g attrs_o) xs bind_q ty in
 (*             Printf.eprintf "\nArrow: Context after %s: %s\n%!" nt (String.concat "," $| names_of_ctxt g); *)

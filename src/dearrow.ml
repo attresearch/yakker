@@ -460,7 +460,7 @@ module Neither_combs = struct
 end
 
 
-let exp_empty_env = "Ykctxt_empty"
+let exp_empty_env = "Ykenv_empty"
 let pat_empty_env = "_"
   (* We use wildcard as an optimization:
 
@@ -544,7 +544,7 @@ let transform gr =
   let con_map  (l : ty list) : constructor =
     match Util.find_option con_table l with
       | None ->
-          let c = "Ykctxt" ^ Variables.fresh () in
+          let c = "Ykenv" ^ Variables.fresh () in
           Hashtbl.add con_table l c;
           c
       | Some c -> c in
@@ -1102,8 +1102,8 @@ let transform gr =
                  | [] -> add_to_prologue gr $| Printf.sprintf "| %s\n" c
                  | _ -> add_to_prologue gr $| Printf.sprintf "| %s of %s\n" c (String.concat " * " tys))
     cs;
-  add_to_prologue gr $| Printf.sprintf "let ev0 = Ykctxt_empty
-let ev_compare = compare\n"
+  add_to_prologue gr $| Printf.sprintf "let ev0 = %s
+let ev_compare = compare\n" exp_empty_env
 
 let early_late_prologue = "
 (*EARLY-LATE PROLOGUE*)
@@ -1133,6 +1133,10 @@ let sv_hash = Hashtbl.hash
 
 (** @raise [Failure], if failure occurs in attempting to retrieve type information or parse is ambiguous. *)
 let get_type_info filename =
+  if not (Sys.file_exists "yak.cmi") then raise (Failure "Attempted to execute 'ocamlc -i' for type inference \
+                                                          without access to Yak interface. Move to directory \
+                                                          containing yak.cmi and try again.")
+  else
   let res =
     try
       Util.pipe_in_out_result

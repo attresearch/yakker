@@ -320,15 +320,17 @@ let _replay_%s ykinput h =
   _r_%s(_n,_p,ykinput)\n"
          (Variables.bnf2ocaml gr.start_symbol) (Variables.bnf2ocaml gr.start_symbol))
   end;
-  let is_early_producer r = fst (Analyze.is_rhs_producer gr.early_producers gr.late_producers r) in
+  let is_producer = Analyze.is_rhs_producer gr.early_producers gr.late_producers in
   let mkOutput l = Delay(false,Printf.sprintf "%s(%d)" i_con l,None) in
   let mkOUTPUT l = mkRHS (mkOutput l) in
   let mkBEFORE r l = mkSEQ[mkOUTPUT(l);r] in
   let mkAFTER r l =
-    (* Output after r, while preserving early producerness *)
-    if is_early_producer r then
-      let x = Variables.fresh() in
-      mkSEQ2(r,Some x,None,mkSEQ[mkOUTPUT(l);mkACTION(x)])
+    (* Output after r, while preserving producerness *)
+    let ep, lp = is_producer r in
+    if ep || lp then
+      let eo = if ep then Some (Variables.fresh()) else None in
+      let lo = if lp then Some (Variables.fresh()) else None in
+      mkSEQ2(r, eo, lo, mkSEQ[mkOUTPUT(l); mkACTION2(eo, lo)])
     else
       mkSEQ[r;mkOUTPUT(l)] in
   let mkOUT =

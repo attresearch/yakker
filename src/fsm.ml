@@ -348,7 +348,10 @@ let merge_symb = function
   | Symb(n,None, f_ret) ->
       let (s,f,e) = fresh3() in
       let sn0 = nonterminal2fsm n in
-      atrans(s,sn0, CallEps,      ZERO);  (* TODO: verify correctness *)
+      atrans(s,sn0, CallEps,      ZERO);
+        (* TODO: verify correctness. This depends crucially on assuming
+           that any nonterminals without parameters do not make assumptions
+           about their inflowing value (for example, that it is sv0). *)
       atrans(s,f,   Cont(n,None,f_ret), ONE);
       (s,f,e)
 (*   | Symb(n, (Some("(_e)") as f_call), f_ret) ->       (\* HACK. specialized to replay. *\) *)
@@ -457,13 +460,8 @@ let rec merge = function
 
 (************************************************************************)
 
-let gen_maybe_empty = Nullable_pred.Gil.preds_from_grammar
-
 (* Output an FSM transducer for a grammar *)
 let grammar_fsm ch gr =
-  let npreds = gen_maybe_empty gr in (* what nonterminals are nullable? *)
-  let gr = Desugar.desugar_gil (Inline_nullable.inline npreds gr) in
-
   init_nfa ch;
 
   (* Create an initial FSM state s0.

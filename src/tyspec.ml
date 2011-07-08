@@ -34,7 +34,7 @@ type hv = int
 ;;
 
 module Yk_Hashed = struct
-  type t = hv * int
+  type t = int * hv * int
   let compare i j = compare i j
   let hash i = Hashtbl.hash i
   let memoize = true
@@ -59,20 +59,21 @@ and
 class ['a] rvs (labels: 'a History.enum) =
 let s = ref [] in
 let push x = s := x::!s in
-let _n() = let (x,_) = labels#next() in x in
-let _p() = let (_,p) = labels#next() in p in
+let push_pos p = s := ( p)::!s in
+let _n() = (let (_,x,_) = labels#next() in x) in
+let _p() = (let (_,_,p) = labels#next() in p) in
 let rec _rv_start() = ();();();_rv_stream();();();();();()
 and _rv_stream() = ();push((2001)); while (match _n() with (2000) -> true | _ (*2001*)-> false) do
  ();(match _n() with
- | (2002) -> (();();push((_p()));();push((_p())); push((2002)))
+ | (2002) -> (();();push_pos(_p());();push_pos(_p()); push((2002)))
  | (2005) -> ((match _n() with
  | (2006) -> (();_rv_ident(); push((2006)))
- | (2007) -> (();();push((_p()));();push((_p())); push((2007)))
+ | (2007) -> (();();push_pos(_p());();push_pos(_p()); push((2007)))
  | _ -> raise Exit);(); push((2005)))
  | _ -> raise Exit); push((2000))
 done
 
-and _rv_ident() = ();();();push((_p()));();push((_p()))
+and _rv_ident() = ();();();push_pos(_p());();push_pos(_p())
 in
 object (self)
 method next() = (match !s with hd::tl -> (s := tl; hd) | _ -> raise Not_found)
@@ -82,16 +83,17 @@ end
 let _replay_start ykinput h =
   let _o = new rvs (h#right_to_left) in
   let _n() = _o#next() in
-  _r_start(_n,_n,ykinput)
+  let _p() = _o#next() in
+  _r_start(_n,_p,ykinput)
 (* History constructors *)
 let _e p h = h#empty p
-let _p x p = (fun h->h#push p ( x,p))
-let _m x p = (fun h1 h2-> h1#merge p ( x,p) h2)
+let _p lbl hv p = (fun h->h#push p (lbl, hv, p))
+let _m lbl p = (fun h1 h2-> h1#merge p (lbl,  lbl, p) h2)
 
 (*LATE PROLOGUE*)
 type _pos = int (* input positions *)
 let hv_compare = Yk_History.compare
-type sv = (hv*_pos, Yak.History.label) Yak.History.history
+type sv = (int * hv * _pos, Yak.History.label) Yak.History.history
 let sv0 = Yk_History.new_history()
 let sv_compare = hv_compare
 let sv_hash = Yk_History.hash
@@ -304,10 +306,11 @@ module SV_hashtbl = Hashtbl.Make(struct
                       let equal a b = sv_compare a b = 0
                       let hash = Hashtbl.hash end)
 module Pred = Pred3
-let rec nullable_stream __lookahead _p0_ _x0_ = (Some ((((_p(2001))) ((Yak.YkBuf.get_offset) _p0_)) _x0_))
+let rec nullable_stream __lookahead _p0_ _x0_ = (Some ((((_p 1015 ((2001)))) ((Yak.YkBuf.get_offset) _p0_)) _x0_))
 
-let __a7 = (fun _x0_ _x1_ -> (((_p(2007)) _x0_) (((_p(2009)) _x0_) _x1_)));;
-let __a4 = (_p(2011));;
+let __a4 = (_p 1066 ((2011)));;
+let __a8 = (_p 1059 ((2000)));;
+let __a6 = (fun _x0_ _x1_ -> (((_p 1030 ((2002))) _x0_) (((_p 1025 ((2004))) _x0_) _x1_)));;
 let __p11 = (let symb_pred = nullable_stream
        and f_call = (_e)
        and f_ret = (_m 1009)
@@ -317,17 +320,16 @@ let __p11 = (let symb_pred = nullable_stream
      match symb_pred la ykb (f_call p v) with
         None -> None
       | Some v2 -> Some (f_ret p v v2));;
-let __a10 = (_p(2003));;
-let __a6 = (fun _x0_ _x1_ -> (((_p(2002)) _x0_) (((_p(2004)) _x0_) _x1_)));;
-let __a3 = (_p(2008));;
-let __a1 = (_p(2010));;
-let __a0 = (_p(2001));;
-let __a5 = (_p(2006));;
+let __a5 = (_p 1040 ((2006)));;
+let __a3 = (_p 1044 ((2008)));;
+let __a1 = (_p 1063 ((2010)));;
+let __a7 = (fun _x0_ _x1_ -> (((_p 1052 ((2007))) _x0_) (((_p 1047 ((2009))) _x0_) _x1_)));;
 let __g2 = (_e);;
-let __a8 = (_p(2000));;
-let __a9 = (_p(2005));;
+let __a0 = (_p 1015 ((2001)));;
+let __a10 = (_p 1022 ((2003)));;
+let __a9 = (_p 1055 ((2005)));;
 let __binder0 = __default_ret;;
-let __binder1 = (_m 1035);;
+let __binder1 = (_m 1037);;
 let __binder2 = (_m 1009);;
 open Yak.Pam_internal
 let program = [

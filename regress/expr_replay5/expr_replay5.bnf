@@ -1,0 +1,20 @@
+; Expression example with lexical scoping using mix of
+; late actions and early actions, and both forms of binding.
+; Performs the same computation early and late. 
+
+start = o E@e$e o EOF @${Printf.eprintf " %d" e}{Printf.eprintf " %d" e} "".
+
+EOF = !OCTET.
+
+WSP = %d9|%d32|CR|LF.
+o = *WSP !WSP.
+wsp = [WSP].
+INT>@(int) = (DIGIT *DIGIT)@i$i @${int_of_string i}{int_of_string i}.
+
+E>@(int) = E@x$x o "+" o T@y$y @${x+y}{x+y} | T.
+T>@(int) = T@x$x o "*" o F@y$y @${x*y}{x*y} | F.
+F>@(int) = "(" o E@e$e o ")" @${e}{e} | INT.
+
+@end {
+  Yak.Pami.Simple.test_parse parse_file (fun () -> ())
+}

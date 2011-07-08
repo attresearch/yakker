@@ -20,9 +20,15 @@ type 'expr boxnull =
   | Runbox_null          (* run box to determine if it accepts null *)
   | Runpred_null of 'expr (* run separate predicate to determine if box accepts null *)
 
+(* N.B. if the call field of Symbol = None, then the targeted
+   nonterminal must not make any assumptions about its inflowing
+   value; for example, that it is sv0. If you want to call a
+   nonterminal that requires sv0, then pass sv0 as an explicit
+   parameter. The correctness of call collapsing relies on this
+   condition being met. *)
 type 'expr rhs =
     Symb of nonterminal
-         * 'expr option                 (* call function *)
+      * 'expr option                 (* call function.  *)
          * 'expr option                 (* merge functiono *)
   | Lit of bool * string              (* true iff case sensitive *)
   | CharRange of int * int

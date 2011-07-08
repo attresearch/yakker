@@ -223,6 +223,7 @@ end
   | DASH
   | AT
   | DOLLAR
+  | ATDOLLAR
   | STAR
   | HASH
   | EXCL
@@ -290,6 +291,7 @@ end
   | "-"                    {DASH}
   | "@"                    {AT}
   | "$"                    {DOLLAR}
+  | "@$"                   {ATDOLLAR}
   | "*"                    {STAR}
   | "#"                    {HASH}
   | "!"                    {EXCL}
@@ -368,6 +370,7 @@ end
 | DASH =                  "-"
 | AT =                    "@"
 | DOLLAR =                "$"
+| ATDOLLAR =              "@$"
 | STAR =                  "*"
 | HASH =                  "#"
 | EXCL =                  "!"
@@ -490,6 +493,7 @@ element
   | "{" Ocaml_until_RBRACE$x { mkACTION2(None,Some x) }
   | "$" "{" Ocaml_until_RBRACE$x { mkACTION2(None, Some x) }
   | "@" "{" Ocaml_until_RBRACE$x { mkACTION2(Some x,None) }
+  | "@$" "{" Ocaml_until_RBRACE$x "{" Ocaml_until_RBRACE$y { mkACTION2(Some x, Some y) }
   | "@pos" {mkPOSITION true}
   | "$pos" {mkPOSITION false}.
 
@@ -641,3 +645,16 @@ directive =
 ; @end {
 ;   Yak.Pami.Simple.qrun parse_file
 ; }
+
+@ocaml {
+let parse_rhs s =
+  let gr =
+    try
+      List.hd (parse_string ("A = " ^ s ^ "."))
+    with e ->
+      Printf.eprintf "Internal error: exception %s when parsing quoted rhs\n%!" (Printexc.to_string e);
+      raise e in
+  match gr.ds with
+    | [RuleDef ("A", r, _)] -> r
+    | _ -> Util.impossible "parse_rhs: malformed result when parsing quoted rhs\n%!"
+}

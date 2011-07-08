@@ -254,6 +254,7 @@ let mkHASH2(a,r)      = mkRHS(Hash(a,r))
 let mkMINUS(r1,r2)    = mkRHS(Minus(r1,r2))
 let mkWHEN(e)         = mkRHS(When(e))
 let mkDELAY(e,topt)   = mkRHS(Delay(true,e,topt))
+let mkCDELAY(e,topt)   = mkRHS(Delay(false,e,topt))
 let mkDBRANCH(e,c)   = mkRHS(DBranch(e,c))
 let mkBOX(e,topt,n)   = mkRHS(Box(e,topt,n))
 
@@ -296,6 +297,7 @@ module Curried_constructors = struct
  let mkMINUS r1 r2     = mkRHS(Minus(r1,r2))
  let mkWHEN e          = mkRHS(When(e))
  let mkDELAY e topt    = mkRHS(Delay(true,e,topt))
+ let mkCDELAY e topt    = mkRHS(Delay(false,e,topt))
  let mkDBRANCH e c     = mkRHS(DBranch(e,c))
  let mkBOX e topt n    = mkRHS(Box(e,topt,n))
 

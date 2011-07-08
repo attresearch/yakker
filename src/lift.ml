@@ -121,52 +121,39 @@ let transform gr =
         (* calculate extent for r1 if needed *)
         let need_early_extent = not e1 && early <> None in
         let need_late_extent = not l1 && late <> None in
+        let mkseq = List.fold_right (fun (r,e,l) r_s -> mkSEQ2(r,e,l,r_s)) in
         if not need_early_extent && need_late_extent then begin
           let before_l,after_l = fresh(),fresh() in
           let extent_l = Printf.sprintf "Yak.YkBuf.get_string %s %s ykinput" before_l after_l in
-          r.r <-
-            (mkSEQ2(mkPOSITION false,None,Some before_l,
-                    mkSEQ2(dupRhs r1,early,None,
-                           mkSEQ2(mkPOSITION false,None,Some after_l,
-                                  mkSEQ2(mkACTION2(None,
-                                                   Some(extent_l)),
-                                         None,late,
-                                         r2))))).r
+          let r1_seq =
+            [ mkPOSITION false,None,Some before_l;
+              dupRhs r1,early,None;
+              mkPOSITION false,None,Some after_l;
+              mkACTION2(None, Some extent_l), None, late] in
+          r.r <- (mkseq r1_seq r2).r
         end
         else if need_early_extent then begin
           let extent before after = Printf.sprintf "Yak.Pami.get_substring %s %s" before after in
           let extent_l before after = Printf.sprintf "Yak.YkBuf.get_string %s %s ykinput" before after in
           let before,after = fresh(),fresh() in
-          r.r <-
-            (mkSEQ2(mkPOSITION true,Some before,None,
-                    mkSEQ2(dupRhs r1,(if need_early_extent then None else early),(if need_late_extent then None else late),
-                           mkSEQ2(mkPOSITION true,Some after,None,
-                                  if need_late_extent then
-(* This version requires ykinput as an arg to all replay functions---so entire input must be retained for replay *)
-                                    let before_l,after_l = fresh(),fresh() in
-                                    mkSEQ2(mkDELAY(before,None),None,Some before_l,
-                                           mkSEQ2(mkDELAY(after,None),None,Some after_l,
-                                                  mkSEQ2(mkACTION2((if need_early_extent then Some(extent before after) else None),
-                                                                   Some(extent_l before_l after_l)),
-                                                         (if need_early_extent then early else None),late,
-                                                         r2)))
-(* This version delays the extent---it does speculative copying.
-   It also requires histories to support non-ints, which is not yet implemented. *)
-(*
-                                    let str_e,str_l = fresh(),fresh() in
-                                    mkSEQ2(mkACTION(extent before after),Some str_e,None,
-                                           mkSEQ2(mkDELAY(str_e),None,Some str_l,
-                                                  mkSEQ2(mkACTION2((if need_early_extent then Some(str_e) else None),
-                                                                   Some(str_l)),
-                                                         (if need_early_extent then early else None),late,
-                                                         r2)))
-*)
-                                  else
-                                    mkSEQ2(mkACTION2((if need_early_extent then Some(extent before after) else None),None),
-                                           (if need_early_extent then early else None),None,
-                                           r2))))).r
+          let r1_seq =
+            if need_late_extent then
+              let before_l,after_l = fresh(),fresh() in
+              [ mkPOSITION true,  Some before, None;
+                mkPOSITION false, None, Some before_l;
+                dupRhs r1, None,  None;
+                mkPOSITION true,  Some after, None;
+                mkPOSITION false, None, Some after_l;
+                mkACTION2(Some(extent before after), Some(extent_l before_l after_l)), early, late ]
+            else
+              [ mkPOSITION true,Some before,None;
+                dupRhs r1, None, late;
+                mkPOSITION true, Some after, None;
+                mkACTION2(Some(extent before after),None), early, None] in
+          r.r <- (mkseq r1_seq r2).r
         end;
         loop r2
+
     | Opt _
     | Alt _ ->
         let alts_of_rhs = (* differs from bnf.ml b/c need to desugar Opt *)

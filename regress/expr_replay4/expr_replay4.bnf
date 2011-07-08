@@ -14,7 +14,7 @@ EOF = !OCTET.
 WSP = %d9|%d32|CR|LF.
 o = *WSP !WSP.
 wsp = [WSP].
-INT>@(;ret:int) = ((DIGIT *DIGIT)@i @{i})@i$i (@{int_of_string i} > @ret) ${int_of_string i}.
+INT>@(;ret:int) = (DIGIT *DIGIT)@i$i (@{int_of_string i} > @ret) ${int_of_string i}.
 
 E>@(;ret:int) = E$x @{ret}@x o "+" o T$y (@{x+ret} > @ret) ${x+y} | T.
 T>@(;ret:int) = T$x @{ret}@x o "*" o F$y (@{x*ret} > @ret) ${x*y} | F.

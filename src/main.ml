@@ -41,9 +41,10 @@ let phase_order = (* preorder on phases *)
            invoke a chain of transformations ending with fuse *)
         [Translate_dypgen_scannerless_cmd; Fuse_cmd];
         [Translate_dypgen_cmd            ; Fuse_cmd];
-        [Dot_cmd                         ; Fuse_cmd];
-        [Compile_cmd                     ; Fuse_cmd];
-        [Exec_cmd                        ; Fuse_cmd];
+
+        [Dot_cmd                         ; Desugar_gil_cmd; Inline_nullable_cmd; Fuse_cmd];
+        [Compile_cmd                     ; Desugar_gil_cmd; Inline_nullable_cmd; Fuse_cmd];
+        [Exec_cmd                        ; Desugar_gil_cmd; Inline_nullable_cmd; Fuse_cmd];
 
         (* commands that do not handle their own output *)
         (* they compose the usual sequence of transformations in compilation *)
@@ -91,6 +92,8 @@ let phases_of cmd =
 
     | Dispatch_cmd
     | Dearrow_cmd
+    | Inline_nullable_cmd
+    | Desugar_gil_cmd
     | Fuse_cmd               -> Print_gil_cmd::phases
 
     | _                      -> phases in
@@ -387,10 +390,7 @@ let do_phases gr =
             Analyze.relevance gr;
             if !Compileopt.use_coroutines then
               begin
-                if !Compileopt.use_dbranch then
-                  Label.transform2 gr
-                else
-                  Label.transform gr;
+                Label.transform gr;
                 if !Compileopt.check_labels then
                   add_to_prologue gr
                     "let _i (x,y) = if x=y then y else failwith(Printf.sprintf \"_i expected %d, got %d\" x y)\n";
@@ -410,6 +410,15 @@ let do_phases gr =
       | Fuse_cmd ->
           if !Compileopt.coalesce then
             do_phase "coalescing actions" (fun () -> Fusion.fuse_gil gr)
+      | Inline_nullable_cmd ->
+            do_phase "inlining nullability predicates" begin fun () ->
+              let npreds = Nullable_pred.Gil.preds_from_grammar gr.gildefs in
+              gr.gildefs <- Inline_nullable.inline npreds gr.gildefs
+            end
+      | Desugar_gil_cmd ->
+            do_phase "desugaring Gil" begin fun () ->
+              gr.gildefs <- Desugar.desugar_gil gr.gildefs
+            end
       | Compile_cmd ->
           if !Compileopt.use_coroutines then
             do_compile true !outch gr

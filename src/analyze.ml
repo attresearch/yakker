@@ -100,7 +100,10 @@ let is_rhs_producer early_producers late_producers r =
       | Hash(Bounds(_,_),r1) -> loop r1 in
   loop r
 
-(** Figure out what nonterminals are producers *)
+(** Figure out what nonterminals are producers.
+   This analysis is primarily intended for use before lifting. After
+   lifting, its correctness in the case of Opt, Star, Hash, and Rcount
+   depend on there being no opt, star, etc. with a producer body.*)
 let producers gr =
   let direct_producers gr =
     gr.early_producers <- PSet.empty;

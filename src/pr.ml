@@ -80,6 +80,9 @@ and pr_bound_rule f r =
 and pr_rule f r =
   (match r.r with
   | Action(None,None) -> pr_rule f (mkLIT "")
+  | Action(Some x, Some y) ->
+      bprintf f "@${%s}{%s}" x y;
+      Util.option () (bprintf f ":%s") r.a.inf_type
   | Action(early,late) ->
       Util.option ()
         (fun x -> bprintf f "@{%s}" x;

@@ -17,7 +17,7 @@
 
 module N = Nullable_pred
 
-let inline npreds gr =
+let inline npreds ds =
   let rec rhs_inline r =
     let rhs_inline_leaf = function
       | Gil.Lookahead (false, r) -> Gil.Lookahead (false, rhs_inline r)
@@ -66,4 +66,4 @@ let inline npreds gr =
       | r -> r in
     Gil.map rhs_inline_leaf r in
   let rule_inline (n, r) = (n, rhs_inline r) in
-  List.map rule_inline gr
+  List.map rule_inline ds

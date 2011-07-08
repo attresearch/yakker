@@ -10,7 +10,8 @@
  *******************************************************************************)
 
 (**
- Lift out non-symbol, non-character set lookahead to a fresh nonterminal.
+ Lift out non-symbol, non-character set lookahead to a fresh nonterminal. Needed by
+   the Early automaton backend.
 *)
 
 let desugar_gil gr =

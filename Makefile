@@ -98,7 +98,7 @@ EXAMPLES_PCOMB_ML := $(foreach example,$(EXAMPLES),$(example)_pcomb.ml)
 
 REGRESSIONS = expr_attr1 expr_attr2 expr_attr3 expr_attr4 \
 	expr_attr5 expr_attr6 expr_attr7 expr_attr8 \
-        expr_replay1 expr_replay4
+        expr_replay1 expr_replay4 expr_replay5
 
 REGRESSIONS_EXE := $(foreach regression,$(REGRESSIONS),$(regression)-parser)
 REGRESSIONS_OPT_EXE := $(foreach regression,$(REGRESSIONS),$(regression)-parser.opt)
@@ -247,9 +247,6 @@ yakker-lex-pcomb-parser.opt: tgraph.cmx bnf.cmx yak.cmxa
 #  Don't forget to bzr add your new directories/files.
 
 # TODO: imap aurochs ocaml
-# TJIM: removed "history" test below, temporary, conflict with new history.ml
-#R_TESTS = expr int255 intFW scott_example3 yxml2 extract2 t000 t001 t002 t003 t004 recur_w_args staract blackbox empty eof
-# YHM: removed "extract2" test below, because it has been broken for a while.
 R_TESTS = expr int255 intFW scott_example3 yxml2 t000 t001 t002 t003 t004 blackbox empty eof t006 oldtyspec
 R_EXAMPLES = pexpr pyexpr mailapp python
 R_REGRESSIONS := $(REGRESSIONS)
@@ -258,50 +255,53 @@ C_T := $(foreach i,$(R_TESTS),$(i)-parser.opt)
 C_E := $(foreach i,$(R_EXAMPLES),$(i)-parser.opt)
 C_R := $(foreach i,$(R_REGRESSIONS),$(i)-parser.opt)
 
-R_T := $(foreach i,$(R_TESTS),run-t-$(i))
-R_E := $(foreach i,$(R_EXAMPLES),run-e-$(i))
-R_R := $(foreach i,$(R_REGRESSIONS),run-r-$(i))
+R_T := $(foreach i,$(R_TESTS),run-$(i))
+R_E := $(foreach i,$(R_EXAMPLES),run-$(i))
+R_R := $(foreach i,$(R_REGRESSIONS),run-$(i))
 
-U_T := $(foreach i,$(R_TESTS),update-t-$(i))
-U_E := $(foreach i,$(R_EXAMPLES),update-e-$(i))
-U_R := $(foreach i,$(R_REGRESSIONS),update-r-$(i))
+U_T := $(foreach i,$(R_TESTS),update-$(i))
+U_E := $(foreach i,$(R_EXAMPLES),update-$(i))
+U_R := $(foreach i,$(R_REGRESSIONS),update-$(i))
 
-S_T := $(foreach i,$(R_TESTS),show-t-$(i))
-S_E := $(foreach i,$(R_EXAMPLES),show-e-$(i))
-S_R := $(foreach i,$(R_REGRESSIONS),show-r-$(i))
+S_T := $(foreach i,$(R_TESTS),show-$(i))
+S_E := $(foreach i,$(R_EXAMPLES),show-$(i))
+S_R := $(foreach i,$(R_REGRESSIONS),show-$(i))
 
-P_T := $(foreach i,$(R_TESTS),perf-t-$(i))
-P_E := $(foreach i,$(R_EXAMPLES),perf-e-$(i)) perf-e-ocaml
-P_R := $(foreach i,$(R_REGRESSIONS),perf-r-$(i))
+P_T := $(foreach i,$(R_TESTS),perf-$(i))
+P_E := $(foreach i,$(R_EXAMPLES),perf-$(i)) perf-ocaml
+P_R := $(foreach i,$(R_REGRESSIONS),perf-$(i))
 
-RP_T := $(foreach i,$(R_TESTS),recperf-t-$(i))
-RP_E := $(foreach i,$(R_EXAMPLES),recperf-e-$(i))
-RP_R := $(foreach i,$(R_REGRESSIONS),recperf-r-$(i))
+RP_T := $(foreach i,$(R_TESTS),recperf-$(i))
+RP_E := $(foreach i,$(R_EXAMPLES),recperf-$(i))
+RP_R := $(foreach i,$(R_REGRESSIONS),recperf-$(i))
 
-PC_T := $(foreach i,$(R_TESTS),pc-perf-t-$(i))
-PC_E := $(foreach i,$(R_EXAMPLES),pc-perf-e-$(i)) pc-perf-e-ocaml
-PC_R := $(foreach i,$(R_REGRESSIONS),pc-perf-r-$(i))
+PC_T := $(foreach i,$(R_TESTS),pc-perf-$(i))
+PC_E := $(foreach i,$(R_EXAMPLES),pc-perf-$(i)) pc-perf-ocaml
+PC_R := $(foreach i,$(R_REGRESSIONS),pc-perf-$(i))
+
+C_ALL := $(C_T)  $(C_E)  $(C_R) 
+R_ALL := $(R_T)  $(R_E)  $(R_R) 
+U_ALL := $(U_T)  $(U_E)  $(U_R) 
+S_ALL := $(S_T)  $(S_E)  $(S_R) 
+P_ALL := $(P_T)  $(P_E)  $(P_R) 
+RP_ALL := $(RP_T) $(RP_E) $(RP_R)
+PC_ALL := $(PC_T) $(PC_E) $(PC_R)
 
 .PHONY: regress update-regress show-regress compile-regress perf-test record-perf-test
+.PHONY: $(R_ALL) $(U_ALL) $(S_ALL) $(P_ALL) $(RP_ALL) $(PC_ALL)
 
-regress:          $(R_T)  $(R_E)  $(R_R)
-compile-regress:  $(C_T)  $(C_E)  $(C_R)
-update-regress:   $(U_T)  $(U_E)  $(U_R)
-show-regress:     $(S_T)  $(S_E)  $(S_R)
-perf-test:        $(P_T)  $(P_E)  $(P_R)
-record-perf-test: $(RP_T) $(RP_E) $(RP_R)
-pc-perf-test:     $(PC_T) $(PC_E) $(PC_R)
+regress:          $(R_ALL)
+compile-regress:  $(C_ALL)
+update-regress:   $(U_ALL)
+show-regress:     $(S_ALL)
+perf-test:        $(P_ALL)
+record-perf-test: $(RP_ALL)
+pc-perf-test:     $(PC_ALL)
 
-.PHONY: $(R_T)  $(R_E)  $(R_R) \
-	$(U_T)  $(U_E)  $(U_R) \
-	$(S_T)  $(S_E)  $(S_R) \
-	$(P_T)  $(P_E)  $(P_R) \
-	$(PC_T) $(PC_E) $(PC_R) \
-	$(RP_T) $(RP_E) $(RP_R)
 
-run-t-% update-t-% show-t-% perf-t-% pc-perf-t-% recperf-t-%: D=../tests
-run-e-% update-e-% show-e-% perf-e-% pc-perf-e-% recperf-e-%: D=../examples
-run-r-% update-r-% show-r-% perf-r-% pc-perf-r-% recperf-r-%: D=../regress
+$(R_T) $(U_T) $(S_T) $(P_T) $(PC_T) $(RP_T) : D=../tests
+$(R_E) $(U_E) $(S_E) $(P_E) $(PC_E) $(RP_E) : D=../examples
+$(R_R) $(U_R) $(S_R) $(P_R) $(PC_R) $(RP_R) : D=../regress
 
 define run-regression
 	@echo testing $*
@@ -372,58 +372,22 @@ mkdir -p $(D)/$*/perf-archive; \
  $(perf-test)
 endef
 
-$(R_T): run-t-% : %-parser.opt
+$(R_ALL): run-% : %-parser.opt
 	$(run-regression)
 
-$(R_E): run-e-% : %-parser.opt
-	$(run-regression)
-
-$(R_R): run-r-% : %-parser.opt
-	$(run-regression)
-
-$(U_T): update-t-% : %-parser.opt
+$(U_ALL): update-% : %-parser.opt
 	$(update-regression)
 
-$(U_E): update-e-% : %-parser.opt
-	$(update-regression)
-
-$(U_R): update-r-% : %-parser.opt
-	$(update-regression)
-
-$(S_T): show-t-% : %-parser.opt
+$(S_ALL): show-% : %-parser.opt
 	$(show-regression)
 
-$(S_E): show-e-% : %-parser.opt
-	$(show-regression)
-
-$(S_R): show-r-% : %-parser.opt
-	$(show-regression)
-
-$(P_T): perf-t-% : %-parser.opt %-pcomb-parser.opt
+$(P_ALL): perf-% : %-parser.opt %-pcomb-parser.opt
 	@($(show-perf-test))
 
-$(P_E): perf-e-% : %-parser.opt %-pcomb-parser.opt
-	@($(show-perf-test))
-
-$(P_R): perf-r-% : %-parser.opt %-pcomb-parser.opt
-	@($(show-perf-test))
-
-$(PC_T): pc-perf-t-% : %-pcomb-parser.opt
+$(PC_ALL): pc-perf-% : %-pcomb-parser.opt
 	@($(show-perf-test-pc))
 
-$(PC_E): pc-perf-e-% : %-pcomb-parser.opt
-	@($(show-perf-test-pc))
-
-$(PC_R): pc-perf-r-% : %-pcomb-parser.opt
-	@($(show-perf-test-pc))
-
-$(RP_T): recperf-t-% : %-parser.opt %-pcomb-parser.opt
-	@($(record-perf-test))
-
-$(RP_E): recperf-e-% : %-parser.opt %-pcomb-parser.opt
-	@($(record-perf-test))
-
-$(RP_R): recperf-r-% : %-parser.opt %-pcomb-parser.opt
+$(RP_ALL): recperf-% : %-parser.opt %-pcomb-parser.opt
 	@($(record-perf-test))
 
 ############################## PATTERNS ##############################

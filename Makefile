@@ -9,6 +9,13 @@ include target.mk
 else
 #----- End Boilerplate
 
+ifdef USE_ARROW
+  $(info **Using arrow notation**)
+  YOPTS+=-arrow-notation
+else
+  $(info **Using coroutines**)
+endif
+
 ifeq ($(MAKECMDGOALS),install)
 ifndef PREFIX
 $(error install evoked without definition of PREFIX)
@@ -55,10 +62,6 @@ FRONT_END_CMXS := $(FRONT_END_ML_SOURCES:.ml=.cmx)
 OCAMLDOC_SOURCES := $(filter %.mli, $(YAKKER_SOURCES)) $(filter %.mli, $(FRONT_END_SOURCES))
 
 M4PP = m4
-
-ifdef $(USE_ARROW)
-  YOPTS+=-arrow-notation
-endif
 
 #OCAMLOPT_FLAGS = -g
 ifeq ($(DO_PROF),1)

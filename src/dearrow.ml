@@ -353,9 +353,9 @@ module EL_combs = struct
     action_template "_" (hist_in_pat_wild env_pat) result_exp
   let mk_action pos_pat env_pat result_exp =
     action_template pos_pat (hist_in_pat env_pat) (hist_out_exp result_exp)
-  let mk_merge is_late_prod lbl env_pat child_pat result_exp =
+  let mk_merge is_late_rel lbl env_pat child_pat result_exp =
     merge_template reserved_pos_var (hist_in_pat1 env_pat) (hist_in_pat2 child_pat)
-      (if is_late_prod then hist_merge_exp result_exp lbl else hist_prop_exp result_exp)
+      (if is_late_rel then hist_merge_exp result_exp lbl else hist_prop_exp result_exp)
 
   let mk_push l env_pat e =
     let v = Variables.freshn "v" in
@@ -420,8 +420,8 @@ module L_combs = struct
   let mk_action _ _ _ =
     Util.impossible "Dearrow.LCombs.mk_action: grammar not early-relevant."
 
-  let mk_merge is_late_prod lbl _ _ _ =
-    if is_late_prod then hist_merge_exp lbl else Fsm.default_binder_tx
+  let mk_merge is_late_rel lbl _ _ _ =
+    if is_late_rel then hist_merge_exp lbl else Fsm.default_binder_tx
 
   let mk_push l pat e =
     match pat with
@@ -719,7 +719,7 @@ let transform gr =
     updateEnvP "_" g_ds g xs a e ty in
 
   (*  PRE: vars(g) /\ attrs = {} *)
-  let updateEnvMerge g xs attrs a ty_opt is_late_prod lbl : string option =
+  let updateEnvMerge g xs attrs a ty_opt is_late_rel lbl : string option =
     let g_ds = deshadow g in
     let attr_names, attr_tys = List.split attrs in
     (* Convert any overwritten attributes from original env. to
@@ -740,9 +740,9 @@ let transform gr =
 
     (* code for simply propogating current environment. Useful in
        conjunction with histories, when history needs to be merged. *)
-    let _gen_prop = if is_late_prod then Some (mk_merge true lbl "x" "_" "x") else None in
+    let _gen_prop = if is_late_rel then Some (mk_merge true lbl "x" "_" "x") else None in
 
-    let _gen pat2 exp_result = mk_merge is_late_prod lbl pat_in pat2 exp_result in
+    let _gen pat2 exp_result = mk_merge is_late_rel lbl pat_in pat2 exp_result in
 
     let mk_result_pat p_result =
       match p_result, attrs with
@@ -781,7 +781,7 @@ let transform gr =
        out_attrs. *)
     let gen_ret bind_ret out_attrs =
       if not bind_ret && out_attrs = [] then
-        None
+        _gen_prop
       else
         let p, g_out =
           if bind_ret then
@@ -966,7 +966,7 @@ let transform gr =
             end;
 
             let ty_opt = if PSet.mem nt gr.early_producers then Some ty else None in
-            let merge = updateEnvMerge g xs attrs_o bind_q ty_opt (PSet.mem nt gr.late_producers) r.a.post in
+            let merge = updateEnvMerge g xs attrs_o bind_q ty_opt r.a.late_relevant r.a.post in
             let r1 = Gil.Symb (nt, gil_arg, merge) in
             let g = updateCtxt (union_attrs g attrs_o) xs bind_q ty in
 (*             Printf.eprintf "\nArrow: Context after %s: %s\n%!" nt (String.concat "," $| names_of_ctxt g); *)

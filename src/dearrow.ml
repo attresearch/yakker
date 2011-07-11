@@ -35,6 +35,9 @@ open Util.Operators
    x handle input attributes.
    x handle input attributes at Symb.
    x handle output attributes at Symb.
+   - optimization: avoid match/build when in/out are identical.
+   - tag environments, just like we do coroutines, to avoid full-blown comparison.
+      * step 1: ensure all match/builds are hidden behind an abstraction layer.
    - Consider changing type inference to not produce a type if the nonterminal is not a producer. Seems more accurate than marking as unit.
    - Optimize non-producer returns so that even if the environment is non-empty, not action is produced.
    - We seem to be producing too many context constructors -- some are never used in the
@@ -51,8 +54,7 @@ open Util.Operators
    - Maintain attributes lists in sorted order. Then, optimize gen_ret in updateEnvMerge
      for special case of return simply propogating the result of the ending nonterminal.
    - Consider special-casing environemnt updates when env is empty or singleton.
-   - tag environments, just like we do coroutines, to avoid full-blown comparison.
-   - support open delays.
+   x support open delays.
    - Add support to type inference for inferring types of return attributes; moreover,
      when types are declared, be sure to unify them.
    - Move attribute-related checks to type inference, or even before.
@@ -346,14 +348,18 @@ module EL_combs = struct
   let mk_box env_pat box_exp some_pat some_exp =
     box_template (hist_in_pat env_pat) box_exp some_pat (hist_out_exp some_exp)
   let mk_args_empty =
-    Some (action_template reserved_pos_var (hist_in_pat "_") (hist_new_exp "ev0"))
+    Some ("_e2")
+(*     Some (action_template reserved_pos_var (hist_in_pat "_") (hist_new_exp "ev0")) *)
   let mk_args env_pat result_exp =
     Some (action_template reserved_pos_var (hist_in_pat env_pat) (hist_new_exp result_exp))
   let mk_when env_pat result_exp =
     action_template "_" (hist_in_pat_wild env_pat) result_exp
   let mk_action pos_pat env_pat result_exp =
     action_template pos_pat (hist_in_pat env_pat) (hist_out_exp result_exp)
+
   let mk_merge is_late_rel lbl env_pat child_pat result_exp =
+    if is_late_rel && env_pat = result_exp then gen "_m2 %d" lbl
+    else
     merge_template reserved_pos_var (hist_in_pat1 env_pat) (hist_in_pat2 child_pat)
       (if is_late_rel then hist_merge_exp result_exp lbl else hist_prop_exp result_exp)
 
@@ -1103,7 +1109,10 @@ let transform gr =
                  | _ -> add_to_prologue gr $| Printf.sprintf "| %s of %s\n" c (String.concat " * " tys))
     cs;
   add_to_prologue gr $| Printf.sprintf "let ev0 = %s
-let ev_compare = compare\n" exp_empty_env
+let ev_compare = compare
+let _m2 l p (x,h1) (_,h2) = x, _m l p h1 h2
+let _e2 p (_,h) = ev0, _e p h
+" exp_empty_env
 
 let early_late_prologue = "
 (*EARLY-LATE PROLOGUE*)

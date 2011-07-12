@@ -347,9 +347,11 @@ module EL_combs = struct
 
   let mk_box env_pat box_exp some_pat some_exp =
     box_template (hist_in_pat env_pat) box_exp some_pat (hist_out_exp some_exp)
-  let mk_args_empty =
-    Some ("_e2")
-(*     Some (action_template reserved_pos_var (hist_in_pat "_") (hist_new_exp "ev0")) *)
+
+  let mk_args_empty = function
+    | true -> Some "_e2"
+    | false -> None
+
   let mk_args env_pat result_exp =
     Some (action_template reserved_pos_var (hist_in_pat env_pat) (hist_new_exp result_exp))
   let mk_when env_pat result_exp =
@@ -382,7 +384,7 @@ module E_combs = struct
   let mk_box env_pat box_exp some_pat some_exp =
     box_template env_pat box_exp some_pat some_exp
 
-  let mk_args_empty = None
+  let mk_args_empty _ = None
 
   let mk_args env_pat result_exp =
     Some (action_template "_" env_pat result_exp)
@@ -415,7 +417,9 @@ module L_combs = struct
   let mk_box _ _ _ _ =
     Util.impossible "Dearrow.LCombs.mk_box: grammar not early-relevant."
 
-  let mk_args_empty = Some (hist_new_exp)
+  let mk_args_empty = function
+    | true -> Some hist_new_exp
+    | false -> None
 
   let mk_args _ _ =
     Util.impossible "Dearrow.LCombs.mk_args: grammar not early-relevant."
@@ -443,7 +447,7 @@ module Neither_combs = struct
   let mk_box _ _ _ _ =
     Util.impossible "Dearrow.Neither_combs.mk_box: grammar not relevant."
 
-  let mk_args_empty = None
+  let mk_args_empty _ = None
 
   let mk_args _ _ =
     Util.impossible "Dearrow.Neither_combs.mk_args: grammar not relevant."
@@ -958,7 +962,7 @@ let transform gr =
                                                          but definition does not include a parameter type." nt) in
                     e :: attr_exprs, arg_ty :: attr_tys in
               match args with
-                | [] -> mk_args_empty
+                | [] -> mk_args_empty r.a.late_relevant
                 | _ -> wrap_args g args args_tys in
             let ty = try Util.from_some r.a.inf_type with
                 Not_found -> Util.impossible "Dearrow.transform._tr.Symb: Missing type annotation on Symb." in
@@ -1110,8 +1114,6 @@ let transform gr =
     cs;
   add_to_prologue gr $| Printf.sprintf "let ev0 = %s
 let ev_compare = compare
-let _m2 l p (x,h1) (_,h2) = x, _m l p h1 h2
-let _e2 p (_,h) = ev0, _e p h
 " exp_empty_env
 
 let early_late_prologue = "
@@ -1130,6 +1132,9 @@ let sv_compare (x1,x2) (y1,y2) =
 let sv_hash (x,h) =
   let hash_h = Yk_History.hash h in
   (Hashtbl.hash x) lxor hash_h
+
+let _m2 l p (x,h1) (_,h2) = x, _m l p h1 h2
+let _e2 p (_,h) = ev0, _e p h
 "
 
 let early_prologue = "
@@ -1166,7 +1171,7 @@ let get_type_info filename =
 let extend_prologue pcompile gr =
   (** [set_env_type partial_compile gr], where [partial_compile]
       compiles the grammar w/o outputing the epilogue. Adds the [ev] type
-      and related definitions to the prologue prologue. *)
+      and related definitions to the prologue. *)
   let set_env_type is_late_rel gr =
     (* redirect output to a temporary file *)
     let (temp_file_name, temp_chan) = Filename.open_temp_file "yakker" ".ml" in
@@ -1177,7 +1182,10 @@ let extend_prologue pcompile gr =
     let gr2 = {gr with ds = gr.ds} in
     if is_late_rel then
       begin
-        add_to_prologue gr2 "let sv0 = (ev0, Yk_History.new_history())\n";
+        add_to_prologue gr2 "let sv0 = (ev0, Yk_History.new_history())
+let _m2 l p (x,h1) (_,h2) = x, _m l p h1 h2
+let _e2 p (_,h) = ev0, _e p h
+";
         pcompile temp_chan gr2;
         Printf.fprintf temp_chan "\nlet __yk_get_type_info_ = match List.hd (snd (List.hd program)) with ACallInstr3 (f,_) -> fst (f 0 (failwith \"\"));;\n";
       end

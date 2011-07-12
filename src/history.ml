@@ -120,7 +120,7 @@ class ['a, 'lbl] history_impl (uniq: ('a,'lbl) info -> ('a,'lbl) info) =
     method get_root = root
 
     method empty (p:'lbl) =
-      {< root = Empty p>}
+      {< root = Empty p >}
 
     method push (_:'lbl) v =
       let ({branchings=b;} as inf) = mk_info (get_label root) v in

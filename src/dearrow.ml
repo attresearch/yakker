@@ -35,20 +35,21 @@ open Util.Operators
    x handle input attributes.
    x handle input attributes at Symb.
    x handle output attributes at Symb.
-   - optimization: avoid match/build when in/out are identical.
+   x optimization: avoid match/build when in/out are identical.
    - tag environments, just like we do coroutines, to avoid full-blown comparison.
       * step 1: ensure all match/builds are hidden behind an abstraction layer.
    - Consider changing type inference to not produce a type if the nonterminal is not a producer. Seems more accurate than marking as unit.
    - Optimize non-producer returns so that even if the environment is non-empty, not action is produced.
+     I've begun on this, but am not handling all cases. Specifically, do_base and when filter for this, while other invocations of updateCtxt do not. Have not checked merge yet.
    - We seem to be producing too many context constructors -- some are never used in the
      output code. Figure out why, and fix as need be.
-   - Modify Return_bind semantics to only conditionally bind -- if it is a semantically relevant binding. In general, we give semantic irrelevance the unit type, but for these purposes we should avoid binding altogether. Aside from optimization, doesn't interact well with relevance analysis used to determine late/early relevance. Once we change late actions to be desugared into early, this issue won't come up, but still will be wasteful.
+   x Modify Return_bind semantics to only conditionally bind -- if it is a semantically relevant binding. In general, we give semantic irrelevance the unit type, but for these purposes we should avoid binding altogether. Aside from optimization, doesn't interact well with relevance analysis used to determine late/early relevance. Once we change late actions to be desugared into early, this issue won't come up, but still will be wasteful.
    - TESTING
      + case of Symb at end of RHS, for both relevant and irrelevant symbs.
    x Modify history-only args codegen to just use "_e" rather than its eta-expansion. Same for _m.
-   - Modify codegen templates to avoid using "function" when pattern is irrefutable.
+   x Modify codegen templates to avoid using "function" when pattern is irrefutable.
      Or, at least, when it is a variable.
-   - Use late-relevance information to only place merge functions on nonterminals
+   x Use late-relevance information to only place merge functions on nonterminals
      that need them.
    - Add support for input/output attributes to type inference.
    - Maintain attributes lists in sorted order. Then, optimize gen_ret in updateEnvMerge
@@ -322,19 +323,38 @@ let box_template env_pat box_exp some_pat some_exp =
     end
 | _ -> raise (Failure  \"Expected %s\")" env_pat box_exp some_pat some_exp env_pat
 
+(** irrefutable-pattern and closed box-expression version of box template. *)
+let box_template_ip_c pat_in box_exp some_pat some_exp =
+  gen "let f = %s in
+  fun %s input pos ->
+    begin match f input pos with
+    | None -> None
+    | Some (n, %s) -> Some (n, %s)
+    end" box_exp pat_in some_pat some_exp
+
 let action_template pos_pat env_pat result_exp =
   gen "fun %s -> function %s -> %s | _ -> raise (Failure  \"Expected %s\")" pos_pat env_pat result_exp env_pat
+
+(** irrefutable-pattern version of action template. *)
+let action_template_ip pos_pat env_pat result_exp =
+  gen "fun %s %s -> %s" pos_pat env_pat result_exp
 
 let merge_template pos_pat env_pat child_pat result_exp : string =
   gen "fun %s v1 v2 -> match (v1,v2) with
 | (%s, %s) -> %s
 | _ -> raise (Failure  \"Expected %s and %s\")" pos_pat env_pat child_pat result_exp env_pat child_pat
 
+(** irrefutable-pattern version of merge template. *)
+let merge_template_ip pos_pat env_pat child_pat result_exp : string =
+  gen "fun %s %s %s -> %s" pos_pat env_pat child_pat result_exp
+
 (* The following [mk_]-prefixed functions provide an abstraction
    from the code generation into which we insert handling of
    histories. *)
 
 module EL_combs = struct
+
+  (* TODO: how do we know that input patterns don't overlap with "h"? *)
 
   let hist_in_pat = gen "(%s,h)"
   let hist_in_pat1 = gen "(%s,h1)"
@@ -346,7 +366,11 @@ module EL_combs = struct
   let hist_prop_exp = gen "(%s,h1)"
 
   let mk_box env_pat box_exp some_pat some_exp =
-    box_template (hist_in_pat env_pat) box_exp some_pat (hist_out_exp some_exp)
+    match env_pat with
+      | "_" ->
+          box_template_ip_c (hist_in_pat "_") box_exp some_pat (hist_out_exp some_exp)
+      | _ ->
+          box_template (hist_in_pat env_pat) box_exp some_pat (hist_out_exp some_exp)
 
   let mk_args_empty = function
     | true -> Some "_e2"
@@ -357,22 +381,42 @@ module EL_combs = struct
   let mk_when env_pat result_exp =
     action_template "_" (hist_in_pat_wild env_pat) result_exp
   let mk_action pos_pat env_pat result_exp =
-    action_template pos_pat (hist_in_pat env_pat) (hist_out_exp result_exp)
+    match env_pat with
+      | "_" ->
+          action_template_ip pos_pat (hist_in_pat "_") (hist_out_exp result_exp)
+      | _ ->
+          action_template pos_pat (hist_in_pat env_pat) (hist_out_exp result_exp)
 
   let mk_merge is_late_rel lbl env_pat child_pat result_exp =
-    if is_late_rel && env_pat = result_exp then gen "_m2 %d" lbl
+    if env_pat = result_exp && child_pat = "_" then
+      if is_late_rel then gen "_m2 %d" lbl
+      else Fsm.default_binder_tx
+    else if child_pat = result_exp then
+      let v = Variables.freshn "v" in
+      let res_exp = if is_late_rel then hist_merge_exp v lbl else hist_prop_exp v in
+      (* We can ignore [env_pat] because it can't be relevant to [result_exp]. *)
+      merge_template_ip reserved_pos_var (hist_in_pat1 "_") (hist_in_pat2 v) res_exp
     else
-    merge_template reserved_pos_var (hist_in_pat1 env_pat) (hist_in_pat2 child_pat)
-      (if is_late_rel then hist_merge_exp result_exp lbl else hist_prop_exp result_exp)
+      merge_template reserved_pos_var (hist_in_pat1 env_pat) (hist_in_pat2 child_pat)
+        (if is_late_rel then hist_merge_exp result_exp lbl else hist_prop_exp result_exp)
 
   let mk_push l env_pat e =
-    let v = Variables.freshn "v" in
-    let env_pat = gen "(%s as %s)" env_pat v in
-    let h = Variables.freshn "h" in
-    action_template
-      reserved_pos_var
-      (gen "(%s,%s)" env_pat h)
-      (gen "(%s,_p %d (%s) %s %s)" v l e reserved_pos_var h)
+    match env_pat with
+      | "_" ->
+          let v = Variables.freshn "v" in
+          let h = Variables.freshn "h" in
+          action_template_ip
+            reserved_pos_var
+            (gen "(%s,%s)" v h)
+            (gen "(%s,_p %d (%s) %s %s)" v l e reserved_pos_var h)
+      | _ ->
+          let v = Variables.freshn "v" in
+          let env_pat = gen "(%s as %s)" env_pat v in
+          let h = Variables.freshn "h" in
+          action_template
+            reserved_pos_var
+            (gen "(%s,%s)" env_pat h)
+            (gen "(%s,_p %d (%s) %s %s)" v l e reserved_pos_var h)
 
   let init () =
     mk_box, mk_args_empty, mk_args, mk_when, mk_action, mk_merge, mk_push
@@ -925,7 +969,9 @@ let transform gr =
 
       | When e ->
           let f = match xs, bind_q with
-            | [], No_bind -> "fun _ x -> x"
+            | [], No_bind
+            | _, Return_bind (false, [])
+                -> "prop2"
             | _ -> updateEnv g xs bind_q unit_val unit_ty in
           updateCtxt g xs bind_q unit_ty, Gil.When (wrapWhen g e, f)
 
@@ -1114,6 +1160,7 @@ let transform gr =
     cs;
   add_to_prologue gr $| Printf.sprintf "let ev0 = %s
 let ev_compare = compare
+let prop2 _ x = x
 " exp_empty_env
 
 let early_late_prologue = "

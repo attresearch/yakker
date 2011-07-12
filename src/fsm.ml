@@ -41,6 +41,7 @@ let quote x = "\"" ^ String.escaped x ^ "\""
 *)
 let binder_prefix = "__binder"
 let default_call_tx = "__default_call"
+let cc_call_tx = "__cc_call"
 let default_binder_tx = "__default_ret"
 
 let min_symbol = Pam_internal.min_nonterm
@@ -343,16 +344,41 @@ let rec thompson =  function
              thompson (Lit(true,"")))
 
 (************************************************************************)
-(* convert an RHS to an NFA using the CALL-collapsing algorithm *)
+(** convert an RHS to an NFA using the CALL-collapsing algorithm *)
+(* TODO: verify the correctness of call collapsing.
+
+   There are two cases we consider for call collapsing. When both
+   arguments and merge are absent, and when only call is absent. We
+   avoid more advanced cases which consider collapsing even with an
+   argument. See blog post for discussion on this topic
+   (/blog/yitzhak/Call-collapsing-proposal-201106071708.txt). In both
+   cases, we rely on the called nonterminals not to make assumptions
+   about their inflowing value (even, for example, that it is sv0).
+   Since calls can be collapsed, there are no guarantees about the of
+   the incoming semantic value.
+
+   In the first case, where the binder is absent, we can simply
+   collapse the call. When there is a binder, we need to be more
+   cautious. The presence of a binder (by fiat) forces completions to
+   check that the result of the argument function is equal to the
+   argument of the call. The calling function by default returns sv0,
+   yet, as we said above, there is no guarantee of sv0 as the original
+   semantic value. So, to work around this issue, we provide an
+   alternative argument function [cc_call_tx], which is guaranteed to
+   return the s.v. argument (because the s.v. argument equals the
+   semantic value in contexts where call collapsing occurs). *)
 let merge_symb = function
+  | Symb(n,None, None) ->
+      let (s,f,e) = fresh3() in
+      let sn0 = nonterminal2fsm n in
+      atrans(s,sn0, CallEps,      ZERO);
+      atrans(s,f,   Cont(n,None,None), ONE);
+      (s,f,e)
   | Symb(n,None, f_ret) ->
       let (s,f,e) = fresh3() in
       let sn0 = nonterminal2fsm n in
       atrans(s,sn0, CallEps,      ZERO);
-        (* TODO: verify correctness. This depends crucially on assuming
-           that any nonterminals without parameters do not make assumptions
-           about their inflowing value (for example, that it is sv0). *)
-      atrans(s,f,   Cont(n,None,f_ret), ONE);
+      atrans(s,f,   Cont(n,Some cc_call_tx,f_ret), ONE);
       (s,f,e)
 (*   | Symb(n, (Some("(_e)") as f_call), f_ret) ->       (\* HACK. specialized to replay. *\) *)
 (*       Util.warn Util.Sys_warn ("collapsing _e for " ^ n); *)
@@ -361,8 +387,6 @@ let merge_symb = function
 (*       atrans(s,sn0, CallEps,      ZERO);  (\* TODO: verify correctness *\) *)
 (*       atrans(s,f,   Cont(n,f_call,f_ret), ONE); *)
 (*       (s,f,e) *)
-(*   | Symb(n, (Some s as f_call), f_ret) -> *)
-(*       Util.warn Util.Sys_warn (Printf.sprintf "not collapsing %s(%s)" n s); *)
   | Symb(n,f_call,f_ret) ->
       let (s,f,e) = fresh3() in
       let sn0 = nonterminal2fsm n in
@@ -733,6 +757,7 @@ let fsm_transducer is_sv_known gr inch outch =
   (* The ignore set of transformers starts off calls with a fresh sv0 and ignores
      returned semantic values, keeping the previous semval instead. *)
   Printf.fprintf outch "let %s _ _ = sv0;;\n" default_call_tx;
+  Printf.fprintf outch "let %s _ x = x;;\n" cc_call_tx;
   Printf.fprintf outch "let %s _ v1 _ = v1;;\n" default_binder_tx;
 
 

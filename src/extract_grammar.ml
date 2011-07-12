@@ -319,6 +319,7 @@ let _x141 =
  (fun pos_ -> Yk_bind(function Yk_done(_x136) -> _x135 (_x136)  | _ -> failwith "bind-1181")))) in _t(fun _(*1176*) pos_ -> let _x133 n = _x132 ((_wv0)) n in _t(fun _(*1177*) pos_ -> _x133((match _x13 with (n) -> n))))) in _t(fun _(*1174*) pos_ -> _x130 ((match _x25 with Yk_x14(y) -> y | _ -> failwith "projection")) )),_x129)
 | _ -> failwith "option"))
 let __default_call _ _ = sv0;;
+let __cc_call _ x = x;;
 let __default_ret _ v1 _ = v1;;
 let num_symbols = 49
 

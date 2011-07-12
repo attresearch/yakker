@@ -284,6 +284,7 @@ let key_hash (i,v) = i lxor (sv_hash v)
 module TDHashtable = Hashtbl.Make(struct type t = int * sv let equal = key_eq let hash = key_hash end)
 
 let __default_call _ _ = sv0;;
+let __cc_call _ x = x;;
 let __default_ret _ v1 _ = v1;;
 let num_symbols = 11
 

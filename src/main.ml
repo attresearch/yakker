@@ -390,12 +390,11 @@ let do_phases gr =
             Analyze.relevance gr;
             if !Compileopt.use_coroutines then
               begin
-                Label.transform gr;
                 if !Compileopt.check_labels then
                   add_to_prologue gr
                     "let _i (x,y) = if x=y then y else failwith(Printf.sprintf \"_i expected %d, got %d\" x y)\n";
                 Analyze.assignments gr;
-                Dispatch.transform gr
+                Coroutine.transform_grammar gr
               end
             else begin
                Label.transform gr;

@@ -24,10 +24,10 @@ type command =
 | Close_under_core_cmd
 | Compile_cmd
 | Copyrule_cmd
+| Coroutine_cmd
 | Desugar_cmd
 | Desugar_gil_cmd
 | Dearrow_cmd
-| Dispatch_cmd
 | Dot_cmd
 | Exec_cmd
 | Extract_cmd
@@ -105,7 +105,7 @@ command =
                                              | _ -> ());
                                             p }
       | "compile" o                       { Compile_cmd }
-      | "dispatch" o                      { Dispatch_cmd }
+      | "coroutine" o                     { Coroutine_cmd }
       | "dot" o                           { Dot_cmd }
       | "exec" o arg$f *(o arg$x {x})$l o { files := f::!files; exec_l := l; Exec_cmd }
       | "extract" o                       { Extract_cmd }

@@ -50,7 +50,7 @@ let phase_order = (* preorder on phases *)
         (* they compose the usual sequence of transformations in compilation *)
         (* this ordering is over-specified, but that's useful for determinism *)
         [Fuse_cmd;                 (* Gil transformer *)
-         Dispatch_cmd;             (* transforms Gul.grammar to Gil *)
+         Coroutine_cmd;            (* transforms Gul.grammar to Gil *)
          (* Gul.grammar transformers *)
          Replay_cmd; Wrap_cmd; Attributes_cmd; Lift_cmd; Desugar_cmd; Unroll_star_cmd;
          Inline_regular_cmd; Copyrule_cmd; Hash_cmd; Minus_cmd;
@@ -90,7 +90,7 @@ let phases_of cmd =
     | Wrap_cmd
     | Replay_cmd             -> Print_gul_cmd::phases
 
-    | Dispatch_cmd
+    | Coroutine_cmd
     | Dearrow_cmd
     | Inline_nullable_cmd
     | Desugar_gil_cmd
@@ -384,7 +384,7 @@ let do_phases gr =
       | Replay_cmd ->
           do_phase "replay transformation" (fun () ->
             Replay.transform gr)
-      | Dispatch_cmd ->
+      | Coroutine_cmd ->
           do_phase "dispatching" begin fun () ->
             Analyze.producers gr;
             Analyze.relevance gr;

@@ -24,162 +24,6 @@ let yk_delay e1 e2 = Printf.sprintf "Yk_delay(%s,%s)" e1 e2
 let string_of_varset s =
   String.concat " " (PSet.fold (fun x y -> x::y) s [])
 
-let transform r0 =
-  let ulam = function
-    | [] -> Util.impossible "Coroutine.transform.ulam([])"
-    | [(label,body)] ->
-        if !Compileopt.check_labels then
-          Printf.sprintf "(fun %d pos_ -> %s)" label body
-        else
-          (* Could just use next case, but this prints a bit more nicely *)
-          Printf.sprintf "(fun _(*%d*) pos_ -> %s)" label body (* prevent match warning *)
-    | cases ->
-        let b = Buffer.create 11 in
-        Printf.bprintf b "(function\n ";
-        let rec loop = function [] -> Util.impossible "Coroutine.transform.ulam"
-          | (label,body)::[] ->
-              if !Compileopt.check_labels then
-                Printf.bprintf b "| %d ->\n (fun pos_ -> %s)" label body
-              else
-                Printf.bprintf b "| _(*%d*) ->\n (fun pos_ -> %s)" label body (* prevent match warning *)
-          | (label,body)::tl ->
-              Printf.bprintf b "| %d ->\n (fun pos_ -> %s)\n " label body;
-              loop tl
-        in loop cases;
-        Printf.bprintf b ")";
-        Buffer.contents b in
-  let t_ulam l = "_t"^(ulam l) in
-  (* invariant: c is only applied to early-relevant r, and returns a non-empty list *)
-  let rec c r k =
-    if not(r.a.early_relevant) then
-      (Util.warn Util.Sys_warn "Invariant violated: coroutine transform on non-early-relevant rhs";
-       Pr.pr_rule_channel stderr r;
-       prerr_newline ();
-       [])
-    else
-    let (pre,post) = (r.a.pre,r.a.post) in
-    if pre=0 then (match r.r with Alt _ | Opt _ -> () | _ -> Printf.eprintf "Warning: pre=0 for %s\n%!" (Pr.rule2string r));
-    match r.r with
-      | Action (Some e,_) ->
-          [(pre, k(e))]
-      | Box(e,_,_) ->  (*TJIM: in process of changing box return type*)
-          [(pre, yk_box e k)]
-      | Symb(n,Some e,_,_) -> (* TODO: attributes *)
-          let e = yk_done e in
-          let eta k =
-            let x = Variables.fresh() in
-            Printf.sprintf "Yk_bind(function Yk_done(%s) -> %s | _ -> failwith \"bind-%d\")" x (k(x)) post in
-          [(pre, e);
-           (post, eta k)]
-      | Symb(n,None,_,_) -> (* nonterminal takes no arguments but returns an early result *) (* TODO: attributes *)
-          let eta k =
-            let x = Variables.fresh() in
-            Printf.sprintf "Yk_bind(function Yk_done(%s) -> %s | _ -> failwith \"bind=%d\")" x (k(x)) post in
-          [(post, eta k)]
-      | Delay(_,e,_) ->
-          let e = yk_delay (k"(_wv0)") e in
-          [(pre,e)]
-      | Position true ->
-          [(pre,k("pos_"))] (* pos_ is bound later by t_ulam; note that k cannot capture variables *)
-      | When e ->
-          let e = yk_when e in
-          [(pre, e);
-           (post, k("(_wv0)"))]
-      | DBranch(e,_) -> (* TODO: attributes *)
-          if !Compileopt.late_only_dbranch then
-            (Util.warn Util.Sys_warn "Invariant violated: coroutine transform on late-only dbranch.";
-            [])
-          else
-            let e = yk_done e in
-            let eta k =
-              let x = Variables.fresh() in
-              Printf.sprintf "Yk_bind(function Yk_done(%s) -> %s | _ -> failwith \"bind-%d\")" x (k(x)) post in
-            [(pre, e);
-             (post, eta k)]
-      | Alt(r1,r2) ->
-          (* NB both r1 and r2 are early_relevant b/c of force_early_alts *)
-          (c r1 k)@(c r2 k)
-      | Opt r1 ->
-          Util.impossible "Coroutine.coroutine.Opt"
-      | Assign(r1,None,_) -> c r1 k
-      | Assign(r1,Some x,_) ->
-          (match r1.a.early_relevant with
-            true ->
-              let g = Variables.fresh() in
-              [(pre,
-                Printf.sprintf
-                  "let %s %s = %s in %s"
-                  g x (k("(_wv0)"))
-                  (t_ulam(c r1 (fun hole -> Printf.sprintf "%s(%s)" g hole))))]
-          | false ->
-              Printf.eprintf "Warning: assigning _wv0 in %s\n%!" (Pr.rule2string r);
-              [(pre,
-                Printf.sprintf "let %s=(_wv0) in %s" x (k("(_wv0)")))])
-      | Seq(r1,early,_,r2) ->
-          (match r1.a.early_relevant,r2.a.early_relevant with
-          | true,true ->
-              let x =
-                (match early with Some x -> x
-                | None -> Variables.fresh()) in (* this case handled by normalization in writeup *)
-              let g = Variables.fresh() in
-              let assignments = string_of_varset r1.a.early_assignments in
-              [(pre,
-                Printf.sprintf
-                  "let %s %s %s = %s in %s"
-                  g x assignments (t_ulam(c r2 k))
-                  (t_ulam(c r1 (fun hole -> Printf.sprintf "%s (%s) %s" g hole assignments))))]
-          | true,false ->
-              (*TJIM: WRITEUP IS WRONG, NEEDS TO SEND UNIT TO K*)
-              (*THEREFORE, ERASURE IN WRITEUP IS WRONG*)
-              (*FIX BY CHANGING NORMALIZATION IN WRITEUP?*)
-              (* the continuation k must receive () from r2 *)
-              (* NB we don't need to dispatch on pre to accomplish this *)
-              c r1 (fun x -> (k (Printf.sprintf "ignore(%s);_wv0" x)))
-          | false,true ->
-              (match early with
-              | None ->
-                  c r2 k (* NB no dispatch required here... *)
-              | Some x ->
-                  Printf.eprintf "Warning: binding to _wv0 in %s\n%!" (Pr.rule2string r);
-                  [(pre, (* ...but here we must dispatch to bind x to unit *) (*HANDLED BY NORMALIZATION IN WRITEUP*)
-                    Printf.sprintf "let %s=(_wv0) in %s" x (t_ulam(c r2 k)))])
-          | false,false ->
-              (* this case is impossible because our analysis marks this as not early relevant,
-                 regardless of whether there is a variable binding *)
-              Util.warn Util.Sys_warn "Impossible case in coroutine transformation: not early relevant";
-              [])
-      | Star(loop_condition,r1) ->
-          let (x,e) =
-            (match loop_condition with
-            | Accumulate(Some(x,e),_) -> x,e
-            | Accumulate(None,_) (* in this case r1 must be early relevant so we need to track pre and post anyway *)
-            | Bounds _ -> Variables.fresh(),"_wv0"
-                (* This case of Bounds together with an early-relevant r1 can only occur if lifting was skipped. Otherwise,
-                   the star would have been lifted to accumulate a list of values. *)
-            ) in
-          let g = Variables.fresh() in
-          let assignments = string_of_varset r1.a.early_assignments in
-          [(pre,
-            Printf.sprintf
-              "let rec %s %s %s = %s in %s (%s) %s"
-              g x assignments (t_ulam((post,k(x))::(c r1 (fun hole -> Printf.sprintf "%s (%s) %s" g hole assignments))))
-              g e assignments)]
-      | Position false
-      | Action(None,_)
-      | CharRange(_,_)
-      | Prose(_)
-      | Lookahead _
-      | Lit _  ->
-          Util.warn Util.Sys_warn "Impossible case 2 in coroutine transformation: not early relevant";
-          []
-      | Rcount(_,_)
-      | Hash(_,_)
-      | Minus(_,_) ->
-          Util.warn Util.Sys_warn "Impossible case 3 in coroutine transformation: not desugared";
-          [] (* should have been desugared *)
-  in
-  t_ulam(c r0 (fun x->"Yk_done("^x^")"))
-
 let add_no_early_or_late_prologue gr =
   add_to_prologue gr
     "
@@ -488,8 +332,8 @@ let transform_grammar gr =
   let rec c r k =
     match r.r with
     | Action (Some e,_) ->
-        let lab = fresh() in
-        [(lab, k(e))], Gil.Action(disp(lab))
+        let label = fresh() in
+        [(label, k(e))], Gil.Action(disp(label))
 
     | Alt(r1,r2) ->
         (* NB both r1 and r2 are early_relevant b/c of force_early_alts *)
@@ -509,14 +353,14 @@ let transform_grammar gr =
             let alts1, gil1 = c r1 (fun hole -> Printf.sprintf "%s (%s) %s" g hole assignments) in
             let alts2, gil2 = c r2 k in
 
-            let lab = fresh() in
-            [(lab,
+            let label = fresh() in
+            [(label,
               Printf.sprintf
                 "let %s %s %s = %s in %s"
                 g x assignments (t_ulam alts2)
                 (t_ulam alts1))],
 
-            Gil.Seq(Gil.Action(disp(lab)),Gil.Seq(gil1,gil2))
+            Gil.Seq(Gil.Action(disp(label)),Gil.Seq(gil1,gil2))
 
         | true,false ->
             let alts1, gil1 = c r1 (fun x -> (k (Printf.sprintf "ignore(%s);_wv0" x))) in
@@ -534,8 +378,8 @@ let transform_grammar gr =
 
               | Some x ->
                   Printf.eprintf "Warning: binding to _wv0 in %s\n%!" (Pr.rule2string r);
-                  let lab = fresh() in
-                  [(lab, Printf.sprintf "let %s=(_wv0) in %s" x (t_ulam(alts2)))] in
+                  let label = fresh() in
+                  [(label, Printf.sprintf "let %s=(_wv0) in %s" x (t_ulam(alts2)))] in
             alts, Gil.Seq(gil1,gil2)
         | false,false ->
             (* this case is impossible because our analysis marks this as not early relevant,
@@ -572,23 +416,23 @@ let transform_grammar gr =
         alts, gil
 
     | Position true ->
-        let lab = fresh() in
-        [(lab,k("pos_"))], (* pos_ is bound later by t_ulam; note that k cannot capture variables *)
-        Gil.Action(disp(lab))
+        let label = fresh() in
+        [(label,k("pos_"))], (* pos_ is bound later by t_ulam; note that k cannot capture variables *)
+        Gil.Action(disp(label))
 
     | Box(e,_,bn) ->
-        let lab = fresh() in
-        [(lab, yk_box e k)],
-        Gil.Box(disp_box(lab), bn)
+        let label = fresh() in
+        [(label, yk_box e k)],
+        Gil.Box(disp_box(label), bn)
 
     | Delay(needs_env,e,_) ->
-        let lab = fresh() in
-        let alts = [(lab, yk_delay (k"(_wv0)") e)] in
+        let label = fresh() in
+        let alts = [(label, yk_delay (k"(_wv0)") e)] in
         let gil =
           if needs_env then
-            disp_delay(lab)
+            disp_delay(label)
           else
-            push lab e in
+            push label e in
         alts, gil
 
     | When e ->
@@ -606,20 +450,20 @@ let transform_grammar gr =
     | Assign(r1,None,_) ->
         c r1 k
     | Assign(r1,Some x,_) ->
-        let lab = fresh() in
+        let label = fresh() in
         if r1.a.early_relevant then
           let g = Variables.fresh() in
           let alts1, gil1 = c r1 (fun hole -> Printf.sprintf "%s(%s)" g hole) in
           let alts =
-            [(lab,
+            [(label,
               Printf.sprintf "let %s %s = %s in %s" g x (k("(_wv0)")) (t_ulam alts1))] in
-          let gil = Gil.Seq(Gil.Action(disp(lab)),gil1) in
+          let gil = Gil.Seq(Gil.Action(disp(label)),gil1) in
           alts, gil
         else
           (Printf.eprintf "Warning: assigning _wv0 in %s\n%!" (Pr.rule2string r);
-           [(lab,
+           [(label,
              Printf.sprintf "let %s=(_wv0) in %s" x (k("(_wv0)")))],
-           Gil.Seq(Gil.Action(disp(lab)),gul2gil r1))
+           Gil.Seq(Gil.Action(disp(label)),gul2gil r1))
 
     | DBranch(e,c) ->
 

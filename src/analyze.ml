@@ -269,7 +269,16 @@ let rec relevance0 is_early_producer r =
   | Alt(r1,r2) | Minus(r1,r2) ->
       add r1;
       add r2
-  | Opt r1 | Star(_,r1) | Hash(_,r1) ->
+  | Opt r1
+  | Star(Bounds(0,Infinity),r1)
+  | Hash(Bounds(0,Infinity),r1) ->
+      add r1
+  | Star(Bounds _,r1) | Hash(Bounds _,r1) ->
+      r.a.early_relevant <- true;
+      add r1
+  | Star(Accumulate(early,late),r1) | Hash(Accumulate(early,late),r1) ->
+      if early<>None then r.a.early_relevant <- true;
+      if late<>None then r.a.late_relevant <- true;
       add r1
   | Lookahead (_,r1) ->
       (* Complete relevance0 analysis for r1 but don't propagate relevance to the Lookahead node itself *)

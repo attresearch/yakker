@@ -720,7 +720,7 @@ let pr_gil_definitions2 f start tokmap = function
         let b = Buffer.create 11 in
         let first_map = if !Compileopt.lookahead then first_gr_gil_lex ds tokmap else PMap.empty in
         let follow_map = if !Compileopt.lookahead then follow_gr_gil_lex ds first_map else PMap.empty in
-        let tcg = rec_graph ds first_map in
+        let tcg = reachable_graph ds in
         Printf.bprintf b "(*PARSER-COMBINATOR PROLOGUE*)
 module Memo_symb = Allp.Make(struct type semval = sv
                                module HT = TDHashtable

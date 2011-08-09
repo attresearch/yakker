@@ -9,7 +9,7 @@
  *    Trevor Jim and Yitzhak Mandelbaum
  *******************************************************************************)
 
-(* A graph library, providing transitive closure and topological sort *)
+(* A (directed) graph library, providing transitive closure and topological sort *)
 
 open Yak
 
@@ -61,9 +61,19 @@ let remove_edges g source targets =
 (* let fold_edges = PMap.foldi .|. (PSet.fold .|.) *)
 let fold_edges f = PMap.foldi (fun n1 -> PSet.fold (f n1))
 
+let get_sources g target =
+  fold_edges (fun src tgt srcs -> if tgt = target then PSet.add src srcs else srcs) g PSet.empty
+
 let is_edge g source target =
   PSet.mem target (PMap.find source g)
 
+(* UNDER CONSTRUCTION: *)
+(* let make_dot outch g = *)
+(*   Printf.fprintf outch "digraph g {\nrankdir=LR\n"; *)
+(*   Printf.fprintf outch "node [shape=box,fontname=%S];\n" !font_regular; *)
+(*   Printf.fprintf outch "edge [fontname=%S];\n" !font_regular; *)
+(*   iter_nodes g in *)
+(*   Printf.fprintf outch "}\n" *)
 
 (********************)
 (* Topological sort *)

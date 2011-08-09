@@ -1430,42 +1430,12 @@ let first r first_map =
   in
     loop r
 
-(* function that determines if a nonterminal is recursive *)
-let rec_graph gr first_map =
-  let rec loop g n r = match r.r with
-    | Symb(x,_,_,_) ->
-        Tgraph.add_edge (Tgraph.add_node g x) n x
-    | Action _
-    | Position _
-    | Box _
-    | Delay _
-    | Lit _
-    | CharRange _
-    | Prose _
-    | When _
-    | DBranch _
-    | Lookahead _ ->
-        g
-    | Seq(r1,_,_,r2)
-    | Minus(r1,r2)
-    | Alt(r1,r2) ->
-        loop (loop g n r1) n r2
-    | Assign(r1,_,_)
-    | Opt(r1)
-    | Rcount(_,r1)
-    | Star(_,r1)
-    | Hash(_,r1) ->
-        loop g n r1
-  in
-    Tgraph.tc
-      (List.fold_left
-         (fun result ->
-            (function
-                     RuleDef(n,r, _)->
-                   loop (Tgraph.add_node result n) n r
-               | _ -> result))
-         Tgraph.empty
-         gr.ds)
+(** [reachable_graph grammar] builds a graph with a node for every
+    nonterminal in the grammar and an edge from B to A if A is
+    reachable from B. We say "A is reachable from B" if there exists
+    a derivation of A which contains B.*)
+let reachable_graph gr =
+  Tgraph.tc (Gul.dependency_graph gr.ds)
 
 (* function that determines if a nonterminal is left recursive *)
 let lrec_graph gr first_map =
@@ -1739,7 +1709,7 @@ let print_fs_simple fs =
 let report gr outc tokmap =
   let first_map = first_gr gr tokmap in
   let follow_map = follow_gr gr first_map in
-  let recg = rec_graph gr first_map in
+  let recg = reachable_graph gr in
   let lrecg = lrec_graph gr first_map in
   let total = ref 0 in
   let n_ll1 = ref 0 in
@@ -2048,31 +2018,12 @@ module First_set_gil_lex = struct
   *)
 
 
-  (* function that determines if a nonterminal is recursive *)
-  let rec_graph gr first_map =
-    let rec loop g n r = match r with
-      | Gil.Symb(x,_,_) ->
-          Tgraph.add_edge (Tgraph.add_node g x) n x
-      | Gil.Action _
-      | Gil.Box _
-      | Gil.Lit _
-      | Gil.CharRange _
-      | Gil.When _ | Gil.When_special _  | Gil.DBranch _
-      | Gil.Lookahead _ ->
-          g
-      | Gil.Seq(r1,r2)
-      | Gil.Alt(r1,r2) ->
-          loop (loop g n r1) n r2
-      | Gil.Star r1 ->
-          loop g n r1
-    in
-      Tgraph.tc
-        (List.fold_left
-           (fun result (n,r_gil) ->
-              loop (Tgraph.add_node result n) n r_gil
-           )
-           Tgraph.empty
-           gr)
+  (** [reachable_graph grammar] builds a graph with a node for every
+      nonterminal in the grammar and an edge from B to A if A is
+      reachable from B. We say "A is reachable from B" if there exists
+      a derivation of A which contains B.*)
+  let reachable_graph gr =
+    Tgraph.tc (Gil.dependency_graph gr)
 
   let lrec_graph gr first_map =
     let rec loop g n r = match r with
@@ -2087,29 +2038,29 @@ module First_set_gil_lex = struct
           g
       | Gil.Seq(r1,r2) ->
           let fs = first_gil_lex r1 first_map in
-            if not(fs_notempty fs.nonempty) || fs.epsilon || fs.maybe_empty <> []
-            then loop (loop g n r1) n r2
-            else
-              loop g n r1
+          if not(fs_notempty fs.nonempty) || fs.epsilon || fs.maybe_empty <> []
+          then loop (loop g n r1) n r2
+          else
+            loop g n r1
       | Gil.Alt(r1,r2) ->
           loop (loop g n r1) n r2
       | Gil.Star r1 ->
           loop g n r1
     in
-      Tgraph.tc
-        (List.fold_left
-           (fun result (n,r_gil) ->
-              loop (Tgraph.add_node result n) n r_gil
-           )
-           Tgraph.empty
-           gr)
+    Tgraph.tc
+      (List.fold_left
+         (fun result (n,r_gil) ->
+            loop (Tgraph.add_node result n) n r_gil
+         )
+         Tgraph.empty
+         gr)
 
   let is_rec n g = Tgraph.is_edge g n n
 
   let union_fls fls1 fls2 =
     let fls1cs,fls1ts = fls1 in
     let fls2cs,fls2ts = fls2 in
-      union_cs fls1cs fls2cs, union_ts fls1ts fls2ts
+    union_cs fls1cs fls2cs, union_ts fls1ts fls2ts
 
   let empty_fls () = Cs.empty (), []
 
@@ -2118,13 +2069,13 @@ module First_set_gil_lex = struct
       (str^name^":\n"^(pr_fls fls))
     in
     let str = PMap.foldi print_one follow_map "" in
-      str
+    str
 
   (*
-     the main function that computes the follow sets for all nonterminals in the grammar gr:
-     the framework is the same as in the first set computing, it iterates until a fixed point is reached. the flags are all used to help determine if there's any change in the current pass.
-     while computing follow set, there're two directions of propagation: assume r -> alpha r1
-     follow set of r needs to be propagated to follow set of r1 and vice versa
+    the main function that computes the follow sets for all nonterminals in the grammar gr:
+    the framework is the same as in the first set computing, it iterates until a fixed point is reached. the flags are all used to help determine if there's any change in the current pass.
+    while computing follow set, there're two directions of propagation: assume r -> alpha r1
+    follow set of r needs to be propagated to follow set of r1 and vice versa
   *)
   let follow_gr_gil_lex gr first_map =
     let flag = ref false in

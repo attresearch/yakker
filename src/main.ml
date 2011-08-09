@@ -29,6 +29,8 @@ let phase_order = (* preorder on phases *)
         [Print_gil_cmd];           (* takes Gil as input *)
 
         [Lookahead_analysis_cmd];  (* these take Gul.grammars as input *)
+        [Generators_analysis_cmd];
+        [Dependency_graph_cmd];
         [Lr1_lookahead_cmd; Lexer_cmd];  (* Too few preprocessing elements here, but ok for starters. *)
         [Precedence_analysis_cmd; Lexer_cmd];
         [Print_gul_cmd];
@@ -500,6 +502,15 @@ let do_phases gr =
             Analyze.relevance gr;
             vprintf "%t"
               (fun outc -> Analyze.First_set_lex.report gr outc gr.tokmap))
+      | Generators_analysis_cmd ->
+          do_phase "Generators analysis" begin fun () ->
+            let gs = Gul.get_generators_of gr.ds roots in
+            PSet.iter (Printf.printf "%s\n") gs
+          end
+      | Dependency_graph_cmd ->
+          do_phase "WORK IN PROGRESS: Generating dependency graph" begin fun () -> ()
+(*             let g = Gul.dependency_graph gr.ds in *)
+          end
       | Strip_late_actions_cmd ->
           do_phase "stripping late actions" (fun () ->
             Pr.pr_grammar stdout (remove_late_actions gr))
@@ -508,6 +519,9 @@ let do_phases gr =
           do_phase "adding LR(1) lookahead" (fun () ->
             let gr = Lookahead.add_lr1_lookahead gr in
             Pr.pr_grammar stdout gr)
+(*           do_phase "adding LALR(1) lookahead" begin fun () -> *)
+(*             let gr = Lookahead.differentiate_lalr1 gr in *)
+(*             Pr.pr_grammar stdout gr end *)
       | Extract_cmd -> failwith "Internal error: Extract_cmd in do_phases"
       | Info_cmd -> failwith "Internal error: Info_cmd in do_phases"
       | Rfc_cmd -> failwith "Internal error: Rfc_cmd in do_phases")

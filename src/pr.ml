@@ -61,10 +61,10 @@ let pr_repeat f = function
   | Infinity -> bprintf f "&"
 
 let pr_boxnull f = function
-    Always_null -> bprintf f ",*"
-  | Never_null -> bprintf f ",+"
+    Always_null -> bprintf f "*"
+  | Never_null -> bprintf f "+"
   | Runbox_null -> ()
-  | Runpred_null e -> bprintf f ",?{%s}" e
+  | Runpred_null e -> bprintf f "?{%s}" e
 
 let pr_constr f {cname = n; arity=a; cty=cty;} = bprintf f "%s %d:%s" n a cty
 
@@ -94,9 +94,9 @@ and pr_rule f r =
   | DBranch (e, c) ->
       bprintf f "@match(%s, %a)" e pr_constr c
   | Box(x,None,boxnull) ->
-      bprintf f "@box(%s%a)" x pr_boxnull boxnull
+      bprintf f "@box%a(%s)" pr_boxnull boxnull x
   | Box(x,Some y,boxnull) ->
-      bprintf f "@box(%s{%s}%a)" x y pr_boxnull boxnull
+      bprintf f "@box@>(%s) %a(%s)" y pr_boxnull boxnull x
   | Delay(true,x,None) ->
       bprintf f "@delay(%s)" x
   | Delay(true,x,Some y) ->

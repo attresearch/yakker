@@ -27,11 +27,13 @@ type command =
 | Desugar_cmd
 | Desugar_gil_cmd
 | Dearrow_cmd
+| Dependency_graph_cmd
 | Dispatch_cmd
 | Dot_cmd
 | Exec_cmd
 | Extract_cmd
 | Fuse_cmd
+| Generators_analysis_cmd
 | Hash_cmd
 | Infer_ty_cmd
 | Info_cmd
@@ -105,11 +107,13 @@ command =
                                              | _ -> ());
                                             p }
       | "compile" o                       { Compile_cmd }
+      | "dependency-graph" o              { Dependency_graph_cmd }
       | "dispatch" o                      { Dispatch_cmd }
       | "dot" o                           { Dot_cmd }
       | "exec" o arg$f *(o arg$x {x})$l o { files := f::!files; exec_l := l; Exec_cmd }
       | "extract" o                       { Extract_cmd }
       | "fuse" o                          { Compileopt.coalesce := true; Fuse_cmd }
+      | "get-generators" o                { Generators_analysis_cmd }
       | "info" o                          { Info_cmd }
       | "lookahead-analysis" o            { Lookahead_analysis_cmd }
       | "lr1-lookahead" o                 { Lr1_lookahead_cmd }

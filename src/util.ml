@@ -255,6 +255,8 @@ let list_intersect cmp xs ys =
           else (* x = y *) _loop1 xs ys (x :: result) in
   _loop1 xs ys []
 
+let set_of_list l = List.fold_left (fun s x -> PSet.add x s) PSet.empty l
+
 module Operators = struct
   let ($) f g x = f (g x)
   let ($|) f x = f x

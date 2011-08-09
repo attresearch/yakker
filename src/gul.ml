@@ -398,25 +398,38 @@ let attribute_table_of_definitions ds =
   List.iter (function RuleDef (n, _, a) -> Hashtbl.add t n a | _ -> ()) ds;
   t
 
-(* return the subset of the definitions that are reachable from the roots. *)
+(** [get_reachable definitions roots] returns the subset of the
+    definitions that are reachable from the roots. *)
 let get_reachable ds roots =
   if roots = [] then begin
     Printf.eprintf "Warning: empty roots in get_reachable\n%!";
     ds
   end else
-  let g = Tgraph.tc(dependency_graph ds) in
-  let union x y = PSet.fold PSet.add x y in
-  let reachable =
-    List.fold_right
-      (fun root rset ->
-        let root_targets =
-          try Tgraph.get_targets g root
-          with Not_found -> PSet.empty in
-        PSet.add root (union root_targets rset))
-      roots
-      PSet.empty in
-  let is_reachable x = PSet.mem x reachable in
-  List.filter (function RuleDef(n,_,_) -> is_reachable n | _ -> false) ds
+    let g = Tgraph.tc(dependency_graph ds) in
+    let union x y = PSet.fold PSet.add x y in
+    let reachable =
+      List.fold_right
+        (fun root rset ->
+           let root_targets =
+             try Tgraph.get_targets g root
+             with Not_found -> PSet.empty in
+           PSet.add root (union root_targets rset))
+        roots
+        PSet.empty in
+    let is_reachable x = PSet.mem x reachable in
+    List.filter (function RuleDef(n,_,_) -> is_reachable n | _ -> false) ds
+
+(** [get_generators_of definitions targets] returns the subset of the
+    definitions that reach (generate) the targets. *)
+let get_generators_of ds targets =
+  if targets = [] then begin
+    Printf.eprintf "Warning: empty targets in get_generators_of\n%!";
+    PSet.empty
+  end else
+    let g = Tgraph.tc(dependency_graph ds) in
+    let tset = Util.set_of_list targets in
+    Tgraph.fold_edges (fun s t gs -> if PSet.mem t tset then PSet.add s gs else gs)
+      g PSet.empty
 
 let free_nonterminals rules =
   let g = Tgraph.tc(dependency_graph rules) in
@@ -427,10 +440,10 @@ let free_nonterminals rules =
     let union x y = PSet.fold PSet.add x y in
     List.fold_right
       (fun root used ->
-        let used_rhs =
-          try Tgraph.get_targets g root
-          with Not_found -> PSet.empty in
-        PSet.add root (union used_rhs used))
+         let used_rhs =
+           try Tgraph.get_targets g root
+           with Not_found -> PSet.empty in
+         PSet.add root (union used_rhs used))
       defined
       PSet.empty in
   let free =

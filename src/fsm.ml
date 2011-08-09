@@ -380,6 +380,13 @@ let merge_symb = function
       atrans(s,sn0, CallEps,      ZERO);
       atrans(s,f,   Cont(n,Some cc_call_tx,f_ret), ONE);
       (s,f,e)
+(*   | Symb(n, Some "(_e2)", f_ret) ->       (\* HACK. specialized to arrows + replay. *\) *)
+(*       Util.warn Util.Sys_warn ("collapsing _e2 for " ^ n); *)
+(*       let (s,f,e) = fresh3() in *)
+(*       let sn0 = nonterminal2fsm n in *)
+(*       atrans(s,sn0, CallEps,      ZERO);  (\* TODO: verify correctness *\) *)
+(*       atrans(s,f,   Cont(n,Some cc_call_tx,f_ret), ONE); *)
+(*       (s,f,e) *)
 (*   | Symb(n, (Some("(_e)") as f_call), f_ret) ->       (\* HACK. specialized to replay. *\) *)
 (*       Util.warn Util.Sys_warn ("collapsing _e for " ^ n); *)
 (*       let (s,f,e) = fresh3() in *)
@@ -595,15 +602,15 @@ let fsm_dot _ inch outch =
           Printf.fprintf outch "%d [shape=box3d]\n" a
         else () in
   Printf.fprintf outch "digraph g {\nrankdir=LR\n";
-  Printf.fprintf outch "node [shape=box,fontname=%s];\n" (quote !font_regular);
-  Printf.fprintf outch "edge [fontname=%s];\n" (quote !font_regular);
+  Printf.fprintf outch "node [shape=box,fontname=%S];\n" !font_regular;
+  Printf.fprintf outch "edge [fontname=%S];\n" !font_regular;
   fsm_iter inch f;
   Hashtbl.iter
     (fun (a,b,d) cs ->
-      Printf.fprintf outch "%d -> %d [label=\"%s%s\",fontname=%s]\n" a b
+      Printf.fprintf outch "%d -> %d [label=\"%s%s\",fontname=%S]\n" a b
         (Cs.to_nice_string cs)
         (weight2string d)
-        (quote !font_bold))
+        !font_bold)
     char;
   Hashtbl.iter
     (fun a l ->

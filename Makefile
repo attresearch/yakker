@@ -49,11 +49,11 @@ CMXS:=$(ML_SOURCES:.ml=.cmx)
 
 FRONT_END_SOURCES := compileopt.ml variables.ml tgraph.ml meta_prog.ml tyspec.ml gil.ml gul.ml pr.ml nullable_pred.ml \
                      minus.ml desugar.ml hash.ml copyrule.ml \
-                     analyze.ml unroll.ml lookahead.ml fusion.ml attributes.ml label.ml wrap.ml \
+                     analyze.ml unroll.ml fusion.ml attributes.ml label.ml wrap.ml \
                      coroutine.ml replay.ml \
                      dispatch.ml ty_infer.ml lift.ml inline_nullable.ml fsm.ml dearrow.ml \
 		     extract_grammar.ml rfc.ml ocaml_lexer.mll ocamllex_lexer.mll yakker_grammar.ml \
-                     cmdline.ml gil_gen.ml version.ml lexutil.ml  main.ml
+                     cmdline.ml gil_gen.ml version.ml lexutil.ml lookahead.ml main.ml
 FRONT_END_MLL_SOURCES := $(filter %.mll, $(FRONT_END_SOURCES))
 FRONT_END_ML_SOURCES := $(FRONT_END_MLL_SOURCES:.mll=.ml) $(filter %.ml, $(FRONT_END_SOURCES))
 FRONT_END_CMOS := $(FRONT_END_ML_SOURCES:.ml=.cmo)
@@ -88,10 +88,10 @@ TESTS_ML := $(foreach test,$(TESTS),$(test).ml)
 TESTS_PCOMB_ML := $(foreach test,$(TESTS),$(test)_pcomb.ml)
 
 # Examples requiring the -inline-cs option.
-EXAMPLES_ICS = ocaml_opt python ocamlyacc ocamlparser_regular
+EXAMPLES_ICS = js ocaml_opt python ocamlyacc ocamlparser_regular
 EXAMPLES_ICS_ML := $(foreach example,$(EXAMPLES_ICS),$(example).ml)
 
-EXAMPLES := aurochs aurochs_cor ocaml pexpr pyexpr js mailapp lgul happy $(EXAMPLES_ICS)
+EXAMPLES := aurochs aurochs_cor ocaml pexpr pyexpr mailapp lgul happy $(EXAMPLES_ICS)
 EXAMPLES_EXE := $(foreach example,$(EXAMPLES),$(example)-parser)
 EXAMPLES_PCOMB_EXE := $(foreach example,$(EXAMPLES),$(example)-pcomb-parser)
 EXAMPLES_OPT_EXE := $(foreach example,$(EXAMPLES),$(example)-parser.opt)

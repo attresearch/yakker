@@ -20,9 +20,64 @@
 *)
 
 open Yak
-
-
 open Gul
+
+module Label = struct
+(* The labeling transform *)
+open Variables
+
+(* Label convention: 0 means unlabeled *)
+(* Assumes that the input grammar has been marked relevant,
+   and all pre/post labels start out at 0 *)
+
+let start_labels_at = 1000
+
+let transform gr =
+  let current = ref start_labels_at in
+  let rec loop r =
+    if not(r.a.early_relevant || r.a.late_relevant) then () else
+    let prelabel() = r.a.pre <- postincr current in
+    let postlabel() = r.a.post <- postincr current in
+    match r.r with
+    | When _
+    | Symb _
+    | DBranch _
+      -> prelabel(); postlabel()
+    | Lookahead(_,r2)
+    | Star(_,r2) ->
+        prelabel(); postlabel();
+        loop r2
+    | Box _
+    | Position _
+    | Action _
+    | Delay _ ->
+        prelabel()
+    | Seq(r2,early,late,r3) ->
+        prelabel();
+        loop r2;
+        loop r3
+    | Assign(r2,early,late) ->
+        prelabel();
+        loop r2
+    | Alt(r2,r3) ->
+        loop r2;
+        loop r3
+    | Opt r2 ->
+        loop r2
+    (* cases below should have been desugared *)
+    | Rcount _    -> Util.impossible "Label.transform.loop.Rcount"
+    | Hash _      -> Util.impossible "Label.transform.loop.Hash"
+    | Minus _     -> Util.impossible "Label.transform.loop.Minus"
+    (* cases below should not be relevant *)
+    | Lit _       -> Util.impossible "Label.transform.loop.Lit"
+    | CharRange _ -> Util.impossible "Label.transform.loop.CharRange"
+    | Prose _     -> Util.impossible "Label.transform.loop.Prose"
+  in
+  List.iter
+    (function RuleDef(n,r,a) -> loop r | _ -> ())
+    gr.ds
+end
+
 open Gul.Curried_constructors
 
 module StringSet = Set.Make(String)
@@ -584,6 +639,7 @@ let pat_empty_env = "_"
 
 *)
 let transform gr =
+  Label.transform gr;
   let mk_box, mk_args_empty, mk_args, mk_when, mk_action, mk_merge, mk_push =
     match gr.grammar_early_relevant,gr.grammar_late_relevant with
       | true,true -> EL_combs.init ()

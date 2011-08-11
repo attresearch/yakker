@@ -399,7 +399,6 @@ let do_phases gr =
                 Coroutine.transform_grammar gr
               end
             else begin
-               Label.transform gr;
                Ty_infer.infer false gr;
                Dearrow.transform gr
             end

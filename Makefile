@@ -49,7 +49,7 @@ CMXS:=$(ML_SOURCES:.ml=.cmx)
 
 FRONT_END_SOURCES := compileopt.ml variables.ml tgraph.ml meta_prog.ml tyspec.ml gil.ml gul.ml pr.ml nullable_pred.ml \
                      minus.ml desugar.ml hash.ml copyrule.ml \
-                     analyze.ml unroll.ml fusion.ml attributes.ml label.ml wrap.ml \
+                     analyze.ml unroll.ml fusion.ml attributes.ml wrap.ml \
                      coroutine.ml replay.ml \
                      ty_infer.ml lift.ml inline_nullable.ml fsm.ml dearrow.ml \
 		     extract_grammar.ml rfc.ml ocaml_lexer.mll ocamllex_lexer.mll yakker_grammar.ml \
@@ -75,8 +75,8 @@ OCAMLOPT=ocamlfind ocamlopt
 OCAMLDOC=ocamlfind ocamldoc
 
 # TJIM: removed "history" test below, temporary, conflict with new history.ml
-#TESTS=history
-TESTS = expr int255 intFW scott_example3 yxml2 imap t000 t001 t002 t003 t004 \
+#TESTS=history t002
+TESTS = expr int255 intFW scott_example3 yxml2 imap t000 t001 t003 t004 \
 	t006 t007 \
         extract2 blackbox recur_w_args staract eof empty \
 	starchar oldtyspec
@@ -249,8 +249,8 @@ yakker-lex-pcomb-parser.opt: tgraph.cmx bnf.cmx yak.cmxa
 #      make update-regress
 #  Don't forget to bzr add your new directories/files.
 
-# TODO: imap aurochs ocaml
-R_TESTS = expr int255 intFW scott_example3 yxml2 t000 t001 t002 t003 t004 blackbox empty eof t006 oldtyspec
+# TODO: imap aurochs ocaml t002
+R_TESTS = expr int255 intFW scott_example3 yxml2 t000 t001 t003 t004 blackbox empty eof t006 oldtyspec
 R_EXAMPLES = pexpr pyexpr mailapp python
 R_REGRESSIONS := $(REGRESSIONS)
 

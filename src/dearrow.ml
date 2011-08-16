@@ -557,8 +557,10 @@ module Neither_combs = struct
   let mk_action _ _ _ =
     Util.impossible "Dearrow.Neither_combs.mk_action: grammar not relevant."
 
-  let mk_merge _ _ _ _ _ =
-    Util.warn Util.Sys_warn "Dearrow.Neither_combs.mk_merge: grammar not relevant.";
+  let mk_merge is_late_rel _ _ _ _ =
+    if is_late_rel then begin
+      Util.warn Util.Sys_warn "Dearrow.Neither_combs.mk_merge: grammar not relevant."
+    end;
     Fsm.default_binder_tx
 
   let mk_push _ _ _ =
@@ -1020,7 +1022,7 @@ let transform gr =
       (* Late actions were already handled by replay.  If present, was
          left intact so as not to effect relevance. So, we can
          ignore -- treat as epsilon. *)
-      | Action (None, Some _) ->
+      | Action (None, _) ->
           do_base $| Gil.Lit(true, "")
 
       | When e ->
@@ -1041,7 +1043,7 @@ let transform gr =
           Util.impossible "Dearrow.transform._tr.Box"
 
       (* We ignore any late arguments, because they will have already
-         been handled by replay.  However, Replay leaves them intat so
+         been handled by replay.  However, Replay leaves them intact so
          as not to effect relevance, so we can't insist that the late
          args be set to None. *)
       | Symb (nt, e_opt, attrs, _) ->
@@ -1168,8 +1170,6 @@ let transform gr =
       (* These late cases should have been desugared: *)
       | Position false ->
           Util.impossible "Dearrow.transform._tr.Position: Late positions should have been desugared by Replay."
-      | Action (None, None) ->
-          Util.impossible "Dearrow.transform._tr.Action: Action(None,None) should never occur."
       | Assign (_, None, None) ->
           Util.impossible "Dearrow.transform._tr.Assing: Assign(_,None,None) should never occur."
 

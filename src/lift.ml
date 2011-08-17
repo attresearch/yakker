@@ -221,13 +221,22 @@ let transform gr =
         let early_producer,late_producer = loop r1 in
         let (l_init,        l_elt,l_cons,l_all,        l_rev) = pieces late_producer in
         let (e_init,e_when1,e_elt,e_cons,e_all,e_when2,e_rev) = pieces_repeat e early_producer in
-        r.r <-
-          (mkSEQ2(mkSTAR2(Accumulate(e_init,l_init),
-                          mkSEQ2(mkWHEN(e_when1),None,None,
-                                 mkSEQ2(r1,e_elt,l_elt,mkACTION2(e_cons,l_cons)))),
-                  e_all,l_all,
-                  mkSEQ2(mkWHEN(e_when2),None,None,
-                         mkACTION2(e_rev,l_rev)))).r;
+        if early_producer || late_producer then
+          r.r <-
+            (mkSEQ2(mkSTAR2(Accumulate(e_init,l_init),
+                            mkSEQ2(mkWHEN(e_when1),None,None,
+                                   mkSEQ2(r1,e_elt,l_elt,mkACTION2(e_cons,l_cons)))),
+                    e_all,l_all,
+                    mkSEQ2(mkWHEN(e_when2),None,None,
+                           mkACTION2(e_rev,l_rev)))).r
+        else
+          r.r <-
+            (mkSEQ2(mkSTAR2(Accumulate(e_init,None),
+                            mkSEQ [mkWHEN e_when1;
+                                   r1;
+                                   mkACTION2 (e_cons, None)]),
+                    e_all, None,
+                    mkWHEN e_when2)).r;
         (early_producer,late_producer)
     | Star(Bounds(m,Num n),r1) ->
         let early_producer,late_producer = loop r1 in

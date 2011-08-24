@@ -294,6 +294,20 @@ let transform gr =
   Analyze.producers gr;
   Analyze.relevance gr;
   let uses_history = replay gr i_con in
+  let start_symbol = Variables.bnf2ocaml gr.start_symbol in
+  let start_params =
+    List.fold_left
+      (fun p ->
+        (function RuleDef(n,_,a) ->
+          if n=gr.start_symbol then
+            (match a.Attr.late_params with None -> ""
+            | Some x -> "("^x^") ")
+          else p
+        | _ -> p))
+      ""
+      gr.ds in
+  let comma_start_params =
+    if start_params="" then "" else ","^start_params in
   if !Compileopt.postfix_history && uses_history then begin
     reverse gr i_con; (* some grammars have late actions but never push anything on the history *)
     (* define [getp] based on i_con to avoid warning over unnecessary match case. *)
@@ -301,24 +315,29 @@ let transform gr =
     add_to_prologue gr
       (Printf.sprintf
          "
-let _replay_%s ykinput h =
+let _replay_%s ykinput h %s=
   let _o = new rvs (h#right_to_left) in
   let _n() = _o#next() in
   let _p() = %s in
-  _r_%s(_n,_p,ykinput)\n"
-         (Variables.bnf2ocaml gr.start_symbol)
+  _r_%s(_n,_p,ykinput%s)\n"
+         start_symbol
+         start_params
          getp
-         (Variables.bnf2ocaml gr.start_symbol))
+         start_symbol
+         comma_start_params)
   end else begin
     add_to_prologue gr
       (Printf.sprintf
          "
-let _replay_%s ykinput h =
+let _replay_%s ykinput h %s=
   let _o = (h#left_to_right) in
   let _n() = (let (_,x,_) = _o#next() in x) in
   let _p() = (let (_,_,p) = _o#next() in p) in
-  _r_%s(_n,_p,ykinput)\n"
-         (Variables.bnf2ocaml gr.start_symbol) (Variables.bnf2ocaml gr.start_symbol))
+  _r_%s(_n,_p,ykinput%s)\n"
+         start_symbol
+         start_params
+         start_symbol
+         comma_start_params)
   end;
   let is_producer = Analyze.is_rhs_producer gr.early_producers gr.late_producers in
   let mkOutput l = Delay(false,Printf.sprintf "%s(%d)" i_con l,None) in

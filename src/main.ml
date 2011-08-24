@@ -25,6 +25,7 @@ let phase_order = (* preorder on phases *)
         [Extract_cmd];             (* these do not operate on Gul.grammars *)
         [Info_cmd];
         [Rfc_cmd];
+        [Parse_cmd];               (* Parse only. *)
 
         [Print_gil_cmd];           (* takes Gil as input *)
 
@@ -521,6 +522,7 @@ let do_phases gr =
 (*             let gr = Lookahead.differentiate_lalr1 gr in *)
 (*             Pr.pr_grammar stdout gr end *)
       | Extract_cmd -> failwith "Internal error: Extract_cmd in do_phases"
+      | Parse_cmd -> failwith "Internal error: Parse_cmd in do_phases"
       | Info_cmd -> failwith "Internal error: Info_cmd in do_phases"
       | Rfc_cmd -> failwith "Internal error: Rfc_cmd in do_phases")
 
@@ -570,6 +572,16 @@ if !Cmdline.only then
 
 | Rfc_cmd ->
     Rfc.get !Cmdline.rfc_num
+
+| Parse_cmd ->
+    (try
+      List.iter
+        (fun file -> ignore (parse_file file))
+        files;
+    with e ->
+      prerr_endline ("Exception raised:\n" ^ Printexc.to_string e);
+      prerr_endline (Printexc.get_backtrace());
+      exit 1)
 
 | Extract_cmd ->
     List.iter

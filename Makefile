@@ -446,11 +446,11 @@ bootstrap-cmdline bootstrap-extract_grammar bootstrap-tyspec: bootstrap-%: $(SRC
 
 bootstrap-yakker_grammar: bootstrap-%: $(SRCDIR)/syntax/%.bnf
 	@echo checking bootstrapped file $*.ml
-	@./yakker compile $(SRCDIR)/syntax/$*.bnf \
+	@./yakker compile -arrow-notation $(SRCDIR)/syntax/$*.bnf \
                 | perl -p -e 's/# ([0-9]+) "[^"]*ml".*$$/# \1 "yakker_grammar_lexer.ml"/g;' -e 's/# ([0-9]+) "[^"]*mll".*$$/# \1 "yakker_grammar_lexer.mll"/g' \
 		| cmp -s - $(SRCDIR)/$*.ml ||\
 		(echo '    '$*': updating and normalizing line directives' && cp $(SRCDIR)/$*.ml $(SRCDIR)/prev_$*.ml \
-                       && (./yakker compile $(SRCDIR)/syntax/$*.bnf \
+                       && (./yakker compile -arrow-notation $(SRCDIR)/syntax/$*.bnf \
                            | perl -p -e 's/# ([0-9]+) "[^"]*ml".*$$/# \1 "yakker_grammar_lexer.ml"/g;' -e 's/# ([0-9]+) "[^"]*mll".*$$/# \1 "yakker_grammar_lexer.mll"/g' \
                            > $(SRCDIR)/$*.ml))
 

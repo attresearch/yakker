@@ -51,6 +51,7 @@ type substitution = (string * uterm) list
 let subs_empty : substitution     = []
 let subs_ext s x v : substitution = (x,v)::s
 let subs_lookup_try (s : substitution) x : uterm = List.assoc x s
+
 let subs_lookup (s : substitution) x : uterm option =
   try Some (List.assoc x s) with Not_found -> None
 
@@ -141,7 +142,7 @@ let inf_ty_of_expr (g : C.t) e = fresh_tyvar ()
 let nonterm_tyvar nt = "'yk_" ^ Variables.bnf2ocaml nt ^ "_result"
 let nonterm_arg_tyvar nt = "'yk_" ^ Variables.bnf2ocaml nt ^ "_arg"
 
-
+(** Elaborate an unannotated right-side to one with type annotations. *)
 let elaborate g r =
   let rec _e g r =
     match r.r with
@@ -308,12 +309,23 @@ let infer print_subs gr =
   let ds =
     List.map begin function
       | RuleDef(nt, r, a) ->
-          (* Add argument-type annotation, as applicable. *)
+          (* Add argument-type annotation, as applicable.
+             However, even if the nonterminal has an early parameter, it is not guaranteed
+             that its argument tyvar will map to something else in the substitution.
+             If the nonterminal is never called, it will be unconstrainted,
+             and, hence, its argument's type will not appear in the substitution.
+             In the latter case, just use the tyvar itself. (implicitly, anything
+             not mapped to something else in the substitution, maps to itself.     *)
           let a =
             {a with Attr.early_param_type =
                 match a.Attr.early_params with
                   | None -> None
-                  | Some _ -> Some (string_of_uterm (subs_lookup_try s (nonterm_arg_tyvar nt)))
+                  | Some _ ->
+                      let tv = nonterm_arg_tyvar nt in
+                      let tv =
+                        try string_of_uterm (subs_lookup_try s tv)
+                        with Not_found -> tv in
+                      Some tv
             } in
           RuleDef(nt, subs_apply s r, a)
       | x -> x

@@ -133,7 +133,9 @@ command =
 
 args =
         "-after" o phases$p               { after := Some p } ""
-      | "-arrow-notation" o               { Compileopt.use_coroutines := false } ""
+      | "-arrow-notation" o               { Compileopt.use_wrap_and_attr := false;      
+                                            Compileopt.use_coroutines    := false } ""
+      | "-hybrid-arrow" o                 { Compileopt.use_coroutines := false } ""  ; For testing; not (yet) of practical use.
       | "-backend" o
           ( "fun" {Fun_BE}
           | "tx"  {Trans_BE}

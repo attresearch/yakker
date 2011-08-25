@@ -38,4 +38,8 @@ let use_fsm = ref false
 let unit_history = ref false
 let repress_replay = ref false
 
+(** Flag: run wrapping and I/O attribute-elimination as part of regular pipeline. *)
+let use_wrap_and_attr = ref true
+
+(** Flag: run coroutines vs. arrow-notation. *)
 let use_coroutines = ref true

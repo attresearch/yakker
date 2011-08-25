@@ -346,14 +346,14 @@ let do_phases gr =
             Analyze.relevance gr;
             Lift.transform gr)
       | Attributes_cmd ->
-          if !Compileopt.use_coroutines then
+          if !Compileopt.use_wrap_and_attr then
             do_phase "attributes" begin fun () ->
               Analyze.producers gr;
               Analyze.relevance gr;
               Attributes.eliminate gr
             end
       | Wrap_cmd ->
-          if !Compileopt.use_coroutines then
+          if !Compileopt.use_wrap_and_attr then
             do_phase "wrapping" begin fun () ->
               Analyze.producers gr;
               Analyze.relevance gr;

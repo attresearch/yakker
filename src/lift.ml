@@ -149,7 +149,8 @@ let transform gr =
               [ mkPOSITION true,Some before,None;
                 dupRhs r1, None, late;
                 mkPOSITION true, Some after, None;
-                mkACTION2(Some(extent before after),None), early, None] in
+                (* added ty_annot to improve type inference. TODO: add similarly to other cases. *)
+                ty_annot (mkACTION2(Some(extent before after),None)) "string", early, None] in
           r.r <- (mkseq r1_seq r2).r
         end;
         loop r2

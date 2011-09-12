@@ -136,8 +136,6 @@ end
 
 module C = Context
 
-let ty_annot r ty = {r with a = {r.a with inf_type = Some ty}}
-
 let inf_ty_of_expr (g : C.t) e = fresh_tyvar ()
 let nonterm_tyvar nt = "'yk_" ^ Variables.bnf2ocaml nt ^ "_result"
 let nonterm_arg_tyvar nt = "'yk_" ^ Variables.bnf2ocaml nt ^ "_arg"
@@ -160,8 +158,11 @@ let elaborate g r =
           c1
       | Position true -> r, int_ty, no_cons
       | Action (Some early, _) ->
-          let ty = inf_ty_of_expr g early in
-          ty_annot r ty, ty, no_cons
+          (match r.a.inf_type with
+             | None ->
+                 let ty = inf_ty_of_expr g early in
+                 ty_annot r ty, ty, no_cons
+             | Some ty -> r, ty, no_cons)
       | Action (None,_) -> r, unit_ty, no_cons
       | Box (e, Some ty, bn) -> r, ty, no_cons
       | Box (e, None, bn) ->
@@ -283,18 +284,24 @@ let infer print_subs gr =
     List.map
       (function
         RuleDef(nt, r, a) ->
-          (match a.Attr.early_params with
-          | None ->
-              let r, ty, constraints = elaborate C.empty r in
-              let constraints = add_constraint constraints ty (nonterm_tyvar nt) in
-              constraints, RuleDef(nt, r, a)
-          | Some x ->
-              let r, ty, constraints = elaborate (C.ext C.empty (get_param x) (nonterm_arg_tyvar nt)) r in
-              let constraints = add_constraint constraints ty (nonterm_tyvar nt) in
-              (* we don't explicitly annotate argument with type variable, b/c there isn't
-                 any existing field for us to use. We leave it implicit. *)
-              constraints, RuleDef(nt, r, a))
-      | x -> [], x)
+          let ret_tyvar = nonterm_tyvar nt in
+          let cs, d =
+            match a.Attr.early_params with
+              | None ->
+                  let r, ty, constraints = elaborate C.empty r in
+                  let constraints = add_constraint constraints ty ret_tyvar in
+                  constraints, RuleDef(nt, r, a)
+              | Some x ->
+                  let r, ty, constraints = elaborate (C.ext C.empty (get_param x) (nonterm_arg_tyvar nt)) r in
+                  let constraints = add_constraint constraints ty ret_tyvar in
+                  (* we don't explicitly annotate argument with type variable, b/c there isn't
+                     any existing field for us to use. We leave it implicit. *)
+                  constraints, RuleDef(nt, r, a) in
+          let cs = match a.Attr.early_rettype with
+            | None -> cs
+            | Some ty -> add_constraint cs ret_tyvar ty in
+          cs, d
+      | d -> [], d)
     gr.ds
   end in
   let c = List.flatten cs in

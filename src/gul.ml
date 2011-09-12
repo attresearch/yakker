@@ -316,6 +316,8 @@ let alts_of_rhs =
   | _ -> r::l in
   loop []
 
+let ty_annot r ty = {r with a = {r.a with inf_type = Some ty}}
+
 let iter_rule_postorder f r =
   let rec loop r =
     (match r.r with

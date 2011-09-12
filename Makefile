@@ -88,7 +88,7 @@ TESTS_ML := $(foreach test,$(TESTS),$(test).ml)
 TESTS_PCOMB_ML := $(foreach test,$(TESTS),$(test)_pcomb.ml)
 
 # Examples requiring the -inline-cs option.
-EXAMPLES_ICS = js ocaml_opt python ocamlyacc ocamlparser_regular
+EXAMPLES_ICS = js ocaml_opt python ocamlyacc ocamlparser_regular cisco_ios
 EXAMPLES_ICS_ML := $(foreach example,$(EXAMPLES_ICS),$(example).ml)
 
 EXAMPLES := aurochs aurochs_cor ocaml pexpr pyexpr mailapp lgul happy $(EXAMPLES_ICS)

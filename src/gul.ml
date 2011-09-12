@@ -476,13 +476,12 @@ let close_definitions rules_orig rules_external =
 let remove_late_actions gr =
   let rec loop r = match r.r with
     | Action (_, None) | Box _ | Symb (_,_,_,None) | Position true
-    | Prose _ | When _ | Delay _
+    | Prose _ | When _
     | DBranch _
     | CharRange _ | Lit _ -> r
 
     | Symb (s,e,a, Some _) -> mkSYMB2(s,e,a,None)
-
-    | Position false -> mkACTION2(None, None)
+    | Delay _ | Position false -> mkACTION2(None, None)
     | Action (e, Some _) -> mkACTION2 (e, None)
     | Seq(r2, x,  _, r3) ->
         let r3_rla = loop r3 in

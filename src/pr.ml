@@ -99,12 +99,12 @@ and pr_rule f r =
       bprintf f "@box@>(%s) %a(%s)" y pr_boxnull boxnull x
   | Delay(true,x,None) ->
       bprintf f "@delay(%s)" x
-  | Delay(true,x,Some y) ->
-      bprintf f "@delay(%s{%s})" x y
+  | Delay(true,x,Some ty) ->
+      bprintf f "@delay{%s}(%s)" ty x
   | Delay(false,x,None) ->       (* TODO: there is no user-level syntax for this *)
       bprintf f "@-delay(%s)" x
-  | Delay(false,x,Some y) ->     (* TODO: there is no user-level syntax for this *)
-      bprintf f "@-delay(%s{%s})" x y
+  | Delay(false,x,Some ty) ->     (* TODO: there is no user-level syntax for this *)
+      bprintf f "@-delay{%s}(%s)" ty x
   | Prose x ->
       bprintf f "<%s>" x (* FIX: escape string? *)
   | Position true -> bprintf f "@pos"

@@ -43,3 +43,6 @@ let use_wrap_and_attr = ref true
 
 (** Flag: run coroutines vs. arrow-notation. *)
 let use_coroutines = ref true
+
+(** Flag: collapse calls when possible. *)
+let collapse_calls = ref true

@@ -368,20 +368,23 @@ let rec thompson =  function
    return the s.v. argument (because the s.v. argument equals the
    semantic value in contexts where call collapsing occurs). *)
 let merge_symb = function
-  | Symb(n,None, None) ->
+  | Symb(n,None, None) when !Compileopt.collapse_calls ->
       let (s,f,e) = fresh3() in
       let sn0 = nonterminal2fsm n in
       atrans(s,sn0, CallEps,      ZERO);
       atrans(s,f,   Cont(n,None,None), ONE);
       (s,f,e)
-  | Symb(n,None, f_ret) ->
+  | Symb(n,None, f_ret) when !Compileopt.collapse_calls ->
       let (s,f,e) = fresh3() in
       let sn0 = nonterminal2fsm n in
       atrans(s,sn0, CallEps,      ZERO);
       atrans(s,f,   Cont(n,Some cc_call_tx,f_ret), ONE);
       (s,f,e)
-  | Symb(n, Some "(_e2)", f_ret) ->       (* HACK. specialized to arrows + replay. *)
-(*       Util.warn Util.Sys_warn ("collapsing _e2 for " ^ n); *)
+(*   | Symb(n, Some ("(_id_e)" as scall), f_ret) *)
+(*   | Symb(n, Some ("(_id)" as scall), f_ret) *)
+      (* HACK. specialized to arrows + replay. *)
+  | Symb(n, Some ("(_e2)" as scall), f_ret) when !Compileopt.collapse_calls ->
+      Util.warn Util.Sys_warn ("collapsing "^ scall ^" for " ^ n);
       let (s,f,e) = fresh3() in
       let sn0 = nonterminal2fsm n in
       atrans(s,sn0, CallEps,      ZERO);  (* TODO: verify correctness *)

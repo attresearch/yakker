@@ -150,6 +150,7 @@ args =
       | "-lookahead" o                    { Compileopt.lookahead := true } ""
       | "-memoize-history" o              { Compileopt.memoize_history := true } ""
       | "-no-coalesce" o                  { Compileopt.coalesce := false } ""
+      | "-no-collapse-calls" o            { Compileopt.collapse_calls := false } ""
       | "-no-memoize-history" o           { Compileopt.memoize_history := false } ""
       | "-no-replay" o                    { Compileopt.repress_replay := true } ""
       | "-no-skip-opt" o                  { Compileopt.skip_opt := false } ""

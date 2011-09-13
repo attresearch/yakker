@@ -2611,7 +2611,7 @@ let __ocaml_lex_tables = {
 }
 
 let rec tok lexbuf =
-  lexbuf.Lexing.lex_mem <- Array.create 8 (-1) ;   __ocaml_lex_tok_rec lexbuf 0
+lexbuf.Lexing.lex_mem <- Array.create 8 (-1) ;   __ocaml_lex_tok_rec lexbuf 0
 and __ocaml_lex_tok_rec lexbuf __ocaml_lex_state =
   match Lexing.new_engine __ocaml_lex_tables __ocaml_lex_state lexbuf with
       | 0 ->
@@ -2917,7 +2917,7 @@ let
   | __ocaml_lex_state -> lexbuf.Lexing.refill_buff lexbuf; __ocaml_lex_tok_rec lexbuf __ocaml_lex_state
 
 and dec_range lexbuf =
-  lexbuf.Lexing.lex_mem <- Array.create 2 (-1) ;   __ocaml_lex_dec_range_rec lexbuf 147
+lexbuf.Lexing.lex_mem <- Array.create 2 (-1) ;   __ocaml_lex_dec_range_rec lexbuf 147
 and __ocaml_lex_dec_range_rec lexbuf __ocaml_lex_state =
   match Lexing.new_engine __ocaml_lex_tables __ocaml_lex_state lexbuf with
       | 0 ->
@@ -2948,7 +2948,7 @@ let
   | __ocaml_lex_state -> lexbuf.Lexing.refill_buff lexbuf; __ocaml_lex_dec_range_rec lexbuf __ocaml_lex_state
 
 and bin_range lexbuf =
-  lexbuf.Lexing.lex_mem <- Array.create 2 (-1) ;   __ocaml_lex_bin_range_rec lexbuf 151
+lexbuf.Lexing.lex_mem <- Array.create 2 (-1) ;   __ocaml_lex_bin_range_rec lexbuf 151
 and __ocaml_lex_bin_range_rec lexbuf __ocaml_lex_state =
   match Lexing.new_engine __ocaml_lex_tables __ocaml_lex_state lexbuf with
       | 0 ->
@@ -2979,7 +2979,7 @@ let
   | __ocaml_lex_state -> lexbuf.Lexing.refill_buff lexbuf; __ocaml_lex_bin_range_rec lexbuf __ocaml_lex_state
 
 and hex_range lexbuf =
-  lexbuf.Lexing.lex_mem <- Array.create 2 (-1) ;   __ocaml_lex_hex_range_rec lexbuf 155
+lexbuf.Lexing.lex_mem <- Array.create 2 (-1) ;   __ocaml_lex_hex_range_rec lexbuf 155
 and __ocaml_lex_hex_range_rec lexbuf __ocaml_lex_state =
   match Lexing.new_engine __ocaml_lex_tables __ocaml_lex_state lexbuf with
       | 0 ->
@@ -3536,8 +3536,6 @@ let sv_hash (x,h) =
 
 let _m2 l p (x,h1) (_,h2) = x, _m l p h1 h2
 let _e2 p (_,h) = ev0, _e p h
-let _id p x = x
-let _id_e p (x,h) = x, _e p h
 let sv_eq x y = sv_compare x y = 0
 let key_eq (i,v1) (j,v2) = i = j &&  sv_eq v1 v2
 let key_hash (i,v) = i lxor (sv_hash v)

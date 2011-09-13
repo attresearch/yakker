@@ -269,7 +269,8 @@ let do_compile_for_arrow out gr =
         Gil_gen.Peg.pr_definitions out liberal gr.start_symbol gr.gildefs
     | Trans_BE ->
         print_prologue ();
-        Printf.fprintf out "module Internal : sig
+        if !Compileopt.wrap_codegen_in_module then begin
+          Printf.fprintf out "module Internal : sig
     val __default_call : 'a -> 'b -> sv
     val __default_ret : 'a -> 'b -> 'c -> 'b
     val num_symbols : int
@@ -277,9 +278,14 @@ let do_compile_for_arrow out gr =
     val get_symb_action : string -> int
     val get_symb_start : int -> int
     val program : (int * sv Yak.Pam_internal.instruction list) list
-  end = struct\n";
+  end = struct\n"
+        end;
+
         gil_transducer true out gr.gildefs;
-        Printf.fprintf out "end\nopen Internal;;\n\n";
+
+        if !Compileopt.wrap_codegen_in_module then begin
+          Printf.fprintf out "end\nopen Internal;;\n\n";
+        end;
     );
 
     add_boilerplate backend gr;

@@ -3536,6 +3536,8 @@ let sv_hash (x,h) =
 
 let _m2 l p (x,h1) (_,h2) = x, _m l p h1 h2
 let _e2 p (_,h) = ev0, _e p h
+let _id p x = x
+let _id_e p (x,h) = x, _e p h
 let sv_eq x y = sv_compare x y = 0
 let key_eq (i,v1) (j,v2) = i = j &&  sv_eq v1 v2
 let key_hash (i,v) = i lxor (sv_hash v)
@@ -3543,15 +3545,6 @@ let key_hash (i,v) = i lxor (sv_hash v)
 (** Hashtable for top-down parsing. *)
 module TDHashtable = Hashtbl.Make(struct type t = int * sv let equal = key_eq let hash = key_hash end)
 
-module Internal : sig
-    val __default_call : 'a -> 'b -> sv
-    val __default_ret : 'a -> 'b -> 'c -> 'b
-    val num_symbols : int
-    val symbol_table : int -> string
-    val get_symb_action : string -> int
-    val get_symb_start : int -> int
-    val program : (int * sv Yak.Pam_internal.instruction list) list
-  end = struct
 let __default_call _ _ = sv0;;
 let __cc_call _ x = x;;
 let __default_ret _ v1 _ = v1;;
@@ -11937,9 +11930,6 @@ let program = [
 (381, [AAction2Instr(__a303,482)]);
 (382, [AAction2Instr(__a304,504)]);
 ]
-end
-open Internal;;
-
 
 let start_symb = get_symb_action "rulelist"
 

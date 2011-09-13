@@ -46,3 +46,9 @@ let use_coroutines = ref true
 
 (** Flag: collapse calls when possible. *)
 let collapse_calls = ref true
+
+(** Flag: wrap generated code in an internal module and only export
+    specific elements.  Due to (unexplained) problems with ocamlopt
+    compilation when this feature is turned on, I've disabled it
+    by default. *)
+let wrap_codegen_in_module = ref false

@@ -384,7 +384,7 @@ let merge_symb = function
 (*   | Symb(n, Some ("(_id)" as scall), f_ret) *)
       (* HACK. specialized to arrows + replay. *)
   | Symb(n, Some ("(_e2)" as scall), f_ret) when !Compileopt.collapse_calls ->
-      Util.warn Util.Sys_warn ("collapsing "^ scall ^" for " ^ n);
+(*       Util.warn Util.Sys_warn ("collapsing "^ scall ^" for " ^ n); *)
       let (s,f,e) = fresh3() in
       let sn0 = nonterminal2fsm n in
       atrans(s,sn0, CallEps,      ZERO);  (* TODO: verify correctness *)
@@ -392,7 +392,7 @@ let merge_symb = function
       (s,f,e)
   | Symb(n, (Some("(_e)") as f_call), f_ret) when !Compileopt.collapse_calls ->
       (* HACK. specialized to replay. *)
-      Util.warn Util.Sys_warn ("collapsing _e for " ^ n);
+(*       Util.warn Util.Sys_warn ("collapsing _e for " ^ n); *)
       let (s,f,e) = fresh3() in
       let sn0 = nonterminal2fsm n in
       atrans(s,sn0, CallEps,      ZERO);  (* TODO: verify correctness *)

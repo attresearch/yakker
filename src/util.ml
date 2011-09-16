@@ -218,6 +218,10 @@ let group_by cmp xs =
             (y, [], []) xs_s in
         (x::xs)::xss
 
+let list_last = function
+  | x :: xs -> List.fold_left (fun _ x -> x) x xs
+  | [] -> raise Not_found
+
 let list_make n f =
   let rec loop i xs =
     if i < n then loop (i + 1) ((f i)::xs) else xs in

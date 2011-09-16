@@ -309,10 +309,17 @@ module Curried_constructors = struct
  let mkALT2 x y = mkALT[x;y]
 end
 
-(* Convert binary Alt representation to list of alternatives *)
+(** Convert binary Alt representation to list of alternatives *)
 let alts_of_rhs =
   let rec loop l r = match r.r with
   | Alt(r2,r3) -> loop (loop l r3) r2
+  | _ -> r::l in
+  loop []
+
+(** Convert binary Seq representation with no binders to list of rhs *)
+let rs_of_rhs =
+  let rec loop l r = match r.r with
+  | Seq(r2,None,None,r3) -> loop (loop l r3) r2
   | _ -> r::l in
   loop []
 

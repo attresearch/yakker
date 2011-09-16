@@ -157,7 +157,7 @@ let transform gr =
 
     | Opt _
     | Alt _ ->
-        let alts_of_rhs = (* differs from bnf.ml b/c need to desugar Opt *)
+        let alts_of_rhs = (* differs from gul.ml b/c need to desugar Opt *)
           let rec loop l r = match r.r with
           | Alt(r1,r2) -> loop (loop l r2) r1
           | Opt(r1) ->
@@ -309,6 +309,122 @@ let transform gr =
                   mkSEQ2(mkWHEN(e_when2),None,None,
                          mkACTION2(e_rev,l_rev)))).r;
         (early_producer,late_producer)
+  end in
+  List.iter
+    (function RuleDef(n,r,a) -> ignore(loop r) | _ -> ())
+    gr.ds;
+  ()
+
+
+
+
+(** This function adds dummy late actions to a grammar, but in PADS style rather the standard lifting interpretation.
+
+    This new feature inserts late actions that attempt to simulate
+    building a parse tree. The actions themselves are empty; what is
+    significant is the choice of their location. I've attempted to
+    place the actions realistically to simulate the impact of
+    parse-tree building actions on the resulting automaton
+    (particularly in terms of lost sharing).
+
+    The command is called "pads-lift" because its semantics is closer
+    to the way that PADS automatically builds an AST than Yakker's
+    standard lifting. In particular, a sequence of elements is
+    followed by an action insertion even if the last element is not
+    late relevant. This corresponds to building a tuple of the
+    (relevant) elements of the sequence, rather than corresponding to
+    returning the last element, as standard lifting does.
+
+    N.B.: Hash and Rcount not supported.
+    N.B.: Does not preserve producerness. Best used on grammars with no early producers (attributes are fine).
+
+*)
+let pads_transform gr =
+  (* identify nonterminal producers. TODO: we actually care about
+     relevance not producerness, because as long as a rhs has an
+     action anywhere in a sequence pads-lifting will add a late
+     action. Unfortunately, would require us to build our own mapping
+     from nonterminals to relevance, so I'm pushing it off for now. *)
+  Analyze.producers gr;
+  let is_late_producer n = PSet.mem n gr.late_producers in
+  let rec loop r = begin
+    match r.r with
+    | Action(_,Some _) -> true
+    | Action(_,None) -> false
+    | Position true -> false
+    | Position false -> true
+    | Symb(n,_,_,_) -> (* TODO: attributes *)
+        is_late_producer n
+    | Delay _ -> true
+    | DBranch (_, {Gil.arity = 0}) -> false
+    | DBranch (_, _) -> false
+    | Box _-> false
+    | Minus(r1,r2) -> false (* TODO: should have been desugared *)
+    | Assign _ | Lit _ | CharRange _ | Prose _ | When _ | Lookahead _ ->
+        false
+    | Star(_,r1) -> loop r1
+    | Seq _ ->
+        (** Convert binary Seq representation with no late binders to list of rhs *)
+        let rs_of_rhs =
+          let rec loop l r = match r.r with
+            | Seq(r2,e_opt,None,r3) ->  (r2, e_opt) :: loop l r3
+            | _ -> (r, None) :: l in
+          loop [] in
+        let rs = rs_of_rhs r in
+        let rs = List.map (fun (r,e) -> if loop r then (r, e, Some (fresh())) else (r, e, None)) rs in
+        let rest_rel, last_rel  =
+          let r,rs = match List.rev rs with x::xs -> x,xs | _ -> Util.impossible "Sequence converted to empty list" in
+          let lrel = match r with (_, _, Some _) -> true | _ -> false in
+          let rrel = List.exists (function (_,_,Some _) -> true | _ -> false) rs in
+          rrel, lrel in
+        begin match rest_rel, last_rel with
+          | false, false -> false
+          | false, true  -> true    (* only last is relevant, so do nothing more *)
+          | true, _ ->
+              (* The first r_action is the real code; but, for now, we just need a mockup. *)
+              (* let xs = List.fold_right (fun (_,_,l_opt) xs -> match l_opt with None -> xs | Some x -> x::xs) rs [] in *)
+              (* let r_action = mkACTION2(None, Some ("(" ^ String.concat "," xs ^ ")")) in *)
+              let r_action = mkACTION2(None, Some "()") in
+              let mkseq = List.fold_right (fun (r,e,l) r_s -> mkSEQ2(r,e,l,r_s)) in
+              let r_new = mkseq rs r_action in
+              r.r <- r_new.r;
+              true
+        end
+    | Opt _
+    | Alt _ ->
+        let alts_of_rhs = (* differs from gul.ml b/c need to desugar Opt *)
+          let rec loop l r = match r.r with
+          | Alt(r1,r2) -> loop (loop l r2) r1
+          | Opt(r1) ->
+              r.r <- (mkALT[r1;mkLIT ""]).r; loop l r
+          | _ -> r::l in
+          loop [] in
+        let alts = alts_of_rhs r in
+        let lift_p = List.map loop alts in
+        let late_all_true   = List.for_all (fun x -> x) lift_p in
+        let late_all_false  = List.for_all not lift_p in
+        if late_all_true then true
+        else if late_all_false then false
+        else begin
+          let x = fresh() in
+          (* The first bind_act is the real code; but, for now, we just need a mockup. *)
+(*           let some_x = Printf.sprintf "Some(%s)" x in *)
+(*           let bind_act = function *)
+(*             | true -> Some x, Some some_x *)
+(*             | false -> None, Some("None") in *)
+          let bind_act = function
+            | true -> Some x, Some "()"
+            | false -> None, Some "()" in
+          let lifted_alts =
+            List.map2
+              (fun r1 late_p ->
+                 let (l_bind,l_act) = bind_act late_p in
+                 mkSEQ2(r1,None,l_bind,mkACTION2(None,l_act)))
+              alts lift_p in
+          r.r <- (mkALT lifted_alts).r;
+          true
+        end
+    | Hash _ | Rcount _ -> assert(false)
   end in
   List.iter
     (function RuleDef(n,r,a) -> ignore(loop r) | _ -> ())

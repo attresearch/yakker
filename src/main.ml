@@ -29,6 +29,8 @@ let phase_order = (* preorder on phases *)
 
         [Print_gil_cmd];           (* takes Gil as input *)
 
+        [Pads_lift_cmd];           (* EXPERIMENTAL: do a PADS-style lifting. *)
+
         [Lookahead_analysis_cmd];  (* these take Gul.grammars as input *)
         [Generators_analysis_cmd];
         [Dependency_graph_cmd];
@@ -88,6 +90,7 @@ let phases_of cmd =
     | Lookahead_analysis_cmd
     | Desugar_cmd
     | Lift_cmd
+    | Pads_lift_cmd
     | Attributes_cmd
     | Infer_ty_cmd
     | Wrap_cmd
@@ -351,6 +354,11 @@ let do_phases gr =
             Analyze.producers gr;
             Analyze.relevance gr;
             Lift.transform gr)
+      | Pads_lift_cmd ->
+          do_phase "PADS lifting" (fun () ->
+            Analyze.producers gr;
+            Analyze.relevance gr;
+            Lift.pads_transform gr)
       | Attributes_cmd ->
           if !Compileopt.use_wrap_and_attr then
             do_phase "attributes" begin fun () ->

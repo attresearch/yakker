@@ -44,6 +44,7 @@ type command =
 | Lookahead_analysis_cmd
 | Lr1_lookahead_cmd
 | Minus_cmd
+| Pads_lift_cmd
 | Parse_cmd
 | Precedence_analysis_cmd
 | Print_gil_cmd
@@ -118,6 +119,7 @@ command =
       | "info" o                          { Info_cmd }
       | "lookahead-analysis" o            { Lookahead_analysis_cmd }
       | "lr1-lookahead" o                 { Lr1_lookahead_cmd }
+      | "pads-lift" o                     { Pads_lift_cmd }
       | "parse" o                         { Parse_cmd }
       | "precedence-analysis" o           { Precedence_analysis_cmd }
       | "print" o                         { Print_gul_cmd }

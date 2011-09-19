@@ -664,6 +664,7 @@ module DNELR = struct
       if t = 0 then 0
       else if t land 0x7F000000 <> 0 then invalid_arg "target must not have any of upper 7 bits set"
       else t in
+
     let lookahead_dtrans t =
       if t = 0 then 0
       else if t land 0x7F000000 <> 0 then invalid_arg "target must not have any of upper 7 bits set"
@@ -706,6 +707,7 @@ module DNELR = struct
       | _ ->
           invalid_arg "Unexpected (non-continue) instructions." in
 
+    (** Map a PAM instruction to a table entry. *)
     let instr2trans s = function
       | PI.EatInstr(c,target) -> Scan_trans (c, target)
       | PI.DetBranchInstr b -> Det_trans b

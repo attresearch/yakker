@@ -454,7 +454,7 @@ bootstrap-yakker_grammar: bootstrap-%: $(SRCDIR)/syntax/%.bnf
                            | perl -p -e 's/# ([0-9]+) "[^"]*ml".*$$/# \1 "yakker_grammar_lexer.ml"/g;' -e 's/# ([0-9]+) "[^"]*mll".*$$/# \1 "yakker_grammar_lexer.mll"/g' \
                            > $(SRCDIR)/$*.ml))
 
-gen-engine: gen-% : $(SRCDIR)/wfe.ml
+gen-engine: gen-% : $(SRCDIR)/engine.ml.m4
 	@echo checking generated file $*.ml
 	@$(M4PP) $< | cmp -s - $(SRCDIR)/$*.ml ||\
 		(echo '    updating' $* && cp $(SRCDIR)/$*.ml $(SRCDIR)/prev_$*.ml && $(M4PP) $< > $(SRCDIR)/$*.ml)

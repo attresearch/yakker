@@ -14,6 +14,7 @@
  changecom(`(*',`*)')
 *)
 
+
 (** Turn on/off support for full-blown lookahead. *)
 let support_FLA = true
 
@@ -98,6 +99,60 @@ DEF1(`LOG', `block', `if Logging.activated then begin block end')
 DEF2(`LOGp', `feature', `message',
      `if Logging.activated then begin
        Logging.log Logging.Features.feature message end')
+
+
+
+(**************************************************************)
+(**************************************************************)
+(**
+   Abstract set interface.
+
+   Note: For insertions, the NC versions are basically pure insertions.
+   The others are insertion plus some  sort of other bookkeeping/checking.
+*)
+
+define(`WLD', `i ol')
+
+define(`ESET_INSERT_CONTAINER_NC', `insert_many_nc')
+define(`ESET_INSERT_CONTAINER', `insert_many')
+
+define(`ESET_CONTAINER_ITER', `SOCVAS_ITER(`$1',`$2',`$3') ')
+define(`ESET_CONTAINER_MAP',  `SOCVAS_MAP(`$1',`$2',`$3') ')
+define(`ESET_CONTAINER_FOLD', `SOCVAS_FOLD(`$1',`$2',`$3',`$4',`$5') ')
+
+(*  conditional fold. includes folowup action for sets with > 1
+  elements. *)
+define(`ESET_CONTAINER_FOLD_C', `SOCVAS_FOLD_C(`$1',`$2',`$3',`$4') ')
+
+define(`ESET_CONTAINER_ADD', `Socvas.MS.add')
+define(`ESET_INSERT_ELT', `insert_one')
+define(`ESET_INSERT_ELT_IG', `insert_one_ig')
+define(`ESET_INSERT_ELT_NC', `insert_one_nc')
+define(`ESET_INSERT_ELT_FUTURE', `insert_future')
+define(`ESET_GET_SIZE', `ES_inspect_heir.get_set_size')
+
+DEF1(`ESET_CREATE', `num_states', `WI.make num_states Socvas.empty')
+
+DEF1(`ESET_NOT_EMPTY', `ns', `(ns).WI.count > 0')
+
+DEF2(`ESET_SWAP_AND_CLEAR', `current_set', `next_set', `
+      begin
+        let t = !current_set in
+        WI.clear t;
+        current_set := !next_set;
+        next_set := t;
+      end ')
+
+define(`PROCESS_WORKLIST',`PROCESS_WORKLIST_HEIR(`$1',`$2',`$3',`$4') ')
+define(`ESET_CHECK_DONE', `check_done')
+
+define(`PROCESS_EOF_WORKLIST', `PROCESS_EOF_WORKLIST_HEIR(`$1',`$2',`$3') ')
+define(`ESET_CHECK_DONE_AT_EOF', `check_done_at_eof')
+
+define(`PROTO_CALLSET_MODULE', `Proto_callset_wfis')
+
+(**************************************************************)
+(**************************************************************)
 
 (** Debugging use. For internal use only. *)
 module Imp_position = struct
@@ -317,20 +372,31 @@ DEF5(`SOCVAS_FOLD', `socvas', `v_init', `pattern', `p_acc', `body',
                (fun pattern p_acc -> body)
                __s__ v_init)')
 
-(** Special version when fold is building a new Socvas. *)
-DEF5(`SOCVAS_FOLD_S', `socvas', `pattern', `body_s', `p_acc', `body',
+(** Special version when fold is building a new Socvas.
+    Conditional fold. Does nothing if the set is empty,
+    executes [action_s] if the set is a singleton. If the
+    set has more than one element, then a fold is executed
+    to create a new socvas. Then, if that Socvas is nonempty
+    [many_action_fun] is applied to the result.
+*)
+DEF4(`SOCVAS_FOLD_C', `socvas', `case_s', `many_fold_fun', `many_action_fun',
      `(match socvas with
-         | Socvas.Empty -> Socvas.Empty
-         | Socvas.Singleton pattern -> (body_s)
+         | Socvas.Empty -> ()
+         | Socvas.Singleton case_s
          | Socvas.Other __s__ ->
-             let image = Socvas.MS.fold
-               (fun pattern p_acc -> body)
+             let image = Socvas.MS.fold (many_fold_fun)
                __s__ Socvas.MS.empty in
              match Socvas.MS.cardinal image with
-               | 0 -> Socvas.Empty
-               | 1 -> Socvas.Singleton (Socvas.MS.choose image)
-               | _ -> Socvas.Other image)')
+               | 0 -> ()
+               | 1 -> many_action_fun (Socvas.Singleton (Socvas.MS.choose image))
+               | _ -> many_action_fun (Socvas.Other image))')
 
+(* Note: We have to end with a cardinality check because the
+   mapping function is not necessarily 1-to-1. So, we might
+   end up with a smaller set than the one with which we began.
+
+   That said, the [0] case should be impossible. TODO.
+*)
 DEF3(`SOCVAS_MAP', `socvas', `pattern', `body',
      `(match socvas with
          | Socvas.Empty -> Socvas.Empty
@@ -482,7 +548,7 @@ module PJDN = PamJIT.DNELR
                          let s_l, socvas_l = items.(l) in
                          for k = 0 to m_nts do
                            let t = PJ.lookup_trans_nt nonterm_table s_l nts.(k) in
-                           if t > 0 then insert_many i ol cs t socvas_l;
+                           if t > 0 then insert_many WLD cs t socvas_l;
                            IFE_TRUE(no_args, `',
                                     `match PJDN.lookup_trans_pnt p_nonterm_table s_l nts.(k) with
                                       | [||] -> ()
@@ -493,7 +559,7 @@ module PJDN = PamJIT.DNELR
                                             SOCVAS_ITER(`socvas_l', `(callset_s_l, sv_s_l, sv_arg_s_l)', `
                                                           if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
                                                             LOGp(comp_ne, "Y");
-                                                            insert_one_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
+                                                            insert_one_ig WLD cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
                                                           end else LOGp(comp_ne, "N")');
                                             LOGp(comp_ne, "\n");
                                           done');
@@ -720,32 +786,28 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
       arr
   end
 
-  module Pcs = Proto_callset_wfis
+  module Pcs = PROTO_CALLSET_MODULE
 
   (**
-     Reprocess an item from the worklist. If the item has not been processed yet,
-     has no effect.
+     Check an item from the worklist for special processing. Specifically,
+     if a new (s, cva) pair is added, yet the socvas for s has already been
+     processed, we need to process the cva specially.
 
-     [i] is a reference to the index of the last processed element in the worklist.
+     Notice that this will only ever happen if you return to the same transducer
+     state with a different cva, while processing the current Earley set.
+
+     [i] is the index of the last processed element in the worklist.
      [cs] is the set representing the worklist.
-     Taken together, i and cs are a worklist data structure.
-
-     Q: do we only need to check for equality with i if this function is
-     called recursively? Otherwise, there's no need to reprocess the
-     current state separately -- can just do it now?
-
-     We are done with the element at position [!i], but now need to
-     reprocess the elment at position i_t, so we swap them.
-     We decrement [i] to restore invariant that it points to last
-     processed element.
-
-     Need to implement a "worklist" data structure which abstracts these
-     details better.
 
   *)
-  let worklist_reprocess i cs t = cs.WI.sparse.(t) <= i
+  let worklist_process_special i cs t = cs.WI.sparse.(t) <= i
+
   (**
-      Invocation: [insert_one es overflow_list state callset].
+      Invocation: [insert_one i es overflow_list state callset], where
+      [i] is the current position in the worklist view of [es].
+
+      Taken together, [i], [ol] and [es] are a worklist data structure.
+
       @return [Process_elt], if state was not already in set,
               [Reprocess_elt], if state already in set but callset
                 not associated with that state,
@@ -762,7 +824,7 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
             "+o %d:(%d,%d).\n" (Imp_position.get_position ()) state callset.id;
         );
         WI.set es state (Socvas.add cva socvas);
-        if worklist_reprocess i es state then
+        if worklist_process_special i es state then
           ol := (state, Socvas.singleton cva) :: !ol;
         Reprocess_elt
       end
@@ -810,7 +872,7 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
       );
 
       let socvas = WI.get es state in
-      if worklist_reprocess i es state then begin
+      if worklist_process_special i es state then begin
         let s_d = Socvas.diff socvas_new socvas in
         if not (Socvas.is_empty s_d) then begin
           WI.set es state (Socvas.union s_d socvas);
@@ -851,7 +913,7 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
   DEF2(`CALL_CODE', `target', `grow_callset',`(
      IF_TRUE(grow_callset,`Pcs.add_call_state pre_cc s;')
      let is_new =
-       match insert_one i ol cs target (current_callset, sv0, sv0) with
+       match ESET_INSERT_ELT WLD cs target (current_callset, sv0, sv0) with
          | Ignore_elt -> false
          | Reprocess_elt -> true
          | Process_elt ->
@@ -873,14 +935,14 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
 
   DEF3(`CALL_P_CODE', `target', `grow_callset', `call_act',`(
      IF_TRUE(grow_callset,`Pcs.add_call_state pre_cc s;')
-     SOCVAS_ITER(`socvas_s', `(callset, sv, sv_arg)',
+     ESET_CONTAINER_ITER(`socvas_s', `(callset, sv, sv_arg)',
        `let curr_pos = current_callset.id in
         let arg = call_act curr_pos sv in
        IFE_TRUE(grow_callset,
-       `(match insert_one i ol cs target (current_callset, arg, arg) with
+       `(match ESET_INSERT_ELT WLD cs target (current_callset, arg, arg) with
            | Ignore_elt | Reprocess_elt -> ()
            | Process_elt -> Pcs.add_call_state pre_cc target)',
-       `insert_one_ig i ol cs target current_callset arg arg')
+       `ESET_INSERT_ELT_IG WLD cs target current_callset arg arg')
      ')
   )')
 
@@ -917,47 +979,253 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
   DEF4(`EXTLA_CODE', `presence', `la_target', `la_nt', `target',
     `(presence = nplookahead_fn la_nt la_target ykb)')
 
-  let get_set_size m = WI.fold (fun _ socvas n -> n + (Socvas.cardinal socvas)) m 0
 
-  let append_socvas_semvals socvas hs =
-    SOCVAS_FOLD(`socvas', `hs', `(callset, sv, _)', `hs',
-                `(callset, sv)::hs')
-  let collect_set_semvals m = WI.fold (fun _ socvas hs ->
-                                         append_socvas_semvals socvas hs) m []
+  (************************************************************************)
+  (************************************************************************)
+  (**
+      Early-set inspection code, specific to heirarchical implementation.
+  *)
+  module ES_inspect_heir = struct
+    let get_set_size m = WI.fold (fun _ socvas n -> n + (Socvas.cardinal socvas)) m 0
 
-  module Int_set = Hashtbl.Make(struct type t = int
-                                       let equal = (==)
-                                       let hash x = x end)
+    module Int_set = Hashtbl.Make(struct type t = int
+                                         let equal = (==)
+                                         let hash x = x end)
 
-  let fold_semvals f earley_set v_0 =
-    let visited = Int_set.create 11 in
-    let rec fold_callset callset v =
-      if Int_set.mem visited callset.id then v
-      else begin
-        Int_set.add visited callset.id ();
-        let acc = ref v in
-        for i = 0 to Array.length callset.data - 1 do
-          let socvas = snd callset.data.(i) in
-          acc := fold_socvas socvas !acc;
+    let fold_semvals f earley_set v_0 =
+      let visited = Int_set.create 11 in
+      let rec fold_callset callset v =
+        if Int_set.mem visited callset.id then v
+        else begin
+          Int_set.add visited callset.id ();
+          let acc = ref v in
+          for i = 0 to Array.length callset.data - 1 do
+            let socvas = snd callset.data.(i) in
+            acc := fold_socvas socvas !acc;
+          done;
+          !acc
+        end
+      (** count the number of semvals in [socvas] and its children *)
+      and fold_socvas socvas v =
+        SOCVAS_FOLD(`socvas', `v',
+                    `(cs, sv, _)', `m', `let v1 = f sv m in fold_callset cs v1') in
+      WI.fold (fun _ socvas v -> fold_socvas socvas v) earley_set v_0
+
+    let count_semvals earley_set = fold_semvals (fun _ n -> n + 1) earley_set 0
+
+    (** count the number of semantic values and inspect each one with
+        client-specified inspector. *)
+    let count_semvals_plus earley_set =
+      fold_semvals (fun sv (n, idata) -> n + 1, Sem_val.inspect sv idata)
+        earley_set (0, Sem_val.create_idata ())
+
+    let inspect_semvals earley_set =
+      fold_semvals Sem_val.inspect earley_set (Sem_val.create_idata ())
+  end
+  (**************************************************************)
+  (**************************************************************)
+
+    (** Check for a succesful parse. Heirarchical-ES specific. *)
+    let check_done term_table cs start_nt =
+      let d = cs.WI.dense_s in
+      let dcs = cs.WI.dense_sv in
+      let count = cs.WI.count in
+      let check_callset (callset, _, _) b = b || callset.id = 0 in
+      LOGp(eof_ne, "Checking for successful parses.\n");
+      let do_check start_nt socvas = function
+        | PJDN.Complete_trans nt
+        | PJDN.Complete_p_trans nt ->
+            if nt = start_nt then begin
+              LOGp(eof_ne, `"Final state found, start symbol.\n"');
+              Socvas.fold check_callset socvas false
+            end else begin
+              LOGp(eof_ne, `"Final state found, not start: %d.\n" nt');
+              false
+            end
+
+        | PJDN.MComplete_trans nts
+        | PJDN.MComplete_p_trans nts ->
+            if Util.int_array_contains start_nt nts then begin
+              LOGp(eof_ne, `"Final state found, start symbol.\n"');
+              Socvas.fold check_callset socvas false
+            end else (LOGp(eof_ne, `"Final states found, no start.\n"'); false)
+        | _ -> false in
+      let rec iter_do_check start_nt socvas txs n j =
+        if j >= n then false
+        else (do_check start_nt socvas txs.(j)
+              || iter_do_check start_nt socvas txs n (j + 1)) in
+      let rec search_for_succ term_table d dcs start_nt n j  =
+        if j >= n then false else begin
+          let s = d.(j) in
+          LOGp(eof_ne, "Checking state %d.\n" s);
+          let is_done = match term_table.(s) with
+            | PJDN.Complete_trans _ | PJDN.Complete_p_trans _
+            | PJDN.MComplete_trans _ | PJDN.MComplete_p_trans _ ->
+                do_check start_nt dcs.(j) term_table.(s)
+            | PJDN.Many_trans txs -> iter_do_check start_nt dcs.(j) txs (Array.length txs) 0
+            | PJDN.Box_trans _ | PJDN.When_trans _ | PJDN.When2_trans _ | PJDN.Action_trans _
+            | PJDN.Call_p_trans _
+            | PJDN.Maybe_nullable_trans2 _
+            | PJDN.Call_trans _| PJDN.Det_multi_trans _
+            | PJDN.TokLookahead_trans _ | PJDN.RegLookahead_trans _ | PJDN.ExtLookahead_trans _
+            | PJDN.Lookahead_trans _| PJDN.MScan_trans _
+            | PJDN.Scan_trans _ | PJDN.No_trans | PJDN.Det_trans _ | PJDN.Lexer_trans _ -> false in
+          is_done || search_for_succ term_table d dcs start_nt n (j + 1)
+        end in
+      search_for_succ term_table d dcs start_nt count 0
+
+(** Check for a succesful parse. Heirarchical-ES specific. Not sure if
+    this function does anything differently than the above. Imperative
+    vs. functional, but I can't tell if there's anything else. If not,
+    merge into one. *)
+let check_done_at_eof start_nt successes cs term_table =
+  let d = cs.WI.dense_s in
+  let dcs = cs.WI.dense_sv in
+  let count = cs.WI.count in
+  let do_check socvas = function
+    | PJDN.Complete_trans nt
+    | PJDN.Complete_p_trans nt ->
+        if nt = start_nt then begin
+          LOGp(eof_ne, `"Final state found, start symbol.\n"');
+          successes :=
+            Socvas.fold (fun (callset, sv, _) a ->
+                           if callset.id <> 0 then a else sv::a)
+              socvas
+              !successes
+        end else LOGp(eof_ne, `"Final state found, not start: %d.\n" nt')
+
+    | PJDN.MComplete_trans nts
+    | PJDN.MComplete_p_trans nts ->
+        if Util.int_array_contains start_nt nts then begin
+          LOGp(eof_ne, `"Final state found, start symbol.\n"');
+          successes :=
+            Socvas.fold (fun (callset, sv, _) a ->
+                           if callset.id <> 0 then a else sv::a)
+              socvas
+              !successes
+        end else LOGp(eof_ne, `"Final states found, no start.\n"')
+    | _ -> () in
+  for j = 0 to count - 1 do
+    let s = d.(j) in
+    LOGp(eof_ne, "Checking state %d.\n" s);
+    match term_table.(s) with
+      | PJDN.Complete_trans _ | PJDN.Complete_p_trans _
+      | PJDN.MComplete_trans _ | PJDN.MComplete_p_trans _ ->
+          do_check dcs.(j) term_table.(s)
+      | PJDN. Many_trans txs -> Array.iter (do_check dcs.(j)) txs
+      | PJDN.Box_trans _ | PJDN.When_trans _ | PJDN.When2_trans _ | PJDN.Action_trans _
+      | PJDN.Call_p_trans _
+      | PJDN.Maybe_nullable_trans2 _
+      | PJDN.Call_trans _| PJDN.Det_multi_trans _
+      | PJDN.TokLookahead_trans _ | PJDN.RegLookahead_trans _ | PJDN.ExtLookahead_trans _
+      | PJDN.Lookahead_trans _| PJDN.MScan_trans _
+      | PJDN.Scan_trans _ | PJDN.No_trans | PJDN.Det_trans _ | PJDN.Lexer_trans _
+          -> ()
+  done
+
+
+
+  DEF4(`PROCESS_WORKLIST_HEIR', `pes', `cs', `term_table', `overflow',`
+         begin
+           let d = cs.WI.dense_s in
+           let dcs = cs.WI.dense_sv in
+           let i = ref 0 in
+           while !i < cs.WI.count do
+             let rec loop pes d dcs k overflow cs term_table =
+               let s = d.(k) in
+
+               (* Process state s *)
+          (* FINAL VERSION (PERF): inline this call by hand but take care with
+             socvas_s -> dcs.(!i) in inlined version because both dcs and i are mutable
+             so you need to add
+             let socvas_s = dcs.(!i) in some cases rather than simply substituting.
+          *)
+          process_trans pes s dcs.(k) k overflow term_table.(s);
+
+          let k2 = k + 1 in
+          if k2 < cs.WI.count then
+            loop pes d dcs k2 overflow cs term_table
+          else k
+        in
+
+        i := loop pes d dcs !i overflow cs term_table;
+
+        (* Handle overflow from the worklist. *)
+        while !overflow <> [] do
+          let owl = !overflow in
+          overflow := [];
+          (* Effectively, List.iter inlined to avoid closure allocation: *)
+          let rec loop pes k term_table = function
+            | [] -> ()
+            | (s, socvas)::xs ->
+                process_trans pes s socvas k overflow term_table.(s);
+                loop pes k term_table xs in
+          loop pes !i term_table owl;
         done;
-        !acc
-      end
-    (** count the number of semvals in [socvas] and its children *)
-    and fold_socvas socvas v =
-      SOCVAS_FOLD(`socvas', `v',
-                  `(cs, sv, _)', `m', `let v1 = f sv m in fold_callset cs v1') in
-    WI.fold (fun _ socvas v -> fold_socvas socvas v) earley_set v_0
 
-  let count_semvals earley_set = fold_semvals (fun _ n -> n + 1) earley_set 0
+        incr i;
+      done;
+    end ' )
 
-  (** count the number of semantic values and inspect each one with
-      client-specified inspector. *)
-  let count_semvals_plus earley_set =
-    fold_semvals (fun sv (n, idata) -> n + 1, Sem_val.inspect sv idata)
-      earley_set (0, Sem_val.create_idata ())
+  DEF3(`PROCESS_EOF_WORKLIST_HEIR', `cs', `proc_eof_item', `overflow',
+   `begin
+      let d = cs.WI.dense_s in
+      let dcs = cs.WI.dense_sv in
+      let i = ref 0 in
+      while !i < cs.WI.count do
+        while !i < cs.WI.count do
+          let s = d.(!i) in
 
-  let inspect_semvals earley_set =
-    fold_semvals Sem_val.inspect earley_set (Sem_val.create_idata ())
+          LOGp(eof_ne, "Processing state %d.\n" s);
+
+          (* Process state s *)
+          let k = !i in
+          proc_eof_item k overflow s dcs.(k);
+
+          incr i;
+        done;
+
+        decr i;
+        (* Handle overflow from the worklist. *)
+        while !overflow <> [] do
+          let owl = !overflow in
+          overflow := [];
+          List.iter (fun (s, socvas) -> proc_eof_item !i overflow s socvas) owl;
+        done;
+
+        incr i;
+      done;
+   end ' )
+
+  DEF4(`PROCESS_WORKLIST_FLAT', `pes', `cs', `term_table', `worklist',`
+    begin
+      (* Breadth-first processing of Earley set. *)
+
+      worklist := ESET_TO_LIST cs;
+      while !worklist <> [] do
+        let wl = !worklist in
+        worklist := [];
+        (* Effectively, List.iter inlined to avoid closure allocation: *)
+        let rec loop pes term_table = function
+          | [] -> ()
+          | (s, socvas) :: wl ->
+              process_trans pes s socvas worklist term_table.(s);
+              loop pes term_table wl in
+        loop pes term_table wl;
+      done;
+    end ' )
+
+  DEF3(`PROCESS_EOF_WORKLIST_FLAT', `cs', `proc_eof_item', `worklist',
+   `begin
+     (* Breadth-first processing of Earley set. *)
+     worklist := ESET_TO_LIST cs;
+     while !worklist <> [] do
+       let wl = !worklist in
+       worklist := [];
+       List.iter (fun (s, socvas) -> proc_eof_item wl s socvas) wl;
+     done;
+   end ' )
+
 
   (** Invokes full-blown lookahead in CfgLA case. *)
   let rec mk_lookahead term_table nonterm_table p_nonterm_table sv0
@@ -1003,8 +1271,6 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
         p_nonterm_table,
         (** The initial/default semantic value. *)
         sv0,
-        (** Overflow list. *)
-        ol,
         (** Current and next Earley sets. *)
         cs, ns,
         (** The nascent current callset. *)
@@ -1026,25 +1292,26 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
       s
       (** The socvas of the current item.  *)
       socvas_s
-      (** The current position in the input. *)
-      i = function
+      (** Worklist-related data. *)
+      WLD = function
            | PJDN.No_trans -> ()
            | PJDN.Scan_trans (c,t) ->
                let c1 = Char.code (YkBuf.get_current ykb) in
-               if c1 = c then insert_many_nc ns t socvas_s
+               if c1 = c then ESET_INSERT_CONTAINER_NC ns t socvas_s
            | PJDN.Det_trans f ->
                let curr_pos = current_callset.id in
-               (SOCVAS_ITER(`socvas_s', `(callset, sv, sv_arg)',
-                            `let ret_sv, target = f curr_pos sv in insert_one_ig i ol cs target callset ret_sv sv_arg'))
+               (ESET_CONTAINER_ITER(`socvas_s', `(callset, sv, sv_arg)',
+                            `let ret_sv, target = f curr_pos sv in
+                             ESET_INSERT_ELT_IG WLD cs target callset ret_sv sv_arg'))
 
            | PJDN.MScan_trans col ->
                let c = Char.code (YkBuf.get_current ykb) in
                let t = col.(c) in
-               if t > 0 then insert_many_nc ns t socvas_s
+               if t > 0 then ESET_INSERT_CONTAINER_NC ns t socvas_s
            | PJDN.Lookahead_trans col ->
                let c = Char.code (YkBuf.get_current ykb) in
                let t = col.(c) in
-               if t > 0 then insert_many i ol cs t socvas_s
+               if t > 0 then ESET_INSERT_CONTAINER WLD cs t socvas_s
            | PJDN.Det_multi_trans col ->
                let c = Char.code (YkBuf.get_current ykb) in
                let x = col.(c) in
@@ -1052,18 +1319,22 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
                let t = x land 0xFFFFFF in
                if t > 0 then begin
                  if x_action = 0
-                 then insert_many_nc ns t socvas_s
-                 else insert_many i ol cs t socvas_s
+                 then ESET_INSERT_CONTAINER_NC ns t socvas_s
+                 else ESET_INSERT_CONTAINER WLD cs t socvas_s
                end
+
            | PJDN.TokLookahead_trans (presence, f, target) ->
                let b = f ykb in
-               if b = presence then insert_many i ol cs target socvas_s
+               if b = presence then ESET_INSERT_CONTAINER WLD cs target socvas_s
+
            | PJDN.RegLookahead_trans (presence, la_target, la_nt, target) ->
-               let b = REGLA_CODE(`presence', `la_target', `la_nt', `target') in
-               if b then insert_many i ol cs target socvas_s
+               if REGLA_CODE(`presence', `la_target', `la_nt', `target') then
+                 ESET_INSERT_CONTAINER WLD cs target socvas_s
+
            | PJDN.ExtLookahead_trans (presence, la_target, la_nt, target) ->
                if EXTLA_CODE(`presence', `la_target', `la_nt', `target') then
-                 insert_many i ol cs target socvas_s
+                 ESET_INSERT_CONTAINER WLD cs target socvas_s
+
            | PJDN.Call_trans t -> CALL_CODE(`t',`true')
            | PJDN.Call_p_trans (call_act, t) -> CALL_P_CODE(`t',`true',`call_act')
 
@@ -1074,13 +1345,13 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
                    Logging.Distributions.add_value "CSS" n;
                  end;
                );
-               SOCVAS_ITER(`socvas_s', `(callset, _, _)', `
+               ESET_CONTAINER_ITER(`socvas_s', `(callset, _, _)', `
                  if CURRENT_CALLSET_GUARD then begin
                    let items = callset.data in
                    for l = 0 to Array.length items - 1 do
                      let s_l, socvas_l = items.(l) in
                      let t = PJ.lookup_trans_nt nonterm_table s_l nt in
-                     if t > 0 then insert_many i ol cs t socvas_l
+                     if t > 0 then ESET_INSERT_CONTAINER WLD cs t socvas_l
                    done
                  end')
 
@@ -1094,14 +1365,14 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
                  Logging.log Logging.Features.comp_ne "Attempting completion on nonterminal %d.\n" nt;
                );
                let curr_pos = current_callset.id in
-               SOCVAS_ITER(`socvas_s', `(callset, sv, sv_arg)', `
+               ESET_CONTAINER_ITER(`socvas_s', `(callset, sv, sv_arg)', `
                  let items = callset.data in
                  for l = 0 to Array.length items - 1 do
                    let s_l, socvas_l = items.(l) in
 
                    let t = PJ.lookup_trans_nt nonterm_table s_l nt in
                    if t > 0 then begin
-                     insert_many i ol cs t socvas_l;
+                     ESET_INSERT_CONTAINER WLD cs t socvas_l;
                      LOG(
                        Logging.log Logging.Features.comp_ne "%d => %d [%d]\n" s_l t nt
                      );
@@ -1113,10 +1384,10 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
                          for idx = 0 to Array.length entries - 1 do
                            let {PJDN.ctarget = t; carg = arg_act; cbinder = binder} = entries.(idx) in
                            LOGp(comp_ne, "@%d: %d => %d [%d(_)]? " callset.id s_l t nt);
-                           SOCVAS_ITER(`socvas_l', `(callset_s_l, sv_s_l, sv_arg_s_l)', `
+                           ESET_CONTAINER_ITER(`socvas_l', `(callset_s_l, sv_s_l, sv_arg_s_l)', `
                                          if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
                                            LOGp(comp_ne, "Y");
-                                           insert_one_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
+                                           ESET_INSERT_ELT_IG WLD cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
                                          end else LOGp(comp_ne, "N")');
                            LOGp(comp_ne, "\n");
                          done
@@ -1128,7 +1399,7 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
            | PJDN.Many_trans trans ->
                let n = Array.length trans in
                for j = 0 to n-1 do
-                 process_trans pes s socvas_s i trans.(j)
+                 process_trans pes s socvas_s WLD trans.(j)
                done
 
            | PJDN.Maybe_nullable_trans2 _ -> ()
@@ -1144,56 +1415,60 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
 
 (*            | PJDN.Action_trans (act, target) -> *)
 (*                let curr_pos = current_callset.id in *)
-(*                SOCVAS_ITER(`socvas_s', `(callset, sv, sv_arg)', `insert_one_ig i ol cs target callset (act curr_pos sv) sv_arg') *)
+(*                ESET_CONTAINER_ITER(`socvas_s', `(callset, sv, sv_arg)', `ESET_INSERT_ELT_IG WLD cs target callset (act curr_pos sv) sv_arg') *)
 
 (*            | PJDN.When_trans (p, next, target) -> *)
 (*                let curr_pos = current_callset.id in *)
-(*                SOCVAS_ITER(`socvas_s', `(callset, sv, sv_arg)', *)
-(*                                  `if p curr_pos sv then insert_one_ig i ol cs target callset (next curr_pos sv) sv_arg') *)
+(*                ESET_CONTAINER_ITER(`socvas_s', `(callset, sv, sv_arg)', *)
+(*                                  `if p curr_pos sv then ESET_INSERT_ELT_IG WLD cs target callset (next curr_pos sv) sv_arg') *)
 
 (*            | PJDN.When2_trans (p, target) -> *)
-(*                SOCVAS_ITER(`socvas_s', `(callset, sv, sv_arg)', *)
+(*                ESET_CONTAINER_ITER(`socvas_s', `(callset, sv, sv_arg)', *)
 (*                                  `(match p nplookahead_fn ykb sv with *)
 (*                                      | None -> () *)
-(*                                      | Some new_sv -> insert_one_ig i ol cs target callset new_sv sv_arg)') *)
+(*                                      | Some new_sv -> ESET_INSERT_ELT_IG WLD cs target callset new_sv sv_arg)') *)
 
            | PJDN.Action_trans (act, target) ->
                let curr_pos = current_callset.id in
-               let image = SOCVAS_MAP(`socvas_s', `(callset, sv, sv_arg)', `(callset, (act curr_pos sv), sv_arg)') in
-               insert_many i ol cs target image
+               let image = ESET_CONTAINER_MAP(`socvas_s', `(callset, sv, sv_arg)', `(callset, (act curr_pos sv), sv_arg)') in
+               ESET_INSERT_CONTAINER WLD cs target image
 
            | PJDN.When_trans (p, next, target) ->
                let curr_pos = current_callset.id in
-               let image = SOCVAS_FOLD_S(`socvas_s', `(callset, sv, sv_arg)',
-                                 `if p curr_pos sv then Socvas.Singleton (callset, (next curr_pos sv), sv_arg)
-                                 else Socvas.Empty',
-                                 `image',
-                                 `if p curr_pos sv then Socvas.MS.add (callset, (next curr_pos sv), sv_arg) image else image') in
-               insert_many i ol cs target image
+               ESET_CONTAINER_FOLD_C(`socvas_s',
+                   `(callset, sv, sv_arg) ->
+                     if p curr_pos sv
+                     then ESET_INSERT_ELT_IG WLD cs target callset (next curr_pos sv) sv_arg
+                     else ()',
+                   `fun (callset, sv, sv_arg) image ->
+                     if p curr_pos sv
+                     then ESET_CONTAINER_ADD (callset, (next curr_pos sv), sv_arg) image
+                     else image',
+                   `ESET_INSERT_CONTAINER WLD cs target ')
 
            | PJDN.When2_trans (p, target) ->
-               let image = SOCVAS_FOLD_S(`socvas_s', `(callset, sv, sv_arg)',
-                                 `(match p nplookahead_fn ykb sv with
-                                     | None -> Socvas.Empty
-                                     | Some new_sv -> Socvas.Singleton (callset, new_sv, sv_arg))',
-                                 `image',
-                                 `(match p nplookahead_fn ykb sv with
-                                     | None -> image
-                                     | Some new_sv -> Socvas.MS.add (callset, new_sv, sv_arg) image)') in
-               insert_many i ol cs target image
+               ESET_CONTAINER_FOLD_C(`socvas_s',
+                   `(callset, sv, sv_arg) ->
+                     (match p nplookahead_fn ykb sv with
+                       | Some new_sv -> ESET_INSERT_ELT_IG WLD cs target callset new_sv sv_arg
+                       | None -> ())',
+                   `fun (callset, sv, sv_arg) image -> match p nplookahead_fn ykb sv with
+                       | None -> image
+                       | Some new_sv -> ESET_CONTAINER_ADD (callset, new_sv, sv_arg) image',
+                   `ESET_INSERT_CONTAINER WLD cs target ')
 
            | PJDN.Box_trans (box, target) ->
                let curr_pos = current_callset.id in
-               (SOCVAS_ITER(`socvas_s', `(callset, sv, sv_arg)',
+               (ESET_CONTAINER_ITER(`socvas_s', `(callset, sv, sv_arg)',
                            `let cp = YkBuf.save ykb in
                            (match box sv curr_pos ykb with
                                 Some (0, ret_sv) -> (* returns to current set *)
-                                  insert_one_ig i ol cs target callset ret_sv sv_arg
+                                  ESET_INSERT_ELT_IG WLD cs target callset ret_sv sv_arg
                               | Some (1, ret_sv) -> (* returns to next set *)
-                                  insert_one_nc ns target (callset, ret_sv, sv_arg)
+                                  ESET_INSERT_ELT_NC ns target (callset, ret_sv, sv_arg)
                               | Some (n, ret_sv) ->
                                   let j = curr_pos + n in
-                                  insert_future futuresq j target (callset, ret_sv, sv_arg)
+                                  ESET_INSERT_ELT_FUTURE futuresq j target (callset, ret_sv, sv_arg)
                               | None -> ()
                            );
                            YkBuf.restore ykb cp'))
@@ -1202,29 +1477,29 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
                (match lexer ykb with
                   | 0 -> ()
                   | target -> (* returns to next set *)
-                      insert_many_nc ns target socvas_s)
+                      ESET_INSERT_CONTAINER_NC ns target socvas_s)
 
-  and process_eof_trans start_nt succeeded ol cs socvas_s i term_table nonterm_table p_nonterm_table nplookahead_fn
-      s sv0 current_callset ykb = function
+  and process_eof_trans start_nt succeeded cs socvas_s term_table nonterm_table p_nonterm_table nplookahead_fn
+      s sv0 current_callset ykb WLD = function
            | PJDN.No_trans -> ()
            | PJDN.Scan_trans _ | PJDN.MScan_trans _ -> ()
            | PJDN.Lookahead_trans col ->
                let t = col.(PJ.iEOF) in
-               if t > 0 then insert_many i ol cs t socvas_s
+               if t > 0 then ESET_INSERT_CONTAINER WLD cs t socvas_s
            | PJDN.Det_multi_trans col ->
                let x = col.(PJ.iEOF) in
                let x_action = x land 0x7F000000 in
                let t = x land 0xFFFFFF in
-               if t > 0 && x_action > 0 then insert_many i ol cs t socvas_s
+               if t > 0 && x_action > 0 then ESET_INSERT_CONTAINER WLD cs t socvas_s
            | PJDN.TokLookahead_trans (presence, f, target) ->
                let b = f ykb in
-               if b = presence then insert_many i ol cs target socvas_s
+               if b = presence then ESET_INSERT_CONTAINER WLD cs target socvas_s
            | PJDN.RegLookahead_trans (presence, la_target, la_nt, target) ->
                let b = REGLA_CODE(`presence', `la_target', `la_nt', `target') in
-               if b then insert_many i ol cs target socvas_s
+               if b then ESET_INSERT_CONTAINER WLD cs target socvas_s
            | PJDN.ExtLookahead_trans (presence, la_target, la_nt, target) ->
                if EXTLA_CODE(`presence', `la_target', `la_nt', `target') then
-                 insert_many i ol cs target socvas_s
+                 ESET_INSERT_CONTAINER WLD cs target socvas_s
            | PJDN.Call_trans t -> CALL_CODE(`t',`false')
            | PJDN.Call_p_trans (call_act, t) -> CALL_P_CODE(`t',`false',`call_act')
 
@@ -1236,20 +1511,20 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
                  for l = 0 to Array.length items - 1 do
                    let s_l, c_l = items.(l) in
                    let t = PJ.lookup_trans_nt nonterm_table s_l nt in
-                   if t > 0 then insert_many i ol cs t c_l
+                   if t > 0 then ESET_INSERT_CONTAINER WLD cs t c_l
                  done')
 
            | PJDN.Complete_p_trans nt ->
                let is_nt = nt = start_nt in
                let curr_pos = current_callset.id in
-               SOCVAS_ITER(`socvas_s', `(callset, sv, sv_arg)', `
+               ESET_CONTAINER_ITER(`socvas_s', `(callset, sv, sv_arg)', `
                  if is_nt && callset.id = 0 then succeeded := true;
                  let items = callset.data in
                  for l = 0 to Array.length items - 1 do
                    let s_l, socvas_l = items.(l) in
 
                    let t = PJ.lookup_trans_nt nonterm_table s_l nt in
-                   if t > 0 then insert_many i ol cs t socvas_l;
+                   if t > 0 then ESET_INSERT_CONTAINER WLD cs t socvas_l;
 
                    match PJDN.lookup_trans_pnt p_nonterm_table s_l nt with
                      | [||] -> ()
@@ -1257,10 +1532,10 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
                          for idx = 0 to Array.length entries - 1 do
                            let {PJDN.ctarget = t; carg = arg_act; cbinder = binder} = entries.(idx) in
                            LOGp(comp_ne, "@%d: %d => %d [%d(_)]? " callset.id s_l t nt);
-                           SOCVAS_ITER(`socvas_l', `(callset_s_l, sv_s_l, sv_arg_s_l)', `
+                           ESET_CONTAINER_ITER(`socvas_l', `(callset_s_l, sv_s_l, sv_arg_s_l)', `
                                          if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
                                            LOGp(comp_ne, "Y");
-                                           insert_one_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
+                                           ESET_INSERT_ELT_IG WLD cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
                                          end else LOGp(comp_ne, "N")');
                            LOGp(comp_ne, "\n");
                          done
@@ -1269,7 +1544,7 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
 
            | PJDN.MComplete_trans nts ->
                let m_nts = Array.length nts - 1 in
-               SOCVAS_ITER(`socvas_s', `(callset,_,_)', `
+               ESET_CONTAINER_ITER(`socvas_s', `(callset,_,_)', `
                    let is_start = callset.id = 0 in
                    let items = callset.data in
                    let m_items = Array.length items - 1 in
@@ -1281,14 +1556,14 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
                        for l = 0 to m_items do
                          let s_l, c_l = items.(l) in
                          let t = PJ.lookup_trans_nt nonterm_table s_l nt in
-                         if t > 0 then insert_many i ol cs t c_l
+                         if t > 0 then ESET_INSERT_CONTAINER WLD cs t c_l
                        done
                    done')
 
            | PJDN.MComplete_p_trans nts ->
                let m_nts = Array.length nts - 1 in
                let curr_pos = current_callset.id in
-               SOCVAS_ITER(`socvas_s', `(callset, sv, sv_arg)', `
+               ESET_CONTAINER_ITER(`socvas_s', `(callset, sv, sv_arg)', `
                    let is_start = callset.id = 0 in
                    let items = callset.data in
                    let m_items = Array.length items - 1 in
@@ -1301,7 +1576,7 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
                          let s_l, socvas_l = items.(l) in
 
                          let t = PJ.lookup_trans_nt nonterm_table s_l nt in
-                         if t > 0 then insert_many i ol cs t socvas_l;
+                         if t > 0 then ESET_INSERT_CONTAINER WLD cs t socvas_l;
 
                          match PJDN.lookup_trans_pnt p_nonterm_table s_l nt with
                            | [||] -> ()
@@ -1309,10 +1584,10 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
                                for idx = 0 to Array.length entries - 1 do
                                  let {PJDN.ctarget = t; carg = arg_act; cbinder = binder} = entries.(idx) in
                                  LOGp(comp_ne, "@%d: %d => %d [%d(_)]? " callset.id s_l t nt);
-                                 SOCVAS_ITER(`socvas_l', `(callset_s_l, sv_s_l, sv_arg_s_l)', `
+                                 ESET_CONTAINER_ITER(`socvas_l', `(callset_s_l, sv_s_l, sv_arg_s_l)', `
                                                if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
                                                  LOGp(comp_ne, "Y");
-                                                 insert_one_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
+                                                 ESET_INSERT_ELT_IG WLD cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
                                                end else LOGp(comp_ne, "N")');
                                  LOGp(comp_ne, "\n");
                                done
@@ -1322,8 +1597,8 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
            | PJDN.Many_trans trans ->
                let n = Array.length trans in
                for j = 0 to n-1 do
-                 process_eof_trans start_nt succeeded ol cs socvas_s i term_table nonterm_table p_nonterm_table nplookahead_fn s sv0
-                   current_callset ykb trans.(j)
+                 process_eof_trans start_nt succeeded cs socvas_s term_table nonterm_table p_nonterm_table nplookahead_fn s sv0
+                   current_callset ykb WLD trans.(j)
                done
 
            | PJDN.Maybe_nullable_trans2 _ -> ()
@@ -1335,7 +1610,7 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
                  (fun (callset, sv, sv_arg) s ->
                     Socvas.add (callset, act curr_pos sv, sv_arg) s)
                  socvas_s Socvas.empty in
-               insert_many i ol cs target new_s
+               ESET_INSERT_CONTAINER WLD cs target new_s
 
            | PJDN.When_trans (p, next, target) ->
                (let curr_pos = current_callset.id in
@@ -1343,27 +1618,27 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
                  (fun (callset, sv, sv_arg) s ->
                     if p curr_pos sv then Socvas.add (callset, next curr_pos sv, sv_arg) s else s)
                  socvas_s Socvas.empty in
-               if not (Socvas.is_empty new_s) then insert_many i ol cs target new_s)
+               if not (Socvas.is_empty new_s) then ESET_INSERT_CONTAINER WLD cs target new_s)
 
            | PJDN.When2_trans (p, target) ->
-               SOCVAS_ITER(`socvas_s', `(callset, sv, sv_arg)',
+               ESET_CONTAINER_ITER(`socvas_s', `(callset, sv, sv_arg)',
                     `(match p nplookahead_fn ykb sv with
                         | None -> ()
-                        | Some new_sv -> insert_one_ig i ol cs target callset new_sv sv_arg)')
+                        | Some new_sv -> ESET_INSERT_ELT_IG WLD cs target callset new_sv sv_arg)')
 
            | PJDN.Det_trans f ->
                let curr_pos = current_callset.id in
-               (SOCVAS_ITER(`socvas_s', `(callset, sv, sv_arg)',
-                            `let ret_sv, target = f curr_pos sv in insert_one_ig i ol cs target callset ret_sv sv_arg'))
+               (ESET_CONTAINER_ITER(`socvas_s', `(callset, sv, sv_arg)',
+                            `let ret_sv, target = f curr_pos sv in ESET_INSERT_ELT_IG WLD cs target callset ret_sv sv_arg'))
 
            (* Only null boxes are okay now that we've reached EOF. *)
            | PJDN.Box_trans (box, target) ->
                let curr_pos = current_callset.id in
-               (SOCVAS_ITER(`socvas_s', `(callset, sv, sv_arg)',
+               (ESET_CONTAINER_ITER(`socvas_s', `(callset, sv, sv_arg)',
                            `let cp = YkBuf.save ykb in
                            (match box sv curr_pos ykb with
                                 Some (0, ret_sv) -> (* returns to current set *)
-                                  insert_one_ig i ol cs target callset ret_sv sv_arg
+                                  ESET_INSERT_ELT_IG WLD cs target callset ret_sv sv_arg
                               | Some _ -> LOG(Logging.log Logging.Features.verbose "BUG: Box returning success > 0 at EOF.\n")
                               | None -> ()
                            );
@@ -1372,7 +1647,7 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
            | PJDN.Lexer_trans lexer ->
                (match lexer ykb with
                   | 0 -> ()
-                  | target -> insert_many i ol cs target socvas_s)
+                  | target -> ESET_INSERT_CONTAINER WLD cs target socvas_s)
 
   and _parse is_exact_match
       {PJDN.start_symb = start_nt; start_state = start_state;
@@ -1390,8 +1665,8 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
     );
 
     let num_states = Array.length term_table in
-    let current_set = ref (WI.make num_states Socvas.empty) in
-    let next_set = ref (WI.make num_states Socvas.empty) in
+    let current_set = ref (ESET_CREATE(`num_states')) in
+    let next_set = ref (ESET_CREATE(`num_states')) in
 
     let pre_cc = Pcs.empty num_states in (* pre-version of current callset. *)
     let start_callset = mk_callset 0 in
@@ -1408,68 +1683,23 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
        are swapped first-thing in the loop. *)
     let ns = !next_set in
     let cva0 = (start_callset, sv0, sv0) in
-    insert_one_nc ns start_state cva0;
+    ESET_INSERT_ELT_NC ns start_state cva0;
     Pcs.add_call_state pre_cc start_state;
 
     let can_scan = ref (Terms.fill ykb) in
 
-    let i = ref 0 in
     let overflow = ref [] in
 
     let fast_forward current_callset q ns ykb =
       let (k, l) = Ordered_queue.pop q in
       if k <> -1 then begin
-        List.iter (fun (s,cva) -> insert_one_nc ns s cva) l;
+        (* PERF: manually lift up this closure *)
+        List.iter (fun (s,cva) -> ESET_INSERT_ELT_NC ns s cva) l;
         ignore (YkBuf.skip ykb (k - !current_callset.id));
         current_callset := mk_callset k;
         YkBuf.fill2 ykb 1
       end else false in
 
-    (** Check for a succesful parse. *)
-    let check_done term_table d dcs start_nt count =
-      LOGp(eof_ne, "Checking for successful parses.\n");
-      let check_callset (callset, _, _) b = b || callset.id = 0 in
-      let do_check start_nt socvas = function
-        | PJDN.Complete_trans nt
-        | PJDN.Complete_p_trans nt ->
-            if nt = start_nt then begin
-              LOGp(eof_ne, `"Final state found, start symbol.\n"');
-              Socvas.fold check_callset socvas false
-            end else begin
-              LOGp(eof_ne, `"Final state found, not start: %d.\n" nt');
-              false
-            end
-
-        | PJDN.MComplete_trans nts
-        | PJDN.MComplete_p_trans nts ->
-            if Util.int_array_contains start_nt nts then begin
-              LOGp(eof_ne, `"Final state found, start symbol.\n"');
-              Socvas.fold check_callset socvas false
-            end else (LOGp(eof_ne, `"Final states found, no start.\n"'); false)
-        | _ -> false in
-      let rec iter_do_check start_nt socvas txs n j =
-        if j >= n then false
-        else (do_check start_nt socvas txs.(j)
-              || iter_do_check start_nt socvas txs n (j + 1)) in
-      let rec search_for_succ term_table d dcs start_nt n j  =
-        if j >= n then false else begin
-          let s = d.(j) in
-          LOGp(eof_ne, "Checking state %d.\n" s);
-          let is_done = match term_table.(s) with
-            | PJDN.Complete_trans _ | PJDN.Complete_p_trans _
-            | PJDN.MComplete_trans _ | PJDN.MComplete_p_trans _ ->
-                do_check start_nt dcs.(j) term_table.(s)
-            | PJDN.Many_trans txs -> iter_do_check start_nt dcs.(j) txs (Array.length txs) 0
-            | PJDN.Box_trans _ | PJDN.When_trans _ | PJDN.When2_trans _ | PJDN.Action_trans _
-            | PJDN.Call_p_trans _
-            | PJDN.Maybe_nullable_trans2 _
-            | PJDN.Call_trans _| PJDN.Det_multi_trans _
-            | PJDN.TokLookahead_trans _ | PJDN.RegLookahead_trans _ | PJDN.ExtLookahead_trans _
-            | PJDN.Lookahead_trans _| PJDN.MScan_trans _
-            | PJDN.Scan_trans _ | PJDN.No_trans | PJDN.Det_trans _ | PJDN.Lexer_trans _ -> false in
-          is_done || search_for_succ term_table d dcs start_nt n (j + 1)
-        end in
-      search_for_succ term_table d dcs start_nt count 0 in
 
     (**************************************************************
      *                      BEGIN MAIN LOOP
@@ -1477,7 +1707,7 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
 
     let s_matched = ref false in
     while ( IFE_FLA(`(is_exact_match || not !s_matched)',`true') &&
-              if !next_set.WI.count > 0 then !can_scan
+              if ESET_NOT_EMPTY(`!next_set') then !can_scan
               else fast_forward current_callset futuresq !next_set ykb) do
 
       (* swap_and_clear. We place this code here,
@@ -1486,12 +1716,7 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
          previous earley set will be preserved.
          We surround with begin-end to limit scope of t.
       *)
-      begin
-        let t = !current_set in
-        WI.clear t;
-        current_set := !next_set;
-        next_set := t;
-      end;
+      ESET_SWAP_AND_CLEAR(`current_set',`next_set');
 
       (* ensure that only one dereference happens for these datums. Not sure
          if the compiler would be smart enough to do common subexpression
@@ -1500,54 +1725,18 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
       let ccs = !current_callset in
       let cs = !current_set in
       let ns = !next_set in
-      let d = cs.WI.dense_s in
-      let dcs = cs.WI.dense_sv in
 
       (**
           Parse-engine state.
       *)
       let pes = term_table, nonterm_table, p_nonterm_table, sv0,
-            overflow, cs, ns, pre_cc, ccs, ykb, futuresq, nplookahead_fn in
+            cs, ns, pre_cc, ccs, ykb, futuresq, nplookahead_fn in
 
-      (* Process the worklist (which can grow during processing. *)
-      i := 0;
-      while !i < cs.WI.count do
-        let rec loop pes dcs d k =
-          let s = d.(k) in
-
-          (* Process state s *)
-          (* FINAL VERSION (PERF): inline this call by hand but take care with
-             socvas_s -> dcs.(!i) in inlined version because both dcs and i are mutable
-             so you need to add
-             let socvas_s = dcs.(!i) in some cases rather than simply substituting.
-          *)
-          process_trans pes s dcs.(k) k term_table.(s);
-
-          let k' = k + 1 in
-          if k' < cs.WI.count then
-            loop pes dcs d k'
-          else k
-        in
-
-        i := loop pes dcs d !i;
-
-        (* Handle overflow from the worklist. *)
-        while !overflow <> [] do
-          let owl = !overflow in
-          overflow := [];
-          let rec loop pes k term_table = function
-            | [] -> ()
-            | (s, socvas)::xs ->
-                process_trans pes s socvas k term_table.(s);
-                loop pes k term_table xs in
-          loop pes !i term_table owl;
-        done;
-
-        incr i;
-      done;
+      (* Process the worklist (which can grow during processing). *)
+      PROCESS_WORKLIST(`pes', `cs', `term_table', `overflow');
 
       (* Report size of the Earley set. *)
-      LOGp(stats, "%d %d\n" ccs.id (get_set_size cs));
+      LOGp(stats, "%d %d\n" ccs.id (ESET_GET_SIZE cs));
 
       (* Report memory size of the data accessable from the Earley set (focusing on
          the semantic values). We use LOG rather than LOGp so that we can ensure
@@ -1560,10 +1749,10 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
            (p <= 10000 && p mod 100 = 0) ||
            (p <= 100000 && p mod 1000 = 0) then
              let msize = Util.memsize () in (* will force a major GC. *)
-             let es_size = get_set_size cs in
+             let es_size = ESET_GET_SIZE cs in
              let sv_count, insp_summary =
                if Logging.features_are_set Logging.Features.verbose then
-                 let sv_count, idata = count_semvals_plus cs in
+                 let sv_count, idata = ES_inspect_heir.count_semvals_plus cs in
                  sv_count, Sem_val.summarize_inspection idata
                else 0, "n/a" in
              Logging.log Logging.Features.hist_size "%d %d %d %d %s\n%!"
@@ -1571,7 +1760,7 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
       );
 
       IF_FLA(
-        `if not is_exact_match && check_done term_table d dcs start_nt cs.WI.count then
+        `if not is_exact_match && ESET_CHECK_DONE term_table cs start_nt then
           s_matched := true;'
       );
 
@@ -1586,7 +1775,7 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
       (* Check whether there's any blackbox results to load into the next set. *)
       if Ordered_queue.next futuresq = pos then begin
         let l = snd (Ordered_queue.pop futuresq) in
-        List.iter (fun (s,cva) -> insert_one_nc ns s cva) l
+        List.iter (fun (s,cva) -> ESET_INSERT_ELT_NC ns s cva) l
       end;
 
       LOG(
@@ -1605,87 +1794,24 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
     (* We've either hit a shortest match or we're either at EOF or a failure. *)
     if support_FLA && not is_exact_match && !s_matched then
       [sv0] (* stands in for boolean true. *)
-    else if !next_set.WI.count > 0 then begin
+    else if ESET_NOT_EMPTY(`!next_set') then begin
       (* Compute closure on final set. Ignore scans b/c we're at EOF. *)
 
       let succeeded = ref false in
       let cs = !next_set in
-      let d = cs.WI.dense_s in
-      let dcs = cs.WI.dense_sv in
 
-      let proc_eof_item (s, socvas) =
-        process_eof_trans start_nt succeeded overflow cs socvas !i
+      let proc_eof_item WLD s socvas =
+        LOGp(eof_ne, "Processing state %d.\n" s);
+        process_eof_trans start_nt succeeded cs socvas
           term_table nonterm_table p_nonterm_table nplookahead_fn
-          s sv0 !current_callset ykb term_table.(s) in
+          s sv0 !current_callset ykb WLD term_table.(s) in
 
-      i := 0;
-      while !i < cs.WI.count do
-        while !i < cs.WI.count do
-          let s = d.(!i) in
-
-          LOGp(eof_ne, "Processing state %d.\n" s);
-
-          (* Process state s *)
-          process_eof_trans start_nt succeeded overflow cs dcs.(!i) !i term_table nonterm_table p_nonterm_table nplookahead_fn
-            s sv0 !current_callset ykb term_table.(s);
-          incr i;
-        done;
-
-        decr i;
-        (* Handle overflow from the worklist. *)
-        while !overflow <> [] do
-          let owl = !overflow in
-          overflow := [];
-          List.iter proc_eof_item owl;
-        done;
-
-        incr i;
-      done;
-
+      PROCESS_EOF_WORKLIST(`cs', `proc_eof_item', `overflow');
 
       (* Check for succesful parses. *)
       LOGp(eof_ne, "Checking for successful parses.\n");
       let successes = ref [] in
-      let do_check socvas = function
-        | PJDN.Complete_trans nt
-        | PJDN.Complete_p_trans nt ->
-            if nt = start_nt then begin
-              LOGp(eof_ne, `"Final state found, start symbol.\n"');
-              successes :=
-                Socvas.fold (fun (callset, sv, _) a ->
-                               if callset.id <> 0 then a else sv::a)
-                  socvas
-                  !successes
-            end else LOGp(eof_ne, `"Final state found, not start: %d.\n" nt')
-
-        | PJDN.MComplete_trans nts
-        | PJDN.MComplete_p_trans nts ->
-            if Util.int_array_contains start_nt nts then begin
-              LOGp(eof_ne, `"Final state found, start symbol.\n"');
-              successes :=
-                Socvas.fold (fun (callset, sv, _) a ->
-                               if callset.id <> 0 then a else sv::a)
-                  socvas
-                  !successes
-            end else LOGp(eof_ne, `"Final states found, no start.\n"')
-        | _ -> () in
-      for j = 0 to cs.WI.count - 1 do
-        let s = d.(j) in
-        LOGp(eof_ne, "Checking state %d.\n" s);
-        match term_table.(s) with
-          | PJDN.Complete_trans _ | PJDN.Complete_p_trans _
-          | PJDN.MComplete_trans _ | PJDN.MComplete_p_trans _ ->
-              do_check dcs.(j) term_table.(s)
-          | PJDN. Many_trans txs -> Array.iter (do_check dcs.(j)) txs
-          | PJDN.Box_trans _ | PJDN.When_trans _ | PJDN.When2_trans _ | PJDN.Action_trans _
-          | PJDN.Call_p_trans _
-          | PJDN.Maybe_nullable_trans2 _
-          | PJDN.Call_trans _| PJDN.Det_multi_trans _
-          | PJDN.TokLookahead_trans _ | PJDN.RegLookahead_trans _ | PJDN.ExtLookahead_trans _
-          | PJDN.Lookahead_trans _| PJDN.MScan_trans _
-          | PJDN.Scan_trans _ | PJDN.No_trans | PJDN.Det_trans _ | PJDN.Lexer_trans _
-              -> ()
-      done;
+      ESET_CHECK_DONE_AT_EOF start_nt successes cs term_table;
 
       LOG(
       if Logging.features_are_set Logging.Features.stats then begin
@@ -1698,14 +1824,14 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
        `if Logging.features_are_set Logging.Features.hist_size then
           let ccs = !current_callset in
           let msize = Util.memsize () in (* will force a major GC. *)
-          let es_size = get_set_size cs in
+          let es_size = ESET_GET_SIZE cs in
           let idata_s =
             List.fold_left (fun idata sv -> Sem_val.inspect sv idata)
               (Sem_val.create_idata ()) !successes in
           let insp_summary_s = Sem_val.summarize_inspection idata_s in
           let insp_summary =
             if Logging.features_are_set Logging.Features.verbose then
-              let _, idata = count_semvals_plus cs in
+              let _, idata = ES_inspect_heir.count_semvals_plus cs in
               Sem_val.summarize_inspection idata
             else "0" in
           Logging.log Logging.Features.hist_size

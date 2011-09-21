@@ -105,13 +105,12 @@ DEF2(`LOGp', `feature', `message',
 (**************************************************************)
 (**************************************************************)
 (**
-   Abstract set interface.
+   Abstract set implementation for heirarchical earley sets and worklists.
 
    Note: For insertions, the NC versions are basically pure insertions.
    The others are insertion plus some  sort of other bookkeeping/checking.
 *)
 
-define(`WLD', `i ol')
 
 define(`ESET_INSERT_CONTAINER_NC', `insert_many_nc')
 define(`ESET_INSERT_CONTAINER', `insert_many')
@@ -130,6 +129,11 @@ define(`ESET_INSERT_ELT_IG', `insert_one_ig')
 define(`ESET_INSERT_ELT_NC', `insert_one_nc')
 define(`ESET_INSERT_ELT_FUTURE', `insert_future')
 define(`ESET_GET_SIZE', `ES_inspect_heir.get_set_size')
+
+define(`ESET_EXTEND_PES_EXPR',`$1, overflow')
+define(`ESET_EXTEND_PES_PATT',`$1, ol')
+define(`ESET_PT_ADDL_ARGS', `i')
+define(`ESET_WLD', `i ol')
 
 DEF1(`ESET_CREATE', `num_states', `WI.make num_states Socvas.empty')
 
@@ -548,7 +552,7 @@ module PJDN = PamJIT.DNELR
                          let s_l, socvas_l = items.(l) in
                          for k = 0 to m_nts do
                            let t = PJ.lookup_trans_nt nonterm_table s_l nts.(k) in
-                           if t > 0 then insert_many WLD cs t socvas_l;
+                           if t > 0 then insert_many ESET_WLD cs t socvas_l;
                            IFE_TRUE(no_args, `',
                                     `match PJDN.lookup_trans_pnt p_nonterm_table s_l nts.(k) with
                                       | [||] -> ()
@@ -559,7 +563,7 @@ module PJDN = PamJIT.DNELR
                                             SOCVAS_ITER(`socvas_l', `(callset_s_l, sv_s_l, sv_arg_s_l)', `
                                                           if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
                                                             LOGp(comp_ne, "Y");
-                                                            insert_one_ig WLD cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
+                                                            insert_one_ig ESET_WLD cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
                                                           end else LOGp(comp_ne, "N")');
                                             LOGp(comp_ne, "\n");
                                           done');
@@ -913,7 +917,7 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
   DEF2(`CALL_CODE', `target', `grow_callset',`(
      IF_TRUE(grow_callset,`Pcs.add_call_state pre_cc s;')
      let is_new =
-       match ESET_INSERT_ELT WLD cs target (current_callset, sv0, sv0) with
+       match ESET_INSERT_ELT ESET_WLD cs target (current_callset, sv0, sv0) with
          | Ignore_elt -> false
          | Reprocess_elt -> true
          | Process_elt ->
@@ -939,10 +943,10 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
        `let curr_pos = current_callset.id in
         let arg = call_act curr_pos sv in
        IFE_TRUE(grow_callset,
-       `(match ESET_INSERT_ELT WLD cs target (current_callset, arg, arg) with
+       `(match ESET_INSERT_ELT ESET_WLD cs target (current_callset, arg, arg) with
            | Ignore_elt | Reprocess_elt -> ()
            | Process_elt -> Pcs.add_call_state pre_cc target)',
-       `ESET_INSERT_ELT_IG WLD cs target current_callset arg arg')
+       `ESET_INSERT_ELT_IG ESET_WLD cs target current_callset arg arg')
      ')
   )')
 
@@ -1026,10 +1030,11 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
   (**************************************************************)
 
     (** Check for a succesful parse. Heirarchical-ES specific. *)
-    let check_done term_table cs start_nt =
-      let d = cs.WI.dense_s in
-      let dcs = cs.WI.dense_sv in
-      let count = cs.WI.count in
+(*     let check_done term_table cs start_nt = *)
+(*       let d = cs.WI.dense_s in *)
+(*       let dcs = cs.WI.dense_sv in *)
+(*       let count = cs.WI.count in *)
+    let check_done term_table start_nt d dcs count =
       let check_callset (callset, _, _) b = b || callset.id = 0 in
       LOGp(eof_ne, "Checking for successful parses.\n");
       let do_check start_nt socvas = function
@@ -1127,8 +1132,6 @@ let check_done_at_eof start_nt successes cs term_table =
 
   DEF4(`PROCESS_WORKLIST_HEIR', `pes', `cs', `term_table', `overflow',`
          begin
-           let d = cs.WI.dense_s in
-           let dcs = cs.WI.dense_sv in
            let i = ref 0 in
            while !i < cs.WI.count do
              let rec loop pes d dcs k overflow cs term_table =
@@ -1140,7 +1143,7 @@ let check_done_at_eof start_nt successes cs term_table =
              so you need to add
              let socvas_s = dcs.(!i) in some cases rather than simply substituting.
           *)
-          process_trans pes s dcs.(k) k overflow term_table.(s);
+          process_trans pes s dcs.(k) k term_table.(s);
 
           let k2 = k + 1 in
           if k2 < cs.WI.count then
@@ -1158,7 +1161,7 @@ let check_done_at_eof start_nt successes cs term_table =
           let rec loop pes k term_table = function
             | [] -> ()
             | (s, socvas)::xs ->
-                process_trans pes s socvas k overflow term_table.(s);
+                process_trans pes s socvas k term_table.(s);
                 loop pes k term_table xs in
           loop pes !i term_table owl;
         done;
@@ -1209,7 +1212,7 @@ let check_done_at_eof start_nt successes cs term_table =
         let rec loop pes term_table = function
           | [] -> ()
           | (s, socvas) :: wl ->
-              process_trans pes s socvas worklist term_table.(s);
+              process_trans pes s socvas term_table.(s);
               loop pes term_table wl in
         loop pes term_table wl;
       done;
@@ -1263,7 +1266,8 @@ let check_done_at_eof start_nt successes cs term_table =
 
   and process_trans
       (** Parse-engine state. *)
-      ( (** Map from transducer state to transition(s).*)
+      ( ESET_EXTEND_PES_PATT(`
+        (** Map from transducer state to transition(s).*)
         term_table,
         (** Map from transducer state to nonterminal transitions, for unparameterized nonterminals.*)
         nonterm_table,
@@ -1284,7 +1288,7 @@ let check_done_at_eof start_nt successes cs term_table =
         (** Queue of future items, generated by boxes. *)
         futuresq,
         (** The nullability predicate lookahead function. *)
-        nplookahead_fn
+        nplookahead_fn')
           as
           pes)
 
@@ -1292,8 +1296,8 @@ let check_done_at_eof start_nt successes cs term_table =
       s
       (** The socvas of the current item.  *)
       socvas_s
-      (** Worklist-related data. *)
-      WLD = function
+      (** (potentially) Worklist-related data. *)
+      ESET_PT_ADDL_ARGS = function
            | PJDN.No_trans -> ()
            | PJDN.Scan_trans (c,t) ->
                let c1 = Char.code (YkBuf.get_current ykb) in
@@ -1302,7 +1306,7 @@ let check_done_at_eof start_nt successes cs term_table =
                let curr_pos = current_callset.id in
                (ESET_CONTAINER_ITER(`socvas_s', `(callset, sv, sv_arg)',
                             `let ret_sv, target = f curr_pos sv in
-                             ESET_INSERT_ELT_IG WLD cs target callset ret_sv sv_arg'))
+                             ESET_INSERT_ELT_IG ESET_WLD cs target callset ret_sv sv_arg'))
 
            | PJDN.MScan_trans col ->
                let c = Char.code (YkBuf.get_current ykb) in
@@ -1311,7 +1315,7 @@ let check_done_at_eof start_nt successes cs term_table =
            | PJDN.Lookahead_trans col ->
                let c = Char.code (YkBuf.get_current ykb) in
                let t = col.(c) in
-               if t > 0 then ESET_INSERT_CONTAINER WLD cs t socvas_s
+               if t > 0 then ESET_INSERT_CONTAINER ESET_WLD cs t socvas_s
            | PJDN.Det_multi_trans col ->
                let c = Char.code (YkBuf.get_current ykb) in
                let x = col.(c) in
@@ -1320,20 +1324,20 @@ let check_done_at_eof start_nt successes cs term_table =
                if t > 0 then begin
                  if x_action = 0
                  then ESET_INSERT_CONTAINER_NC ns t socvas_s
-                 else ESET_INSERT_CONTAINER WLD cs t socvas_s
+                 else ESET_INSERT_CONTAINER ESET_WLD cs t socvas_s
                end
 
            | PJDN.TokLookahead_trans (presence, f, target) ->
                let b = f ykb in
-               if b = presence then ESET_INSERT_CONTAINER WLD cs target socvas_s
+               if b = presence then ESET_INSERT_CONTAINER ESET_WLD cs target socvas_s
 
            | PJDN.RegLookahead_trans (presence, la_target, la_nt, target) ->
                if REGLA_CODE(`presence', `la_target', `la_nt', `target') then
-                 ESET_INSERT_CONTAINER WLD cs target socvas_s
+                 ESET_INSERT_CONTAINER ESET_WLD cs target socvas_s
 
            | PJDN.ExtLookahead_trans (presence, la_target, la_nt, target) ->
                if EXTLA_CODE(`presence', `la_target', `la_nt', `target') then
-                 ESET_INSERT_CONTAINER WLD cs target socvas_s
+                 ESET_INSERT_CONTAINER ESET_WLD cs target socvas_s
 
            | PJDN.Call_trans t -> CALL_CODE(`t',`true')
            | PJDN.Call_p_trans (call_act, t) -> CALL_P_CODE(`t',`true',`call_act')
@@ -1351,7 +1355,7 @@ let check_done_at_eof start_nt successes cs term_table =
                    for l = 0 to Array.length items - 1 do
                      let s_l, socvas_l = items.(l) in
                      let t = PJ.lookup_trans_nt nonterm_table s_l nt in
-                     if t > 0 then ESET_INSERT_CONTAINER WLD cs t socvas_l
+                     if t > 0 then ESET_INSERT_CONTAINER ESET_WLD cs t socvas_l
                    done
                  end')
 
@@ -1372,7 +1376,7 @@ let check_done_at_eof start_nt successes cs term_table =
 
                    let t = PJ.lookup_trans_nt nonterm_table s_l nt in
                    if t > 0 then begin
-                     ESET_INSERT_CONTAINER WLD cs t socvas_l;
+                     ESET_INSERT_CONTAINER ESET_WLD cs t socvas_l;
                      LOG(
                        Logging.log Logging.Features.comp_ne "%d => %d [%d]\n" s_l t nt
                      );
@@ -1387,7 +1391,7 @@ let check_done_at_eof start_nt successes cs term_table =
                            ESET_CONTAINER_ITER(`socvas_l', `(callset_s_l, sv_s_l, sv_arg_s_l)', `
                                          if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
                                            LOGp(comp_ne, "Y");
-                                           ESET_INSERT_ELT_IG WLD cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
+                                           ESET_INSERT_ELT_IG ESET_WLD cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
                                          end else LOGp(comp_ne, "N")');
                            LOGp(comp_ne, "\n");
                          done
@@ -1399,7 +1403,7 @@ let check_done_at_eof start_nt successes cs term_table =
            | PJDN.Many_trans trans ->
                let n = Array.length trans in
                for j = 0 to n-1 do
-                 process_trans pes s socvas_s WLD trans.(j)
+                 process_trans pes s socvas_s ESET_PT_ADDL_ARGS trans.(j)
                done
 
            | PJDN.Maybe_nullable_trans2 _ -> ()
@@ -1415,47 +1419,47 @@ let check_done_at_eof start_nt successes cs term_table =
 
 (*            | PJDN.Action_trans (act, target) -> *)
 (*                let curr_pos = current_callset.id in *)
-(*                ESET_CONTAINER_ITER(`socvas_s', `(callset, sv, sv_arg)', `ESET_INSERT_ELT_IG WLD cs target callset (act curr_pos sv) sv_arg') *)
+(*                ESET_CONTAINER_ITER(`socvas_s', `(callset, sv, sv_arg)', `ESET_INSERT_ELT_IG ESET_WLD cs target callset (act curr_pos sv) sv_arg') *)
 
 (*            | PJDN.When_trans (p, next, target) -> *)
 (*                let curr_pos = current_callset.id in *)
 (*                ESET_CONTAINER_ITER(`socvas_s', `(callset, sv, sv_arg)', *)
-(*                                  `if p curr_pos sv then ESET_INSERT_ELT_IG WLD cs target callset (next curr_pos sv) sv_arg') *)
+(*                                  `if p curr_pos sv then ESET_INSERT_ELT_IG ESET_WLD cs target callset (next curr_pos sv) sv_arg') *)
 
 (*            | PJDN.When2_trans (p, target) -> *)
 (*                ESET_CONTAINER_ITER(`socvas_s', `(callset, sv, sv_arg)', *)
 (*                                  `(match p nplookahead_fn ykb sv with *)
 (*                                      | None -> () *)
-(*                                      | Some new_sv -> ESET_INSERT_ELT_IG WLD cs target callset new_sv sv_arg)') *)
+(*                                      | Some new_sv -> ESET_INSERT_ELT_IG ESET_WLD cs target callset new_sv sv_arg)') *)
 
            | PJDN.Action_trans (act, target) ->
                let curr_pos = current_callset.id in
                let image = ESET_CONTAINER_MAP(`socvas_s', `(callset, sv, sv_arg)', `(callset, (act curr_pos sv), sv_arg)') in
-               ESET_INSERT_CONTAINER WLD cs target image
+               ESET_INSERT_CONTAINER ESET_WLD cs target image
 
            | PJDN.When_trans (p, next, target) ->
                let curr_pos = current_callset.id in
                ESET_CONTAINER_FOLD_C(`socvas_s',
                    `(callset, sv, sv_arg) ->
                      if p curr_pos sv
-                     then ESET_INSERT_ELT_IG WLD cs target callset (next curr_pos sv) sv_arg
+                     then ESET_INSERT_ELT_IG ESET_WLD cs target callset (next curr_pos sv) sv_arg
                      else ()',
                    `fun (callset, sv, sv_arg) image ->
                      if p curr_pos sv
                      then ESET_CONTAINER_ADD (callset, (next curr_pos sv), sv_arg) image
                      else image',
-                   `ESET_INSERT_CONTAINER WLD cs target ')
+                   `ESET_INSERT_CONTAINER ESET_WLD cs target ')
 
            | PJDN.When2_trans (p, target) ->
                ESET_CONTAINER_FOLD_C(`socvas_s',
                    `(callset, sv, sv_arg) ->
                      (match p nplookahead_fn ykb sv with
-                       | Some new_sv -> ESET_INSERT_ELT_IG WLD cs target callset new_sv sv_arg
+                       | Some new_sv -> ESET_INSERT_ELT_IG ESET_WLD cs target callset new_sv sv_arg
                        | None -> ())',
                    `fun (callset, sv, sv_arg) image -> match p nplookahead_fn ykb sv with
                        | None -> image
                        | Some new_sv -> ESET_CONTAINER_ADD (callset, new_sv, sv_arg) image',
-                   `ESET_INSERT_CONTAINER WLD cs target ')
+                   `ESET_INSERT_CONTAINER ESET_WLD cs target ')
 
            | PJDN.Box_trans (box, target) ->
                let curr_pos = current_callset.id in
@@ -1463,7 +1467,7 @@ let check_done_at_eof start_nt successes cs term_table =
                            `let cp = YkBuf.save ykb in
                            (match box sv curr_pos ykb with
                                 Some (0, ret_sv) -> (* returns to current set *)
-                                  ESET_INSERT_ELT_IG WLD cs target callset ret_sv sv_arg
+                                  ESET_INSERT_ELT_IG ESET_WLD cs target callset ret_sv sv_arg
                               | Some (1, ret_sv) -> (* returns to next set *)
                                   ESET_INSERT_ELT_NC ns target (callset, ret_sv, sv_arg)
                               | Some (n, ret_sv) ->
@@ -1480,26 +1484,26 @@ let check_done_at_eof start_nt successes cs term_table =
                       ESET_INSERT_CONTAINER_NC ns target socvas_s)
 
   and process_eof_trans start_nt succeeded cs socvas_s term_table nonterm_table p_nonterm_table nplookahead_fn
-      s sv0 current_callset ykb WLD = function
+      s sv0 current_callset ykb ESET_WLD = function
            | PJDN.No_trans -> ()
            | PJDN.Scan_trans _ | PJDN.MScan_trans _ -> ()
            | PJDN.Lookahead_trans col ->
                let t = col.(PJ.iEOF) in
-               if t > 0 then ESET_INSERT_CONTAINER WLD cs t socvas_s
+               if t > 0 then ESET_INSERT_CONTAINER ESET_WLD cs t socvas_s
            | PJDN.Det_multi_trans col ->
                let x = col.(PJ.iEOF) in
                let x_action = x land 0x7F000000 in
                let t = x land 0xFFFFFF in
-               if t > 0 && x_action > 0 then ESET_INSERT_CONTAINER WLD cs t socvas_s
+               if t > 0 && x_action > 0 then ESET_INSERT_CONTAINER ESET_WLD cs t socvas_s
            | PJDN.TokLookahead_trans (presence, f, target) ->
                let b = f ykb in
-               if b = presence then ESET_INSERT_CONTAINER WLD cs target socvas_s
+               if b = presence then ESET_INSERT_CONTAINER ESET_WLD cs target socvas_s
            | PJDN.RegLookahead_trans (presence, la_target, la_nt, target) ->
                let b = REGLA_CODE(`presence', `la_target', `la_nt', `target') in
-               if b then ESET_INSERT_CONTAINER WLD cs target socvas_s
+               if b then ESET_INSERT_CONTAINER ESET_WLD cs target socvas_s
            | PJDN.ExtLookahead_trans (presence, la_target, la_nt, target) ->
                if EXTLA_CODE(`presence', `la_target', `la_nt', `target') then
-                 ESET_INSERT_CONTAINER WLD cs target socvas_s
+                 ESET_INSERT_CONTAINER ESET_WLD cs target socvas_s
            | PJDN.Call_trans t -> CALL_CODE(`t',`false')
            | PJDN.Call_p_trans (call_act, t) -> CALL_P_CODE(`t',`false',`call_act')
 
@@ -1511,7 +1515,7 @@ let check_done_at_eof start_nt successes cs term_table =
                  for l = 0 to Array.length items - 1 do
                    let s_l, c_l = items.(l) in
                    let t = PJ.lookup_trans_nt nonterm_table s_l nt in
-                   if t > 0 then ESET_INSERT_CONTAINER WLD cs t c_l
+                   if t > 0 then ESET_INSERT_CONTAINER ESET_WLD cs t c_l
                  done')
 
            | PJDN.Complete_p_trans nt ->
@@ -1524,7 +1528,7 @@ let check_done_at_eof start_nt successes cs term_table =
                    let s_l, socvas_l = items.(l) in
 
                    let t = PJ.lookup_trans_nt nonterm_table s_l nt in
-                   if t > 0 then ESET_INSERT_CONTAINER WLD cs t socvas_l;
+                   if t > 0 then ESET_INSERT_CONTAINER ESET_WLD cs t socvas_l;
 
                    match PJDN.lookup_trans_pnt p_nonterm_table s_l nt with
                      | [||] -> ()
@@ -1535,7 +1539,7 @@ let check_done_at_eof start_nt successes cs term_table =
                            ESET_CONTAINER_ITER(`socvas_l', `(callset_s_l, sv_s_l, sv_arg_s_l)', `
                                          if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
                                            LOGp(comp_ne, "Y");
-                                           ESET_INSERT_ELT_IG WLD cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
+                                           ESET_INSERT_ELT_IG ESET_WLD cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
                                          end else LOGp(comp_ne, "N")');
                            LOGp(comp_ne, "\n");
                          done
@@ -1556,7 +1560,7 @@ let check_done_at_eof start_nt successes cs term_table =
                        for l = 0 to m_items do
                          let s_l, c_l = items.(l) in
                          let t = PJ.lookup_trans_nt nonterm_table s_l nt in
-                         if t > 0 then ESET_INSERT_CONTAINER WLD cs t c_l
+                         if t > 0 then ESET_INSERT_CONTAINER ESET_WLD cs t c_l
                        done
                    done')
 
@@ -1576,7 +1580,7 @@ let check_done_at_eof start_nt successes cs term_table =
                          let s_l, socvas_l = items.(l) in
 
                          let t = PJ.lookup_trans_nt nonterm_table s_l nt in
-                         if t > 0 then ESET_INSERT_CONTAINER WLD cs t socvas_l;
+                         if t > 0 then ESET_INSERT_CONTAINER ESET_WLD cs t socvas_l;
 
                          match PJDN.lookup_trans_pnt p_nonterm_table s_l nt with
                            | [||] -> ()
@@ -1587,7 +1591,7 @@ let check_done_at_eof start_nt successes cs term_table =
                                  ESET_CONTAINER_ITER(`socvas_l', `(callset_s_l, sv_s_l, sv_arg_s_l)', `
                                                if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
                                                  LOGp(comp_ne, "Y");
-                                                 ESET_INSERT_ELT_IG WLD cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
+                                                 ESET_INSERT_ELT_IG ESET_WLD cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
                                                end else LOGp(comp_ne, "N")');
                                  LOGp(comp_ne, "\n");
                                done
@@ -1598,7 +1602,7 @@ let check_done_at_eof start_nt successes cs term_table =
                let n = Array.length trans in
                for j = 0 to n-1 do
                  process_eof_trans start_nt succeeded cs socvas_s term_table nonterm_table p_nonterm_table nplookahead_fn s sv0
-                   current_callset ykb WLD trans.(j)
+                   current_callset ykb ESET_WLD trans.(j)
                done
 
            | PJDN.Maybe_nullable_trans2 _ -> ()
@@ -1610,7 +1614,7 @@ let check_done_at_eof start_nt successes cs term_table =
                  (fun (callset, sv, sv_arg) s ->
                     Socvas.add (callset, act curr_pos sv, sv_arg) s)
                  socvas_s Socvas.empty in
-               ESET_INSERT_CONTAINER WLD cs target new_s
+               ESET_INSERT_CONTAINER ESET_WLD cs target new_s
 
            | PJDN.When_trans (p, next, target) ->
                (let curr_pos = current_callset.id in
@@ -1618,18 +1622,18 @@ let check_done_at_eof start_nt successes cs term_table =
                  (fun (callset, sv, sv_arg) s ->
                     if p curr_pos sv then Socvas.add (callset, next curr_pos sv, sv_arg) s else s)
                  socvas_s Socvas.empty in
-               if not (Socvas.is_empty new_s) then ESET_INSERT_CONTAINER WLD cs target new_s)
+               if not (Socvas.is_empty new_s) then ESET_INSERT_CONTAINER ESET_WLD cs target new_s)
 
            | PJDN.When2_trans (p, target) ->
                ESET_CONTAINER_ITER(`socvas_s', `(callset, sv, sv_arg)',
                     `(match p nplookahead_fn ykb sv with
                         | None -> ()
-                        | Some new_sv -> ESET_INSERT_ELT_IG WLD cs target callset new_sv sv_arg)')
+                        | Some new_sv -> ESET_INSERT_ELT_IG ESET_WLD cs target callset new_sv sv_arg)')
 
            | PJDN.Det_trans f ->
                let curr_pos = current_callset.id in
                (ESET_CONTAINER_ITER(`socvas_s', `(callset, sv, sv_arg)',
-                            `let ret_sv, target = f curr_pos sv in ESET_INSERT_ELT_IG WLD cs target callset ret_sv sv_arg'))
+                            `let ret_sv, target = f curr_pos sv in ESET_INSERT_ELT_IG ESET_WLD cs target callset ret_sv sv_arg'))
 
            (* Only null boxes are okay now that we've reached EOF. *)
            | PJDN.Box_trans (box, target) ->
@@ -1638,7 +1642,7 @@ let check_done_at_eof start_nt successes cs term_table =
                            `let cp = YkBuf.save ykb in
                            (match box sv curr_pos ykb with
                                 Some (0, ret_sv) -> (* returns to current set *)
-                                  ESET_INSERT_ELT_IG WLD cs target callset ret_sv sv_arg
+                                  ESET_INSERT_ELT_IG ESET_WLD cs target callset ret_sv sv_arg
                               | Some _ -> LOG(Logging.log Logging.Features.verbose "BUG: Box returning success > 0 at EOF.\n")
                               | None -> ()
                            );
@@ -1647,7 +1651,7 @@ let check_done_at_eof start_nt successes cs term_table =
            | PJDN.Lexer_trans lexer ->
                (match lexer ykb with
                   | 0 -> ()
-                  | target -> ESET_INSERT_CONTAINER WLD cs target socvas_s)
+                  | target -> ESET_INSERT_CONTAINER ESET_WLD cs target socvas_s)
 
   and _parse is_exact_match
       {PJDN.start_symb = start_nt; start_state = start_state;
@@ -1729,10 +1733,12 @@ let check_done_at_eof start_nt successes cs term_table =
       (**
           Parse-engine state.
       *)
-      let pes = term_table, nonterm_table, p_nonterm_table, sv0,
-            cs, ns, pre_cc, ccs, ykb, futuresq, nplookahead_fn in
+      let pes = ESET_EXTEND_PES_EXPR(`term_table, nonterm_table, p_nonterm_table, sv0,
+            cs, ns, pre_cc, ccs, ykb, futuresq, nplookahead_fn') in
 
       (* Process the worklist (which can grow during processing). *)
+      let d = cs.WI.dense_s in
+      let dcs = cs.WI.dense_sv in
       PROCESS_WORKLIST(`pes', `cs', `term_table', `overflow');
 
       (* Report size of the Earley set. *)
@@ -1760,7 +1766,7 @@ let check_done_at_eof start_nt successes cs term_table =
       );
 
       IF_FLA(
-        `if not is_exact_match && ESET_CHECK_DONE term_table cs start_nt then
+        `if not is_exact_match && ESET_CHECK_DONE term_table start_nt d dcs cs.WI.count then
           s_matched := true;'
       );
 
@@ -1800,11 +1806,11 @@ let check_done_at_eof start_nt successes cs term_table =
       let succeeded = ref false in
       let cs = !next_set in
 
-      let proc_eof_item WLD s socvas =
+      let proc_eof_item ESET_WLD s socvas =
         LOGp(eof_ne, "Processing state %d.\n" s);
         process_eof_trans start_nt succeeded cs socvas
           term_table nonterm_table p_nonterm_table nplookahead_fn
-          s sv0 !current_callset ykb WLD term_table.(s) in
+          s sv0 !current_callset ykb ESET_WLD term_table.(s) in
 
       PROCESS_EOF_WORKLIST(`cs', `proc_eof_item', `overflow');
 

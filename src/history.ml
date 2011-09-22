@@ -326,11 +326,14 @@ module Make (Hv : HV) = struct
        so that dot displays them in left-to-right order wrt the input *)
     let edges = ref [] in
     let cedges = ref [] in
+    let pedges = ref [] in
     let edge x y = edges := (x,y)::!edges in
     let child_edge x y = cedges := (x,y)::!cedges in
+    let packed_edge x y = pedges := (x,y)::!pedges in
     let pr_edges() =
       List.iter (fun (x,y) -> if y <> 0 then Printf.printf "%i -> %i;\n" x y) !edges;
-      List.iter (fun (x,y) -> if y <> 0 then Printf.printf "%i -> %i [arrowhead = diamond];\n" x y) !cedges in
+      List.iter (fun (x,y) -> if y <> 0 then Printf.printf "%i -> %i [arrowhead = diamond];\n" x y) !cedges;
+      List.iter (fun (x,y) -> if y <> 0 then Printf.printf "%i -> %i [arrowhead = none];\n" x y) !pedges in
 
     (** returns: last used n *)
     let rec dot_show_tree n_last root =
@@ -351,7 +354,7 @@ module Make (Hv : HV) = struct
       let dot_show_packed n_parent e n_last =
         let n = n_last + 1 in
         Printf.printf "%i [label=\"\" shape = circle width = 0.15];\n" n;
-        edge n_parent n;
+        packed_edge n_parent n;
         dot_show_edge n e in
 
       match root with

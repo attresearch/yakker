@@ -63,7 +63,11 @@ OCAMLDOC_SOURCES := $(filter %.mli, $(YAKKER_SOURCES)) $(filter %.mli, $(FRONT_E
 
 M4PP = m4
 
-#OCAMLOPT_FLAGS = -g
+# The engine uses a recursive type definition that doesn't go through
+# a datatype, so we need to allow arbitrary recursive types.
+OCAMLOPT_FLAGS += -rectypes
+OCAML_FLAGS+= -rectypes
+
 ifeq ($(DO_PROF),1)
   OCAMLC=ocamlfind ocamlcp
   OCAMLOPT_FLAGS += -p
@@ -157,16 +161,17 @@ doc: $(OCAMLDOC_SOURCES)
 -include $(FRONT_END_MLL_SOURCES:.mll=.d) $(FRONT_END_ML_SOURCES:.ml=.d) $(ML_SOURCES:.ml=.d)
 -include $(MLI_SOURCES:.mli=.di)
 ########################################################################
-## Dependency fixes for yak.mli
+## Dependency fixes for yak.mli (i.e. the lack thereof)
 gil.cmo gil.cmx tgraph.cmo tgraph.cmx meta_prog.cmo meta_prog.cmx: yak.cmi
 variables.cmx variables.cmo : yak.cmi
 rfc.cmx rfc.cmo : yak.cmi
 extract_grammar.cmx extract_grammar.cmo : yak.cmi
+tyspec.cmx tyspec.cmo: yak.cmi
 ########################################################################
 
 yak.cmo: $(CMOS)
 	@echo "--x> " $@
-	@$(OCAMLC) -g -pack -o $@ $^
+	@$(OCAMLC) $(OCAML_FLAGS) -g -pack -o $@ $^
 
 yak.cmx: $(CMXS)
 	@echo "--x> " $@
@@ -178,7 +183,7 @@ $(CMXS): %.cmx: %.ml
 
 yak.cma: yak.cmo
 	@echo "--x> " $@
-	@$(OCAMLC) -g -a -o $@ -package unix $^
+	@$(OCAMLC) $(OCAML_FLAGS) -g -a -o $@ -package unix $^
 
 yak.cmxa: yak.cmx
 	@echo "--x> " $@

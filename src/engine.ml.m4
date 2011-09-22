@@ -23,49 +23,44 @@ define(`IF_TRUE',`ifelse(`$1',`true',$2)')
 define(`IFE_TRUE',`ifelse(`$1',`true',`$2',`$3')')
 define(`VAR',`$$1')
 
-(* DEF_ARG(argname, argval, body) *)
-define(`DEF_ARG',
-       `ifelse($1, $2, $3,
-          `pushdef(`$1',`$2') dnl
-           $3 dnl
-           popdef(`$1')')')
+define(`EXPAND',`$1')
 
 define(`_DEF_ARG',
-       ``ifelse(`$1', `$2', `$3',
-           `pushdef(`$1',`$2') dnl
+       ``EXPAND(ifelse(`$1', `$2', `$3',
+           `pushdef(`$1',``$2'') dnl
             $3 dnl
-            popdef(`$1')')'')
+            popdef(`$1')'))'')
 define(`DEF1', `define(`$1', _DEF_ARG(`$2',VAR(`1'),`$3'))')
 
 define(`_DEF_2ARG',
-       ``ifelse(`$1', `$2', `', `pushdef(`$1',`$2')')dnl
-        ifelse(`$3', `$4', `', `pushdef(`$3',`$4')')dnl
+       ``EXPAND(ifelse(`$1', `$2', `', `pushdef(`$1',``$2'')')dnl
+        ifelse(`$3', `$4', `', `pushdef(`$3',``$4'')')dnl
         $5 dnl
         ifelse(`$3', `$4', `', `popdef(`$3')')dnl
-        ifelse(`$1', `$2', `', `popdef(`$1')')'')
+        ifelse(`$1', `$2', `', `popdef(`$1')'))'')
 define(`DEF2', `define(`$1', _DEF_2ARG(`$2',VAR(`1'),`$3',VAR(`2'),`$4'))')
 
 define(`_DEF_3ARG',
-       ``ifelse(`$1', `$2', `', `pushdef(`$1',`$2')')dnl
-        ifelse(`$3', `$4', `', `pushdef(`$3',`$4')')dnl
-        ifelse(`$5', `$6', `', `pushdef(`$5',`$6')')dnl
+       ``EXPAND(ifelse(`$1', `$2', `', `pushdef(`$1',``$2'')')dnl
+        ifelse(`$3', `$4', `', `pushdef(`$3',``$4'')')dnl
+        ifelse(`$5', `$6', `', `pushdef(`$5',``$6'')')dnl
         $7 dnl
         ifelse(`$5', `$6', `', `popdef(`$5')')dnl
         ifelse(`$3', `$4', `', `popdef(`$3')')dnl
-        ifelse(`$1', `$2', `', `popdef(`$1')')'')
+        ifelse(`$1', `$2', `', `popdef(`$1')'))'')
 define(`DEF3', `define(`$1', _DEF_3ARG(`$2',VAR(`1'),`$3',VAR(`2'),
                                        `$4',VAR(`3'),`$5'))')
 
 define(`_DEF_4ARG',
-       ``ifelse(`$1', `$2', `', `pushdef(`$1',`$2')')dnl
-        ifelse(`$3', `$4', `', `pushdef(`$3',`$4')')dnl
-        ifelse(`$5', `$6', `', `pushdef(`$5',`$6')')dnl
-        ifelse(`$7', `$8', `', `pushdef(`$7',`$8')')dnl
+       ``EXPAND(ifelse(`$1', `$2', `', `pushdef(`$1',``$2'')')dnl
+        ifelse(`$3', `$4', `', `pushdef(`$3',``$4'')')dnl
+        ifelse(`$5', `$6', `', `pushdef(`$5',``$6'')')dnl
+        ifelse(`$7', `$8', `', `pushdef(`$7',``$8'')')dnl
         $9 dnl
         ifelse(`$7', `$8', `', `popdef(`$7')')dnl
         ifelse(`$5', `$6', `', `popdef(`$5')')dnl
         ifelse(`$3', `$4', `', `popdef(`$3')')dnl
-        ifelse(`$1', `$2', `', `popdef(`$1')')'')
+        ifelse(`$1', `$2', `', `popdef(`$1')'))'')
 define(`DEF4', `define(`$1', _DEF_4ARG(`$2',VAR(`1'),`$3',VAR(`2'),
                                        `$4',VAR(`3'),`$5',VAR(`4'),
                                        `$6'))')
@@ -73,20 +68,18 @@ define(`DEF4', `define(`$1', _DEF_4ARG(`$2',VAR(`1'),`$3',VAR(`2'),
 define(`argn', `ifelse(`$1', 1, ``$2'',
        `argn(decr(`$1'), shift(shift($@)))')')
 
-define(`force_expand',`$1')
-
 define(`_DEF_5ARG',
-       ``ifelse(`$1', `$2', `', `pushdef(`$1',`$2')')dnl
-        ifelse(`$3', `$4', `', `pushdef(`$3',`$4')')dnl
-        ifelse(`$5', `$6', `', `pushdef(`$5',`$6')')dnl
-        ifelse(`$7', `$8', `', `pushdef(`$7',`$8')')dnl
-        ifelse(`$9', `argn(`10',$@)', `', `pushdef(`$9',`argn(`10',$@)')')dnl
-        force_expand(argn(`11',$@))dnl
+       ``EXPAND(ifelse(`$1', `$2', `', `pushdef(`$1',``$2'')')dnl
+        ifelse(`$3', `$4', `', `pushdef(`$3',``$4'')')dnl
+        ifelse(`$5', `$6', `', `pushdef(`$5',``$6'')')dnl
+        ifelse(`$7', `$8', `', `pushdef(`$7',``$8'')')dnl
+        ifelse(`$9', `argn(`10',$@)', `', `pushdef(`$9',``argn(`10',$@)'')')dnl
+        EXPAND(argn(`11',$@))dnl
         ifelse(`$9', `argn(`10',$@)', `', `popdef(`$9')')dnl
         ifelse(`$7', `$8', `', `popdef(`$7')')dnl
         ifelse(`$5', `$6', `', `popdef(`$5')')dnl
         ifelse(`$3', `$4', `', `popdef(`$3')')dnl
-        ifelse(`$1', `$2', `', `popdef(`$1')')'')
+        ifelse(`$1', `$2', `', `popdef(`$1')'))'')
 define(`DEF5', `define(`$1', _DEF_5ARG(`$2',VAR(`1'),`$3',VAR(`2'),
                                        `$4',VAR(`3'),`$5',VAR(`4'),
                                        `$6',VAR(`5'),
@@ -125,6 +118,7 @@ define(`IF_FLAT',`ifelse(ESET_IMPL,`flat',`$1')')
 *)
 
 
+IF_HIER(`
 define(`ESET_CONTAINER_ITER', `SOCVAS_ITER(`$1',`$2',`$3') ')
 define(`ESET_CONTAINER_MAP',  `SOCVAS_MAP(`$1',`$2',`$3') ')
 define(`ESET_CONTAINER_FOLD', `SOCVAS_FOLD(`$1',`$2',`$3',`$4',`$5') ')
@@ -139,7 +133,6 @@ define(`ESET_EXTEND_PES_EXPR',`$1, overflow')
 define(`ESET_EXTEND_PES_PATT',`$1, ol')
 define(`ESET_PT_ADDL_ARGS', `i')
 define(`ESET_WLD', `i ol')
-
 
 DEF1(`ESET_NOT_EMPTY', `ns', `(ns).WI.count > 0')
 
@@ -158,6 +151,9 @@ DEF3(`PCS_ADD_CALL_ITEM_C', `pre_cc', `s', `c', `(Pcs.add_call_state pre_cc s)')
    tracks the transducer state in the pcc. *)
 DEF3(`PCS_ADD_CALL_ITEM_E', `pre_cc', `s', `elt', `(Pcs.add_call_state pre_cc s)')
 
+define(`ESET_ITEM_PATT', `$1, $2')
+')
+
 (**************************************************************)
 (**************************************************************)
 
@@ -168,31 +164,32 @@ DEF3(`PCS_ADD_CALL_ITEM_E', `pre_cc', `s', `elt', `(Pcs.add_call_state pre_cc s)
    In this setup, a container = a single cva.
 *)
 
-(* define(`ESET_MODULE', `ES_flat') *)
+IF_FLAT(`
+define(`ESET_MODULE', `ES_flat')
 
-(* define(`ESET_CONTAINER_ITER', `SINGLE_CVA_ITER(`$1',`$2',`$3') ') *)
-(* define(`ESET_CONTAINER_MAP',  `SINGLE_CVA_MAP(`$1',`$2',`$3') ') *)
-(* define(`ESET_CONTAINER_FOLD', `SINGLE_CVA_FOLD(`$1',`$2',`$3',`$4',`$5') ') *)
-(* define(`ESET_CONTAINER_FOLD_C', `SINGLE_CVA_FOLD_C(`$1',`$2') ') *)
+define(`ESET_CONTAINER_ITER', `SINGLE_CVA_ITER(`$1',`$2',`$3') ')
+define(`ESET_CONTAINER_MAP',  `SINGLE_CVA_MAP(`$1',`$2',`$3') ')
+define(`ESET_CONTAINER_FOLD', `SINGLE_CVA_FOLD(`$1',`$2',`$3',`$4',`$5') ')
+define(`ESET_CONTAINER_FOLD_C', `SINGLE_CVA_FOLD_C(`$1',`$2') ')
 
-(* (\* ??? Not sure what to do here. Should be undefined. Perhaps raise a static error? *\) *)
-(* define(`ESET_CONTAINER_ADD', `Socvas.MS.add') *)
+define(`ESET_CONTAINER_ADD', `errprint(`ESET_CONTAINER_ADD undefined for ES_flat') ')
 
-(* define(`ESET_EXTEND_PES_EXPR',`$1, overflow') *)
-(* define(`ESET_EXTEND_PES_PATT',`$1, ol') *)
-(* define(`ESET_PT_ADDL_ARGS', `') *)
-(* define(`ESET_WLD', `ol') *)
+define(`ESET_EXTEND_PES_EXPR',`$1, overflow')
+define(`ESET_EXTEND_PES_PATT',`$1, ol')
+define(`ESET_PT_ADDL_ARGS', `')
+define(`ESET_WLD', `ol')
 
-(* DEF1(`ESET_NOT_EMPTY', `ns', `not (ES_flat.Earley_set.is_empty (!(ns)))') *)
+DEF1(`ESET_NOT_EMPTY', `ns', `not (ESet.Earley_set.is_empty (!(ns)))')
 
-(* DEF1(`ESET_CLEAR', `t', `t := ES_flat.Early_set.empty') *)
+DEF1(`ESET_CLEAR', `t', `t := ESet.Earley_set.empty')
 
-(* define(`PROCESS_WORKLIST',`PROCESS_WORKLIST_FLAT(`$1',`$2',`$3',`$4') ') *)
+define(`PROCESS_WORKLIST',`PROCESS_WORKLIST_FLAT(`$1',`$2',`$3',`$4') ')
 
-(* define(`PROCESS_EOF_WORKLIST', `PROCESS_EOF_WORKLIST_FLAT(`$1',`$2',`$3') ') *)
-(* DEF3(`PCS_ADD_CALL_ITEM_C', `pre_cc', `s', `c', `(Pcs.add_call_item pre_cc {ESet.Elt.state=s; cva=c})') *)
-(* DEF3(`PCS_ADD_CALL_ITEM_E', `pre_cc', `s', `elt', `(Pcs.add_call_item pre_cc {ESet.Elt.state=s; cva=elt})') *)
-
+define(`PROCESS_EOF_WORKLIST', `PROCESS_EOF_WORKLIST_FLAT(`$1',`$2',`$3') ')
+DEF3(`PCS_ADD_CALL_ITEM_C', `pre_cc', `s', `c', `(Pcs.add_call_item pre_cc {ESet.state=s; cva=c})')
+DEF3(`PCS_ADD_CALL_ITEM_E', `pre_cc', `s', `elt', `(Pcs.add_call_item pre_cc {ESet.state=s; cva=elt})')
+define(`ESET_ITEM_PATT', `{ESet.state=$1; cva=$2}')
+')
 
 (**************************************************************)
 (**************************************************************)
@@ -579,6 +576,9 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
 
       let empty = Earley_set.empty
 
+      (** First argument is ignored. We include for compatability only. *)
+      let create _ = ref empty
+
       let reset pcc = pcc := empty
 
       let add_call_item pcc it = pcc := Earley_set.add it !pcc
@@ -627,7 +627,7 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
     let item = {state=state; cva=cva} in
     es := Earley_set.add item !es
 
-  let insert_container = insert_elt_ig
+  let insert_container wl es state cva = ignore (insert_elt wl es state cva)
   let insert_container_nc = insert_elt_nc
 
   (** Check for a succesful parse. *)
@@ -671,7 +671,7 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
         | PJDN.Lookahead_trans _| PJDN.MScan_trans _
         | PJDN.Scan_trans _ | PJDN.No_trans | PJDN.Det_trans _ | PJDN.Lexer_trans _ ->
             false
-    end cs
+    end !cs
 
   (** Collect the succesful parses at eof. *)
   let collect_done_at_eof start_nt successes cs term_table =
@@ -709,7 +709,7 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
         | PJDN.Lookahead_trans _| PJDN.MScan_trans _
         | PJDN.Scan_trans _ | PJDN.No_trans | PJDN.Det_trans _ | PJDN.Lexer_trans _
             -> ()
-    end
+    end !cs
 
   (**
      Early-set inspection code.
@@ -881,6 +881,9 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
 
       let empty = (0, [])
 
+      (** First argument is ignored. We include for compatability only. *)
+      let create _ = ref empty
+
       let reset pcc = pcc := empty
 
       let add_call_state pcc s =
@@ -924,7 +927,7 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
 
       module S = Wf_set.Int_set
 
-      let empty n = S.make n
+      let create = S.make
 
       let reset pcc = S.clear pcc
 
@@ -1299,12 +1302,12 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
      ESET_CONTAINER_ITER(`socvas_s', `(callset, sv, sv_arg)',
        `let curr_pos = current_callset.id in
         let arg = call_act curr_pos sv in
-       IFE_TRUE(grow_callset,
-       `let target_cva = (current_callset, arg, arg) in
-        (match ESet.insert_elt ESET_WLD cs target target_cva with
-           | Ignore_elt | Reprocess_elt -> ()
-           | Process_elt -> PCS_ADD_CALL_ITEM_E(`pre_cc', `target', `target_cva'))',
-       `ESet.insert_elt_ig ESET_WLD cs target current_callset arg arg')
+        IFE_TRUE(grow_callset,
+        `let target_cva = (current_callset, arg, arg) in
+         (match ESet.insert_elt ESET_WLD cs target target_cva with
+            | Ignore_elt | Reprocess_elt -> ()
+            | Process_elt -> PCS_ADD_CALL_ITEM_E(`pre_cc', `target', `target_cva'))',
+        `ESet.insert_elt_ig ESET_WLD cs target current_callset arg arg')
      ')
   )')
 
@@ -1316,14 +1319,14 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
                IFE_TRUE(no_args, `"CSS"', `"CPSS"')
                n;
            end;
-         )');
+         );')
          let m_nts = Array.length nts - 1 in
          IFE_TRUE(no_args, `',`let curr_pos = current_callset.id in')
-           SOCVAS_ITER(`socvas_s',
+           ESET_CONTAINER_ITER(`socvas_s',
                        `IFE_TRUE(no_args, `(callset, _, _)', `(callset, sv, sv_arg)') ',
                        `let items = callset.data in
                        for l = 0 to Array.length items - 1 do
-                         let s_l, socvas_l = items.(l) in
+                         let ESET_ITEM_PATT(`s_l', `socvas_l') = items.(l) in
                          for k = 0 to m_nts do
                            let t = PJ.lookup_trans_nt nonterm_table s_l nts.(k) in
                            if t > 0 then ESet.insert_container ESET_WLD cs t socvas_l;
@@ -1334,7 +1337,7 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
                                           for idx = 0 to Array.length entries - 1 do
                                             let {PJDN.ctarget = t; carg = arg_act; cbinder = binder} = entries.(idx) in
                                             LOGp(comp_ne, "@%d: %d => %d [%d(_)]? " callset.id s_l t nts.(k));
-                                            SOCVAS_ITER(`socvas_l', `(callset_s_l, sv_s_l, sv_arg_s_l)', `
+                                            ESET_CONTAINER_ITER(`socvas_l', `(callset_s_l, sv_s_l, sv_arg_s_l)', `
                                                           if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
                                                             LOGp(comp_ne, "Y");
                                                             ESet.insert_elt_ig ESET_WLD cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
@@ -1455,7 +1458,7 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
     begin
       (* Breadth-first processing of Earley set. *)
 
-      worklist := ESET_TO_LIST cs;
+      worklist := ESet.Earley_set.elements !cs;
       while !worklist <> [] do
         let wl = !worklist in
         worklist := [];
@@ -1472,11 +1475,11 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
   DEF3(`PROCESS_EOF_WORKLIST_FLAT', `cs', `proc_eof_item', `worklist',
    `begin
      (* Breadth-first processing of Earley set. *)
-     worklist := ESET_TO_LIST cs;
+     worklist := ESet.Earley_set.elements !cs;
      while !worklist <> [] do
        let wl = !worklist in
        worklist := [];
-       List.iter (fun {ESet.state=s; cva=cva} -> proc_eof_item wl s cva) wl;
+       List.iter (fun {ESet.state=s; cva=cva} -> proc_eof_item overflow s cva) wl;
      done;
    end ' )
 
@@ -1599,12 +1602,12 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
                    let n = Socvas.cardinal socvas_s in
                    Logging.Distributions.add_value "CSS" n;
                  end;
-               )');
+               );')
                ESET_CONTAINER_ITER(`socvas_s', `(callset, _, _)', `
                  if CURRENT_CALLSET_GUARD then begin
                    let items = callset.data in
                    for l = 0 to Array.length items - 1 do
-                     let s_l, socvas_l = items.(l) in
+                     let ESET_ITEM_PATT(`s_l', `socvas_l') = items.(l) in
                      let t = PJ.lookup_trans_nt nonterm_table s_l nt in
                      if t > 0 then ESet.insert_container ESET_WLD cs t socvas_l
                    done
@@ -1623,7 +1626,7 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
                ESET_CONTAINER_ITER(`socvas_s', `(callset, sv, sv_arg)', `
                  let items = callset.data in
                  for l = 0 to Array.length items - 1 do
-                   let s_l, socvas_l = items.(l) in
+                   let ESET_ITEM_PATT(`s_l', `socvas_l') = items.(l) in
 
                    let t = PJ.lookup_trans_nt nonterm_table s_l nt in
                    if t > 0 then begin
@@ -1760,11 +1763,11 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
 
            | PJDN.Complete_trans nt ->
                let is_nt = nt = start_nt in
-               SOCVAS_ITER(`socvas_s', `(callset,_,_)', `
+               ESET_CONTAINER_ITER(`socvas_s', `(callset,_,_)', `
                  if is_nt && callset.id = 0 then succeeded := true;
                  let items = callset.data in
                  for l = 0 to Array.length items - 1 do
-                   let s_l, c_l = items.(l) in
+                   let ESET_ITEM_PATT(`s_l', `c_l') = items.(l) in
                    let t = PJ.lookup_trans_nt nonterm_table s_l nt in
                    if t > 0 then ESet.insert_container ESET_WLD cs t c_l
                  done')
@@ -1776,7 +1779,7 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
                  if is_nt && callset.id = 0 then succeeded := true;
                  let items = callset.data in
                  for l = 0 to Array.length items - 1 do
-                   let s_l, socvas_l = items.(l) in
+                   let ESET_ITEM_PATT(`s_l', `socvas_l') = items.(l) in
 
                    let t = PJ.lookup_trans_nt nonterm_table s_l nt in
                    if t > 0 then ESet.insert_container ESET_WLD cs t socvas_l;
@@ -1809,7 +1812,7 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
                        succeeded := true (* ... and do not bother performing the completion. *)
                      else
                        for l = 0 to m_items do
-                         let s_l, c_l = items.(l) in
+                         let ESET_ITEM_PATT(`s_l', `c_l') = items.(l) in
                          let t = PJ.lookup_trans_nt nonterm_table s_l nt in
                          if t > 0 then ESet.insert_container ESET_WLD cs t c_l
                        done
@@ -1828,7 +1831,7 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
                        succeeded := true (* ... and do not bother performing the completion. *)
                      else
                        for l = 0 to m_items do
-                         let s_l, socvas_l = items.(l) in
+                         let ESET_ITEM_PATT(`s_l', `socvas_l') = items.(l) in
 
                          let t = PJ.lookup_trans_nt nonterm_table s_l nt in
                          if t > 0 then ESet.insert_container ESET_WLD cs t socvas_l;
@@ -1932,7 +1935,7 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
     let current_set = ref (ESet.create num_states) in
     let next_set = ref (ESet.create num_states) in
 
-    let pre_cc = Pcs.empty num_states in (* pre-version of current callset. *)
+    let pre_cc = Pcs.create num_states in (* pre-version of current callset. *)
     let start_callset = mk_callset 0 in
     let current_callset = ref start_callset in
 
@@ -2021,7 +2024,7 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
              let es_size = ESet.get_size cs in
              let sv_count, insp_summary =
                if Logging.features_are_set Logging.Features.verbose then
-                 let sv_count, idata = ES_hierarchical.count_semvals_plus cs in
+                 let sv_count, idata = ESet.count_semvals_plus cs in
                  sv_count, Sem_val.summarize_inspection idata
                else 0, "n/a" in
              Logging.log Logging.Features.hist_size "%d %d %d %d %s\n%!"
@@ -2100,7 +2103,7 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
           let insp_summary_s = Sem_val.summarize_inspection idata_s in
           let insp_summary =
             if Logging.features_are_set Logging.Features.verbose then
-              let _, idata = ES_hierarchical.count_semvals_plus cs in
+              let _, idata = ESet.count_semvals_plus cs in
               Sem_val.summarize_inspection idata
             else "0" in
           Logging.log Logging.Features.hist_size

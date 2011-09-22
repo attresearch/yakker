@@ -23,9 +23,6 @@ let support_FLA = false
 
 
 
-(* DEF_ARG(argname, argval, body) *)
-
-
 
 
 
@@ -80,9 +77,9 @@ let support_FLA = false
 
 
 
+
 (*  conditional fold. includes folowup action for sets with > 1
   elements. *)
-
 
 
 
@@ -109,6 +106,9 @@ let support_FLA = false
    tracks the transducer state in the pcc. *)
 
 
+
+
+
 (**************************************************************)
 (**************************************************************)
 
@@ -119,30 +119,6 @@ let support_FLA = false
    In this setup, a container = a single cva.
 *)
 
-(* define(`ESET_MODULE', `ES_flat') *)
-
-(* define(`ESET_CONTAINER_ITER', `SINGLE_CVA_ITER(`$1',`$2',`$3') ') *)
-(* define(`ESET_CONTAINER_MAP',  `SINGLE_CVA_MAP(`$1',`$2',`$3') ') *)
-(* define(`ESET_CONTAINER_FOLD', `SINGLE_CVA_FOLD(`$1',`$2',`$3',`$4',`$5') ') *)
-(* define(`ESET_CONTAINER_FOLD_C', `SINGLE_CVA_FOLD_C(`$1',`$2') ') *)
-
-(* (\* ??? Not sure what to do here. Should be undefined. Perhaps raise a static error? *\) *)
-(* define(`ESET_CONTAINER_ADD', `Socvas.MS.add') *)
-
-(* define(`ESET_EXTEND_PES_EXPR',`$1, overflow') *)
-(* define(`ESET_EXTEND_PES_PATT',`$1, ol') *)
-(* define(`ESET_PT_ADDL_ARGS', `') *)
-(* define(`ESET_WLD', `ol') *)
-
-(* DEF1(`ESET_NOT_EMPTY', `ns', `not (ES_flat.Earley_set.is_empty (!(ns)))') *)
-
-(* DEF1(`ESET_CLEAR', `t', `t := ES_flat.Early_set.empty') *)
-
-(* define(`PROCESS_WORKLIST',`PROCESS_WORKLIST_FLAT(`$1',`$2',`$3',`$4') ') *)
-
-(* define(`PROCESS_EOF_WORKLIST', `PROCESS_EOF_WORKLIST_FLAT(`$1',`$2',`$3') ') *)
-(* DEF3(`PCS_ADD_CALL_ITEM_C', `pre_cc', `s', `c', `(Pcs.add_call_item pre_cc {ESet.Elt.state=s; cva=c})') *)
-(* DEF3(`PCS_ADD_CALL_ITEM_E', `pre_cc', `s', `elt', `(Pcs.add_call_item pre_cc {ESet.Elt.state=s; cva=elt})') *)
 
 
 (**************************************************************)
@@ -529,6 +505,9 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
 
       let empty = Earley_set.empty
 
+      (** First argument is ignored. We include for compatability only. *)
+      let create _ = ref empty
+
       let reset pcc = pcc := empty
 
       let add_call_item pcc it = pcc := Earley_set.add it !pcc
@@ -575,7 +554,7 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
     let item = {state=state; cva=cva} in
     es := Earley_set.add item !es
 
-  let insert_container = insert_elt_ig
+  let insert_container wl es state cva = ignore (insert_elt wl es state cva)
   let insert_container_nc = insert_elt_nc
 
   (** Check for a succesful parse. *)
@@ -625,7 +604,7 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
         | PJDN.Lookahead_trans _| PJDN.MScan_trans _
         | PJDN.Scan_trans _ | PJDN.No_trans | PJDN.Det_trans _ | PJDN.Lexer_trans _ ->
             false
-    end cs
+    end !cs
 
   (** Collect the succesful parses at eof. *)
   let collect_done_at_eof start_nt successes cs term_table =
@@ -668,7 +647,7 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
         | PJDN.Lookahead_trans _| PJDN.MScan_trans _
         | PJDN.Scan_trans _ | PJDN.No_trans | PJDN.Det_trans _ | PJDN.Lexer_trans _
             -> ()
-    end
+    end !cs
 
   (**
      Early-set inspection code.
@@ -808,6 +787,9 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
 
       let empty = (0, [])
 
+      (** First argument is ignored. We include for compatability only. *)
+      let create _ = ref empty
+
       let reset pcc = pcc := empty
 
       let add_call_state pcc s =
@@ -851,7 +833,7 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
 
       module S = Wf_set.Int_set
 
-      let empty n = S.make n
+      let create = S.make
 
       let reset pcc = S.clear pcc
 
@@ -1394,17 +1376,17 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
              | Socvas.Empty -> ()
              | Socvas.Singleton (callset, sv, sv_arg) -> (let curr_pos = current_callset.id in
         let arg = call_act curr_pos sv in
-       let target_cva = (current_callset, arg, arg) in
-        (match ESet.insert_elt i ol cs t target_cva with
-           | Ignore_elt | Reprocess_elt -> ()
-           | Process_elt ->                         (Pcs.add_call_state pre_cc t)                         )
+        let target_cva = (current_callset, arg, arg) in
+         (match ESet.insert_elt i ol cs t target_cva with
+            | Ignore_elt | Reprocess_elt -> ()
+            | Process_elt ->                         (Pcs.add_call_state pre_cc t)                         )
      )
              | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, sv, sv_arg) -> let curr_pos = current_callset.id in
         let arg = call_act curr_pos sv in
-       let target_cva = (current_callset, arg, arg) in
-        (match ESet.insert_elt i ol cs t target_cva with
-           | Ignore_elt | Reprocess_elt -> ()
-           | Process_elt ->                         (Pcs.add_call_state pre_cc t)                         )
+        let target_cva = (current_callset, arg, arg) in
+         (match ESet.insert_elt i ol cs t target_cva with
+            | Ignore_elt | Reprocess_elt -> ()
+            | Process_elt ->                         (Pcs.add_call_state pre_cc t)                         )
      ) __s__)                          
   )                         
 
@@ -1554,7 +1536,7 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
                            if t > 0 then ESet.insert_container i ol cs t socvas_l;
                            ;
                          done
-                       done ) __s__)                         
+                       done ) __s__)                          
        )                 
            | PJDN.MComplete_p_trans nts ->                 (
                       if Logging.activated then begin if Logging.features_are_set Logging.Features.stats then begin
@@ -1596,7 +1578,7 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
        Logging.log Logging.Features.comp_ne "Y" end                 ;
                                                             ESet.insert_elt_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
                                                           end else                 if Logging.activated then begin
-       Logging.log Logging.Features.comp_ne "N" end                 ) __s__)                         ;
+       Logging.log Logging.Features.comp_ne "N" end                 ) __s__)                          ;
                                                             if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "\n" end                 ;
                                           done;
@@ -1630,12 +1612,12 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
        Logging.log Logging.Features.comp_ne "Y" end                 ;
                                                             ESet.insert_elt_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
                                                           end else                 if Logging.activated then begin
-       Logging.log Logging.Features.comp_ne "N" end                 ) __s__)                         ;
+       Logging.log Logging.Features.comp_ne "N" end                 ) __s__)                          ;
                                                             if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "\n" end                 ;
                                           done;
                          done
-                       done ) __s__)                         
+                       done ) __s__)                          
        )                 
 
            | PJDN.Many_trans trans ->
@@ -1832,11 +1814,11 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
              | Socvas.Empty -> ()
              | Socvas.Singleton (callset, sv, sv_arg) -> (let curr_pos = current_callset.id in
         let arg = call_act curr_pos sv in
-       ESet.insert_elt_ig i ol cs t current_callset arg arg
+        ESet.insert_elt_ig i ol cs t current_callset arg arg
      )
              | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, sv, sv_arg) -> let curr_pos = current_callset.id in
         let arg = call_act curr_pos sv in
-       ESet.insert_elt_ig i ol cs t current_callset arg arg
+        ESet.insert_elt_ig i ol cs t current_callset arg arg
      ) __s__)                          
   )                         
 
@@ -1859,7 +1841,7 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
                    let s_l, c_l = items.(l) in
                    let t = PJ.lookup_trans_nt nonterm_table s_l nt in
                    if t > 0 then ESet.insert_container i ol cs t c_l
-                 done) __s__)                         
+                 done) __s__)                          
 
            | PJDN.Complete_p_trans nt ->
                let is_nt = nt = start_nt in
@@ -2183,7 +2165,7 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
     let current_set = ref (ESet.create num_states) in
     let next_set = ref (ESet.create num_states) in
 
-    let pre_cc = Pcs.empty num_states in (* pre-version of current callset. *)
+    let pre_cc = Pcs.create num_states in (* pre-version of current callset. *)
     let start_callset = mk_callset 0 in
     let current_callset = ref start_callset in
 
@@ -2313,7 +2295,7 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
              let es_size = ESet.get_size cs in
              let sv_count, insp_summary =
                if Logging.features_are_set Logging.Features.verbose then
-                 let sv_count, idata = ES_hierarchical.count_semvals_plus cs in
+                 let sv_count, idata = ESet.count_semvals_plus cs in
                  sv_count, Sem_val.summarize_inspection idata
                else 0, "n/a" in
              Logging.log Logging.Features.hist_size "%d %d %d %d %s\n%!"
@@ -2419,7 +2401,7 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
           let insp_summary_s = Sem_val.summarize_inspection idata_s in
           let insp_summary =
             if Logging.features_are_set Logging.Features.verbose then
-              let _, idata = ES_hierarchical.count_semvals_plus cs in
+              let _, idata = ESet.count_semvals_plus cs in
               Sem_val.summarize_inspection idata
             else "0" in
           Logging.log Logging.Features.hist_size

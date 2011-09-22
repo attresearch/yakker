@@ -16,7 +16,7 @@
 
 
 (** Turn on/off support for full-blown lookahead. *)
-let support_FLA = true
+let support_FLA = false
 
 
 
@@ -53,17 +53,27 @@ let support_FLA = true
 
 
 
-(**************************************************************)
-(**************************************************************)
+
 (**
-   Abstract set implementation for heirarchical earley sets and worklists.
+   Abstract set interface for earley sets and worklists.
 
    Note: For insertions, the NC versions are basically pure insertions.
    The others are insertion plus some  sort of other bookkeeping/checking.
+
+... TODO
+
 *)
 
 
 
+
+
+
+(**************************************************************)
+(**************************************************************)
+(**
+   Abstract set implementation for hierarchical earley sets and worklists.
+*)
 
 
 
@@ -91,13 +101,48 @@ let support_FLA = true
 
 
 
+(* We ignore the third argument (the container) because this implementation just
+   tracks the transducer state in the pcc. *)
 
 
+(* We ignore the third argument (the element) because this implementation only
+   tracks the transducer state in the pcc. *)
 
 
+(**************************************************************)
+(**************************************************************)
 
+(**************************************************************)
+(**
+   Abstract set implementation for flat earley sets and worklists.
 
+   In this setup, a container = a single cva.
+*)
 
+(* define(`ESET_MODULE', `ES_flat') *)
+
+(* define(`ESET_CONTAINER_ITER', `SINGLE_CVA_ITER(`$1',`$2',`$3') ') *)
+(* define(`ESET_CONTAINER_MAP',  `SINGLE_CVA_MAP(`$1',`$2',`$3') ') *)
+(* define(`ESET_CONTAINER_FOLD', `SINGLE_CVA_FOLD(`$1',`$2',`$3',`$4',`$5') ') *)
+(* define(`ESET_CONTAINER_FOLD_C', `SINGLE_CVA_FOLD_C(`$1',`$2') ') *)
+
+(* (\* ??? Not sure what to do here. Should be undefined. Perhaps raise a static error? *\) *)
+(* define(`ESET_CONTAINER_ADD', `Socvas.MS.add') *)
+
+(* define(`ESET_EXTEND_PES_EXPR',`$1, overflow') *)
+(* define(`ESET_EXTEND_PES_PATT',`$1, ol') *)
+(* define(`ESET_PT_ADDL_ARGS', `') *)
+(* define(`ESET_WLD', `ol') *)
+
+(* DEF1(`ESET_NOT_EMPTY', `ns', `not (ES_flat.Earley_set.is_empty (!(ns)))') *)
+
+(* DEF1(`ESET_CLEAR', `t', `t := ES_flat.Early_set.empty') *)
+
+(* define(`PROCESS_WORKLIST',`PROCESS_WORKLIST_FLAT(`$1',`$2',`$3',`$4') ') *)
+
+(* define(`PROCESS_EOF_WORKLIST', `PROCESS_EOF_WORKLIST_FLAT(`$1',`$2',`$3') ') *)
+(* DEF3(`PCS_ADD_CALL_ITEM_C', `pre_cc', `s', `c', `(Pcs.add_call_item pre_cc {ESet.Elt.state=s; cva=c})') *)
+(* DEF3(`PCS_ADD_CALL_ITEM_E', `pre_cc', `s', `elt', `(Pcs.add_call_item pre_cc {ESet.Elt.state=s; cva=elt})') *)
 
 
 (**************************************************************)
@@ -290,42 +335,20 @@ we could try to get it right the first time.
 (* PERF: does ocamlopt perform escape analysis on refs to
    decide whether they need to be heap allocated? *)
 
-type 'a state_map = (int * 'a) array
+type 'it callset = { id : int;
+                    (** identifier, for hashing/comparison purposes. *)
 
-type 'socs callset = { id : int;
-                       (** identifier, for hashing/comparison purposes. *)
-                       mutable data : 'socs state_map;
-                       (** (state, payload) pairs *) }
+                    mutable data : 'it array;
+                    (** an array of items *) }
 
 let mk_callset id = {id=id; data= [||];}
 let hash_callset {id=x} = x
 let cmp_callset {id=x1} {id=x2} = x1 - x2
 
+(** Triple of Callset, semantic Value, and Argument. *)
+type ('it,'sv) cva = 'it callset * 'sv * 'sv
+
 type insertion_result = Ignore_elt | Reprocess_elt | Process_elt
-
-
-(* DEF3(`SOCVAS_ITER', `socvas', `pattern', `body', `Socvas.iter (fun pattern -> body) socvas') *)
-
-
-
-
-
-(** Special version when fold is building a new Socvas.
-    Conditional fold. Does nothing if the set is empty,
-    executes [action_s] if the set is a singleton. If the
-    set has more than one element, then a fold is executed
-    to create a new socvas. Then, if that Socvas is nonempty
-    [many_action_fun] is applied to the result.
-*)
-
-
-(* Note: We have to end with a cardinality check because the
-   mapping function is not necessarily 1-to-1. So, we might
-   end up with a smaller set than the one with which we began.
-
-   That said, the [0] case should be impossible. TODO.
-*)
-
 
 (*
    The current callset is not formed until *after* we're done processing
@@ -445,11 +468,689 @@ module type SEMVAL = sig
         string should preferably fit onto a single line. *)
 end
 
+module type MYSET = sig
+  type elt
+  type many_set
+  type t = Empty | Singleton of elt | Other of many_set
+
+  val empty : t
+  val singleton : elt -> t
+
+  val is_empty : t -> bool
+  val cardinal : t -> int
+
+  val mem : elt -> t -> bool
+  val add : elt -> t -> t
+
+  val diff : t -> t -> t
+  val union : t -> t -> t
+
+  val iter : (elt -> unit) -> t -> unit
+  val fold : (elt -> 'a -> 'a) -> t -> 'a -> 'a
+
+  module MS : Set.S with type t = many_set and type elt = elt
+end
+
+
 module PJDN = PamJIT.DNELR
 
-  
-
 module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
+
+  module ES_flat = struct
+
+    let compare_cva (c1,v1,a1) (c2,v2,a2) =
+      let c = cmp_callset c1 c2 in
+      if c <> 0 then c
+      else let c = Sem_val.cmp v1 v2 in
+      if c <> 0 then c
+      else Sem_val.cmp a1 a2
+
+    type item = {state: int; cva: single_cva}
+    and single_cva = (item, Sem_val.t) cva
+
+    module Item = struct
+      type t = item
+      let compare a b =
+        let c = a.state - b.state in
+        if c <> 0 then c
+        else compare_cva a.cva b.cva
+    end
+
+    
+    
+    
+    
+
+    module Earley_set = Set.Make(Item)
+
+    (* Proto_callset implementation: Earley set datastructure + conversion to array. *)
+    module Proto_callset =
+    struct
+
+      let empty = Earley_set.empty
+
+      let reset pcc = pcc := empty
+
+      let add_call_item pcc it = pcc := Earley_set.add it !pcc
+
+      let convert_current_callset item_set pcc =
+        let cset = !pcc in
+        let len = Earley_set.cardinal cset in
+        let arr = (Obj.obj (Obj.new_block 0 len) : item array) in
+        ignore (Earley_set.fold (fun item i -> Array.unsafe_set arr i item; i+1) cset 0);
+        arr
+
+    end
+
+    let create n = ref Earley_set.empty
+
+  (**
+      Invocation: [insert_elt worklist es state callset].
+
+      @return [Process_elt], if item was not already in set,
+              [Ignore_elt] otherwise.
+  *)
+  let insert_elt wl es state cva =
+    let item = {state=state; cva=cva} in
+    let eset = !es in
+    if Earley_set.mem item eset then Ignore_elt
+    else begin
+                   if Logging.activated then begin let (callset, _, _) = cva in
+        Logging.log Logging.Features.reg_ne
+          "+o %d:(%d,%d).\n" (Imp_position.get_position ()) state callset.id;
+       end             ;
+      es := Earley_set.add item eset;
+      wl := item :: !wl;
+      Process_elt
+    end
+
+  (* PERF: inline insert_elt call and drop the ignore. *)
+  let insert_elt_ig wl es state x y z = ignore (insert_elt wl es state (x,y,z))
+
+  let insert_elt_nc es state cva =
+                 if Logging.activated then begin let (callset, _, _) = cva in
+      Logging.log Logging.Features.reg_ne
+        "+> %d:(%d,%d).\n" (Imp_position.get_position ()) state callset.id;
+     end             ;
+    let item = {state=state; cva=cva} in
+    es := Earley_set.add item !es
+
+  let insert_container = insert_elt_ig
+  let insert_container_nc = insert_elt_nc
+
+  (** Check for a succesful parse. *)
+  let check_done term_table start_nt cs =
+                    if Logging.activated then begin
+       Logging.log Logging.Features.eof_ne "Checking for successful parses.\n" end                 ;
+    let do_check start_nt cva = function
+      | PJDN.Complete_trans nt
+      | PJDN.Complete_p_trans nt ->
+          if nt = start_nt then begin
+                            if Logging.activated then begin
+       Logging.log Logging.Features.eof_ne "Final state found, start symbol.\n" end                 ;
+            let (callset, _, _) = cva in callset.id = 0
+          end else begin
+                            if Logging.activated then begin
+       Logging.log Logging.Features.eof_ne "Final state found, not start: %d.\n" nt end                 ;
+            false
+          end
+
+      | PJDN.MComplete_trans nts
+      | PJDN.MComplete_p_trans nts ->
+          if Util.int_array_contains start_nt nts then begin
+                            if Logging.activated then begin
+       Logging.log Logging.Features.eof_ne "Final state found, start symbol.\n" end                 ;
+            let (callset, _, _) = cva in callset.id = 0
+          end else (                if Logging.activated then begin
+       Logging.log Logging.Features.eof_ne "Final states found, no start.\n" end                 ; false)
+      | _ -> false in
+    Earley_set.exists begin fun {state=s; cva=cva} ->
+                      if Logging.activated then begin
+       Logging.log Logging.Features.eof_ne "Checking state %d.\n" s end                 ;
+      match term_table.(s) with
+        | PJDN.Complete_trans _ | PJDN.Complete_p_trans _
+        | PJDN.MComplete_trans _ | PJDN.MComplete_p_trans _ ->
+            do_check start_nt cva term_table.(s)
+
+        | PJDN.Many_trans txs ->
+            let rec iter_do_check start_nt socvas txs n j =
+              if j >= n then false
+              else (do_check start_nt socvas txs.(j)
+                    || iter_do_check start_nt socvas txs n (j + 1)) in
+            iter_do_check start_nt cva txs (Array.length txs) 0
+
+        | PJDN.Box_trans _ | PJDN.When_trans _ | PJDN.When2_trans _ | PJDN.Action_trans _
+        | PJDN.Call_p_trans _ | PJDN.Maybe_nullable_trans2 _ | PJDN.Call_trans _| PJDN.Det_multi_trans _
+        | PJDN.TokLookahead_trans _ | PJDN.RegLookahead_trans _ | PJDN.ExtLookahead_trans _
+        | PJDN.Lookahead_trans _| PJDN.MScan_trans _
+        | PJDN.Scan_trans _ | PJDN.No_trans | PJDN.Det_trans _ | PJDN.Lexer_trans _ ->
+            false
+    end cs
+
+  (** Collect the succesful parses at eof. *)
+  let collect_done_at_eof start_nt successes cs term_table =
+    let do_check cva = function
+      | PJDN.Complete_trans nt
+      | PJDN.Complete_p_trans nt ->
+          if nt = start_nt then begin
+                            if Logging.activated then begin
+       Logging.log Logging.Features.eof_ne "Final state found, start symbol.\n" end                 ;
+            let (callset, sv, _) = cva in
+            if callset.id = 0 then
+              successes := sv :: !successes
+          end else                 if Logging.activated then begin
+       Logging.log Logging.Features.eof_ne "Final state found, not start: %d.\n" nt end                 
+
+      | PJDN.MComplete_trans nts
+      | PJDN.MComplete_p_trans nts ->
+          if Util.int_array_contains start_nt nts then begin
+                            if Logging.activated then begin
+       Logging.log Logging.Features.eof_ne "Final state found, start symbol.\n" end                 ;
+            let (callset, sv, _) = cva in
+            if callset.id = 0 then
+              successes := sv :: !successes
+          end else                 if Logging.activated then begin
+       Logging.log Logging.Features.eof_ne "Final states found, no start.\n" end                 
+      | _ -> () in
+    Earley_set.iter begin fun {state=s; cva=cva} ->
+                      if Logging.activated then begin
+       Logging.log Logging.Features.eof_ne "Checking state %d.\n" s end                 ;
+      match term_table.(s) with
+        | PJDN.Complete_trans _ | PJDN.Complete_p_trans _
+        | PJDN.MComplete_trans _ | PJDN.MComplete_p_trans _ ->
+            do_check cva term_table.(s)
+        | PJDN. Many_trans txs -> Array.iter (do_check cva) txs
+        | PJDN.Box_trans _ | PJDN.When_trans _ | PJDN.When2_trans _ | PJDN.Action_trans _
+        | PJDN.Call_p_trans _
+        | PJDN.Maybe_nullable_trans2 _
+        | PJDN.Call_trans _| PJDN.Det_multi_trans _
+        | PJDN.TokLookahead_trans _ | PJDN.RegLookahead_trans _ | PJDN.ExtLookahead_trans _
+        | PJDN.Lookahead_trans _| PJDN.MScan_trans _
+        | PJDN.Scan_trans _ | PJDN.No_trans | PJDN.Det_trans _ | PJDN.Lexer_trans _
+            -> ()
+    end
+
+  (**
+     Early-set inspection code.
+  *)
+
+   (** Get the size of an Earley set *)
+    let get_size m = Earley_set.cardinal !m
+
+    module Int_set = Hashtbl.Make(struct type t = int
+                                         let equal = (==)
+                                         let hash x = x end)
+
+    (** invocation: [fold_semvals f earley_set v_0]
+        Fold [f] over all semvals in, and reachable-from, the given [earley_set]. *)
+    let fold_semvals f earley_set v_0 = failwith "Unimplemented"
+
+    let count_semvals earley_set = fold_semvals (fun _ n -> n + 1) earley_set 0
+
+    (** count the number of semantic values and inspect each one with
+        client-specified inspector. *)
+    let count_semvals_plus earley_set =
+      fold_semvals (fun sv (n, idata) -> n + 1, Sem_val.inspect sv idata)
+        earley_set (0, Sem_val.create_idata ())
+
+    let inspect_semvals earley_set =
+      fold_semvals Sem_val.inspect earley_set (Sem_val.create_idata ())
+
+  end
+
+  (**************************************************************)
+  (**************************************************************)
+
+
+
+  (************************************************************************)
+  (************************************************************************)
+
+  (** A hiearchical implementation of Earley sets and worklists. *)
+
+  module ES_hierarchical = struct
+
+    module rec Socvas : MYSET with type elt = ((int * Socvas.t), Sem_val.t) cva
+      =
+    struct
+      type elt = ((int * Socvas.t), Sem_val.t) cva
+      module CVA = struct
+        type t = elt
+        let compare (c1,v1,a1) (c2,v2,a2) =
+          let c = cmp_callset c1 c2 in
+          if c <> 0 then c
+          else let c = Sem_val.cmp v1 v2 in
+          if c <> 0 then c
+          else Sem_val.cmp a1 a2
+      end
+
+      module MS = Set.Make(CVA)
+      type many_set = MS.t
+      type t = Empty | Singleton of elt | Other of many_set
+
+      let empty = Empty
+      let singleton x = Singleton x
+      let is_empty = function
+        | Empty -> true
+        | _ -> false
+
+      let cardinal = function
+        | Empty -> 0
+        | Singleton _ -> 1
+        | Other s -> MS.cardinal s
+
+      let mem x = function
+        | Empty -> false
+        | Singleton y -> CVA.compare x y = 0
+        | Other s -> MS.mem x s
+
+      let add x = function
+        | Empty -> Singleton x
+        | Singleton y -> Other (MS.add x (MS.singleton y))
+        | Other s -> Other (MS.add x s)
+
+      let diff s1 s2 =
+        match s1, s2 with
+          | Empty, _  -> Empty
+          | _, Empty  -> s1
+          | Singleton x, Singleton y -> if CVA.compare x y = 0 then Empty else s1
+          | Singleton x, Other s -> if MS.mem x s then Empty else s1
+          | Other s, Singleton y -> Other (MS.remove y s)
+          | Other ms1, Other ms2 -> Other (MS.diff ms1 ms2)
+
+      let union s1 s2 =
+        match s1, s2 with
+          | Empty, _  -> s2
+          | _, Empty  -> s1
+          | Singleton x, Singleton y ->
+              if CVA.compare x y = 0 then s1
+              else Other (MS.add x (MS.singleton y))
+          | Singleton x, Other s -> Other (MS.add x s)
+          | Other s, Singleton y -> Other (MS.add y s)
+          | Other ms1, Other ms2 -> Other (MS.union ms1 ms2)
+
+      let iter f = function
+        | Empty -> ()
+        | Singleton y -> f y
+        | Other s -> MS.iter f s
+
+      let fold f s v =
+        match s with
+          | Empty -> v
+          | Singleton y -> f y v
+          | Other s -> MS.fold f s v
+    end
+
+    (* DEF3(`SOCVAS_ITER', `socvas', `pattern', `body', `Socvas.iter (fun pattern -> body) socvas') *)
+
+    
+
+    
+
+    (** Special version when fold is building a new Socvas.
+        Conditional fold. Does nothing if the set is empty,
+        executes [action_s] if the set is a singleton. If the
+        set has more than one element, then a fold is executed
+        to create a new socvas. Then, if that Socvas is nonempty
+        [many_action_fun] is applied to the result.
+    *)
+    
+
+    (* Note: We have to end with a cardinality check because the
+       mapping function is not necessarily 1-to-1. So, we might
+       end up with a smaller set than the one with which we began.
+
+       That said, the [0] case should be impossible. TODO.
+    *)
+    
+
+    module Proto_callset_list = struct
+
+      let empty = (0, [])
+
+      let reset pcc = pcc := empty
+
+      let add_call_state pcc s =
+        let (pcc_n, pre_cc) = !pcc in
+        if List.memq s pre_cc then ()
+        else begin
+          pcc := (pcc_n + 1, s::pre_cc)
+        end
+
+      (** Precondition: [length cc = len]. *)
+      let convert_current_callset item_set pcc =
+        let rec loop arr item_set i = function
+          | [] -> ()
+          | x1::[] ->
+              Array.unsafe_set arr i (x1, WI.get item_set x1);
+          | x1::x2::[] ->
+              Array.unsafe_set arr i (x1, WI.get item_set x1);
+              Array.unsafe_set arr (i + 1) (x2, WI.get item_set x2)
+          | x1::x2::x3::[] ->
+              Array.unsafe_set arr i (x1, WI.get item_set x1);
+              Array.unsafe_set arr (i + 1) (x2, WI.get item_set x2);
+              Array.unsafe_set arr (i + 2) (x3, WI.get item_set x3)
+          | x1::x2::x3::x4::[] ->
+              Array.unsafe_set arr i (x1, WI.get item_set x1);
+              Array.unsafe_set arr (i + 1) (x2, WI.get item_set x2);
+              Array.unsafe_set arr (i + 2) (x3, WI.get item_set x3);
+              Array.unsafe_set arr (i + 3) (x4, WI.get item_set x4)
+          | x1::x2::x3::x4::xs ->
+              Array.unsafe_set arr i (x1, WI.get item_set x1);
+              Array.unsafe_set arr (i + 1) (x2, WI.get item_set x2);
+              Array.unsafe_set arr (i + 2) (x3, WI.get item_set x3);
+              Array.unsafe_set arr (i + 3) (x4, WI.get item_set x4);
+              loop arr item_set (i + 4) xs in
+        let (len, cc) = !pcc in
+        let arr = (Obj.obj (Obj.new_block 0 len) : (int * Socvas.t) array) in
+        loop arr item_set 0 cc;
+        arr
+    end
+
+    module Proto_callset_wfis_socvas = struct
+
+      module S = Wf_set.Int_set
+
+      let empty n = S.make n
+
+      let reset pcc = S.clear pcc
+
+      let add_call_state pcc s =
+        if S.mem pcc s then ()
+        else S.insert pcc s
+
+      let convert_current_callset item_set pcc =
+        let len = pcc.S.count in
+        let arr = (Obj.obj (Obj.new_block 0 len) : (int * Socvas.t) array) in
+        for i = 0 to len - 1 do
+          let x = Array.unsafe_get pcc.S.dense i in
+          Array.unsafe_set arr i (x, WI.get item_set x);
+        done;
+        arr
+    end
+
+    module Proto_callset = Proto_callset_wfis_socvas
+
+    let create n = WI.make n Socvas.empty
+
+    (**
+       Check an item from the worklist for special processing. Specifically,
+       if a new (s, cva) pair is added, yet the socvas for s has already been
+       processed, we need to process the cva specially.
+
+       Notice that this will only ever happen if you return to the same transducer
+       state with a different cva, while processing the current Earley set.
+
+       [i] is the index of the last processed element in the worklist.
+       [cs] is the set representing the worklist.
+
+    *)
+    let worklist_process_special i cs t = cs.WI.sparse.(t) <= i
+
+    (**
+        Invocation: [insert_elt i overflow_list es state callset], where
+        [i] is the current position in the worklist view of [es].
+
+        Taken together, [i], [ol] and [es] are a worklist data structure.
+
+        @return [Process_elt], if state was not already in set,
+                [Reprocess_elt], if state already in set but callset
+                  not associated with that state,
+                [Ignore_elt] otherwise.
+    *)
+    let insert_elt i ol es state cva =
+      if WI.mem es state then
+        let socvas = WI.get es state in
+        if Socvas.mem cva socvas then Ignore_elt
+        else begin
+                       if Logging.activated then begin let (callset, _, _) = cva in
+            Logging.log Logging.Features.reg_ne
+              "+o %d:(%d,%d).\n" (Imp_position.get_position ()) state callset.id;
+           end             ;
+          WI.set es state (Socvas.add cva socvas);
+          if worklist_process_special i es state then
+            ol := (state, Socvas.singleton cva) :: !ol;
+          Reprocess_elt
+        end
+      else
+        begin
+                       if Logging.activated then begin let (callset, _, _) = cva in
+            Logging.log Logging.Features.reg_ne
+              "+n %d:(%d,%d).\n" (Imp_position.get_position ()) state callset.id;
+           end             ;
+          WI.insert es state (Socvas.singleton cva);
+          Process_elt
+        end
+
+
+    (* PERF: inline insert_elt call and drop the ignore. *)
+    let insert_elt_ig i ol es state x y z = ignore (insert_elt i ol es state (x,y,z))
+
+    let insert_elt_nc es state cva =
+      if WI.mem es state then
+        let socvas = WI.get es state in
+        WI.set es state (Socvas.add cva socvas);
+
+        if Logging.activated then begin
+          let (callset, _, _) = cva in
+          Logging.log Logging.Features.reg_ne
+            "+> %d:(%d,%d).\n" (Imp_position.get_position ()) state callset.id;
+        end;
+      else
+        begin
+          WI.insert es state (Socvas.singleton cva);
+
+          if Logging.activated then begin
+            let (callset, _, _) = cva in
+            Logging.log Logging.Features.reg_ne
+              "+> %d:(%d,%d).\n" (Imp_position.get_position ()) state callset.id;
+          end
+        end
+
+    let insert_container i ol es state socvas_new =
+      if WI.mem es state then begin
+                     if Logging.activated then begin Logging.log Logging.Features.reg_ne
+            "+o %d:(%d,?).\n" (Imp_position.get_position ()) state;
+         end             ;
+
+        let socvas = WI.get es state in
+        if worklist_process_special i es state then begin
+          let s_d = Socvas.diff socvas_new socvas in
+          if not (Socvas.is_empty s_d) then begin
+            WI.set es state (Socvas.union s_d socvas);
+            ol := (state, s_d) :: !ol;
+          end
+        end else begin
+          WI.set es state (Socvas.union socvas_new socvas);
+        end
+      end
+      else begin
+                     if Logging.activated then begin Logging.log Logging.Features.reg_ne
+            "+n %d:(%d,?).\n" (Imp_position.get_position ()) state
+         end             ;
+        WI.insert es state socvas_new
+      end
+
+    (** [insert_container] but without checking for newness. *)
+    let insert_container_nc es state socvas_new =
+      if WI.mem es state then begin
+                     if Logging.activated then begin Logging.log Logging.Features.reg_ne
+            "+> %d:(%d,?).\n" (Imp_position.get_position ()) state
+         end             ;
+        let socvas = WI.get es state in
+        WI.set es state (Socvas.union socvas socvas_new)
+      end
+      else begin
+                     if Logging.activated then begin Logging.log Logging.Features.reg_ne
+            "+> %d:(%d,?).\n" (Imp_position.get_position ()) state
+         end             ;
+        WI.insert es state socvas_new
+      end
+
+    (** Check for a succesful parse. *)
+    let check_done term_table start_nt cs =
+      let d = cs.WI.dense_s in
+      let dcs = cs.WI.dense_sv in
+      let count = cs.WI.count in
+      let check_callset (callset, _, _) b = b || callset.id = 0 in
+                      if Logging.activated then begin
+       Logging.log Logging.Features.eof_ne "Checking for successful parses.\n" end                 ;
+      let do_check start_nt socvas = function
+        | PJDN.Complete_trans nt
+        | PJDN.Complete_p_trans nt ->
+            if nt = start_nt then begin
+                              if Logging.activated then begin
+       Logging.log Logging.Features.eof_ne "Final state found, start symbol.\n" end                 ;
+              Socvas.fold check_callset socvas false
+            end else begin
+                              if Logging.activated then begin
+       Logging.log Logging.Features.eof_ne "Final state found, not start: %d.\n" nt end                 ;
+              false
+            end
+
+        | PJDN.MComplete_trans nts
+        | PJDN.MComplete_p_trans nts ->
+            if Util.int_array_contains start_nt nts then begin
+                              if Logging.activated then begin
+       Logging.log Logging.Features.eof_ne "Final state found, start symbol.\n" end                 ;
+              Socvas.fold check_callset socvas false
+            end else (                if Logging.activated then begin
+       Logging.log Logging.Features.eof_ne "Final states found, no start.\n" end                 ; false)
+        | _ -> false in
+      let rec iter_do_check start_nt socvas txs n j =
+        if j >= n then false
+        else (do_check start_nt socvas txs.(j)
+              || iter_do_check start_nt socvas txs n (j + 1)) in
+      let rec search_for_succ term_table d dcs start_nt n j  =
+        if j >= n then false else begin
+          let s = d.(j) in
+                          if Logging.activated then begin
+       Logging.log Logging.Features.eof_ne "Checking state %d.\n" s end                 ;
+          let is_done = match term_table.(s) with
+            | PJDN.Complete_trans _ | PJDN.Complete_p_trans _
+            | PJDN.MComplete_trans _ | PJDN.MComplete_p_trans _ ->
+                do_check start_nt dcs.(j) term_table.(s)
+            | PJDN.Many_trans txs -> iter_do_check start_nt dcs.(j) txs (Array.length txs) 0
+            | PJDN.Box_trans _ | PJDN.When_trans _ | PJDN.When2_trans _ | PJDN.Action_trans _
+            | PJDN.Call_p_trans _
+            | PJDN.Maybe_nullable_trans2 _
+            | PJDN.Call_trans _| PJDN.Det_multi_trans _
+            | PJDN.TokLookahead_trans _ | PJDN.RegLookahead_trans _ | PJDN.ExtLookahead_trans _
+            | PJDN.Lookahead_trans _| PJDN.MScan_trans _
+            | PJDN.Scan_trans _ | PJDN.No_trans | PJDN.Det_trans _ | PJDN.Lexer_trans _ -> false in
+          is_done || search_for_succ term_table d dcs start_nt n (j + 1)
+        end in
+      search_for_succ term_table d dcs start_nt count 0
+
+    (** Collect the succesful parses at eof. *)
+    let collect_done_at_eof start_nt successes cs term_table =
+      let d = cs.WI.dense_s in
+      let dcs = cs.WI.dense_sv in
+      let count = cs.WI.count in
+      let do_check socvas = function
+        | PJDN.Complete_trans nt
+        | PJDN.Complete_p_trans nt ->
+            if nt = start_nt then begin
+                              if Logging.activated then begin
+       Logging.log Logging.Features.eof_ne "Final state found, start symbol.\n" end                 ;
+              successes :=
+                Socvas.fold (fun (callset, sv, _) a ->
+                               if callset.id <> 0 then a else sv::a)
+                  socvas
+                  !successes
+            end else                 if Logging.activated then begin
+       Logging.log Logging.Features.eof_ne "Final state found, not start: %d.\n" nt end                 
+
+        | PJDN.MComplete_trans nts
+        | PJDN.MComplete_p_trans nts ->
+            if Util.int_array_contains start_nt nts then begin
+                              if Logging.activated then begin
+       Logging.log Logging.Features.eof_ne "Final state found, start symbol.\n" end                 ;
+              successes :=
+                Socvas.fold (fun (callset, sv, _) a ->
+                               if callset.id <> 0 then a else sv::a)
+                  socvas
+                  !successes
+            end else                 if Logging.activated then begin
+       Logging.log Logging.Features.eof_ne "Final states found, no start.\n" end                 
+        | _ -> () in
+      for j = 0 to count - 1 do
+        let s = d.(j) in
+                        if Logging.activated then begin
+       Logging.log Logging.Features.eof_ne "Checking state %d.\n" s end                 ;
+        match term_table.(s) with
+          | PJDN.Complete_trans _ | PJDN.Complete_p_trans _
+          | PJDN.MComplete_trans _ | PJDN.MComplete_p_trans _ ->
+              do_check dcs.(j) term_table.(s)
+          | PJDN. Many_trans txs -> Array.iter (do_check dcs.(j)) txs
+          | PJDN.Box_trans _ | PJDN.When_trans _ | PJDN.When2_trans _ | PJDN.Action_trans _
+          | PJDN.Call_p_trans _
+          | PJDN.Maybe_nullable_trans2 _
+          | PJDN.Call_trans _| PJDN.Det_multi_trans _
+          | PJDN.TokLookahead_trans _ | PJDN.RegLookahead_trans _ | PJDN.ExtLookahead_trans _
+          | PJDN.Lookahead_trans _| PJDN.MScan_trans _
+          | PJDN.Scan_trans _ | PJDN.No_trans | PJDN.Det_trans _ | PJDN.Lexer_trans _
+              -> ()
+      done
+
+    (**
+       Early-set inspection code.
+    *)
+
+    (** Get the size of an Earley set *)
+    let get_size m = WI.fold (fun _ socvas n -> n + (Socvas.cardinal socvas)) m 0
+
+    module Int_set = Hashtbl.Make(struct type t = int
+                                         let equal = (==)
+                                         let hash x = x end)
+
+    (** invocation: [fold_semvals f earley_set v_0]
+        Fold [f] over all semvals in, and reachable-from, the given [earley_set]. *)
+    let fold_semvals f earley_set v_0 =
+      let visited = Int_set.create 11 in
+      let rec fold_callset callset v =
+        if Int_set.mem visited callset.id then v
+        else begin
+          Int_set.add visited callset.id ();
+          let acc = ref v in
+          for i = 0 to Array.length callset.data - 1 do
+            let socvas = snd callset.data.(i) in
+            acc := fold_socvas socvas !acc;
+          done;
+          !acc
+        end
+      (** count the number of semvals in [socvas] and its children *)
+      and fold_socvas socvas v =
+                                                (match socvas with
+             | Socvas.Empty -> v
+             | Socvas.Singleton (cs, sv, _) -> let m = v in (let v1 = f sv m in fold_callset cs v1)
+             | Socvas.Other __s__ ->
+                 Socvas.MS.fold
+                   (fun (cs, sv, _) m -> let v1 = f sv m in fold_callset cs v1)
+                   __s__ v)                                         in
+      WI.fold (fun _ socvas v -> fold_socvas socvas v) earley_set v_0
+
+    let count_semvals earley_set = fold_semvals (fun _ n -> n + 1) earley_set 0
+
+    (** count the number of semantic values and inspect each one with
+        client-specified inspector. *)
+    let count_semvals_plus earley_set =
+      fold_semvals (fun sv (n, idata) -> n + 1, Sem_val.inspect sv idata)
+        earley_set (0, Sem_val.create_idata ())
+
+    let inspect_semvals earley_set =
+      fold_semvals Sem_val.inspect earley_set (Sem_val.create_idata ())
+  end
+
+  module Socvas = ES_hierarchical.Socvas
+  (**************************************************************)
+  (**************************************************************)
+
+  module ESet = ES_hierarchical
+
+  module Pcs = ESet.Proto_callset
+
+  let insert_future q j s cva = Ordered_queue.insert q j (s, cva)
 
   let lookahead_regexp_NELR0_tbl term_table la_nt ykb start =
 
@@ -505,457 +1206,16 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
           | _ -> false in
     step term_table la_nt ykb start
 
-  module type MYSET = sig
-    type elt
-    type many_set
-    type t = Empty | Singleton of elt | Other of many_set
+  (* PERF: push [is_new] binding code into logging -- it plays no other role. *)
+  
 
-    val empty : t
-    val singleton : elt -> t
-
-    val is_empty : t -> bool
-    val cardinal : t -> int
-
-    val mem : elt -> t -> bool
-    val add : elt -> t -> t
-
-    val diff : t -> t -> t
-    val union : t -> t -> t
-
-    val iter : (elt -> unit) -> t -> unit
-    val fold : (elt -> 'a -> 'a) -> t -> 'a -> 'a
-
-    module MS : Set.S with type t = many_set and type elt = elt
-  end
-
-  module rec CVA : sig
-    type t = Socvas.t callset * Sem_val.t * Sem_val.t
-    val compare: t -> t -> int
-  end = struct
-    type t = Socvas.t callset * Sem_val.t * Sem_val.t
-    let compare (c1,v1,a1) (c2,v2,a2) =
-      let c = cmp_callset c1 c2 in
-      if c <> 0 then c
-      else let c = Sem_val.cmp v1 v2 in
-      if c <> 0 then c
-      else Sem_val.cmp a1 a2
-  end
-
-  and Socvas : MYSET with type elt = CVA.t
-    =
-(* Set.Make(CVA) *)
-  struct
-    module MS = Set.Make(CVA)
-    type elt = CVA.t
-    type many_set = MS.t
-    type t = Empty | Singleton of elt | Other of many_set
-
-    let empty = Empty
-    let singleton x = Singleton x
-    let is_empty = function
-      | Empty -> true
-      | _ -> false
-
-    let cardinal = function
-      | Empty -> 0
-      | Singleton _ -> 1
-      | Other s -> MS.cardinal s
-
-    let mem x = function
-      | Empty -> false
-      | Singleton y -> CVA.compare x y = 0
-      | Other s -> MS.mem x s
-
-    let add x = function
-      | Empty -> Singleton x
-      | Singleton y -> Other (MS.add x (MS.singleton y))
-      | Other s -> Other (MS.add x s)
-
-     let diff s1 s2 =
-       match s1, s2 with
-         | Empty, _  -> Empty
-         | _, Empty  -> s1
-         | Singleton x, Singleton y -> if CVA.compare x y = 0 then Empty else s1
-         | Singleton x, Other s -> if MS.mem x s then Empty else s1
-         | Other s, Singleton y -> Other (MS.remove y s)
-         | Other ms1, Other ms2 -> Other (MS.diff ms1 ms2)
-
-     let union s1 s2 =
-       match s1, s2 with
-         | Empty, _  -> s2
-         | _, Empty  -> s1
-         | Singleton x, Singleton y ->
-             if CVA.compare x y = 0 then s1
-             else Other (MS.add x (MS.singleton y))
-         | Singleton x, Other s -> Other (MS.add x s)
-         | Other s, Singleton y -> Other (MS.add y s)
-         | Other ms1, Other ms2 -> Other (MS.union ms1 ms2)
-
-     let iter f = function
-      | Empty -> ()
-      | Singleton y -> f y
-      | Other s -> MS.iter f s
-
-     let fold f s v =
-       match s with
-         | Empty -> v
-         | Singleton y -> f y v
-         | Other s -> MS.fold f s v
-  end
-
-  module Proto_callset_list = struct
-
-    let empty = (0, [])
-
-    let reset pcc = pcc := empty
-
-    let add_call_state pcc s =
-      let (pcc_n, pre_cc) = !pcc in
-      if List.memq s pre_cc then ()
-      else begin
-        pcc := (pcc_n + 1, s::pre_cc)
-      end
-
-    (** Precondition: [length cc = len]. *)
-    let convert_current_callset item_set pcc =
-      let rec loop arr item_set i = function
-        | [] -> ()
-        | x1::[] ->
-            Array.unsafe_set arr i (x1, WI.get item_set x1);
-        | x1::x2::[] ->
-            Array.unsafe_set arr i (x1, WI.get item_set x1);
-            Array.unsafe_set arr (i + 1) (x2, WI.get item_set x2)
-        | x1::x2::x3::[] ->
-            Array.unsafe_set arr i (x1, WI.get item_set x1);
-            Array.unsafe_set arr (i + 1) (x2, WI.get item_set x2);
-            Array.unsafe_set arr (i + 2) (x3, WI.get item_set x3)
-        | x1::x2::x3::x4::[] ->
-            Array.unsafe_set arr i (x1, WI.get item_set x1);
-            Array.unsafe_set arr (i + 1) (x2, WI.get item_set x2);
-            Array.unsafe_set arr (i + 2) (x3, WI.get item_set x3);
-            Array.unsafe_set arr (i + 3) (x4, WI.get item_set x4)
-        | x1::x2::x3::x4::xs ->
-            Array.unsafe_set arr i (x1, WI.get item_set x1);
-            Array.unsafe_set arr (i + 1) (x2, WI.get item_set x2);
-            Array.unsafe_set arr (i + 2) (x3, WI.get item_set x3);
-            Array.unsafe_set arr (i + 3) (x4, WI.get item_set x4);
-            loop arr item_set (i + 4) xs in
-      let (len, cc) = !pcc in
-      let arr = (Obj.obj (Obj.new_block 0 len) : Socvas.t state_map) in
-      loop arr item_set 0 cc;
-      arr
-  end
-
-  module Proto_callset_wfis = struct
-
-    module S = Wf_set.Int_set
-
-    let empty n = S.make n
-
-    let reset pcc = S.clear pcc
-
-    let add_call_state pcc s =
-      if S.mem pcc s then ()
-      else S.insert pcc s
-
-    let convert_current_callset item_set pcc =
-      let len = pcc.S.count in
-      let arr = (Obj.obj (Obj.new_block 0 len) : Socvas.t state_map) in
-      for i = 0 to len - 1 do
-        let x = Array.unsafe_get pcc.S.dense i in
-        Array.unsafe_set arr i (x, WI.get item_set x);
-      done;
-      arr
-  end
-
-  module Pcs = Proto_callset_wfis
-
-  (**
-     Check an item from the worklist for special processing. Specifically,
-     if a new (s, cva) pair is added, yet the socvas for s has already been
-     processed, we need to process the cva specially.
-
-     Notice that this will only ever happen if you return to the same transducer
-     state with a different cva, while processing the current Earley set.
-
-     [i] is the index of the last processed element in the worklist.
-     [cs] is the set representing the worklist.
-
-  *)
-  let worklist_process_special i cs t = cs.WI.sparse.(t) <= i
-
-  (**
-      Invocation: [insert_one i es overflow_list state callset], where
-      [i] is the current position in the worklist view of [es].
-
-      Taken together, [i], [ol] and [es] are a worklist data structure.
-
-      @return [Process_elt], if state was not already in set,
-              [Reprocess_elt], if state already in set but callset
-                not associated with that state,
-              [Ignore_elt] otherwise.
-  *)
-  let insert_one i ol es state cva =
-    if WI.mem es state then
-      let socvas = WI.get es state in
-      if Socvas.mem cva socvas then Ignore_elt
-      else begin
-                     if Logging.activated then begin let (callset, _, _) = cva in
-          Logging.log Logging.Features.reg_ne
-            "+o %d:(%d,%d).\n" (Imp_position.get_position ()) state callset.id;
-         end             ;
-        WI.set es state (Socvas.add cva socvas);
-        if worklist_process_special i es state then
-          ol := (state, Socvas.singleton cva) :: !ol;
-        Reprocess_elt
-      end
-    else
-      begin
-                     if Logging.activated then begin let (callset, _, _) = cva in
-          Logging.log Logging.Features.reg_ne
-            "+n %d:(%d,%d).\n" (Imp_position.get_position ()) state callset.id;
-         end             ;
-        WI.insert es state (Socvas.singleton cva);
-        Process_elt
-      end
-
-
-  (* PERF: inline insert_one call and drop the ignore. *)
-  let insert_one_ig i ol es state x y z = ignore (insert_one i ol es state (x,y,z))
-
-  let insert_one_nc es state cva =
-    if WI.mem es state then
-      let socvas = WI.get es state in
-      WI.set es state (Socvas.add cva socvas);
-
-      if Logging.activated then begin
-        let (callset, _, _) = cva in
-        Logging.log Logging.Features.reg_ne
-          "+> %d:(%d,%d).\n" (Imp_position.get_position ()) state callset.id;
-      end;
-    else
-      begin
-        WI.insert es state (Socvas.singleton cva);
-
-        if Logging.activated then begin
-          let (callset, _, _) = cva in
-          Logging.log Logging.Features.reg_ne
-            "+> %d:(%d,%d).\n" (Imp_position.get_position ()) state callset.id;
-        end
-      end
-
-  let insert_many i ol es state socvas_new =
-    if WI.mem es state then begin
-                   if Logging.activated then begin Logging.log Logging.Features.reg_ne
-          "+o %d:(%d,?).\n" (Imp_position.get_position ()) state;
-       end             ;
-
-      let socvas = WI.get es state in
-      if worklist_process_special i es state then begin
-        let s_d = Socvas.diff socvas_new socvas in
-        if not (Socvas.is_empty s_d) then begin
-          WI.set es state (Socvas.union s_d socvas);
-          ol := (state, s_d) :: !ol;
-        end
-      end else begin
-        WI.set es state (Socvas.union socvas_new socvas);
-      end
-    end
-    else begin
-                   if Logging.activated then begin Logging.log Logging.Features.reg_ne
-          "+n %d:(%d,?).\n" (Imp_position.get_position ()) state
-       end             ;
-      WI.insert es state socvas_new
-    end
-
-  (** [insert_many] but without checking for newness. *)
-  let insert_many_nc es state socvas_new =
-    if WI.mem es state then begin
-                   if Logging.activated then begin Logging.log Logging.Features.reg_ne
-          "+> %d:(%d,?).\n" (Imp_position.get_position ()) state
-       end             ;
-      let socvas = WI.get es state in
-      WI.set es state (Socvas.union socvas socvas_new)
-    end
-    else begin
-                   if Logging.activated then begin Logging.log Logging.Features.reg_ne
-          "+> %d:(%d,?).\n" (Imp_position.get_position ()) state
-       end             ;
-      WI.insert es state socvas_new
-    end
-
-  let insert_future q j s cva = Ordered_queue.insert q j (s, cva)
+  
 
   
 
   
 
-
   
-
-  
-
-
-  (************************************************************************)
-  (************************************************************************)
-  (**
-      Early-set inspection code, specific to heirarchical implementation.
-  *)
-  module ES_inspect_heir = struct
-    let get_set_size m = WI.fold (fun _ socvas n -> n + (Socvas.cardinal socvas)) m 0
-
-    module Int_set = Hashtbl.Make(struct type t = int
-                                         let equal = (==)
-                                         let hash x = x end)
-
-    let fold_semvals f earley_set v_0 =
-      let visited = Int_set.create 11 in
-      let rec fold_callset callset v =
-        if Int_set.mem visited callset.id then v
-        else begin
-          Int_set.add visited callset.id ();
-          let acc = ref v in
-          for i = 0 to Array.length callset.data - 1 do
-            let socvas = snd callset.data.(i) in
-            acc := fold_socvas socvas !acc;
-          done;
-          !acc
-        end
-      (** count the number of semvals in [socvas] and its children *)
-      and fold_socvas socvas v =
-                                                (match socvas with
-         | Socvas.Empty -> v
-         | Socvas.Singleton (cs, sv, _) -> let m = v in (let v1 = f sv m in fold_callset cs v1)
-         | Socvas.Other __s__ ->
-             Socvas.MS.fold
-               (fun (cs, sv, _) m -> let v1 = f sv m in fold_callset cs v1)
-               __s__ v)                                         in
-      WI.fold (fun _ socvas v -> fold_socvas socvas v) earley_set v_0
-
-    let count_semvals earley_set = fold_semvals (fun _ n -> n + 1) earley_set 0
-
-    (** count the number of semantic values and inspect each one with
-        client-specified inspector. *)
-    let count_semvals_plus earley_set =
-      fold_semvals (fun sv (n, idata) -> n + 1, Sem_val.inspect sv idata)
-        earley_set (0, Sem_val.create_idata ())
-
-    let inspect_semvals earley_set =
-      fold_semvals Sem_val.inspect earley_set (Sem_val.create_idata ())
-  end
-  (**************************************************************)
-  (**************************************************************)
-
-    (** Check for a succesful parse. Heirarchical-ES specific. *)
-(*     let check_done term_table cs start_nt = *)
-(*       let d = cs.WI.dense_s in *)
-(*       let dcs = cs.WI.dense_sv in *)
-(*       let count = cs.WI.count in *)
-    let check_done term_table start_nt d dcs count =
-      let check_callset (callset, _, _) b = b || callset.id = 0 in
-                      if Logging.activated then begin
-       Logging.log Logging.Features.eof_ne "Checking for successful parses.\n" end                 ;
-      let do_check start_nt socvas = function
-        | PJDN.Complete_trans nt
-        | PJDN.Complete_p_trans nt ->
-            if nt = start_nt then begin
-                              if Logging.activated then begin
-       Logging.log Logging.Features.eof_ne "Final state found, start symbol.\n" end                 ;
-              Socvas.fold check_callset socvas false
-            end else begin
-                              if Logging.activated then begin
-       Logging.log Logging.Features.eof_ne "Final state found, not start: %d.\n" nt end                 ;
-              false
-            end
-
-        | PJDN.MComplete_trans nts
-        | PJDN.MComplete_p_trans nts ->
-            if Util.int_array_contains start_nt nts then begin
-                              if Logging.activated then begin
-       Logging.log Logging.Features.eof_ne "Final state found, start symbol.\n" end                 ;
-              Socvas.fold check_callset socvas false
-            end else (                if Logging.activated then begin
-       Logging.log Logging.Features.eof_ne "Final states found, no start.\n" end                 ; false)
-        | _ -> false in
-      let rec iter_do_check start_nt socvas txs n j =
-        if j >= n then false
-        else (do_check start_nt socvas txs.(j)
-              || iter_do_check start_nt socvas txs n (j + 1)) in
-      let rec search_for_succ term_table d dcs start_nt n j  =
-        if j >= n then false else begin
-          let s = d.(j) in
-                          if Logging.activated then begin
-       Logging.log Logging.Features.eof_ne "Checking state %d.\n" s end                 ;
-          let is_done = match term_table.(s) with
-            | PJDN.Complete_trans _ | PJDN.Complete_p_trans _
-            | PJDN.MComplete_trans _ | PJDN.MComplete_p_trans _ ->
-                do_check start_nt dcs.(j) term_table.(s)
-            | PJDN.Many_trans txs -> iter_do_check start_nt dcs.(j) txs (Array.length txs) 0
-            | PJDN.Box_trans _ | PJDN.When_trans _ | PJDN.When2_trans _ | PJDN.Action_trans _
-            | PJDN.Call_p_trans _
-            | PJDN.Maybe_nullable_trans2 _
-            | PJDN.Call_trans _| PJDN.Det_multi_trans _
-            | PJDN.TokLookahead_trans _ | PJDN.RegLookahead_trans _ | PJDN.ExtLookahead_trans _
-            | PJDN.Lookahead_trans _| PJDN.MScan_trans _
-            | PJDN.Scan_trans _ | PJDN.No_trans | PJDN.Det_trans _ | PJDN.Lexer_trans _ -> false in
-          is_done || search_for_succ term_table d dcs start_nt n (j + 1)
-        end in
-      search_for_succ term_table d dcs start_nt count 0
-
-(** Check for a succesful parse. Heirarchical-ES specific. Not sure if
-    this function does anything differently than the above. Imperative
-    vs. functional, but I can't tell if there's anything else. If not,
-    merge into one. *)
-let check_done_at_eof start_nt successes cs term_table =
-  let d = cs.WI.dense_s in
-  let dcs = cs.WI.dense_sv in
-  let count = cs.WI.count in
-  let do_check socvas = function
-    | PJDN.Complete_trans nt
-    | PJDN.Complete_p_trans nt ->
-        if nt = start_nt then begin
-                          if Logging.activated then begin
-       Logging.log Logging.Features.eof_ne "Final state found, start symbol.\n" end                 ;
-          successes :=
-            Socvas.fold (fun (callset, sv, _) a ->
-                           if callset.id <> 0 then a else sv::a)
-              socvas
-              !successes
-        end else                 if Logging.activated then begin
-       Logging.log Logging.Features.eof_ne "Final state found, not start: %d.\n" nt end                 
-
-    | PJDN.MComplete_trans nts
-    | PJDN.MComplete_p_trans nts ->
-        if Util.int_array_contains start_nt nts then begin
-                          if Logging.activated then begin
-       Logging.log Logging.Features.eof_ne "Final state found, start symbol.\n" end                 ;
-          successes :=
-            Socvas.fold (fun (callset, sv, _) a ->
-                           if callset.id <> 0 then a else sv::a)
-              socvas
-              !successes
-        end else                 if Logging.activated then begin
-       Logging.log Logging.Features.eof_ne "Final states found, no start.\n" end                 
-    | _ -> () in
-  for j = 0 to count - 1 do
-    let s = d.(j) in
-                    if Logging.activated then begin
-       Logging.log Logging.Features.eof_ne "Checking state %d.\n" s end                 ;
-    match term_table.(s) with
-      | PJDN.Complete_trans _ | PJDN.Complete_p_trans _
-      | PJDN.MComplete_trans _ | PJDN.MComplete_p_trans _ ->
-          do_check dcs.(j) term_table.(s)
-      | PJDN. Many_trans txs -> Array.iter (do_check dcs.(j)) txs
-      | PJDN.Box_trans _ | PJDN.When_trans _ | PJDN.When2_trans _ | PJDN.Action_trans _
-      | PJDN.Call_p_trans _
-      | PJDN.Maybe_nullable_trans2 _
-      | PJDN.Call_trans _| PJDN.Det_multi_trans _
-      | PJDN.TokLookahead_trans _ | PJDN.RegLookahead_trans _ | PJDN.ExtLookahead_trans _
-      | PJDN.Lookahead_trans _| PJDN.MScan_trans _
-      | PJDN.Scan_trans _ | PJDN.No_trans | PJDN.Det_trans _ | PJDN.Lexer_trans _
-          -> ()
-  done
-
 
 
   
@@ -1038,24 +1298,24 @@ let check_done_at_eof start_nt successes cs term_table =
            | PJDN.No_trans -> ()
            | PJDN.Scan_trans (c,t) ->
                let c1 = Char.code (YkBuf.get_current ykb) in
-               if c1 = c then insert_many_nc ns t socvas_s
+               if c1 = c then ESet.insert_container_nc ns t socvas_s
            | PJDN.Det_trans f ->
                let curr_pos = current_callset.id in
                (                        (match socvas_s with
-         | Socvas.Empty -> ()
-         | Socvas.Singleton (callset, sv, sv_arg) -> (let ret_sv, target = f curr_pos sv in
-                             insert_one_ig i ol cs target callset ret_sv sv_arg)
-         | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, sv, sv_arg) -> let ret_sv, target = f curr_pos sv in
-                             insert_one_ig i ol cs target callset ret_sv sv_arg) __s__)                          )
+             | Socvas.Empty -> ()
+             | Socvas.Singleton (callset, sv, sv_arg) -> (let ret_sv, target = f curr_pos sv in
+                             ESet.insert_elt_ig i ol cs target callset ret_sv sv_arg)
+             | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, sv, sv_arg) -> let ret_sv, target = f curr_pos sv in
+                             ESet.insert_elt_ig i ol cs target callset ret_sv sv_arg) __s__)                          )
 
            | PJDN.MScan_trans col ->
                let c = Char.code (YkBuf.get_current ykb) in
                let t = col.(c) in
-               if t > 0 then insert_many_nc ns t socvas_s
+               if t > 0 then ESet.insert_container_nc ns t socvas_s
            | PJDN.Lookahead_trans col ->
                let c = Char.code (YkBuf.get_current ykb) in
                let t = col.(c) in
-               if t > 0 then insert_many i ol cs t socvas_s
+               if t > 0 then ESet.insert_container i ol cs t socvas_s
            | PJDN.Det_multi_trans col ->
                let c = Char.code (YkBuf.get_current ykb) in
                let x = col.(c) in
@@ -1063,13 +1323,13 @@ let check_done_at_eof start_nt successes cs term_table =
                let t = x land 0xFFFFFF in
                if t > 0 then begin
                  if x_action = 0
-                 then insert_many_nc ns t socvas_s
-                 else insert_many i ol cs t socvas_s
+                 then ESet.insert_container_nc ns t socvas_s
+                 else ESet.insert_container i ol cs t socvas_s
                end
 
            | PJDN.TokLookahead_trans (presence, f, target) ->
                let b = f ykb in
-               if b = presence then insert_many i ol cs target socvas_s
+               if b = presence then ESet.insert_container i ol cs target socvas_s
 
            | PJDN.RegLookahead_trans (presence, la_target, la_nt, target) ->
                if                                 (
@@ -1100,20 +1360,21 @@ let check_done_at_eof start_nt successes cs term_table =
        b = presence
      end
   )                                  then
-                 insert_many i ol cs target socvas_s
+                 ESet.insert_container i ol cs target socvas_s
 
            | PJDN.ExtLookahead_trans (presence, la_target, la_nt, target) ->
                if                                 (presence = nplookahead_fn la_nt la_target ykb)                                  then
-                 insert_many i ol cs target socvas_s
+                 ESet.insert_container i ol cs target socvas_s
 
            | PJDN.Call_trans t ->                 (
-     Pcs.add_call_state pre_cc s;
+                             (Pcs.add_call_state pre_cc s)                         ;
+     let target_cva = (current_callset, sv0, sv0) in
      let is_new =
-       match insert_one i ol cs t (current_callset, sv0, sv0) with
+       match ESet.insert_elt i ol cs t target_cva with
          | Ignore_elt -> false
          | Reprocess_elt -> true
          | Process_elt ->
-             Pcs.add_call_state pre_cc t;
+                                     (Pcs.add_call_state pre_cc t)                         ;
                true in
 
                   if Logging.activated then begin if is_new then begin
@@ -1128,20 +1389,22 @@ let check_done_at_eof start_nt successes cs term_table =
       end             ;
   )                 
            | PJDN.Call_p_trans (call_act, t) ->                         (
-     Pcs.add_call_state pre_cc s;
+                             (Pcs.add_call_state pre_cc s)                         ;
                              (match socvas_s with
-         | Socvas.Empty -> ()
-         | Socvas.Singleton (callset, sv, sv_arg) -> (let curr_pos = current_callset.id in
+             | Socvas.Empty -> ()
+             | Socvas.Singleton (callset, sv, sv_arg) -> (let curr_pos = current_callset.id in
         let arg = call_act curr_pos sv in
-       (match insert_one i ol cs t (current_callset, arg, arg) with
+       let target_cva = (current_callset, arg, arg) in
+        (match ESet.insert_elt i ol cs t target_cva with
            | Ignore_elt | Reprocess_elt -> ()
-           | Process_elt -> Pcs.add_call_state pre_cc t)
+           | Process_elt ->                         (Pcs.add_call_state pre_cc t)                         )
      )
-         | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, sv, sv_arg) -> let curr_pos = current_callset.id in
+             | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, sv, sv_arg) -> let curr_pos = current_callset.id in
         let arg = call_act curr_pos sv in
-       (match insert_one i ol cs t (current_callset, arg, arg) with
+       let target_cva = (current_callset, arg, arg) in
+        (match ESet.insert_elt i ol cs t target_cva with
            | Ignore_elt | Reprocess_elt -> ()
-           | Process_elt -> Pcs.add_call_state pre_cc t)
+           | Process_elt ->                         (Pcs.add_call_state pre_cc t)                         )
      ) __s__)                          
   )                         
 
@@ -1152,23 +1415,23 @@ let check_done_at_eof start_nt successes cs term_table =
                  end;
                 end             ;
                                        (match socvas_s with
-         | Socvas.Empty -> ()
-         | Socvas.Singleton (callset, _, _) -> (
+             | Socvas.Empty -> ()
+             | Socvas.Singleton (callset, _, _) -> (
                  if true then begin
                    let items = callset.data in
                    for l = 0 to Array.length items - 1 do
                      let s_l, socvas_l = items.(l) in
                      let t = PJ.lookup_trans_nt nonterm_table s_l nt in
-                     if t > 0 then insert_many i ol cs t socvas_l
+                     if t > 0 then ESet.insert_container i ol cs t socvas_l
                    done
                  end)
-         | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, _, _) -> 
+             | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, _, _) -> 
                  if true then begin
                    let items = callset.data in
                    for l = 0 to Array.length items - 1 do
                      let s_l, socvas_l = items.(l) in
                      let t = PJ.lookup_trans_nt nonterm_table s_l nt in
-                     if t > 0 then insert_many i ol cs t socvas_l
+                     if t > 0 then ESet.insert_container i ol cs t socvas_l
                    done
                  end) __s__)                          
 
@@ -1182,15 +1445,15 @@ let check_done_at_eof start_nt successes cs term_table =
                 end             ;
                let curr_pos = current_callset.id in
                                        (match socvas_s with
-         | Socvas.Empty -> ()
-         | Socvas.Singleton (callset, sv, sv_arg) -> (
+             | Socvas.Empty -> ()
+             | Socvas.Singleton (callset, sv, sv_arg) -> (
                  let items = callset.data in
                  for l = 0 to Array.length items - 1 do
                    let s_l, socvas_l = items.(l) in
 
                    let t = PJ.lookup_trans_nt nonterm_table s_l nt in
                    if t > 0 then begin
-                     insert_many i ol cs t socvas_l;
+                     ESet.insert_container i ol cs t socvas_l;
                                   if Logging.activated then begin Logging.log Logging.Features.comp_ne "%d => %d [%d]\n" s_l t nt
                       end             ;
                    end;
@@ -1203,33 +1466,33 @@ let check_done_at_eof start_nt successes cs term_table =
                                            if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "@%d: %d => %d [%d(_)]? " callset.id s_l t nt end                 ;
                                                    (match socvas_l with
-         | Socvas.Empty -> ()
-         | Socvas.Singleton (callset_s_l, sv_s_l, sv_arg_s_l) -> (
+             | Socvas.Empty -> ()
+             | Socvas.Singleton (callset_s_l, sv_s_l, sv_arg_s_l) -> (
                                          if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
                                                            if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "Y" end                 ;
-                                           insert_one_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
+                                           ESet.insert_elt_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
                                          end else                 if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "N" end                 )
-         | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset_s_l, sv_s_l, sv_arg_s_l) -> 
+             | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset_s_l, sv_s_l, sv_arg_s_l) -> 
                                          if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
                                                            if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "Y" end                 ;
-                                           insert_one_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
+                                           ESet.insert_elt_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
                                          end else                 if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "N" end                 ) __s__)                          ;
                                            if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "\n" end                 ;
                          done
                  done)
-         | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, sv, sv_arg) -> 
+             | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, sv, sv_arg) -> 
                  let items = callset.data in
                  for l = 0 to Array.length items - 1 do
                    let s_l, socvas_l = items.(l) in
 
                    let t = PJ.lookup_trans_nt nonterm_table s_l nt in
                    if t > 0 then begin
-                     insert_many i ol cs t socvas_l;
+                     ESet.insert_container i ol cs t socvas_l;
                                   if Logging.activated then begin Logging.log Logging.Features.comp_ne "%d => %d [%d]\n" s_l t nt
                       end             ;
                    end;
@@ -1242,19 +1505,19 @@ let check_done_at_eof start_nt successes cs term_table =
                                            if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "@%d: %d => %d [%d(_)]? " callset.id s_l t nt end                 ;
                                                    (match socvas_l with
-         | Socvas.Empty -> ()
-         | Socvas.Singleton (callset_s_l, sv_s_l, sv_arg_s_l) -> (
+             | Socvas.Empty -> ()
+             | Socvas.Singleton (callset_s_l, sv_s_l, sv_arg_s_l) -> (
                                          if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
                                                            if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "Y" end                 ;
-                                           insert_one_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
+                                           ESet.insert_elt_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
                                          end else                 if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "N" end                 )
-         | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset_s_l, sv_s_l, sv_arg_s_l) -> 
+             | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset_s_l, sv_s_l, sv_arg_s_l) -> 
                                          if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
                                                            if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "Y" end                 ;
-                                           insert_one_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
+                                           ESet.insert_elt_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
                                          end else                 if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "N" end                 ) __s__)                          ;
                                            if Logging.activated then begin
@@ -1273,22 +1536,22 @@ let check_done_at_eof start_nt successes cs term_table =
          let m_nts = Array.length nts - 1 in
          
                                    (match socvas_s with
-         | Socvas.Empty -> ()
-         | Socvas.Singleton (callset, _, _)  -> (let items = callset.data in
+             | Socvas.Empty -> ()
+             | Socvas.Singleton (callset, _, _)  -> (let items = callset.data in
                        for l = 0 to Array.length items - 1 do
                          let s_l, socvas_l = items.(l) in
                          for k = 0 to m_nts do
                            let t = PJ.lookup_trans_nt nonterm_table s_l nts.(k) in
-                           if t > 0 then insert_many i ol cs t socvas_l;
+                           if t > 0 then ESet.insert_container i ol cs t socvas_l;
                            ;
                          done
                        done )
-         | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, _, _)  -> let items = callset.data in
+             | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, _, _)  -> let items = callset.data in
                        for l = 0 to Array.length items - 1 do
                          let s_l, socvas_l = items.(l) in
                          for k = 0 to m_nts do
                            let t = PJ.lookup_trans_nt nonterm_table s_l nts.(k) in
-                           if t > 0 then insert_many i ol cs t socvas_l;
+                           if t > 0 then ESet.insert_container i ol cs t socvas_l;
                            ;
                          done
                        done ) __s__)                         
@@ -1304,13 +1567,13 @@ let check_done_at_eof start_nt successes cs term_table =
          let m_nts = Array.length nts - 1 in
          let curr_pos = current_callset.id in
                                    (match socvas_s with
-         | Socvas.Empty -> ()
-         | Socvas.Singleton (callset, sv, sv_arg)  -> (let items = callset.data in
+             | Socvas.Empty -> ()
+             | Socvas.Singleton (callset, sv, sv_arg)  -> (let items = callset.data in
                        for l = 0 to Array.length items - 1 do
                          let s_l, socvas_l = items.(l) in
                          for k = 0 to m_nts do
                            let t = PJ.lookup_trans_nt nonterm_table s_l nts.(k) in
-                           if t > 0 then insert_many i ol cs t socvas_l;
+                           if t > 0 then ESet.insert_container i ol cs t socvas_l;
                            match PJDN.lookup_trans_pnt p_nonterm_table s_l nts.(k) with
                                       | [||] -> ()
                                       | entries ->
@@ -1319,19 +1582,19 @@ let check_done_at_eof start_nt successes cs term_table =
                                                             if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "@%d: %d => %d [%d(_)]? " callset.id s_l t nts.(k) end                 ;
                                                                     (match socvas_l with
-         | Socvas.Empty -> ()
-         | Socvas.Singleton (callset_s_l, sv_s_l, sv_arg_s_l) -> (
+             | Socvas.Empty -> ()
+             | Socvas.Singleton (callset_s_l, sv_s_l, sv_arg_s_l) -> (
                                                           if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
                                                                             if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "Y" end                 ;
-                                                            insert_one_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
+                                                            ESet.insert_elt_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
                                                           end else                 if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "N" end                 )
-         | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset_s_l, sv_s_l, sv_arg_s_l) -> 
+             | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset_s_l, sv_s_l, sv_arg_s_l) -> 
                                                           if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
                                                                             if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "Y" end                 ;
-                                                            insert_one_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
+                                                            ESet.insert_elt_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
                                                           end else                 if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "N" end                 ) __s__)                         ;
                                                             if Logging.activated then begin
@@ -1339,12 +1602,12 @@ let check_done_at_eof start_nt successes cs term_table =
                                           done;
                          done
                        done )
-         | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, sv, sv_arg)  -> let items = callset.data in
+             | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, sv, sv_arg)  -> let items = callset.data in
                        for l = 0 to Array.length items - 1 do
                          let s_l, socvas_l = items.(l) in
                          for k = 0 to m_nts do
                            let t = PJ.lookup_trans_nt nonterm_table s_l nts.(k) in
-                           if t > 0 then insert_many i ol cs t socvas_l;
+                           if t > 0 then ESet.insert_container i ol cs t socvas_l;
                            match PJDN.lookup_trans_pnt p_nonterm_table s_l nts.(k) with
                                       | [||] -> ()
                                       | entries ->
@@ -1353,19 +1616,19 @@ let check_done_at_eof start_nt successes cs term_table =
                                                             if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "@%d: %d => %d [%d(_)]? " callset.id s_l t nts.(k) end                 ;
                                                                     (match socvas_l with
-         | Socvas.Empty -> ()
-         | Socvas.Singleton (callset_s_l, sv_s_l, sv_arg_s_l) -> (
+             | Socvas.Empty -> ()
+             | Socvas.Singleton (callset_s_l, sv_s_l, sv_arg_s_l) -> (
                                                           if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
                                                                             if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "Y" end                 ;
-                                                            insert_one_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
+                                                            ESet.insert_elt_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
                                                           end else                 if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "N" end                 )
-         | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset_s_l, sv_s_l, sv_arg_s_l) -> 
+             | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset_s_l, sv_s_l, sv_arg_s_l) -> 
                                                           if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
                                                                             if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "Y" end                 ;
-                                                            insert_one_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
+                                                            ESet.insert_elt_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
                                                           end else                 if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "N" end                 ) __s__)                         ;
                                                             if Logging.activated then begin
@@ -1394,92 +1657,92 @@ let check_done_at_eof start_nt successes cs term_table =
 
 (*            | PJDN.Action_trans (act, target) -> *)
 (*                let curr_pos = current_callset.id in *)
-(*                ESET_CONTAINER_ITER(`socvas_s', `(callset, sv, sv_arg)', `ESET_INSERT_ELT_IG ESET_WLD cs target callset (act curr_pos sv) sv_arg') *)
+(*                ESET_CONTAINER_ITER(`socvas_s', `(callset, sv, sv_arg)', `ESet.insert_elt_ig ESET_WLD cs target callset (act curr_pos sv) sv_arg') *)
 
 (*            | PJDN.When_trans (p, next, target) -> *)
 (*                let curr_pos = current_callset.id in *)
 (*                ESET_CONTAINER_ITER(`socvas_s', `(callset, sv, sv_arg)', *)
-(*                                  `if p curr_pos sv then ESET_INSERT_ELT_IG ESET_WLD cs target callset (next curr_pos sv) sv_arg') *)
+(*                                  `if p curr_pos sv then ESet.insert_elt_ig ESET_WLD cs target callset (next curr_pos sv) sv_arg') *)
 
 (*            | PJDN.When2_trans (p, target) -> *)
 (*                ESET_CONTAINER_ITER(`socvas_s', `(callset, sv, sv_arg)', *)
 (*                                  `(match p nplookahead_fn ykb sv with *)
 (*                                      | None -> () *)
-(*                                      | Some new_sv -> ESET_INSERT_ELT_IG ESET_WLD cs target callset new_sv sv_arg)') *)
+(*                                      | Some new_sv -> ESet.insert_elt_ig ESET_WLD cs target callset new_sv sv_arg)') *)
 
            | PJDN.Action_trans (act, target) ->
                let curr_pos = current_callset.id in
                let image =                         (match socvas_s with
-         | Socvas.Empty -> Socvas.Empty
-         | Socvas.Singleton (callset, sv, sv_arg) -> Socvas.Singleton ((callset, (act curr_pos sv), sv_arg))
-         | Socvas.Other __s__ ->
-             let image = Socvas.MS.fold
-               (fun (callset, sv, sv_arg) __image__ -> Socvas.MS.add ((callset, (act curr_pos sv), sv_arg)) __image__)
-               __s__ Socvas.MS.empty in
-             match Socvas.MS.cardinal image with
-               | 0 -> Socvas.Empty
-               | 1 -> Socvas.Singleton (Socvas.MS.choose image)
-               | _ -> Socvas.Other image)                           in
-               insert_many i ol cs target image
+             | Socvas.Empty -> Socvas.Empty
+             | Socvas.Singleton (callset, sv, sv_arg) -> Socvas.Singleton ((callset, (act curr_pos sv), sv_arg))
+             | Socvas.Other __s__ ->
+                 let image = Socvas.MS.fold
+                   (fun (callset, sv, sv_arg) __image__ -> Socvas.MS.add ((callset, (act curr_pos sv), sv_arg)) __image__)
+                   __s__ Socvas.MS.empty in
+                 match Socvas.MS.cardinal image with
+                   | 0 -> Socvas.Empty
+                   | 1 -> Socvas.Singleton (Socvas.MS.choose image)
+                   | _ -> Socvas.Other image)                           in
+               ESet.insert_container i ol cs target image
 
            | PJDN.When_trans (p, next, target) ->
                let curr_pos = current_callset.id in
                                                (match socvas_s with
-         | Socvas.Empty -> ()
-         | Socvas.Singleton (callset, sv, sv_arg) ->
+             | Socvas.Empty -> ()
+             | Socvas.Singleton (callset, sv, sv_arg) ->
                      if p curr_pos sv
-                     then insert_one_ig i ol cs target callset (next curr_pos sv) sv_arg
+                     then ESet.insert_elt_ig i ol cs target callset (next curr_pos sv) sv_arg
                      else ()
-         | Socvas.Other __s__ ->
-             let image = Socvas.MS.fold (fun (callset, sv, sv_arg) image ->
+             | Socvas.Other __s__ ->
+                 let image = Socvas.MS.fold (fun (callset, sv, sv_arg) image ->
                      if p curr_pos sv
                      then Socvas.MS.add (callset, (next curr_pos sv), sv_arg) image
                      else image)
-               __s__ Socvas.MS.empty in
-             match Socvas.MS.cardinal image with
-               | 0 -> ()
-               | 1 -> insert_many i ol cs target  (Socvas.Singleton (Socvas.MS.choose image))
-               | _ -> insert_many i ol cs target  (Socvas.Other image))                                  
+                   __s__ Socvas.MS.empty in
+                 match Socvas.MS.cardinal image with
+                   | 0 -> ()
+                   | 1 -> ESet.insert_container i ol cs target  (Socvas.Singleton (Socvas.MS.choose image))
+                   | _ -> ESet.insert_container i ol cs target  (Socvas.Other image))                                  
 
            | PJDN.When2_trans (p, target) ->
                                                (match socvas_s with
-         | Socvas.Empty -> ()
-         | Socvas.Singleton (callset, sv, sv_arg) ->
+             | Socvas.Empty -> ()
+             | Socvas.Singleton (callset, sv, sv_arg) ->
                      (match p nplookahead_fn ykb sv with
-                       | Some new_sv -> insert_one_ig i ol cs target callset new_sv sv_arg
+                       | Some new_sv -> ESet.insert_elt_ig i ol cs target callset new_sv sv_arg
                        | None -> ())
-         | Socvas.Other __s__ ->
-             let image = Socvas.MS.fold (fun (callset, sv, sv_arg) image -> match p nplookahead_fn ykb sv with
+             | Socvas.Other __s__ ->
+                 let image = Socvas.MS.fold (fun (callset, sv, sv_arg) image -> match p nplookahead_fn ykb sv with
                        | None -> image
                        | Some new_sv -> Socvas.MS.add (callset, new_sv, sv_arg) image)
-               __s__ Socvas.MS.empty in
-             match Socvas.MS.cardinal image with
-               | 0 -> ()
-               | 1 -> insert_many i ol cs target  (Socvas.Singleton (Socvas.MS.choose image))
-               | _ -> insert_many i ol cs target  (Socvas.Other image))                                  
+                   __s__ Socvas.MS.empty in
+                 match Socvas.MS.cardinal image with
+                   | 0 -> ()
+                   | 1 -> ESet.insert_container i ol cs target  (Socvas.Singleton (Socvas.MS.choose image))
+                   | _ -> ESet.insert_container i ol cs target  (Socvas.Other image))                                  
 
            | PJDN.Box_trans (box, target) ->
                let curr_pos = current_callset.id in
                (                        (match socvas_s with
-         | Socvas.Empty -> ()
-         | Socvas.Singleton (callset, sv, sv_arg) -> (let cp = YkBuf.save ykb in
+             | Socvas.Empty -> ()
+             | Socvas.Singleton (callset, sv, sv_arg) -> (let cp = YkBuf.save ykb in
                            (match box sv curr_pos ykb with
                                 Some (0, ret_sv) -> (* returns to current set *)
-                                  insert_one_ig i ol cs target callset ret_sv sv_arg
+                                  ESet.insert_elt_ig i ol cs target callset ret_sv sv_arg
                               | Some (1, ret_sv) -> (* returns to next set *)
-                                  insert_one_nc ns target (callset, ret_sv, sv_arg)
+                                  ESet.insert_elt_nc ns target (callset, ret_sv, sv_arg)
                               | Some (n, ret_sv) ->
                                   let j = curr_pos + n in
                                   insert_future futuresq j target (callset, ret_sv, sv_arg)
                               | None -> ()
                            );
                            YkBuf.restore ykb cp)
-         | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, sv, sv_arg) -> let cp = YkBuf.save ykb in
+             | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, sv, sv_arg) -> let cp = YkBuf.save ykb in
                            (match box sv curr_pos ykb with
                                 Some (0, ret_sv) -> (* returns to current set *)
-                                  insert_one_ig i ol cs target callset ret_sv sv_arg
+                                  ESet.insert_elt_ig i ol cs target callset ret_sv sv_arg
                               | Some (1, ret_sv) -> (* returns to next set *)
-                                  insert_one_nc ns target (callset, ret_sv, sv_arg)
+                                  ESet.insert_elt_nc ns target (callset, ret_sv, sv_arg)
                               | Some (n, ret_sv) ->
                                   let j = curr_pos + n in
                                   insert_future futuresq j target (callset, ret_sv, sv_arg)
@@ -1491,7 +1754,7 @@ let check_done_at_eof start_nt successes cs term_table =
                (match lexer ykb with
                   | 0 -> ()
                   | target -> (* returns to next set *)
-                      insert_many_nc ns target socvas_s)
+                      ESet.insert_container_nc ns target socvas_s)
 
   and process_eof_trans start_nt succeeded cs socvas_s term_table nonterm_table p_nonterm_table nplookahead_fn
       s sv0 current_callset ykb i ol = function
@@ -1499,15 +1762,15 @@ let check_done_at_eof start_nt successes cs term_table =
            | PJDN.Scan_trans _ | PJDN.MScan_trans _ -> ()
            | PJDN.Lookahead_trans col ->
                let t = col.(PJ.iEOF) in
-               if t > 0 then insert_many i ol cs t socvas_s
+               if t > 0 then ESet.insert_container i ol cs t socvas_s
            | PJDN.Det_multi_trans col ->
                let x = col.(PJ.iEOF) in
                let x_action = x land 0x7F000000 in
                let t = x land 0xFFFFFF in
-               if t > 0 && x_action > 0 then insert_many i ol cs t socvas_s
+               if t > 0 && x_action > 0 then ESet.insert_container i ol cs t socvas_s
            | PJDN.TokLookahead_trans (presence, f, target) ->
                let b = f ykb in
-               if b = presence then insert_many i ol cs target socvas_s
+               if b = presence then ESet.insert_container i ol cs target socvas_s
            | PJDN.RegLookahead_trans (presence, la_target, la_nt, target) ->
                let b =                                 (
      let cp = YkBuf.save ykb in
@@ -1537,14 +1800,15 @@ let check_done_at_eof start_nt successes cs term_table =
        b = presence
      end
   )                                  in
-               if b then insert_many i ol cs target socvas_s
+               if b then ESet.insert_container i ol cs target socvas_s
            | PJDN.ExtLookahead_trans (presence, la_target, la_nt, target) ->
                if                                 (presence = nplookahead_fn la_nt la_target ykb)                                  then
-                 insert_many i ol cs target socvas_s
+                 ESet.insert_container i ol cs target socvas_s
            | PJDN.Call_trans t ->                 (
      
+     let target_cva = (current_callset, sv0, sv0) in
      let is_new =
-       match insert_one i ol cs t (current_callset, sv0, sv0) with
+       match ESet.insert_elt i ol cs t target_cva with
          | Ignore_elt -> false
          | Reprocess_elt -> true
          | Process_elt ->
@@ -1565,51 +1829,51 @@ let check_done_at_eof start_nt successes cs term_table =
            | PJDN.Call_p_trans (call_act, t) ->                         (
      
                              (match socvas_s with
-         | Socvas.Empty -> ()
-         | Socvas.Singleton (callset, sv, sv_arg) -> (let curr_pos = current_callset.id in
+             | Socvas.Empty -> ()
+             | Socvas.Singleton (callset, sv, sv_arg) -> (let curr_pos = current_callset.id in
         let arg = call_act curr_pos sv in
-       insert_one_ig i ol cs t current_callset arg arg
+       ESet.insert_elt_ig i ol cs t current_callset arg arg
      )
-         | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, sv, sv_arg) -> let curr_pos = current_callset.id in
+             | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, sv, sv_arg) -> let curr_pos = current_callset.id in
         let arg = call_act curr_pos sv in
-       insert_one_ig i ol cs t current_callset arg arg
+       ESet.insert_elt_ig i ol cs t current_callset arg arg
      ) __s__)                          
   )                         
 
            | PJDN.Complete_trans nt ->
                let is_nt = nt = start_nt in
                                        (match socvas_s with
-         | Socvas.Empty -> ()
-         | Socvas.Singleton (callset,_,_) -> (
+             | Socvas.Empty -> ()
+             | Socvas.Singleton (callset,_,_) -> (
                  if is_nt && callset.id = 0 then succeeded := true;
                  let items = callset.data in
                  for l = 0 to Array.length items - 1 do
                    let s_l, c_l = items.(l) in
                    let t = PJ.lookup_trans_nt nonterm_table s_l nt in
-                   if t > 0 then insert_many i ol cs t c_l
+                   if t > 0 then ESet.insert_container i ol cs t c_l
                  done)
-         | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset,_,_) -> 
+             | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset,_,_) -> 
                  if is_nt && callset.id = 0 then succeeded := true;
                  let items = callset.data in
                  for l = 0 to Array.length items - 1 do
                    let s_l, c_l = items.(l) in
                    let t = PJ.lookup_trans_nt nonterm_table s_l nt in
-                   if t > 0 then insert_many i ol cs t c_l
+                   if t > 0 then ESet.insert_container i ol cs t c_l
                  done) __s__)                         
 
            | PJDN.Complete_p_trans nt ->
                let is_nt = nt = start_nt in
                let curr_pos = current_callset.id in
                                        (match socvas_s with
-         | Socvas.Empty -> ()
-         | Socvas.Singleton (callset, sv, sv_arg) -> (
+             | Socvas.Empty -> ()
+             | Socvas.Singleton (callset, sv, sv_arg) -> (
                  if is_nt && callset.id = 0 then succeeded := true;
                  let items = callset.data in
                  for l = 0 to Array.length items - 1 do
                    let s_l, socvas_l = items.(l) in
 
                    let t = PJ.lookup_trans_nt nonterm_table s_l nt in
-                   if t > 0 then insert_many i ol cs t socvas_l;
+                   if t > 0 then ESet.insert_container i ol cs t socvas_l;
 
                    match PJDN.lookup_trans_pnt p_nonterm_table s_l nt with
                      | [||] -> ()
@@ -1619,19 +1883,19 @@ let check_done_at_eof start_nt successes cs term_table =
                                            if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "@%d: %d => %d [%d(_)]? " callset.id s_l t nt end                 ;
                                                    (match socvas_l with
-         | Socvas.Empty -> ()
-         | Socvas.Singleton (callset_s_l, sv_s_l, sv_arg_s_l) -> (
+             | Socvas.Empty -> ()
+             | Socvas.Singleton (callset_s_l, sv_s_l, sv_arg_s_l) -> (
                                          if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
                                                            if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "Y" end                 ;
-                                           insert_one_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
+                                           ESet.insert_elt_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
                                          end else                 if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "N" end                 )
-         | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset_s_l, sv_s_l, sv_arg_s_l) -> 
+             | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset_s_l, sv_s_l, sv_arg_s_l) -> 
                                          if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
                                                            if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "Y" end                 ;
-                                           insert_one_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
+                                           ESet.insert_elt_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
                                          end else                 if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "N" end                 ) __s__)                          ;
                                            if Logging.activated then begin
@@ -1639,14 +1903,14 @@ let check_done_at_eof start_nt successes cs term_table =
                          done
 
                  done)
-         | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, sv, sv_arg) -> 
+             | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, sv, sv_arg) -> 
                  if is_nt && callset.id = 0 then succeeded := true;
                  let items = callset.data in
                  for l = 0 to Array.length items - 1 do
                    let s_l, socvas_l = items.(l) in
 
                    let t = PJ.lookup_trans_nt nonterm_table s_l nt in
-                   if t > 0 then insert_many i ol cs t socvas_l;
+                   if t > 0 then ESet.insert_container i ol cs t socvas_l;
 
                    match PJDN.lookup_trans_pnt p_nonterm_table s_l nt with
                      | [||] -> ()
@@ -1656,19 +1920,19 @@ let check_done_at_eof start_nt successes cs term_table =
                                            if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "@%d: %d => %d [%d(_)]? " callset.id s_l t nt end                 ;
                                                    (match socvas_l with
-         | Socvas.Empty -> ()
-         | Socvas.Singleton (callset_s_l, sv_s_l, sv_arg_s_l) -> (
+             | Socvas.Empty -> ()
+             | Socvas.Singleton (callset_s_l, sv_s_l, sv_arg_s_l) -> (
                                          if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
                                                            if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "Y" end                 ;
-                                           insert_one_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
+                                           ESet.insert_elt_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
                                          end else                 if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "N" end                 )
-         | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset_s_l, sv_s_l, sv_arg_s_l) -> 
+             | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset_s_l, sv_s_l, sv_arg_s_l) -> 
                                          if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
                                                            if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "Y" end                 ;
-                                           insert_one_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
+                                           ESet.insert_elt_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
                                          end else                 if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "N" end                 ) __s__)                          ;
                                            if Logging.activated then begin
@@ -1680,8 +1944,8 @@ let check_done_at_eof start_nt successes cs term_table =
            | PJDN.MComplete_trans nts ->
                let m_nts = Array.length nts - 1 in
                                        (match socvas_s with
-         | Socvas.Empty -> ()
-         | Socvas.Singleton (callset,_,_) -> (
+             | Socvas.Empty -> ()
+             | Socvas.Singleton (callset,_,_) -> (
                    let is_start = callset.id = 0 in
                    let items = callset.data in
                    let m_items = Array.length items - 1 in
@@ -1693,10 +1957,10 @@ let check_done_at_eof start_nt successes cs term_table =
                        for l = 0 to m_items do
                          let s_l, c_l = items.(l) in
                          let t = PJ.lookup_trans_nt nonterm_table s_l nt in
-                         if t > 0 then insert_many i ol cs t c_l
+                         if t > 0 then ESet.insert_container i ol cs t c_l
                        done
                    done)
-         | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset,_,_) -> 
+             | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset,_,_) -> 
                    let is_start = callset.id = 0 in
                    let items = callset.data in
                    let m_items = Array.length items - 1 in
@@ -1708,7 +1972,7 @@ let check_done_at_eof start_nt successes cs term_table =
                        for l = 0 to m_items do
                          let s_l, c_l = items.(l) in
                          let t = PJ.lookup_trans_nt nonterm_table s_l nt in
-                         if t > 0 then insert_many i ol cs t c_l
+                         if t > 0 then ESet.insert_container i ol cs t c_l
                        done
                    done) __s__)                          
 
@@ -1716,8 +1980,8 @@ let check_done_at_eof start_nt successes cs term_table =
                let m_nts = Array.length nts - 1 in
                let curr_pos = current_callset.id in
                                        (match socvas_s with
-         | Socvas.Empty -> ()
-         | Socvas.Singleton (callset, sv, sv_arg) -> (
+             | Socvas.Empty -> ()
+             | Socvas.Singleton (callset, sv, sv_arg) -> (
                    let is_start = callset.id = 0 in
                    let items = callset.data in
                    let m_items = Array.length items - 1 in
@@ -1730,7 +1994,7 @@ let check_done_at_eof start_nt successes cs term_table =
                          let s_l, socvas_l = items.(l) in
 
                          let t = PJ.lookup_trans_nt nonterm_table s_l nt in
-                         if t > 0 then insert_many i ol cs t socvas_l;
+                         if t > 0 then ESet.insert_container i ol cs t socvas_l;
 
                          match PJDN.lookup_trans_pnt p_nonterm_table s_l nt with
                            | [||] -> ()
@@ -1740,19 +2004,19 @@ let check_done_at_eof start_nt successes cs term_table =
                                                  if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "@%d: %d => %d [%d(_)]? " callset.id s_l t nt end                 ;
                                                          (match socvas_l with
-         | Socvas.Empty -> ()
-         | Socvas.Singleton (callset_s_l, sv_s_l, sv_arg_s_l) -> (
+             | Socvas.Empty -> ()
+             | Socvas.Singleton (callset_s_l, sv_s_l, sv_arg_s_l) -> (
                                                if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
                                                                  if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "Y" end                 ;
-                                                 insert_one_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
+                                                 ESet.insert_elt_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
                                                end else                 if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "N" end                 )
-         | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset_s_l, sv_s_l, sv_arg_s_l) -> 
+             | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset_s_l, sv_s_l, sv_arg_s_l) -> 
                                                if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
                                                                  if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "Y" end                 ;
-                                                 insert_one_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
+                                                 ESet.insert_elt_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
                                                end else                 if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "N" end                 ) __s__)                          ;
                                                  if Logging.activated then begin
@@ -1760,7 +2024,7 @@ let check_done_at_eof start_nt successes cs term_table =
                                done
                        done
                    done)
-         | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, sv, sv_arg) -> 
+             | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, sv, sv_arg) -> 
                    let is_start = callset.id = 0 in
                    let items = callset.data in
                    let m_items = Array.length items - 1 in
@@ -1773,7 +2037,7 @@ let check_done_at_eof start_nt successes cs term_table =
                          let s_l, socvas_l = items.(l) in
 
                          let t = PJ.lookup_trans_nt nonterm_table s_l nt in
-                         if t > 0 then insert_many i ol cs t socvas_l;
+                         if t > 0 then ESet.insert_container i ol cs t socvas_l;
 
                          match PJDN.lookup_trans_pnt p_nonterm_table s_l nt with
                            | [||] -> ()
@@ -1783,19 +2047,19 @@ let check_done_at_eof start_nt successes cs term_table =
                                                  if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "@%d: %d => %d [%d(_)]? " callset.id s_l t nt end                 ;
                                                          (match socvas_l with
-         | Socvas.Empty -> ()
-         | Socvas.Singleton (callset_s_l, sv_s_l, sv_arg_s_l) -> (
+             | Socvas.Empty -> ()
+             | Socvas.Singleton (callset_s_l, sv_s_l, sv_arg_s_l) -> (
                                                if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
                                                                  if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "Y" end                 ;
-                                                 insert_one_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
+                                                 ESet.insert_elt_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
                                                end else                 if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "N" end                 )
-         | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset_s_l, sv_s_l, sv_arg_s_l) -> 
+             | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset_s_l, sv_s_l, sv_arg_s_l) -> 
                                                if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
                                                                  if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "Y" end                 ;
-                                                 insert_one_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
+                                                 ESet.insert_elt_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
                                                end else                 if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "N" end                 ) __s__)                          ;
                                                  if Logging.activated then begin
@@ -1816,54 +2080,81 @@ let check_done_at_eof start_nt successes cs term_table =
 
            | PJDN.Action_trans (act, target) ->
                let curr_pos = current_callset.id in
-               let new_s = Socvas.fold
-                 (fun (callset, sv, sv_arg) s ->
-                    Socvas.add (callset, act curr_pos sv, sv_arg) s)
-                 socvas_s Socvas.empty in
-               insert_many i ol cs target new_s
+               let image =                         (match socvas_s with
+             | Socvas.Empty -> Socvas.Empty
+             | Socvas.Singleton (callset, sv, sv_arg) -> Socvas.Singleton ((callset, (act curr_pos sv), sv_arg))
+             | Socvas.Other __s__ ->
+                 let image = Socvas.MS.fold
+                   (fun (callset, sv, sv_arg) __image__ -> Socvas.MS.add ((callset, (act curr_pos sv), sv_arg)) __image__)
+                   __s__ Socvas.MS.empty in
+                 match Socvas.MS.cardinal image with
+                   | 0 -> Socvas.Empty
+                   | 1 -> Socvas.Singleton (Socvas.MS.choose image)
+                   | _ -> Socvas.Other image)                           in
+               ESet.insert_container i ol cs target image
 
            | PJDN.When_trans (p, next, target) ->
-               (let curr_pos = current_callset.id in
-               let new_s = Socvas.fold
-                 (fun (callset, sv, sv_arg) s ->
-                    if p curr_pos sv then Socvas.add (callset, next curr_pos sv, sv_arg) s else s)
-                 socvas_s Socvas.empty in
-               if not (Socvas.is_empty new_s) then insert_many i ol cs target new_s)
+               let curr_pos = current_callset.id in
+                                               (match socvas_s with
+             | Socvas.Empty -> ()
+             | Socvas.Singleton (callset, sv, sv_arg) ->
+                     if p curr_pos sv
+                     then ESet.insert_elt_ig i ol cs target callset (next curr_pos sv) sv_arg
+                     else ()
+             | Socvas.Other __s__ ->
+                 let image = Socvas.MS.fold (fun (callset, sv, sv_arg) image ->
+                     if p curr_pos sv
+                     then Socvas.MS.add (callset, (next curr_pos sv), sv_arg) image
+                     else image)
+                   __s__ Socvas.MS.empty in
+                 match Socvas.MS.cardinal image with
+                   | 0 -> ()
+                   | 1 -> ESet.insert_container i ol cs target  (Socvas.Singleton (Socvas.MS.choose image))
+                   | _ -> ESet.insert_container i ol cs target  (Socvas.Other image))                                  
 
            | PJDN.When2_trans (p, target) ->
-                                       (match socvas_s with
-         | Socvas.Empty -> ()
-         | Socvas.Singleton (callset, sv, sv_arg) -> ((match p nplookahead_fn ykb sv with
-                        | None -> ()
-                        | Some new_sv -> insert_one_ig i ol cs target callset new_sv sv_arg))
-         | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, sv, sv_arg) -> (match p nplookahead_fn ykb sv with
-                        | None -> ()
-                        | Some new_sv -> insert_one_ig i ol cs target callset new_sv sv_arg)) __s__)                          
+                                               (match socvas_s with
+             | Socvas.Empty -> ()
+             | Socvas.Singleton (callset, sv, sv_arg) ->
+                     (match p nplookahead_fn ykb sv with
+                       | Some new_sv -> ESet.insert_elt_ig i ol cs target callset new_sv sv_arg
+                       | None -> ())
+             | Socvas.Other __s__ ->
+                 let image = Socvas.MS.fold (fun (callset, sv, sv_arg) image -> match p nplookahead_fn ykb sv with
+                       | None -> image
+                       | Some new_sv -> Socvas.MS.add (callset, new_sv, sv_arg) image)
+                   __s__ Socvas.MS.empty in
+                 match Socvas.MS.cardinal image with
+                   | 0 -> ()
+                   | 1 -> ESet.insert_container i ol cs target  (Socvas.Singleton (Socvas.MS.choose image))
+                   | _ -> ESet.insert_container i ol cs target  (Socvas.Other image))                                  
 
            | PJDN.Det_trans f ->
                let curr_pos = current_callset.id in
                (                        (match socvas_s with
-         | Socvas.Empty -> ()
-         | Socvas.Singleton (callset, sv, sv_arg) -> (let ret_sv, target = f curr_pos sv in insert_one_ig i ol cs target callset ret_sv sv_arg)
-         | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, sv, sv_arg) -> let ret_sv, target = f curr_pos sv in insert_one_ig i ol cs target callset ret_sv sv_arg) __s__)                          )
+             | Socvas.Empty -> ()
+             | Socvas.Singleton (callset, sv, sv_arg) -> (let ret_sv, target = f curr_pos sv in
+                            ESet.insert_elt_ig i ol cs target callset ret_sv sv_arg)
+             | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, sv, sv_arg) -> let ret_sv, target = f curr_pos sv in
+                            ESet.insert_elt_ig i ol cs target callset ret_sv sv_arg) __s__)                          )
 
            (* Only null boxes are okay now that we've reached EOF. *)
            | PJDN.Box_trans (box, target) ->
                let curr_pos = current_callset.id in
                (                        (match socvas_s with
-         | Socvas.Empty -> ()
-         | Socvas.Singleton (callset, sv, sv_arg) -> (let cp = YkBuf.save ykb in
+             | Socvas.Empty -> ()
+             | Socvas.Singleton (callset, sv, sv_arg) -> (let cp = YkBuf.save ykb in
                            (match box sv curr_pos ykb with
                                 Some (0, ret_sv) -> (* returns to current set *)
-                                  insert_one_ig i ol cs target callset ret_sv sv_arg
+                                  ESet.insert_elt_ig i ol cs target callset ret_sv sv_arg
                               | Some _ ->              if Logging.activated then begin Logging.log Logging.Features.verbose "BUG: Box returning success > 0 at EOF.\n" end             
                               | None -> ()
                            );
                            YkBuf.restore ykb cp)
-         | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, sv, sv_arg) -> let cp = YkBuf.save ykb in
+             | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, sv, sv_arg) -> let cp = YkBuf.save ykb in
                            (match box sv curr_pos ykb with
                                 Some (0, ret_sv) -> (* returns to current set *)
-                                  insert_one_ig i ol cs target callset ret_sv sv_arg
+                                  ESet.insert_elt_ig i ol cs target callset ret_sv sv_arg
                               | Some _ ->              if Logging.activated then begin Logging.log Logging.Features.verbose "BUG: Box returning success > 0 at EOF.\n" end             
                               | None -> ()
                            );
@@ -1872,7 +2163,7 @@ let check_done_at_eof start_nt successes cs term_table =
            | PJDN.Lexer_trans lexer ->
                (match lexer ykb with
                   | 0 -> ()
-                  | target -> insert_many i ol cs target socvas_s)
+                  | target -> ESet.insert_container i ol cs target socvas_s)
 
   and _parse is_exact_match
       {PJDN.start_symb = start_nt; start_state = start_state;
@@ -1889,8 +2180,8 @@ let check_done_at_eof start_nt successes cs term_table =
      end             ;
 
     let num_states = Array.length term_table in
-    let current_set = ref (WI.make num_states Socvas.empty) in
-    let next_set = ref (WI.make num_states Socvas.empty) in
+    let current_set = ref (ESet.create num_states) in
+    let next_set = ref (ESet.create num_states) in
 
     let pre_cc = Pcs.empty num_states in (* pre-version of current callset. *)
     let start_callset = mk_callset 0 in
@@ -1907,8 +2198,8 @@ let check_done_at_eof start_nt successes cs term_table =
        are swapped first-thing in the loop. *)
     let ns = !next_set in
     let cva0 = (start_callset, sv0, sv0) in
-    insert_one_nc ns start_state cva0;
-    Pcs.add_call_state pre_cc start_state;
+    ESet.insert_elt_nc ns start_state cva0;
+                            (Pcs.add_call_state pre_cc start_state)                         ;
 
     let can_scan = ref (Terms.fill ykb) in
 
@@ -1918,7 +2209,7 @@ let check_done_at_eof start_nt successes cs term_table =
       let (k, l) = Ordered_queue.pop q in
       if k <> -1 then begin
         (* PERF: manually lift up this closure *)
-        List.iter (fun (s,cva) -> insert_one_nc ns s cva) l;
+        List.iter (fun (s,cva) -> ESet.insert_elt_nc ns s cva) l;
         ignore (YkBuf.skip ykb (k - !current_callset.id));
         current_callset := mk_callset k;
         YkBuf.fill2 ykb 1
@@ -1940,13 +2231,12 @@ let check_done_at_eof start_nt successes cs term_table =
          previous earley set will be preserved.
          We surround with begin-end to limit scope of t.
       *)
-                      
       begin
         let t = !current_set in
         WI.clear t;
         current_set := !next_set;
         next_set := t;
-      end                  ;
+      end;
 
       (* ensure that only one dereference happens for these datums. Not sure
          if the compiler would be smart enough to do common subexpression
@@ -1963,10 +2253,11 @@ let check_done_at_eof start_nt successes cs term_table =
             cs, ns, pre_cc, ccs, ykb, futuresq, nplookahead_fn, overflow in
 
       (* Process the worklist (which can grow during processing). *)
-      let d = cs.WI.dense_s in
-      let dcs = cs.WI.dense_sv in
                                       
          begin
+           let d = cs.WI.dense_s in
+           let dcs = cs.WI.dense_sv in
+
            let i = ref 0 in
            while !i < cs.WI.count do
              let rec loop pes d dcs k overflow cs term_table =
@@ -2007,7 +2298,7 @@ let check_done_at_eof start_nt successes cs term_table =
 
       (* Report size of the Earley set. *)
                       if Logging.activated then begin
-       Logging.log Logging.Features.stats "%d %d\n" ccs.id (ES_inspect_heir.get_set_size cs) end                 ;
+       Logging.log Logging.Features.stats "%d %d\n" ccs.id (ESet.get_size cs) end                 ;
 
       (* Report memory size of the data accessable from the Earley set (focusing on
          the semantic values). We use LOG rather than LOGp so that we can ensure
@@ -2019,17 +2310,17 @@ let check_done_at_eof start_nt successes cs term_table =
            (p <= 10000 && p mod 100 = 0) ||
            (p <= 100000 && p mod 1000 = 0) then
              let msize = Util.memsize () in (* will force a major GC. *)
-             let es_size = ES_inspect_heir.get_set_size cs in
+             let es_size = ESet.get_size cs in
              let sv_count, insp_summary =
                if Logging.features_are_set Logging.Features.verbose then
-                 let sv_count, idata = ES_inspect_heir.count_semvals_plus cs in
+                 let sv_count, idata = ES_hierarchical.count_semvals_plus cs in
                  sv_count, Sem_val.summarize_inspection idata
                else 0, "n/a" in
              Logging.log Logging.Features.hist_size "%d %d %d %d %s\n%!"
                p es_size sv_count msize insp_summary
        end             ;
 
-                   if support_FLA then begin if not is_exact_match && check_done term_table start_nt d dcs cs.WI.count then
+                   if support_FLA then begin if not is_exact_match && ESet.check_done term_table start_nt cs then
           s_matched := true;
        end             ;
 
@@ -2044,7 +2335,7 @@ let check_done_at_eof start_nt successes cs term_table =
       (* Check whether there's any blackbox results to load into the next set. *)
       if Ordered_queue.next futuresq = pos then begin
         let l = snd (Ordered_queue.pop futuresq) in
-        List.iter (fun (s,cva) -> insert_one_nc ns s cva) l
+        List.iter (fun (s,cva) -> ESet.insert_elt_nc ns s cva) l
       end;
 
                    if Logging.activated then begin Imp_position.set_position pos;
@@ -2110,7 +2401,7 @@ let check_done_at_eof start_nt successes cs term_table =
                       if Logging.activated then begin
        Logging.log Logging.Features.eof_ne "Checking for successful parses.\n" end                 ;
       let successes = ref [] in
-      check_done_at_eof start_nt successes cs term_table;
+      ESet.collect_done_at_eof start_nt successes cs term_table;
 
                    if Logging.activated then begin if Logging.features_are_set Logging.Features.stats then begin
         Logging.Distributions.report ();
@@ -2121,14 +2412,14 @@ let check_done_at_eof start_nt successes cs term_table =
                    if Logging.activated then begin if Logging.features_are_set Logging.Features.hist_size then
           let ccs = !current_callset in
           let msize = Util.memsize () in (* will force a major GC. *)
-          let es_size = ES_inspect_heir.get_set_size cs in
+          let es_size = ESet.get_size cs in
           let idata_s =
             List.fold_left (fun idata sv -> Sem_val.inspect sv idata)
               (Sem_val.create_idata ()) !successes in
           let insp_summary_s = Sem_val.summarize_inspection idata_s in
           let insp_summary =
             if Logging.features_are_set Logging.Features.verbose then
-              let _, idata = ES_inspect_heir.count_semvals_plus cs in
+              let _, idata = ES_hierarchical.count_semvals_plus cs in
               Sem_val.summarize_inspection idata
             else "0" in
           Logging.log Logging.Features.hist_size

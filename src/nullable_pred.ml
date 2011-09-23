@@ -1123,7 +1123,8 @@ fun _ ykb v -> match f1 v with | Yk_done %s %s (%s) -> Some (f2 v (%s)) | _ -> N
                 (to_string' gil_callc get_action get_start 1 body) in
               tbls, pred :: preds
             end in
-    let print_table nt = Printf.fprintf ch "let %s = SV_hashtbl.create 11;;\n" (mk_nptblname nt) in
+    let tyannot = if is_sv_known then ": (sv option * int) SV_hashtbl.t" else "" in
+    let print_table nt = Printf.fprintf ch "let %s %s = SV_hashtbl.create 11;;\n" (mk_nptblname nt) tyannot in
     let print_pred = Printf.fprintf ch "and %s" in
     let tbls, preds = Hashtbl.fold collect preds ([],[]) in
     match List.rev preds with

@@ -69,8 +69,9 @@ OCAMLOPT_FLAGS += -rectypes
 OCAML_FLAGS+= -rectypes
 
 ifeq ($(DO_PROF),1)
-  OCAMLC=ocamlfind ocamlcp
   OCAMLOPT_FLAGS += -p
+# Don't use ocamlcp because the .cmi files it produces are not compatible with ocamlopt
+  OCAMLC=ocamlfind ocamlc
 else
   OCAMLC=ocamlfind ocamlc
 endif
@@ -402,7 +403,7 @@ $(RP_ALL): recperf-% : %-parser.opt %-pcomb-parser.opt
 
 %.d: %.ml
 	@echo "---> " $@
-	@(cd $(dir $<); ocamldep -I ../build $(notdir $<)) >$@ # build for generated files like ocaml_lexer.ml
+	@(cd $(dir $<); ocamldep -I ../$(OBJDIR) $(notdir $<)) >$@ # build for generated files like ocaml_lexer.ml
 
 %.di: %.mli
 	@echo "---> " $@

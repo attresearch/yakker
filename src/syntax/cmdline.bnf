@@ -154,6 +154,7 @@ args =
       | "-no-coalesce" o                  { Compileopt.coalesce := false } ""
       | "-no-collapse-calls" o            { Compileopt.collapse_calls := false } ""
       | "-no-memoize-history" o           { Compileopt.memoize_history := false } ""
+      | "-no-optimize-pam" o              { Compileopt.gen_optimize_pam := false } ""
       | "-no-replay" o                    { Compileopt.repress_replay := true } ""
       | "-no-skip-opt" o                  { Compileopt.skip_opt := false } ""
       | "-only" o                         { only := true } ""

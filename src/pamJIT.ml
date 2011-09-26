@@ -89,6 +89,8 @@ let convert_to_nfa p =
     Array.of_list eps) in
   table, eps_table, final_set
 
+type opt_mode = No_opt | Scan_opt | Scan_lookahead_opt | Compl_opt | Full_opt
+
 type elr0_trans =
   | Scan_trans of PI.label array
   | Call_trans of PI.label
@@ -616,7 +618,7 @@ module DNELR = struct
      a dep. nondeterministic ELR engine.
 
      We don't perform any transformation of the start state at this point. *)
-  let to_table p start_symb start_state min_nonterm num_nonterms
+  let mk_table opt_level p start_symb start_state min_nonterm num_nonterms
       f_no_arg f_no_binder =
     let ntid nt =
       if nt < min_nonterm then
@@ -655,10 +657,22 @@ module DNELR = struct
       warn_conflict s tr1 tr2;
       Many_trans [|tr1; tr2|] in
 
-    let grow_many s tr trs =
-      assert (Array.length trs > 0);
-      warn_conflict s tr (Many_trans trs);
-      Many_trans (Array.append [|tr|] trs) in
+    (** Attempt to merge [tr] into an existing element of the array
+        with merge function [f_m]. If that doesn't work ([f_m] returns
+        a [Many_trans]), extend the array. *)
+    let merge_many f_m s tr trs =
+      let n = Array.length trs in
+      assert (n > 0);
+      let rec try_merge i n =
+        if i < n then
+          match f_m s tr trs.(i) with
+            | Many_trans _ -> try_merge (i+1) n
+            | tr -> trs.(i) <- tr; trs
+        else begin
+          warn_conflict s tr (Many_trans trs);
+          Array.append [|tr|] trs
+        end in
+      Many_trans (try_merge 0 n) in
 
     let scan_dtrans t =
       if t = 0 then 0
@@ -792,13 +806,138 @@ module DNELR = struct
       let mt2 = Array.init col_size (fun c -> lookahead_dtrans a_l.(c)) in
       merge_term_maps a_mt mt2 in
 
+    let rec merge_transs_no_opt s tr1 tr2 =
+      match tr1, tr2 with
+        | No_trans, tr | tr, No_trans -> tr
+        | Many_trans trs, tr
+        | tr, Many_trans trs ->
+            merge_many merge_transs_no_opt s tr trs
+        | _ ->
+            mk_many s tr1 tr2 in
+
+    let rec merge_transs_scan_opt s tr1 tr2 =
+      match tr1, tr2 with
+        | No_trans, tr | tr, No_trans -> tr
+        | Many_trans trs, tr
+        | tr, Many_trans trs ->
+            merge_many merge_transs_scan_opt s tr trs
+
+        | Scan_trans (c1, target1), Scan_trans (c2, target2) ->
+            if c1 = c2 && target1 = target2 then tr1
+            else if c1 <> c2 then
+              let a = mk_scan c1 target1 in
+              a.(c2) <- target2;
+              MScan_trans a
+            else mk_many s tr1 tr2
+        | Scan_trans(c,target), MScan_trans a ->
+            if a.(c) = 0 || a.(c) = target then (a.(c) <- target; tr2)
+            else mk_many s tr1 tr2
+
+        | Lookahead_trans a1, Lookahead_trans a2 ->
+            if merge_term_maps a1 a2 then tr1
+            else mk_many s tr1 tr2
+
+        | _ ->
+            mk_many s tr1 tr2 in
+
+    let rec merge_transs_det_scan_opt s tr1 tr2 =
+      match tr1, tr2 with
+        | No_trans, tr | tr, No_trans -> tr
+        | Many_trans trs, tr
+        | tr, Many_trans trs ->
+            merge_many merge_transs_det_scan_opt s tr trs
+
+        | Scan_trans (c1, target1), Scan_trans (c2, target2) ->
+            if c1 = c2 && target1 = target2 then tr1
+            else if c1 <> c2 then
+              let a = mk_scan c1 target1 in
+              a.(c2) <- target2;
+              MScan_trans a
+            else mk_many s tr1 tr2
+        | Scan_trans(c,target), MScan_trans a ->
+            if a.(c) = 0 || a.(c) = target then (a.(c) <- target; tr2)
+            else mk_many s tr1 tr2
+        | Scan_trans(c,target), Lookahead_trans a ->
+            if a.(c) = 0 then begin
+              let a_mt = Array.init col_size (fun c -> lookahead_dtrans a.(c)) in
+              a_mt.(c) <- scan_dtrans target;
+              Det_multi_trans a_mt
+            end
+            else mk_many s tr1 tr2
+        | Scan_trans(c,target), Det_multi_trans a_mt ->
+            let t = a_mt.(c) in
+            if t = 0 then
+              (a_mt.(c) <- scan_dtrans target; tr2)
+            else if t = scan_dtrans target then tr2
+            else mk_many s tr1 tr2
+
+        | MScan_trans a1, MScan_trans a2 ->
+            if merge_term_maps a1 a2 then tr1
+            else mk_many s tr1 tr2
+        | MScan_trans a_s, Lookahead_trans a_l ->
+            (match merge_sc_la a_s a_l with
+               | Some mt -> Det_multi_trans mt
+               | None -> mk_many s tr1 tr2)
+        | MScan_trans a_s, Det_multi_trans a_mt  ->
+            if merge_mt_sc a_mt a_s then tr2
+            else mk_many s tr1 tr2
+
+        | Lookahead_trans a1, Lookahead_trans a2 ->
+            if merge_term_maps a1 a2 then tr1
+            else mk_many s tr1 tr2
+        | Lookahead_trans a, Det_multi_trans a_mt ->
+            if merge_mt_la a_mt a then tr2
+            else mk_many s tr1 tr2
+        | Det_multi_trans a_mt, Lookahead_trans a ->
+            if merge_mt_la a_mt a then tr2
+            else mk_many s tr1 tr2
+
+        | _ ->
+            mk_many s tr1 tr2 in
+
+    let rec merge_transs_compl_opt s tr1 tr2 =
+      match tr1, tr2 with
+        | No_trans, tr | tr, No_trans -> tr
+
+        | Many_trans trs, tr
+        | tr, Many_trans trs ->
+            merge_many merge_transs_compl_opt s tr trs
+
+        | Complete_trans nt, Complete_trans nt1 ->
+            if nt <> nt1 then
+              MComplete_trans [| nt; nt1 |]
+            else tr1
+        | Complete_trans nt, MComplete_trans nts ->
+            if Util.array_contains nt nts then tr2
+            else MComplete_trans (Array.append nts [|nt|])
+        | MComplete_trans nts, Complete_trans nt ->
+            if Util.array_contains nt nts then tr1
+            else MComplete_trans (Array.append nts [|nt|])
+        | MComplete_trans nts1, MComplete_trans nts2 ->
+            MComplete_trans (Util.array_union nts1 nts2)
+        | Complete_p_trans nt, Complete_p_trans nt1 ->
+            if nt <> nt1 then
+              MComplete_p_trans [| nt; nt1 |]
+            else tr1
+        | Complete_p_trans nt, MComplete_p_trans nts ->
+            if Util.array_contains nt nts then tr2
+            else MComplete_p_trans (Array.append nts [|nt|])
+        | MComplete_p_trans nts, Complete_p_trans nt ->
+            if Util.array_contains nt nts then tr1
+            else MComplete_p_trans (Array.append nts [|nt|])
+        | MComplete_p_trans nts1, MComplete_p_trans nts2 ->
+            MComplete_p_trans (Util.array_union nts1 nts2)
+
+        | _ ->
+            mk_many s tr1 tr2 in
+
     let rec merge_transs s tr1 tr2 =
       match tr1, tr2 with
         | No_trans, tr | tr, No_trans -> tr
 
         | Many_trans trs, tr
         | tr, Many_trans trs ->
-            grow_many s tr trs
+            merge_many merge_transs s tr trs
 
         | Scan_trans (c1, target1), Scan_trans (c2, target2) ->
             if c1 = c2 && target1 = target2 then tr1
@@ -954,7 +1093,8 @@ module DNELR = struct
           | When2_trans _
           | Box_trans _) ->
             mk_many s tr1 tr2
-        | _, Det_multi_trans _ -> merge_transs s tr2 tr2
+
+        | _, Det_multi_trans _ -> merge_transs s tr2 tr1
 
         | Complete_p_trans nt, Complete_p_trans nt1 ->
             if nt <> nt1 then
@@ -1006,59 +1146,72 @@ module DNELR = struct
       end grouped_entries;
     done;
 
+    let merge = match opt_level with
+      | Full_opt ->  merge_transs
+      | Compl_opt -> merge_transs_compl_opt
+      | Scan_lookahead_opt -> merge_transs_det_scan_opt
+      | Scan_opt ->  merge_transs_scan_opt
+      | No_opt ->    merge_transs_no_opt in
+
     for s = 1 to num_states - 1 do
       let blk = Array.unsafe_get p s in
-      (* Sort the block to ensure that eats are grouped together. *)
+      (* Sort the block to ensure that eats are grouped together, at
+         the beginning of the list. *)
       Array.stable_sort txcmp blk;
 
       let tinstrs = Util.array_extract_to_list (fun x -> not (is_nttrans x)) blk in
       term_table.(s) <-
-        Util.list_map_reduce term_table.(s) (instr2trans s) (merge_transs s) tinstrs
+        Util.list_map_reduce term_table.(s) (instr2trans s) (merge s) tinstrs
     done;
 
     {start_symb = (ntid start_symb); start_state = start_state;
      term_table = term_table; nonterm_table = nonterm_table;
      p_nonterm_table = p_nonterm_table;}
 
-  let measure_percent {term_table=tbl} p =
-    let rec loop tbl p sz i n =
-      if i = sz then n
-      else
-        let n = if p tbl.(i) then n+1 else n in
-        loop tbl p sz (i+1) n in
-    let sz = Array.length tbl in
-    let n = loop tbl p sz 0 0 in
-    (float n) /. (float sz)
+    let to_table p start_symb start_state min_nonterm num_nonterms
+        f_no_arg f_no_binder =
+      mk_table Full_opt p start_symb start_state min_nonterm num_nonterms
+        f_no_arg f_no_binder
 
-  let measure_percenti {term_table=tbl} p =
-    let rec loop tbl p sz i n =
-      if i = sz then n
-      else
-        let n = if p i tbl.(i) then n+1 else n in
-        loop tbl p sz (i+1) n in
-    let sz = Array.length tbl in
-    let n = loop tbl p sz 0 0 in
-    (float n) /. (float sz)
+    let measure_percent {term_table=tbl} p =
+      let rec loop tbl p sz i n =
+        if i = sz then n
+        else
+          let n = if p tbl.(i) then n+1 else n in
+          loop tbl p sz (i+1) n in
+      let sz = Array.length tbl in
+      let n = loop tbl p sz 0 0 in
+      (float n) /. (float sz)
 
-  let call_targets tbl =
-    let n = Array.length tbl in
-    let tgts = Array.make n false in
-    for i = 0 to n - 1 do
-      match tbl.(i) with
-        | Call_trans t -> tgts.(t) <- true
-        | Many_trans txs ->
-            let m = Array.length txs in
-            for j = 0 to m - 1 do
-              match txs.(j) with
-                | Call_trans t -> tgts.(t) <- true
-                | _ -> ()
-            done
-        | _ -> ()
-    done;
-    tgts
+    let measure_percenti {term_table=tbl} p =
+      let rec loop tbl p sz i n =
+        if i = sz then n
+        else
+          let n = if p i tbl.(i) then n+1 else n in
+          loop tbl p sz (i+1) n in
+      let sz = Array.length tbl in
+      let n = loop tbl p sz 0 0 in
+      (float n) /. (float sz)
 
-  (** Return the set of states reachable from [s] via action
-      edges. *)
+    let call_targets tbl =
+      let n = Array.length tbl in
+      let tgts = Array.make n false in
+      for i = 0 to n - 1 do
+        match tbl.(i) with
+          | Call_trans t -> tgts.(t) <- true
+          | Many_trans txs ->
+              let m = Array.length txs in
+              for j = 0 to m - 1 do
+                match txs.(j) with
+                  | Call_trans t -> tgts.(t) <- true
+                  | _ -> ()
+              done
+          | _ -> ()
+      done;
+      tgts
+
+    (** Return the set of states reachable from [s] via action
+        edges. *)
   let refl_trans_closure term_table start =
     let num_states = Array.length term_table in
     let unvisited = Array.make num_states true in
@@ -1124,13 +1277,13 @@ end
     x separate into conversion function and merge function.
     x Factor code more intelligently in merge function.
 
-    Separately (and later) write optimizer for Many_trans. First verify
+    x Separately (and later) write optimizer for Many_trans. First verify
     that it matters by looking at prevalence in real grammars. Optimizations
-    would include grouping together scans and completes. Would change [grow_many]
+    would include grouping together scans and completes. Would change [merge_many]
 
     Handle calls with params.
 
-    * PERF: Can we statically mark call transitions to states with completions?
+    x PERF: Can we statically mark call transitions to states with completions?
     I don't see why not and then we wouldn't need to always check.
 
     * PERF: improve RComp -- only needs to be checked by calls, so doesn't need to

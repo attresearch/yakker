@@ -52,3 +52,7 @@ let collapse_calls = ref true
     compilation when this feature is turned on, I've disabled it
     by default. *)
 let wrap_codegen_in_module = ref false
+
+(** Flag: generate code that tells the engine to optimize the
+    transducer representation before exection. On by default. *)
+let gen_optimize_pam = ref true

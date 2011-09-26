@@ -40,6 +40,12 @@ val convert_to_dfa_table :
 val convert_to_nfa :
   'a Pam_internal.program -> int array * int array array * bool array
 
+(** Optimization mode. [Scan_opt] groups scans and lookahead into
+    tables, respectively.  It does not create combined scan/lookahead
+    tables. [Scan_lookahead_opt] does both.
+    [Compl_opt] groups completions, but nothing else.
+*)
+type opt_mode = No_opt | Scan_opt | Scan_lookahead_opt | Compl_opt | Full_opt
 
 exception Not_ELR0 of string
 
@@ -167,6 +173,12 @@ module DNELR :
 
     val lookup_trans_pnt : 'a pnt_table -> Pam_internal.label -> int
       -> 'a pnt_entry array
+
+    val mk_table :
+      opt_mode -> 'a Pam_internal.program -> Pam_internal.nonterm ->
+      Pam_internal.label -> Pam_internal.nonterm -> int ->
+      'a Pam_internal.action2 -> 'a Pam_internal.binder2 ->
+      'a data
 
     val to_table :
       'a Pam_internal.program -> Pam_internal.nonterm ->

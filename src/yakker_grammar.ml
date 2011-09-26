@@ -2611,7 +2611,7 @@ let __ocaml_lex_tables = {
 }
 
 let rec tok lexbuf =
-lexbuf.Lexing.lex_mem <- Array.create 8 (-1) ;   __ocaml_lex_tok_rec lexbuf 0
+  lexbuf.Lexing.lex_mem <- Array.create 8 (-1) ;   __ocaml_lex_tok_rec lexbuf 0
 and __ocaml_lex_tok_rec lexbuf __ocaml_lex_state =
   match Lexing.new_engine __ocaml_lex_tables __ocaml_lex_state lexbuf with
       | 0 ->
@@ -2917,7 +2917,7 @@ let
   | __ocaml_lex_state -> lexbuf.Lexing.refill_buff lexbuf; __ocaml_lex_tok_rec lexbuf __ocaml_lex_state
 
 and dec_range lexbuf =
-lexbuf.Lexing.lex_mem <- Array.create 2 (-1) ;   __ocaml_lex_dec_range_rec lexbuf 147
+  lexbuf.Lexing.lex_mem <- Array.create 2 (-1) ;   __ocaml_lex_dec_range_rec lexbuf 147
 and __ocaml_lex_dec_range_rec lexbuf __ocaml_lex_state =
   match Lexing.new_engine __ocaml_lex_tables __ocaml_lex_state lexbuf with
       | 0 ->
@@ -2948,7 +2948,7 @@ let
   | __ocaml_lex_state -> lexbuf.Lexing.refill_buff lexbuf; __ocaml_lex_dec_range_rec lexbuf __ocaml_lex_state
 
 and bin_range lexbuf =
-lexbuf.Lexing.lex_mem <- Array.create 2 (-1) ;   __ocaml_lex_bin_range_rec lexbuf 151
+  lexbuf.Lexing.lex_mem <- Array.create 2 (-1) ;   __ocaml_lex_bin_range_rec lexbuf 151
 and __ocaml_lex_bin_range_rec lexbuf __ocaml_lex_state =
   match Lexing.new_engine __ocaml_lex_tables __ocaml_lex_state lexbuf with
       | 0 ->
@@ -2979,7 +2979,7 @@ let
   | __ocaml_lex_state -> lexbuf.Lexing.refill_buff lexbuf; __ocaml_lex_bin_range_rec lexbuf __ocaml_lex_state
 
 and hex_range lexbuf =
-lexbuf.Lexing.lex_mem <- Array.create 2 (-1) ;   __ocaml_lex_hex_range_rec lexbuf 155
+  lexbuf.Lexing.lex_mem <- Array.create 2 (-1) ;   __ocaml_lex_hex_range_rec lexbuf 155
 and __ocaml_lex_hex_range_rec lexbuf __ocaml_lex_state =
   match Lexing.new_engine __ocaml_lex_tables __ocaml_lex_state lexbuf with
       | 0 ->
@@ -11937,7 +11937,7 @@ module P2__ = Yak.Engine.Full_yakker (Yak.Engine.Scannerless_term_lang)
   let inspect (_,h) s = Yk_History.add_id_set h#get_root s
   let summarize_inspection s = string_of_int (Yk_History.Root_id_set.cardinal s) end)
 
-let _wfe_data_ = Yak.PamJIT.DNELR.to_table (Yak.Pam_internal.load_internal_program program)
+let _wfe_data_ = Yak.PamJIT.DNELR.mk_table Yak.PamJIT.Full_opt (Yak.Pam_internal.load_internal_program program)
   start_symb (get_symb_start start_symb) 264 num_symbols
   __default_call __default_ret
 

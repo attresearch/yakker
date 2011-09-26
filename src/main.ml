@@ -156,13 +156,14 @@ let gil_transducer,gil_dot =
 
 let add_boilerplate backend gr =
   if backend = Wadler_BE then ()
-  else let mk_trans_bp1 = Printf.sprintf "
+  else
+    let mk_trans_bp1 = Printf.sprintf "
 let start_symb = get_symb_action %S
 
 module P2__ = Yak.Engine.Full_yakker (%s)
                                      (struct type t = sv let cmp = sv_compare %s end)
 
-let _wfe_data_ = Yak.PamJIT.DNELR.to_table (Yak.Pam_internal.load_internal_program program)
+let _wfe_data_ = Yak.PamJIT.DNELR.mk_table %s (Yak.Pam_internal.load_internal_program program)
   start_symb (get_symb_start start_symb) %d num_symbols
   %s %s
 
@@ -201,7 +202,9 @@ let parse = Yak.Pami.mk_parse_fun __parse %s
   let boilerplate_vary =
     match backend with
       | Trans_BE ->
-          mk_trans_bp1 gr.start_symbol term_lang inspector_fields Fsm.min_symbol Fsm.default_call_tx
+          let opt_mode = if !Compileopt.gen_optimize_pam then "Yak.PamJIT.Full_opt"
+            else "Yak.PamJIT.No_opt" in
+          mk_trans_bp1 gr.start_symbol term_lang inspector_fields opt_mode Fsm.min_symbol Fsm.default_call_tx
             Fsm.default_binder_tx post_parse_function
       | Fun_BE | Peg_BE _ ->
           mk_other_bp1 post_parse_function

@@ -1218,20 +1218,43 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
 
   let insert_future q j s cva = Ordered_queue.insert q j (s, cva)
 
+
+  type lrm_instr = Fail_lrm | Done_lrm | Step_lrm of int | Loop_lrm of int
+
   let lookahead_regexp_NELR0_tbl term_table la_nt ykb start =
+    (* TODO: Add handling of boxes and then change PamJIT.is_regular accordingly. *)
 
-    (* BUG: Missing handling of Many_trans, boxes. *)
+    let try_trans la_nt c = function
+          | PJDN.Scan_trans (c1, t) -> if c = c1 then Step_lrm t else Fail_lrm
+          | PJDN.MScan_trans col -> let t = col.(c) in if t = 0 then Fail_lrm else Step_lrm t
+          | PJDN.Lookahead_trans col -> let t = col.(c) in if t = 0 then Fail_lrm else Loop_lrm t
+          | PJDN.Det_multi_trans col ->
+              let x = col.(c) in
+              if x = 0 then Fail_lrm
+              else
+                let x_action = x land 0x7F000000 in
+                let t = x land 0xFFFFFF in
+                if x_action = 0
+                then Step_lrm t
+                else Loop_lrm t
+          | PJDN.Complete_trans nt
+          | PJDN.Complete_p_trans nt -> if nt = la_nt then Done_lrm else Fail_lrm
+          | PJDN.MComplete_trans nts
+          | PJDN.MComplete_p_trans nts -> if Util.array_contains la_nt nts then Done_lrm else Fail_lrm
+          | _ -> Fail_lrm in
 
-    (*   Printf.printf "lookahead (%d, %d\n" la_nt start; *)
+    (* For Many_trans, we try each transition in turn, searching for
+       one the that succeeds. This method constitutes a greedy search
+       of the NFA, because we accept the first transition that
+       succeeds regardless of whether it leads ultimately to a
+       successful match. Designed for unoptimized, yet deterministic,
+       automaton, where at most one transition will succeed. *)
     let rec loop_eof term_table la_nt ykb s =
       if s <= 0 then false
       else
         match term_table.(s) with
           | PJDN.Lookahead_trans col -> loop_eof term_table la_nt ykb col.(PJ.iEOF)
           | PJDN.Det_multi_trans col ->
-              (*             (match col.(PJ.iEOF) with *)
-              (*                | PJN.Scan_dtrans _ -> false *)
-              (*                | PJN.Lookahead_dtrans t -> loop_eof term_table la_nt ykb t) *)
               let x = col.(PJ.iEOF) in
               let x_action = x land 0x7F000000 in
               let t = x land 0xFFFFFF in
@@ -1241,6 +1264,15 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
           | PJDN.Complete_p_trans nt -> nt = la_nt
           | PJDN.MComplete_trans nts
           | PJDN.MComplete_p_trans nts -> Util.array_contains la_nt nts
+          | PJDN.Many_trans trans ->
+              let n = Array.length trans in
+              let rec _l term_table la_nt ykb s trans n i =
+                if n <= i then false
+                else match try_trans la_nt PJ.iEOF trans.(i) with
+                  | Fail_lrm | Step_lrm _ -> _l term_table la_nt ykb s trans n (i+1)
+                  | Done_lrm -> true
+                  | Loop_lrm t -> loop_eof term_table la_nt ykb t in
+              _l term_table la_nt ykb s trans n 0
           | _ -> false in
     let rec step term_table la_nt ykb s =
       if YkBuf.fill2 ykb 1 then
@@ -1256,9 +1288,6 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
           | PJDN.MScan_trans col -> YkBuf.advance ykb; step term_table la_nt ykb col.(c)
           | PJDN.Lookahead_trans col -> loop term_table la_nt ykb c col.(c)
           | PJDN.Det_multi_trans col ->
-              (*            (match col.(c) with *)
-              (*               | PJDN.Scan_dtrans t -> YkBuf.advance ykb; step term_table la_nt ykb t *)
-              (*               | PJDN.Lookahead_dtrans t -> loop term_table la_nt ykb c t) *)
               let x = col.(c) in
               let x_action = x land 0x7F000000 in
               let t = x land 0xFFFFFF in
@@ -1269,10 +1298,20 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
           | PJDN.Complete_p_trans nt -> nt = la_nt
           | PJDN.MComplete_trans nts
           | PJDN.MComplete_p_trans nts -> Util.array_contains la_nt nts
+          | PJDN.Many_trans trans ->
+              let n = Array.length trans in
+              let rec _l term_table la_nt ykb c s trans n i =
+                if n <= i then false
+                else match try_trans la_nt c trans.(i) with
+                  | Fail_lrm -> _l term_table la_nt ykb c s trans n (i+1)
+                  | Done_lrm -> true
+                  | Step_lrm t -> (YkBuf.advance ykb; step term_table la_nt ykb t)
+                  | Loop_lrm t -> loop term_table la_nt ykb c t in
+              _l term_table la_nt ykb c s trans n 0
           | _ -> false in
     step term_table la_nt ykb start
 
-  (* PERF: push [is_new] binding code into logging -- it plays no other role. *)
+      (* PERF: push [is_new] binding code into logging -- it plays no other role. *)
   DEF2(`CALL_CODE', `target', `grow_callset',`(
      IF_TRUE(grow_callset,`PCS_ADD_CALL_ITEM_C(`pre_cc', `s', `socvas_s');')
      let target_cva = (current_callset, sv0, sv0) in

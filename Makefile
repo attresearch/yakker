@@ -9,11 +9,11 @@ include target.mk
 else
 #----- End Boilerplate
 
-ifdef USE_ARROW
+ifdef USE_CORS
+  $(info **Using coroutines**)
+else
   $(info **Using arrow notation**)
   YOPTS+=-arrow-notation
-else
-  $(info **Using coroutines**)
 endif
 
 ifeq ($(MAKECMDGOALS),install)

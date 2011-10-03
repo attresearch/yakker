@@ -322,224 +322,142 @@ module PHOAS = struct
 end
 
 (******************************************************************************)
+(*
+    Some old comments that likely need to be updated
 
-(**
-   Gul-predicate specific machinery. Likely bitrotted by now.
+    This analysis is run to completion at which point we (hope to) have a guarantee
+    that anything undetermined is
+
+    a) empty, or
+    b) must be checked dynamically (still possibly empty).
+
+    If it is labeled dynamic, then we know that it is not empty, but its actual contents must
+    still be calculated dynamically. What about lookahead? Lookahead should, by this definition,
+    be labeled as undetermined. However, I'm not sure that is what we're going for. Because, we *really*
+    just want to know which elements need to be *memoized* dynamically, to avoid nontermination,
+    and which do not. Lookahead should fall into the latter category. So, it should really be
+    categorized as "requires_memo".
+
+    Important point: this analysis is checking symbols S, "for all parameters of S". That is,
+    it is checking what (if any) conclusions can be drawn about S in a general way.
+
+    ******
+
+    We are starting with a least-fix point definition of nonterminal languages. We are then asking
+    the question "is epsilon in the language of A(e)?". We should be able to define an algorithm for
+    answering that question based on the definition of the language of A(e). The division between
+    static computation and dynamic computation is unimportant at this point. We will ignore, for the
+    moment, the issue of lookahead.
+
+    I think that the first question I have is what is the definition of a sound & complete algorithm
+    for computing said fixpoint? Or, for that matter, does a terminating algorithm exist? Of course not,
+    because the languages can be infinite. However, we *might* be able to find a terminating algorithm which
+    checks whether epsilon is in the language. Indeed, our Earley algorithm is just that (under the constraint
+    that nonterminals have finite domains).
+
+    But, we don't *want* to run a specialized Earley. The whole point is to avoid just that. So, we'd like
+    to find a "better" algorithm which is is still sound/complete w.r.t. our nondeterministic semantics.
+    Cool. Furthermore, that algorithm is specialized to the epsilon input. That said, it might still be
+    constructive to consider how Earley computes the least sets satisfying the nondeterministic rules.
+
+    We can start by reformulating the rules as judgments specific to epsilon. Perhaps, then, the answer
+    will just fall out in an obvious way.
+
+    I think that our first priority should be to find a terminating algorithm (assuming one can be found).
+    Then we can worry about the static/dynamic split and where that comes into play. It might be helpful to
+    rewrite my rewrite rules as judgments. Then, we could prove them sound and complete w.r.t. to the
+    grammar semantics and derive an algorithm for them (which I imagine will be an iterate-to-fixpoint
+    algorithm).
+
+
+    C |- r1 = \v. Some e1    C |- r2 = \v. Some e2
+    --------------------------------------
+    C |- r1 r2 = \v. Some (...)
+
+    C (A(v)) = e    e' -->* v
+    -------------------------
+    C |- A(e') = e
+
+
+    Start with C |- A(v) = false, for all A in dom(G) and v in dom(A). Notice that we are assuming all
+    A to have finite domain.
+
+    ### Version 2: Lazy tabling.
+
+    While the above approach works, it requires us to populate the table with every possible A(v), which could
+    be awfully expensive, not to mention wasteful. It also means that we'll need to run the analysis for every
+    such A(v). Instead, we could table lazily -- that is, perform the analysis for a particular A(v) only upon
+    demand.  By "upon demand," we refer to runtime demand. We start the computation with a specific A,v pair
+    and perform the rules, adding other A,v pairs to the table only when we encounter them, and iterating to
+    a fix point would be over the domain of the table (as opposed to the domain of the grammar). We would only
+    have to record a value for every A,v pair in the worst case. Moreover, in
+    circumstances for which not all A have finite domain, a lazy approach could work where an eager
+    one cannot.
+
+    ### Version 3: Static/dynamic split
+
+    In version 2, we have a working algorithm, but we might worry about its performance. We are running a
+    relatively expensive analysis at run time. Can we precompute some reasonable amount of entries eagerly,
+    or perform some other precomputation that would potentially speed up the run time computation? Here
+    are three points to consider:
+
+    1) We can precompute as many entries as we like. Indeed, when none of the nonterminals of parameterized,
+       solving every nonterminal is like tabling every nonterminal at the unit-value argument.
+
+    2) For some parameterized nonterminals, we can precompute their answer *independently* of their parameter.
+       We can consider this a compact way of precomputing the values of such nonterminals at every parameter.
+
+    3) Even for nonterminals whose status depends on their parameters, we can compile a more compact
+       representation of the computation which needs to take place at run time. Notice that if we consider
+       the analysis as a function F having two arguments, a RHS r and an argument v, then this compilation
+       is like the partial evaluation of `F r`.
+
+    The key point from the perspective of efficiency is just that we ensure that anything computed statically
+    not be involved in the iteration to fixpoint dynamically. I believe we do this in the same way as the
+    original code: evaluate to an expression. If the expression is a value -- great; otherwise, it will be
+    executed dynamically. The key update to the old version is that we must now memoize nonterminal calls when
+    we can't determine their value statically.
+
+    Yet, if we're saving some things for dynamic evaluation how do we know when our answer is the correct one?
+    How do we know when we are done? I think that a conservative approximation is to mark values as sure/unsure.
+    A value is sure iff it depends on only sure values. Otherwise, it is unsure. Then, we initialize all
+    nonterminals to `unsure (false)`.  As sure values are computed, they flip to sure. Anything remaining unsure
+    once fixpoint is reached will be computed dynamically.
+
+    ### Version 4: Recursion instead of iteration
+
+    An alternative to the sure/unsure approach is to guarantee that one pass is enough. That is, find an
+    evaluation sequence which will return the fixpoint after a single evaluation.  I believe there are two
+    (essentially identical) approaches which can accomplish this goal. First, precompute dependencies between
+    nonterminals and then evaluate from leaves to root, prepopulating all values with `false` to handle recursive
+    nonterminals. Second, replace iteration to fixpoint with a memoizing, recursive algorithm.
+
+    Here's why I think these approaches are succesful after one pass: the result values
+    can only increase and there are only two values. So, if we start with "false" and end up with "true" after
+    one recursive evaluation, we must have reached a fixpoint.
+
+    That said, some care must be taken in dealing with semantic values, because then we have None and Some v,
+    which represent more than two values. However, I think that the constraint that alts must have the same
+    semantic value is enough to ensure that are is only one possible `v` for which the function evaluates to
+    `Some v`. My reasoning is that in order for a recursive nonterminal to include epsilon, epsilon must appear
+     on some branch which *doesn't* include a recursive case. So, the fixpoint value shouldn't affect the final
+    outcome.
+
+    ### Memoization
+
+    Regarding memoization, we have proposed its use to avoid nontermination. however, it can also be useful
+    for sharing. Do we want to only use it for the former purpose, or just use it everywhere?
+
+    ### Conclusion
+
+    In order to minimize code change, will take the dependency + iteration approach for static computations
+    and the recursion + memo-everywhere approach for generated predicates (where "everywhere" means all predicates
+    which are called by other predicates (after the analysis)). Hopefully, memoization will not be used often. Still,
+    I'm concerned about performance (time + memory) implications.  We will have to revisit this at some point to test affect.
+
+    Worth testing because we correctness only requires we memoize recursive predicates. So, if performance is an issue we
+    could see what happens if we only memoize recursive predicates, instead of all called predicates.
 *)
-module Expr_gul = struct
-
-  open DBL
-
-  let rec to_string_raw c = function
-    | Lam f ->
-        Printf.sprintf "(lam. %s)" (to_string_raw (c+1) f)
-    | Var x -> if x < c then Printf.sprintf "%d" x else Printf.sprintf "'%d" x
-    | App (e1,e2) -> Printf.sprintf "(%s %s)" (to_string_raw c e1) (to_string_raw c e2)
-    | NoneE -> "None"
-    | SomeE e -> Printf.sprintf "(Some %s)" (to_string_raw c e)
-    | AndE (e1,e2) -> Printf.sprintf "(Pred.andc %s %s)" (to_string_raw c e1) (to_string_raw c e2)
-    | OrE (e1,e2) -> Printf.sprintf "(Pred.orc %s %s)" (to_string_raw c e1) (to_string_raw c e2)
-    | CallE (nt,e1,e2) -> callc (mk_npname nt) (to_string_raw c e1) (to_string_raw c e2)
-    | InjectE s -> Printf.sprintf "(%s)" s
-    | DBranchE (f1, c, f2) -> Printf.sprintf "(Pred.dbranch %s %s %s)" f1 c.Gil.cname f2
-    | CfgLookaheadE (b,n) -> Printf.sprintf "(Pred.lookaheadc %B 0 %s)" b n
-    | CsLookaheadE (b,cs) -> Printf.sprintf "(Pred.lookaheadc %B 0 %s)" b (Cs.to_nice_string cs)
-
-  let false_e = Lam (Lam NoneE)
-
-  let is_bool = function
-      Lam Lam NoneE | Lam Lam SomeE Var 1 -> true
-    | _ -> false
-
-  let rewrite preds e =
-    let rec rewrite' c = function  (* c is the count of binders *)
-      | AndE (e1, e2) ->
-          let e1 = rewrite' c e1 in
-          let e2 = rewrite' c e2 in
-          (match (e1, e2) with
-             | (Lam (Lam NoneE), _) -> false_e
-             | (_, Lam (Lam NoneE)) -> false_e
-             | (Lam (Lam (SomeE e)), _) ->
-                 let e2_s = shift (c-1) 2 e2 in
-                 Lam (Lam (app2 e2_s (Var c) e))
-             | _ -> AndE (e1, e2))
-      | OrE (e1, e2) ->
-          let e1 = rewrite' c e1 in
-          let e2 = rewrite' c e2 in
-          (match (e1,e2) with
-               (Lam (Lam (SomeE _)), _) -> e1
-             | (_, Lam (Lam (SomeE _))) -> e2
-             | (Lam (Lam NoneE), _) -> e2
-             | _ -> OrE (e1, e2))
-      | CallE (nt,e1,e2) as e_orig ->
-          let nt_pred = preds nt in
-          (match nt_pred with
-               Lam (Lam NoneE) -> false_e
-             | Lam (Lam (SomeE e)) ->
-                 (* the "current" variable is c (which corresponds to the first binder),
-                    so we use c+1 for v, which is the second binder.. *)
-                 let v_var = Var (c+1) in
-                 (* shift e1 and e2 by 2 b/c we are putting them under two lambdas.
-                    We don't shift e b/c it comes from under a lambda. *)
-                 let e1_s = shift (c-1) 2 e1 in
-                 let e2_s = shift (c-1) 2 e2 in
-                 Lam (Lam (SomeE( app2 e2_s v_var
-                               (subst (c+1) (App (e1_s, v_var)) e)
-                           )
-                     ))
-             | _ -> e_orig)
-
-
-       (* This analysis is run to completion at which point we (hope to) have a guarantee
-          that anything undetermined is
-
-          a) empty, or
-          b) must be checked dynamically (still possibly empty).
-
-          If it is labeled dynamic, then we know that it is not empty, but its actual contents must
-          still be calculated dynamically. What about lookahead? Lookahead should, by this definition,
-          be labeled as undetermined. However, I'm not sure that is what we're going for. Because, we *really*
-          just want to know which elements need to be *memoized* dynamically, to avoid nontermination,
-          and which do not. Lookahead should fall into the latter category. So, it should really be
-          categorized as "requires_memo".
-
-          Important point: this analysis is checking symbols S, "for all parameters of S". That is,
-          it is checking what (if any) conclusions can be drawn about S in a general way.
-
-          ******
-
-          We are starting with a least-fix point definition of nonterminal languages. We are then asking
-          the question "is epsilon in the language of A(e)?". We should be able to define an algorithm for
-          answering that question based on the definition of the language of A(e). The division between
-          static computation and dynamic computation is unimportant at this point. We will ignore, for the
-          moment, the issue of lookahead.
-
-          I think that the first question I have is what is the definition of a sound & complete algorithm
-          for computing said fixpoint? Or, for that matter, does a terminating algorithm exist? Of course not,
-          because the languages can be infinite. However, we *might* be able to find a terminating algorithm which
-          checks whether epsilon is in the language. Indeed, our Earley algorithm is just that (under the constraint
-          that nonterminals have finite domains).
-
-          But, we don't *want* to run a specialized Earley. The whole point is to avoid just that. So, we'd like
-          to find a "better" algorithm which is is still sound/complete w.r.t. our nondeterministic semantics.
-          Cool. Furthermore, that algorithm is specialized to the epsilon input. That said, it might still be
-          constructive to consider how Earley computes the least sets satisfying the nondeterministic rules.
-
-          We can start by reformulating the rules as judgments specific to epsilon. Perhaps, then, the answer
-          will just fall out in an obvious way.
-
-          I think that our first priority should be to find a terminating algorithm (assuming one can be found).
-          Then we can worry about the static/dynamic split and where that comes into play. It might be helpful to
-          rewrite my rewrite rules as judgments. Then, we could prove them sound and complete w.r.t. to the
-          grammar semantics and derive an algorithm for them (which I imagine will be an iterate-to-fixpoint
-          algorithm).
-
-
-          C |- r1 = \v. Some e1    C |- r2 = \v. Some e2
-          --------------------------------------
-          C |- r1 r2 = \v. Some (...)
-
-          C (A(v)) = e    e' -->* v
-          -------------------------
-          C |- A(e') = e
-
-
-          Start with C |- A(v) = false, for all A in dom(G) and v in dom(A). Notice that we are assuming all
-          A to have finite domain.
-
-          ### Version 2: Lazy tabling.
-
-          While the above approach works, it requires us to populate the table with every possible A(v), which could
-          be awfully expensive, not to mention wasteful. It also means that we'll need to run the analysis for every
-          such A(v). Instead, we could table lazily -- that is, perform the analysis for a particular A(v) only upon
-          demand.  By "upon demand," we refer to runtime demand. We start the computation with a specific A,v pair
-          and perform the rules, adding other A,v pairs to the table only when we encounter them, and iterating to
-          a fix point would be over the domain of the table (as opposed to the domain of the grammar). We would only
-          have to record a value for every A,v pair in the worst case. Moreover, in
-          circumstances for which not all A have finite domain, a lazy approach could work where an eager
-          one cannot.
-
-          ### Version 3: Static/dynamic split
-
-          In version 2, we have a working algorithm, but we might worry about its performance. We are running a
-          relatively expensive analysis at run time. Can we precompute some reasonable amount of entries eagerly,
-          or perform some other precomputation that would potentially speed up the run time computation? Here
-          are three points to consider:
-
-          1) We can precompute as many entries as we like. Indeed, when none of the nonterminals of parameterized,
-             solving every nonterminal is like tabling every nonterminal at the unit-value argument.
-
-          2) For some parameterized nonterminals, we can precompute their answer *independently* of their parameter.
-             We can consider this a compact way of precomputing the values of such nonterminals at every parameter.
-
-          3) Even for nonterminals whose status depends on their parameters, we can compile a more compact
-             representation of the computation which needs to take place at run time. Notice that if we consider
-             the analysis as a function F having two arguments, a RHS r and an argument v, then this compilation
-             is like the partial evaluation of `F r`.
-
-          The key point from the perspective of efficiency is just that we ensure that anything computed statically
-          not be involved in the iteration to fixpoint dynamically. I believe we do this in the same way as the
-          original code: evaluate to an expression. If the expression is a value -- great; otherwise, it will be
-          executed dynamically. The key update to the old version is that we must now memoize nonterminal calls when
-          we can't determine their value statically.
-
-          Yet, if we're saving some things for dynamic evaluation how do we know when our answer is the correct one?
-          How do we know when we are done? I think that a conservative approximation is to mark values as sure/unsure.
-          A value is sure iff it depends on only sure values. Otherwise, it is unsure. Then, we initialize all
-          nonterminals to `unsure (false)`.  As sure values are computed, they flip to sure. Anything remaining unsure
-          once fixpoint is reached will be computed dynamically.
-
-          ### Version 4: Recursion instead of iteration
-
-          An alternative to the sure/unsure approach is to guarantee that one pass is enough. That is, find an
-          evaluation sequence which will return the fixpoint after a single evaluation.  I believe there are two
-          (essentially identical) approaches which can accomplish this goal. First, precompute dependencies between
-          nonterminals and then evaluate from leaves to root, prepopulating all values with `false` to handle recursive
-          nonterminals. Second, replace iteration to fixpoint with a memoizing, recursive algorithm.
-
-          Here's why I think these approaches are succesful after one pass: the result values
-          can only increase and there are only two values. So, if we start with "false" and end up with "true" after
-          one recursive evaluation, we must have reached a fixpoint.
-
-          That said, some care must be taken in dealing with semantic values, because then we have None and Some v,
-          which represent more than two values. However, I think that the constraint that alts must have the same
-          semantic value is enough to ensure that are is only one possible `v` for which the function evaluates to
-          `Some v`. My reasoning is that in order for a recursive nonterminal to include epsilon, epsilon must appear
-           on some branch which *doesn't* include a recursive case. So, the fixpoint value shouldn't affect the final
-          outcome.
-
-          ### Memoization
-
-          Regarding memoization, we have proposed its use to avoid nontermination. however, it can also be useful
-          for sharing. Do we want to only use it for the former purpose, or just use it everywhere?
-
-          ### Conclusion
-
-          In order to minimize code change, will take the dependency + iteration approach for static computations
-          and the recursion + memo-everywhere approach for generated predicates (where "everywhere" means all predicates
-          which are called by other predicates (after the analysis)). Hopefully, memoization will not be used often. Still,
-          I'm concerned about performance (time + memory) implications.  We will have to revisit this at some point to test affect.
-
-          Worth testing because we correctness only requires we memoize recursive predicates. So, if performance is an issue we
-          could see what happens if we only memoize recursive predicates, instead of all called predicates.
-       *)
-
-      | Lam f -> Lam (rewrite' (c+1) f)
-      | App (e1, e2) -> App (rewrite' c e1, rewrite' c e2)
-      | InjectE s -> InjectE s
-      | DBranchE (f1, c, f2) -> DBranchE (f1, c, f2)
-      | Var i -> Var i
-      | CfgLookaheadE (b,n) -> CfgLookaheadE (b,n)
-      | CsLookaheadE (b,cs) -> CsLookaheadE (b,cs)
-      | NoneE -> NoneE
-      | SomeE e -> SomeE e
-
-  in
-    rewrite' 0 e
-
-end
-
-(******************************************************************************)
 
 (**
    Gil-predicate specific machinery.
@@ -750,182 +668,6 @@ let ignore_binder_e = Lam (fun x -> Lam (fun y -> Var x))
 type nullability = Yes_n | No_n | Maybe_n
                    | Rhs_n of string Gil.rhs (** The predicate can be represented by a nonterminal-free rhs. *)
 
-
-(******************************************************************************)
-
-(** Gul null. preds. *)
-module Gul = struct
-
-  let true_e () = lam2 (fun la v -> SomeE (Var v))
-  let false_e () = lam2 (fun la v -> NoneE)
-
-  (* invariant: branches return an npred, which now includes lookahead arg. *)
-  let rec trans' r = match r.Gul.r with
-  | Gul.When e -> Lam (fun la -> InjectE e)
-  | Gul.DBranch _ -> Util.todo "Nullable_pred.Gul.trabs'.DBranch"
-  | Gul.Action(Some e,_) ->
-      lam2 (fun la v -> SomeE (App (InjectE e, Var v)))
-  | Gul.Action _ -> true_e ()
-  | Gul.Symb (nt, None, _, None) -> (* TODO: attributes *)
-      CallE (nt, ignore_call_e, ignore_binder_e)
-  | Gul.Symb (nt, Some action, _, None) -> (* TODO: attributes *)
-      CallE (nt, InjectE action, ignore_binder_e)
-  | Gul.Symb (nt, None, _, Some binder) -> (* TODO: attributes *)
-      CallE (nt, ignore_call_e, InjectE binder)
-  | Gul.Symb (nt, Some call_action, _, Some binder) -> (* TODO: attributes *)
-      CallE (nt, InjectE call_action, InjectE binder)
-  | Gul.CharRange _ -> false_e ()
-  | Gul.Lit (_,"") | Gul.Opt _ -> true_e ()
-  | Gul.Lit (_,_) -> false_e ()
-  | Gul.Alt (r1,r2) -> OrE (trans' r1, trans' r2)
-  | Gul.Seq (r1,_,_,r2) -> AndE (trans' r1, trans' r2)
-  | Gul.Assign (r1,_,_) -> trans' r1
-  | Gul.Star (Gul.Bounds (0,_),_) -> true_e ()
-  | Gul.Star (Gul.Bounds (_,_),r1) -> trans' r1  (* TODO: this will be problematic
-                                                    if r1 is nullable and modifies the semval.*)
-      (* should instead be some recursive function *)
-  | Gul.Lookahead (b, {Gul.r=Gul.Symb(nt,None,_,None)}) -> CfgLookaheadE(b,nt) (* TODO: attributes *)
-  | Gul.Box (_, _, Gil.Always_null) -> true_e ()
-  | Gul.Box (_, _, Gil.Never_null) -> false_e ()
-  | Gul.Box (e, _, Gil.Runbox_null) -> InjectE("Pred3.boxc (" ^ e ^ ")")
-  | Gul.Box (_, _, Gil.Runpred_null e) -> InjectE ("let p = " ^ e ^ " in fun _ _ -> p")
-  | Gul.Lookahead _
-  | Gul.Star _ | Gul.Rcount _ | Gul.Hash _
-  | Gul.Delay _
-  | Gul.Prose _ | Gul.Position _ | Gul.Minus _ ->
-      Printf.eprintf "Should have desugared %s\n" (Pr.rule2string r); false_e()
-
-  let trans r = {e = fun () -> trans' r}
-
-  let compile_rule nt r =
-    let e = trans r in
-    let e_simp = DBL.simplify (convert_to_dB e) in
-    if false then
-      begin
-        (* Sanity check *)
-        if not (DBL.is_closed e_simp) then
-          Printf.eprintf "Nonterminal %s has open predicate: %s\n" nt (Expr_gul.to_string_raw 0 e_simp)
-      end;
-    e_simp
-
-  (* None = The empty set
-     Some false = a non-empty set, which does not include epsilon
-     Some true = a non-empty set, which does include epsilon
-     Some e  = needs to be determined dynamically.
-  *)
-
-
-  let preds_from_grammar grm =
-    let preds_tbl = Hashtbl.create 11 in
-    let preds nt =
-      try Hashtbl.find preds_tbl nt with
-          Not_found ->
-            Printf.eprintf "Warning: symbol %s not defined. Assuming not nullable.\n" nt;
-            Expr_gul.false_e
-    in
-    let init_nt = function Gul.RuleDef (n,_,_) -> Hashtbl.add preds_tbl n Expr_gul.false_e | _ -> () in
-    let try_rewrite_nt = function
-        Gul.RuleDef (n,r,_) ->
-          if Logging.activated then
-            Logging.log Logging.Features.nullpred
-              "Attempting rewrite of symbol %s.\n" n;
-          let e_n = compile_rule n r in
-          let e_n_rw = Expr_gul.rewrite preds e_n in
-          let e_n' = DBL.simplify e_n_rw in
-          if false then
-            begin
-              (* Sanity check *)
-              if not (DBL.is_closed e_n') then
-                Printf.eprintf "Nonterminal %s has open simpl-rewr predicate:\nbefore:   %s\nafter:  %s\n"
-                  n (Expr_gul.to_string_raw 0 e_n_rw) (Expr_gul.to_string_raw 0 e_n');
-            end;
-          Hashtbl.replace preds_tbl n e_n'
-      | _ -> ()
-    in
-    (* Sort by dependency order so that we need only traverse the grammar rules once to get the
-       correct answers. *)
-    let ds_sorted = Gul.sort_definitions grm.Gul.ds in
-    List.iter init_nt ds_sorted;
-    List.iter try_rewrite_nt ds_sorted;
-    preds_tbl
-
-  let process_grammar ch get_action get_start grm =
-    let preds =  preds_from_grammar grm in
-
-    (* Record which nonterminals are called from other nonterminals (including themselves). *)
-    let called_set = Hashtbl.fold (fun _ e s -> DBL.note_called s e) preds (PSet.create compare) in
-
-    let print_pred nt e_p first =
-      if first then
-        Printf.fprintf ch "let rec "
-      else
-        Printf.fprintf ch "and ";
-      (* To ensure "let rec" compatibility, we force everything to be a syntactic function.
-         We can special case functions, b/c they already meet the criterion, and eta-expand
-         everything else.
-      *)
-      let x = mk_var 0 in
-      let p = convert_from_dB e_p in
-      let body = match e_p with
-          DBL.Lam (DBL.Lam _) ->
-            (match p.e () with
-                 Lam f ->
-                   (match f lookahead_name with
-                        Lam f2 -> f2 x
-                      | _ -> failwith "Internal error in module Nullable_pred: De Bruin and PHOAS representations out-of-sync.")
-               | _ -> failwith "Internal error in module Nullable_pred: De Bruin and PHOAS representations out-of-sync.")
-        | _ ->  app2 (p.e()) (Var lookahead_name) (Var x)
-      in
-      if PSet.mem nt called_set && not (Expr_gul.is_bool e_p) then
-        Printf.fprintf ch "%s = let __tbl = SV_hashtbl.create 11 in
-                         fun %s %s ->
-                            let __k = (%s,%s) in
-                            try SV_hashtbl.find __tbl __k
-                            with Not_found ->
-                              let x = %s in SV_hashtbl.add __tbl __k x; x\n\n"
-          (mk_npname nt) lookahead_name x lookahead_name x
-          (to_string' callc get_action get_start 1 body)
-      else
-        Printf.fprintf ch "%s %s %s = %s\n\n" (mk_npname nt) lookahead_name x (to_string' callc get_action get_start 1 body);
-      false
-    in
-    Printf.fprintf ch "module SV_hashtbl = Hashtbl.Make(struct
-                          type t = lookahead * sv
-                          let equal (la1,a) (la2,b) = (la1 == la2) && (sv_compare a b = 0)
-                          let hash = Hashtbl.hash end)\n";
-    ignore (Hashtbl.fold print_pred preds true)
-
-  let print_nullable_predicates gr outch =
-    let tbl_ntnames = Hashtbl.create 11 in
-    let ntnum = ref 264 in
-    let add_nonterm nt =
-      begin
-        match Util.find_option tbl_ntnames nt with
-        | Some x -> x
-        | None ->
-            let num = !ntnum in
-            incr ntnum;
-            Hashtbl.add tbl_ntnames nt num;
-            num
-      end
-    in
-    (* use dummy get_start function because there is no transducer. *)
-    process_grammar outch add_nonterm (fun _ -> 0) gr
-
-  let get_symbol_nullability preds_tbl nt =
-    (*   Printf.eprintf "Looking up nullability of symbol %s.\n" nt; *)
-    let e_n = Hashtbl.find preds_tbl nt in
-    (*  For the case of
-        Lam (SomeE e)
-        , while we know statically that it is nullable,
-        we still need to dynamically compute e, so we
-        categorize it as maybe. *)
-    match e_n with
-      | DBL.Lam (DBL.Lam DBL.NoneE) -> No_n
-      | DBL.Lam (DBL.Lam (DBL.SomeE (DBL.Var 1))) -> Yes_n
-      | _ -> Maybe_n
-
-end
 
 (******************************************************************************)
 

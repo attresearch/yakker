@@ -9,11 +9,7 @@
  *    Trevor Jim and Yitzhak Mandelbaum
  *******************************************************************************)
 
-(* NOTE: to blog:
-  If we did this in Gul, we could avoid wrapping/unwrapping costs for these cases.
-
-  LOOKAHEAD?
-*)
+(* LOOKAHEAD: are we handling it right? *)
 
 module N = Nullable_pred
 

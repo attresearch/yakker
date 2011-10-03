@@ -594,8 +594,7 @@ end
 open PHOAS
 
 (******************************************************************************)
-
-let to_string' callts get_action get_start =
+let to_string' callts get_action get_start memo_cs =
   let rec recur c = function
     | Lam f ->
         let x = mk_var c in
@@ -626,11 +625,10 @@ let to_string' callts get_action get_start =
     | CsLookaheadE (b,la_cs) ->
         (* Complement w.r.t. 257 to account for EOF, which we represent as character 256. *)
         let cs = if b then la_cs else Cs.complement 257 la_cs in
-        Printf.sprintf "(Pred.cs_lookaheadc (%s))" (Cs.to_code cs)
+        let cs_code = memo_cs cs in
+        Printf.sprintf "(Pred.cs_lookaheadc (%s))" cs_code
   in
   recur
-
-let to_string callts get_action get_start {e=f} = to_string' callts get_action get_start 0 (f())
 
 let to_rhs e =
   let rec recur = function
@@ -806,6 +804,13 @@ fun _ ykb v -> match f1 v with | Yk_done %s %s (%s) -> Some (f2 v (%s)) | _ -> N
                                      match to_rhs e with
                                        | None -> DBL.note_called s e
                                        | Some _ -> s) preds (PSet.create compare) in
+    let css = Hashtbl.create 11 in
+    let memo_cs cs =
+      try fst (Hashtbl.find css cs)
+      with Not_found ->
+        let x = Variables.freshn "cs" in
+        let cd = Cs.to_code cs in
+        Hashtbl.add css cs (x,cd); x in
 
     (* To ensure "let rec" compatibility, we force all generated code to be a syntactic function.
        We can special case functions, b/c they already meet the criterion, and eta-expand
@@ -843,7 +848,7 @@ fun _ ykb v -> match f1 v with | Yk_done %s %s (%s) -> Some (f2 v (%s)) | _ -> N
             let tbls, preds = acc in
             (* TODO: extend comment here to explain memoization process *)
             if ntcalled then begin
-              let body_code = to_string' gil_callc get_action get_start 1 body in
+              let body_code = to_string' gil_callc get_action get_start memo_cs 1 body in
               let tbl = mk_nptblname nt in
               let pred = Printf.sprintf "%s %s %s %s =\n  \
                 let __p1 = Yak.YkBuf.get_offset %s in\n    \
@@ -862,11 +867,12 @@ fun _ ykb v -> match f1 v with | Yk_done %s %s (%s) -> Some (f2 v (%s)) | _ -> N
             end
             else begin
               let pred = Printf.sprintf "%s %s %s %s = %s\n\n" (mk_npname nt) lookahead_name ykb v
-                (to_string' gil_callc get_action get_start 1 body) in
+                (to_string' gil_callc get_action get_start memo_cs 1 body) in
               tbls, pred :: preds
             end in
     let tyannot = if is_sv_known then ": (sv option * int) SV_hashtbl.t" else "" in
     let print_table nt = Printf.fprintf ch "let %s %s = SV_hashtbl.create 11;;\n" (mk_nptblname nt) tyannot in
+    let print_cs _ (varname, code) = Printf.fprintf ch "let %s = %s;;\n" varname code in
     let print_pred = Printf.fprintf ch "and %s" in
     let tbls, preds = Hashtbl.fold collect preds ([],[]) in
     match List.rev preds with
@@ -880,6 +886,7 @@ fun _ ykb v -> match f1 v with | Yk_done %s %s (%s) -> Some (f2 v (%s)) | _ -> N
           else Printf.fprintf ch "module SV_hashtbl = Hashtbl\n";
           Printf.fprintf ch "module Pred = Pred3\n";
           List.iter print_table tbls;
+          Hashtbl.iter print_cs css;
           Printf.fprintf ch "let rec %s" p;
           List.iter print_pred preds
 

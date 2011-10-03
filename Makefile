@@ -609,10 +609,10 @@ ocamlparser.ml: ocamlparser.bnf
 %.ml: %.mll
 	ocamllex $<
 
-ocaml_lexer.mll: ../ocaml/parsing/lexer.mll ../ocaml/parsing/lexer.patch
+ocaml_lexer.mll: $(TOPDIR)/ocaml/parsing/lexer.mll $(TOPDIR)/ocaml/parsing/lexer.patch
 	patch -o $@ $^
 
-ocamllex_lexer.mll: ../ocaml/lex/lexer.mll ../ocaml/lex/lexer.patch
+ocamllex_lexer.mll: $(TOPDIR)/ocaml/lex/lexer.mll $(TOPDIR)/ocaml/lex/lexer.patch
 	patch -o $@ $^
 
 ########################

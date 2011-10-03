@@ -37,7 +37,6 @@ let phase_order = (* preorder on phases *)
         [Lr1_lookahead_cmd; Lexer_cmd];  (* Too few preprocessing elements here, but ok for starters. *)
         [Precedence_analysis_cmd; Lexer_cmd];
         [Print_gul_cmd];
-        [Print_npreds_cmd];
         [Print_relevance_cmd];
         [Sort_cmd];
         [Strip_late_actions_cmd];
@@ -505,9 +504,6 @@ let do_phases gr =
             let b = Buffer.create 11 in
             Pr.Gil.Dypgen.pr_grammar b is_scannerless gr;
             Printf.fprintf !outch "%s\n%!" (Buffer.contents b))
-      | Print_npreds_cmd ->
-          do_phase "printing nullable predicates" (fun () ->
-            Nullable_pred.Gul.print_nullable_predicates gr !outch)
       | Precedence_analysis_cmd ->
           do_phase "precedence analysis" (fun () ->
             let v = Analyze.build_prec_sets gr in

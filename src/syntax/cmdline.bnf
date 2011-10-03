@@ -49,7 +49,6 @@ type command =
 | Precedence_analysis_cmd
 | Print_gil_cmd
 | Print_gul_cmd
-| Print_npreds_cmd
 | Print_relevance_cmd
 | Replay_cmd
 | Rfc_cmd
@@ -124,8 +123,6 @@ command =
       | "precedence-analysis" o           { Precedence_analysis_cmd }
       | "print" o                         { Print_gul_cmd }
       | "print-gil" o                     { Print_gil_cmd }
-      | "print-npreds" o                  { Print_npreds_cmd }
-      | "print-nullable-predicates" o     { Print_npreds_cmd }
       | "print-relevance" o               { Print_relevance_cmd }
       | "rfc" (1*DIGIT)$n o               { try rfc_num := int_of_string n; Rfc_cmd with _ -> failwith "Invalid RFC number" }
       | "sort" o                          { Sort_cmd }

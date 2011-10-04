@@ -601,6 +601,9 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
               [Ignore_elt] otherwise.
   *)
   let insert_elt wl es state cva =
+    LOG(if Logging.features_are_set Logging.Features.eset_stats then begin
+          Logging.Counters.increment "insert_elt";
+        end);
     let item = {state=state; cva=cva} in
     let eset = !es in
     if Earley_set.mem item eset then Ignore_elt
@@ -619,6 +622,9 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
   let insert_elt_ig wl es state x y z = ignore (insert_elt wl es state (x,y,z))
 
   let insert_elt_nc es state cva =
+    LOG(if Logging.features_are_set Logging.Features.eset_stats then begin
+          Logging.Counters.increment "insert_elt_nc";
+        end);
     LOG(
       let (callset, _, _) = cva in
       Logging.log Logging.Features.reg_ne
@@ -627,8 +633,23 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
     let item = {state=state; cva=cva} in
     es := Earley_set.add item !es
 
-  let insert_container wl es state cva = ignore (insert_elt wl es state cva)
-  let insert_container_nc = insert_elt_nc
+  let insert_container wl es state cva =
+    LOG(if Logging.features_are_set Logging.Features.eset_stats then begin
+          Logging.Counters.increment "insert_container";
+          Logging.Counters.decrement "insert_elt";
+        end);
+    ignore (insert_elt wl es state cva)
+
+  let insert_container_nc =
+    if Logging.activated then begin
+      fun es state cva ->
+        if Logging.features_are_set Logging.Features.eset_stats then begin
+          Logging.Counters.increment "insert_container_nc";
+          Logging.Counters.decrement "insert_elt_nc";
+        end;
+        insert_elt_nc es state cva
+    end else
+      insert_elt_nc
 
   (** Check for a succesful parse. *)
   let check_done term_table start_nt cs =
@@ -975,6 +996,9 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
                 [Ignore_elt] otherwise.
     *)
     let insert_elt i ol es state cva =
+      LOG(if Logging.features_are_set Logging.Features.eset_stats then begin
+            Logging.Counters.increment "insert_elt";
+        end);
       if WI.mem es state then
         let socvas = WI.get es state in
         if Socvas.mem cva socvas then Ignore_elt
@@ -1005,6 +1029,9 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
     let insert_elt_ig i ol es state x y z = ignore (insert_elt i ol es state (x,y,z))
 
     let insert_elt_nc es state cva =
+      LOG(if Logging.features_are_set Logging.Features.eset_stats then begin
+            Logging.Counters.increment "insert_elt_nc";
+          end);
       if WI.mem es state then
         let socvas = WI.get es state in
         WI.set es state (Socvas.add cva socvas);
@@ -1026,6 +1053,9 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
         end
 
     let insert_container i ol es state socvas_new =
+      LOG(if Logging.features_are_set Logging.Features.eset_stats then begin
+            Logging.Counters.increment "insert_container";
+          end);
       if WI.mem es state then begin
         LOG(
           Logging.log Logging.Features.reg_ne
@@ -1053,6 +1083,9 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
 
     (** [insert_container] but without checking for newness. *)
     let insert_container_nc es state socvas_new =
+      LOG(if Logging.features_are_set Logging.Features.eset_stats then begin
+        Logging.Counters.increment "insert_container_nc";
+      end);
       if WI.mem es state then begin
         LOG(
           Logging.log Logging.Features.reg_ne
@@ -1967,6 +2000,14 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
         Logging.Distributions.register "CSS"; (* call-set size. *)
         Logging.Distributions.register "CPSS";(* parameterized call-set size. *)
         Logging.Distributions.register "MCC"; (* Missed call collapsing. *)
+      end;
+
+      if Logging.features_are_set Logging.Features.eset_stats then begin
+        Logging.Counters.init ();
+        Logging.Counters.register "insert_elt";
+        Logging.Counters.register "insert_elt_nc";
+        Logging.Counters.register "insert_container";
+        Logging.Counters.register "insert_container_nc";
       end
     );
 
@@ -2050,8 +2091,7 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
       LOGp(stats, "%d %d\n" ccs.id (ESet.get_size cs));
 
       (* Report memory size of the data accessable from the Earley set (focusing on
-         the semantic values). We use LOG rather than LOGp so that we can ensure
-         that memsize is executed before objsize. *)
+         the semantic values). *)
       LOG(
        `if Logging.features_are_set Logging.Features.hist_size then
          let p = ccs.id in
@@ -2095,7 +2135,7 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
     done;
 
     (**************************************************************
-     *                      END MAIN LOOP
+      *                      END MAIN LOOP
      **************************************************************)
 
     LOGp(eof_ne, "Main loop ended with can_scan = %B\n" !can_scan);
@@ -2127,7 +2167,11 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
       LOG(
       if Logging.features_are_set Logging.Features.stats then begin
         Logging.Distributions.report ();
-      end
+      end;
+
+      if Logging.features_are_set Logging.Features.eset_stats then begin
+        Logging.Counters.report ();
+      end;
       );
 
 

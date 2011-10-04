@@ -36,6 +36,7 @@ module Features = struct
   let eof_ne     = 0x40000 (** processing of earley set on EOF. *)
   let stats      = 0x80000
   let hist_size = 0x100000 (** size of history data. *)
+  let eset_stats = 0x200000 (** stats related to earley set and worklist use. *)
 end
 
 let current_features = ref Features.none
@@ -69,14 +70,19 @@ module Counters = struct
 
   let increment c =
     let n = Hashtbl.find counters c in
-    Hashtbl.replace counters c (n+1)
+    Hashtbl.replace counters c (n + 1)
+
+  let decrement c =
+    let n = Hashtbl.find counters c in
+    Hashtbl.replace counters c (n - 1)
 
   let increment_by c m =
     let n = Hashtbl.find counters c in
     Hashtbl.replace counters c (n + m)
 
   let report () =
-    Hashtbl.iter (fun c n -> log Features.stats "%s = %d\n" c n) counters
+    Printf.eprintf "****************************************\n";
+    Hashtbl.iter (fun c n -> Printf.eprintf "%s = %d\n" c n) counters
 end
 
 module Distributions = struct

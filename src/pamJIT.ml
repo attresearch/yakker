@@ -581,6 +581,8 @@ module DNELR = struct
     p_nonterm_table : 'a pnt_table;
   }
 
+  let warn_extla = ref false
+
   let lookup_trans_pnt (tbl : 'a pnt_table) s nt =
 (*     tbl.(s).(nt) *)
     Array.unsafe_get (Array.unsafe_get tbl s) nt
@@ -753,27 +755,24 @@ module DNELR = struct
              | None ->
                  let is_reg =
                    match Util.find_option regulars nt with
-                     | Some x -> x
+                     | Some is_reg -> is_reg
                      | None ->
-                         let x = is_regular p la_target in
-                         if x then begin
-                           if Logging.activated then
+                         let is_reg = is_regular p la_target in
+                         Hashtbl.add regulars nt is_reg;
+                         if Logging.activated then begin
+                           if is_reg then
                              Logging.log Logging.Features.lookahead "RLA: +%d\n" nt
-                         end else begin
-                           (*                  Util.warn Util.Sys_warn  *)
-                           (*                    (Printf.sprintf "Nonterminal %d cannot be used in regular lookahead." nt); *)
-                           if Logging.activated then
+                           else
                              Logging.log Logging.Features.lookahead "RLA: -%d\n" nt
                          end;
-                         Hashtbl.add regulars nt x;
-                         x in
+                         if not is_reg && !warn_extla then
+                           Util.warn Util.Sys_warn
+                             (Printf.sprintf "Using extended lookahead for nonterminal %d." nt);
+                         is_reg in
                  if is_reg then
                    RegLookahead_trans (presence, la_target, ntid nt, target)
-                 else (
-                   Util.warn Util.Sys_warn
-                     (Printf.sprintf "Using extended lookahead for nonterminal %d." nt);
-                   ExtLookahead_trans (presence, la_target, ntid nt, target)
-                 ))
+                 else
+                   ExtLookahead_trans (presence, la_target, ntid nt, target))
 
       | PI.AAction2Instr (f, t) -> Action_trans (f, t)
       | PI.AWhenInstr3 (p, f, t) -> When_trans (p, f, t)

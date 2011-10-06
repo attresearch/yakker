@@ -171,6 +171,9 @@ module DNELR :
       p_nonterm_table : 'a pnt_table;
     }
 
+    (** Flag to control warnings about use of extended (non-regular) lookahead. Defaults to off. *)
+    val warn_extla : bool ref
+
     val lookup_trans_pnt : 'a pnt_table -> Pam_internal.label -> int
       -> 'a pnt_entry array
 

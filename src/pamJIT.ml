@@ -97,7 +97,9 @@ type elr0_trans =
   | Complete_trans of PI.nonterm
   | No_trans
 
-let lookup_trans_nt (tbl : PI.label array array) s nt = tbl.(s).(nt)
+let lookup_trans_nt (tbl : PI.label array array) s nt =
+(*   tbl.(s).(nt) *)
+  Array.unsafe_get (Array.unsafe_get tbl s) nt
 
 exception Not_ELR0 of string
 
@@ -579,7 +581,9 @@ module DNELR = struct
     p_nonterm_table : 'a pnt_table;
   }
 
-  let lookup_trans_pnt (tbl : 'a pnt_table) s nt = tbl.(s).(nt)
+  let lookup_trans_pnt (tbl : 'a pnt_table) s nt =
+(*     tbl.(s).(nt) *)
+    Array.unsafe_get (Array.unsafe_get tbl s) nt
 
   let name_of = function
     | No_trans -> "EMPTY"
@@ -765,8 +769,11 @@ module DNELR = struct
                          x in
                  if is_reg then
                    RegLookahead_trans (presence, la_target, ntid nt, target)
-                 else
-                   ExtLookahead_trans (presence, la_target, ntid nt, target))
+                 else (
+                   Util.warn Util.Sys_warn
+                     (Printf.sprintf "Using extended lookahead for nonterminal %d." nt);
+                   ExtLookahead_trans (presence, la_target, ntid nt, target)
+                 ))
 
       | PI.AAction2Instr (f, t) -> Action_trans (f, t)
       | PI.AWhenInstr3 (p, f, t) -> When_trans (p, f, t)

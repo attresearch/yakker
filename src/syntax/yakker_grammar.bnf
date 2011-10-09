@@ -552,6 +552,7 @@ repetition
 .
 
 typestuff =
+  [ATID]$w
   [early-inputs]$x
   [early-outputs]$y
   [late-inputs]$z
@@ -560,7 +561,8 @@ typestuff =
     early_rettype =     (match y with None -> None | Some(typ,_) -> typ);
     output_attributes = (match y with None -> []   | Some(_,attributes) -> attributes);
     early_param_type = None;
-    late_params=z;}}
+    late_params = z;
+    classification = (match w with Some "lexical" -> Lexical | _ -> Other); }}
 .
 early-inputs =
   "@" "("  Ocaml_until_RPAREN$t        ;;; example: @(a:int,b:bool;x:string;y:bool*int list)

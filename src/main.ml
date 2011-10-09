@@ -357,7 +357,7 @@ let do_phases gr =
             Analyze.relevance gr;
             Lift.transform gr)
       | Pads_lift_cmd ->
-          do_phase "PADS lifting" (fun () ->
+          do_phase "Adding late actions" (fun () ->
             Analyze.producers gr;
             Analyze.relevance gr;
             Lift.pads_transform gr)

@@ -340,12 +340,27 @@ let transform gr =
 
 *)
 let pads_transform gr =
+  let lift_lexical = function
+    | RuleDef(n,r, ({Attr.classification = Lexical} as a)) -> (*  *)
+        let r' = mkSEQ[r; mkACTION2(None, Some "()")] in
+        RuleDef(n,r',a)
+    | d -> d in
+  gr.ds <- List.map lift_lexical gr.ds;
+
   (* identify nonterminal producers. TODO: we actually care about
      relevance not producerness, because as long as a rhs has an
      action anywhere in a sequence pads-lifting will add a late
      action. Unfortunately, would require us to build our own mapping
      from nonterminals to relevance, so I'm pushing it off for now. *)
   Analyze.producers gr;
+(*   let symb_attributes = attribute_table_of_grammar gr in *)
+(*   let is_lexical n = *)
+(*     try *)
+(*       begin match Hashtbl.find symb_attributes n with *)
+(*         | {Attr.classification = Lexical} -> true *)
+(*         | _ -> false *)
+(*       end *)
+(*     with Not_found -> Util.warn_undefined n; false in *)
   let is_late_producer n = PSet.mem n gr.late_producers in
   let rec loop r = begin
     match r.r with
@@ -428,5 +443,5 @@ let pads_transform gr =
   end in
   List.iter
     (function RuleDef(n,r,a) -> ignore(loop r) | _ -> ())
-    gr.ds;
-  ()
+    gr.ds
+

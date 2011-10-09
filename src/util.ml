@@ -23,6 +23,8 @@ type warn_classifier =
 let warn cl w = if !show_warn then Printf.eprintf "Warning: %s\n%!" w
 let error cl e = Printf.eprintf "Error: %s\n%!" e
 
+let warn_undefined n = warn Sys_warn ("Symbol " ^ n ^ " undefined.")
+
 let sys_error = error Sys_warn
 
 let impossible s =

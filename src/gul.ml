@@ -104,13 +104,17 @@ let rec copy_b = function
 (** deep copy *)
 and copyRhs r = {a=dupAnnot r.a;r= copy_b r.r}
 
+(* Classification of a symbol *)
+type symb_class = Lexical | Other
+
 module Attr = struct
   type t = {mutable early_params: string option;
             early_param_type: string option;
             mutable early_rettype: string option;
             mutable late_params: string option;
-            mutable input_attributes: (var * string) list;  (* attribute name x type *)
-            mutable output_attributes: (var * string) list; (* attribute name x type *)
+            mutable input_attributes: (var * string) list;  (* (attribute name, type) pairs *)
+            mutable output_attributes: (var * string) list; (* (attribute name, type) pairs *)
+            classification: symb_class;
            }
 end
 
@@ -120,6 +124,7 @@ let mkAttr() = {Attr.
                 input_attributes=[];
                 output_attributes=[];
                 early_param_type = None;
+                classification = Other;
                }
 
 type text =
@@ -406,6 +411,8 @@ let attribute_table_of_definitions ds =
   let t = Hashtbl.create n in
   List.iter (function RuleDef (n, _, a) -> Hashtbl.add t n a | _ -> ()) ds;
   t
+
+let attribute_table_of_grammar gr = attribute_table_of_definitions gr.ds
 
 (** [get_reachable definitions roots] returns the subset of the
     definitions that are reachable from the roots. *)

@@ -118,7 +118,6 @@ command =
       | "info" o                          { Info_cmd }
       | "lookahead-analysis" o            { Lookahead_analysis_cmd }
       | "lr1-lookahead" o                 { Lr1_lookahead_cmd }
-      | "pads-lift" o                     { Pads_lift_cmd }
       | "parse" o                         { Parse_cmd }
       | "precedence-analysis" o           { Precedence_analysis_cmd }
       | "print" o                         { Print_gul_cmd }
@@ -126,6 +125,7 @@ command =
       | "print-relevance" o               { Print_relevance_cmd }
       | "rfc" (1*DIGIT)$n o               { try rfc_num := int_of_string n; Rfc_cmd with _ -> failwith "Invalid RFC number" }
       | "sort" o                          { Sort_cmd }
+      | "add-late-actions" o              { Pads_lift_cmd }
       | "strip-late-actions" o            { Strip_late_actions_cmd }
       | "translate-dypgen" o              { Translate_dypgen_cmd }
       | "translate-dypgen-scannerless" o  { Translate_dypgen_scannerless_cmd }

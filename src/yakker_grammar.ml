@@ -3927,7 +3927,7 @@ let rec nullable__x26 __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v265,h2) -> (_v265,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with SLASH -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x26 _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with SLASH _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x26 _x0_ (x, __p1); x
     with Not_found ->
       let x = ((((Pred.andc (Pred.orc (let symb_pred = nullable__x3
        and f_call = (fun _x1_ _x2_ -> (sv0))
@@ -3940,7 +3940,7 @@ let rec nullable__x26 __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v265,h2) -> (_v265,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with SLASH -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt__x26 _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with SLASH _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt__x26 _x0_ (x, __p1); x
 
 and nullable_ATID __lookahead _p0_ _x0_ =
   let __p1 = Yak.YkBuf.get_offset _p0_ in
@@ -4213,7 +4213,7 @@ and nullable__x27 __lookahead _p0_ _x0_ = ((((Pred.andc (Pred.orc (let symb_pred
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v266,h2) -> (_v266,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with LANGLE -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_)
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with LANGLE _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_)
 
 and nullable_alternation __lookahead _p0_ _x0_ =
   let __p1 = Yak.YkBuf.get_offset _p0_ in
@@ -4272,7 +4272,7 @@ and nullable__x28 __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v267,h2) -> (_v267,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with DECVAL -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x28 _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with DECVAL _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x28 _x0_ (x, __p1); x
     with Not_found ->
       let x = ((((Pred.andc (Pred.orc (let symb_pred = nullable__x3
        and f_call = (fun _x1_ _x2_ -> (sv0))
@@ -4285,7 +4285,7 @@ and nullable__x28 __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v267,h2) -> (_v267,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with DECVAL -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt__x28 _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with DECVAL _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt__x28 _x0_ (x, __p1); x
 
 and nullable_elements __lookahead _p0_ _x0_ =
   let __p1 = Yak.YkBuf.get_offset _p0_ in
@@ -4401,7 +4401,7 @@ and nullable__x29 __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v268,h2) -> (_v268,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with HEXVAL -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x29 _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with HEXVAL _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x29 _x0_ (x, __p1); x
     with Not_found ->
       let x = ((((Pred.andc (Pred.orc (let symb_pred = nullable__x3
        and f_call = (fun _x1_ _x2_ -> (sv0))
@@ -4414,7 +4414,7 @@ and nullable__x29 __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v268,h2) -> (_v268,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with HEXVAL -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt__x29 _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with HEXVAL _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt__x29 _x0_ (x, __p1); x
 
 and nullable_bin_range __lookahead _p0_ _x0_ =
   let __p1 = Yak.YkBuf.get_offset _p0_ in
@@ -6245,7 +6245,7 @@ and nullable__x30 __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v269,h2) -> (_v269,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with BINVAL -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x30 _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with BINVAL _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x30 _x0_ (x, __p1); x
     with Not_found ->
       let x = ((((Pred.andc (Pred.orc (let symb_pred = nullable__x3
        and f_call = (fun _x1_ _x2_ -> (sv0))
@@ -6258,7 +6258,7 @@ and nullable__x30 __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v269,h2) -> (_v269,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with BINVAL -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt__x30 _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with BINVAL _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt__x30 _x0_ (x, __p1); x
 
 and nullable_defined_as __lookahead _p0_ _x0_ =
   let __p1 = Yak.YkBuf.get_offset _p0_ in
@@ -6346,7 +6346,7 @@ and nullable__x31 __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v270,h2) -> (_v270,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with ATPOS -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x31 _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with ATPOS _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x31 _x0_ (x, __p1); x
     with Not_found ->
       let x = ((((Pred.andc (Pred.orc (let symb_pred = nullable__x3
        and f_call = (fun _x1_ _x2_ -> (sv0))
@@ -6359,7 +6359,7 @@ and nullable__x31 __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v270,h2) -> (_v270,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with ATPOS -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt__x31 _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with ATPOS _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt__x31 _x0_ (x, __p1); x
 
 and nullable_Ocaml_until_EQUAL __lookahead _p0_ _x0_ =
   let __p1 = Yak.YkBuf.get_offset _p0_ in
@@ -6396,7 +6396,7 @@ and nullable__x32 __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v271,h2) -> (_v271,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with DOLLARPOS -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x32 _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with DOLLARPOS _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x32 _x0_ (x, __p1); x
     with Not_found ->
       let x = ((((Pred.andc (Pred.orc (let symb_pred = nullable__x3
        and f_call = (fun _x1_ _x2_ -> (sv0))
@@ -6409,7 +6409,7 @@ and nullable__x32 __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v271,h2) -> (_v271,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with DOLLARPOS -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt__x32 _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with DOLLARPOS _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt__x32 _x0_ (x, __p1); x
 
 and nullable_Ocaml_until_RBRACE __lookahead _p0_ _x0_ =
   let __p1 = Yak.YkBuf.get_offset _p0_ in
@@ -6446,7 +6446,7 @@ and nullable__x33 __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v272,h2) -> (_v272,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with WHEN -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x33 _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with WHEN _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x33 _x0_ (x, __p1); x
     with Not_found ->
       let x = ((((Pred.andc (Pred.orc (let symb_pred = nullable__x3
        and f_call = (fun _x1_ _x2_ -> (sv0))
@@ -6459,7 +6459,7 @@ and nullable__x33 __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v272,h2) -> (_v272,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with WHEN -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt__x33 _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with WHEN _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt__x33 _x0_ (x, __p1); x
 
 and nullable__x6 __lookahead _p0_ _x0_ =
   let __p1 = Yak.YkBuf.get_offset _p0_ in
@@ -6477,7 +6477,7 @@ and nullable__x6 __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v245,h2) -> (_v245,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with LPAREN -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x6 _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with LPAREN _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x6 _x0_ (x, __p1); x
     with Not_found ->
       let x = ((((Pred.andc (Pred.orc (let symb_pred = nullable__x3
        and f_call = (fun _x1_ _x2_ -> (sv0))
@@ -6490,7 +6490,7 @@ and nullable__x6 __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v245,h2) -> (_v245,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with LPAREN -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt__x6 _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with LPAREN _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt__x6 _x0_ (x, __p1); x
 
 and nullable__x34 __lookahead _p0_ _x0_ =
   let __p1 = Yak.YkBuf.get_offset _p0_ in
@@ -6508,7 +6508,7 @@ and nullable__x34 __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v273,h2) -> (_v273,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with DELAY -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x34 _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with DELAY _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x34 _x0_ (x, __p1); x
     with Not_found ->
       let x = ((((Pred.andc (Pred.orc (let symb_pred = nullable__x3
        and f_call = (fun _x1_ _x2_ -> (sv0))
@@ -6521,7 +6521,7 @@ and nullable__x34 __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v273,h2) -> (_v273,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with DELAY -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt__x34 _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with DELAY _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt__x34 _x0_ (x, __p1); x
 
 and nullable__x7 __lookahead _p0_ _x0_ =
   let __p1 = Yak.YkBuf.get_offset _p0_ in
@@ -6539,7 +6539,7 @@ and nullable__x7 __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v246,h2) -> (_v246,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with RPAREN -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x7 _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with RPAREN _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x7 _x0_ (x, __p1); x
     with Not_found ->
       let x = ((((Pred.andc (Pred.orc (let symb_pred = nullable__x3
        and f_call = (fun _x1_ _x2_ -> (sv0))
@@ -6552,7 +6552,7 @@ and nullable__x7 __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v246,h2) -> (_v246,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with RPAREN -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt__x7 _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with RPAREN _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt__x7 _x0_ (x, __p1); x
 
 and nullable_DOLLARID __lookahead _p0_ _x0_ = ((((Pred.andc (Pred.orc (let symb_pred = nullable__x3
        and f_call = (fun _x1_ _x2_ -> (sv0))
@@ -6624,7 +6624,7 @@ and nullable__x35 __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v274,h2) -> (_v274,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with BOX -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x35 _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with BOX _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x35 _x0_ (x, __p1); x
     with Not_found ->
       let x = ((((Pred.andc (Pred.orc (let symb_pred = nullable__x3
        and f_call = (fun _x1_ _x2_ -> (sv0))
@@ -6637,7 +6637,7 @@ and nullable__x35 __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v274,h2) -> (_v274,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with BOX -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt__x35 _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with BOX _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt__x35 _x0_ (x, __p1); x
 
 and nullable__x8 __lookahead _p0_ _x0_ =
   let __p1 = Yak.YkBuf.get_offset _p0_ in
@@ -6655,7 +6655,7 @@ and nullable__x8 __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v247,h2) -> (_v247,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with LBRACE -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x8 _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with LBRACE _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x8 _x0_ (x, __p1); x
     with Not_found ->
       let x = ((((Pred.andc (Pred.orc (let symb_pred = nullable__x3
        and f_call = (fun _x1_ _x2_ -> (sv0))
@@ -6668,7 +6668,7 @@ and nullable__x8 __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v247,h2) -> (_v247,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with LBRACE -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt__x8 _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with LBRACE _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt__x8 _x0_ (x, __p1); x
 
 and nullable__x9 __lookahead _p0_ _x0_ = ((((Pred.andc (Pred.orc (let symb_pred = nullable__x3
        and f_call = (fun _x1_ _x2_ -> (sv0))
@@ -6681,7 +6681,7 @@ and nullable__x9 __lookahead _p0_ _x0_ = ((((Pred.andc (Pred.orc (let symb_pred 
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v248,h2) -> (_v248,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with RBRACE -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_)
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with RBRACE _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_)
 
 and nullable__x36 __lookahead _p0_ _x0_ = ((((Pred.andc (Pred.orc (let symb_pred = nullable__x3
        and f_call = (fun _x1_ _x2_ -> (sv0))
@@ -6694,7 +6694,7 @@ and nullable__x36 __lookahead _p0_ _x0_ = ((((Pred.andc (Pred.orc (let symb_pred
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v275,h2) -> (_v275,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with BEGIN -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_)
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with BEGIN _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_)
 
 and nullable_EOF __lookahead _p0_ _x0_ =
   let __p1 = Yak.YkBuf.get_offset _p0_ in
@@ -6712,7 +6712,7 @@ and nullable_EOF __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v244,h2) -> (_v244,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with EOF -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt_EOF _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with EOF _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt_EOF _x0_ (x, __p1); x
     with Not_found ->
       let x = ((((Pred.andc (Pred.orc (let symb_pred = nullable__x3
        and f_call = (fun _x1_ _x2_ -> (sv0))
@@ -6725,7 +6725,7 @@ and nullable_EOF __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v244,h2) -> (_v244,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with EOF -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt_EOF _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with EOF _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt_EOF _x0_ (x, __p1); x
 
 and nullable_lookahead __lookahead _p0_ _x0_ =
   let __p1 = Yak.YkBuf.get_offset _p0_ in
@@ -7902,7 +7902,7 @@ and nullable__x37 __lookahead _p0_ _x0_ = ((((Pred.andc (Pred.orc (let symb_pred
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v276,h2) -> (_v276,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with END -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_)
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with END _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_)
 
 and nullable__x38 __lookahead _p0_ _x0_ = ((((Pred.andc (Pred.orc (let symb_pred = nullable__x3
        and f_call = (fun _x1_ _x2_ -> (sv0))
@@ -7915,7 +7915,7 @@ and nullable__x38 __lookahead _p0_ _x0_ = ((((Pred.andc (Pred.orc (let symb_pred
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v277,h2) -> (_v277,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with OCAML -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_)
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with OCAML _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_)
 
 and nullable_DIGITS __lookahead _p0_ _x0_ =
   let __p1 = Yak.YkBuf.get_offset _p0_ in
@@ -7959,7 +7959,7 @@ and nullable__x39 __lookahead _p0_ _x0_ = ((((Pred.andc (Pred.orc (let symb_pred
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v278,h2) -> (_v278,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with OCAMLLEX -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_)
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with OCAMLLEX _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_)
 
 and nullable__x10 __lookahead _p0_ _x0_ =
   let __p1 = Yak.YkBuf.get_offset _p0_ in
@@ -7977,7 +7977,7 @@ and nullable__x10 __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v249,h2) -> (_v249,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with LBRACK -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x10 _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with LBRACK _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x10 _x0_ (x, __p1); x
     with Not_found ->
       let x = ((((Pred.andc (Pred.orc (let symb_pred = nullable__x3
        and f_call = (fun _x1_ _x2_ -> (sv0))
@@ -7990,7 +7990,7 @@ and nullable__x10 __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v249,h2) -> (_v249,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with LBRACK -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt__x10 _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with LBRACK _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt__x10 _x0_ (x, __p1); x
 
 and nullable__x11 __lookahead _p0_ _x0_ =
   let __p1 = Yak.YkBuf.get_offset _p0_ in
@@ -8008,7 +8008,7 @@ and nullable__x11 __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v250,h2) -> (_v250,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with RBRACK -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x11 _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with RBRACK _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x11 _x0_ (x, __p1); x
     with Not_found ->
       let x = ((((Pred.andc (Pred.orc (let symb_pred = nullable__x3
        and f_call = (fun _x1_ _x2_ -> (sv0))
@@ -8021,7 +8021,7 @@ and nullable__x11 __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v250,h2) -> (_v250,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with RBRACK -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt__x11 _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with RBRACK _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt__x11 _x0_ (x, __p1); x
 
 and nullable__x12 __lookahead _p0_ _x0_ =
   let __p1 = Yak.YkBuf.get_offset _p0_ in
@@ -8039,7 +8039,7 @@ and nullable__x12 __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v251,h2) -> (_v251,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with RANGLE -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x12 _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with RANGLE _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x12 _x0_ (x, __p1); x
     with Not_found ->
       let x = ((((Pred.andc (Pred.orc (let symb_pred = nullable__x3
        and f_call = (fun _x1_ _x2_ -> (sv0))
@@ -8052,7 +8052,7 @@ and nullable__x12 __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v251,h2) -> (_v251,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with RANGLE -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt__x12 _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with RANGLE _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt__x12 _x0_ (x, __p1); x
 
 and nullable__x13 __lookahead _p0_ _x0_ =
   let __p1 = Yak.YkBuf.get_offset _p0_ in
@@ -8070,7 +8070,7 @@ and nullable__x13 __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v252,h2) -> (_v252,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with BAR -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x13 _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with BAR _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x13 _x0_ (x, __p1); x
     with Not_found ->
       let x = ((((Pred.andc (Pred.orc (let symb_pred = nullable__x3
        and f_call = (fun _x1_ _x2_ -> (sv0))
@@ -8083,7 +8083,7 @@ and nullable__x13 __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v252,h2) -> (_v252,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with BAR -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt__x13 _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with BAR _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt__x13 _x0_ (x, __p1); x
 
 and nullable__x14 __lookahead _p0_ _x0_ =
   let __p1 = Yak.YkBuf.get_offset _p0_ in
@@ -8101,7 +8101,7 @@ and nullable__x14 __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v253,h2) -> (_v253,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with DASH -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x14 _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with DASH _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x14 _x0_ (x, __p1); x
     with Not_found ->
       let x = ((((Pred.andc (Pred.orc (let symb_pred = nullable__x3
        and f_call = (fun _x1_ _x2_ -> (sv0))
@@ -8114,7 +8114,7 @@ and nullable__x14 __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v253,h2) -> (_v253,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with DASH -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt__x14 _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with DASH _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt__x14 _x0_ (x, __p1); x
 
 and nullable__x15 __lookahead _p0_ _x0_ =
   let __p1 = Yak.YkBuf.get_offset _p0_ in
@@ -8132,7 +8132,7 @@ and nullable__x15 __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v254,h2) -> (_v254,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with AT -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x15 _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with AT _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x15 _x0_ (x, __p1); x
     with Not_found ->
       let x = ((((Pred.andc (Pred.orc (let symb_pred = nullable__x3
        and f_call = (fun _x1_ _x2_ -> (sv0))
@@ -8145,7 +8145,7 @@ and nullable__x15 __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v254,h2) -> (_v254,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with AT -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt__x15 _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with AT _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt__x15 _x0_ (x, __p1); x
 
 and nullable_epilogue __lookahead _p0_ _x0_ = (Some ((((fun p (_v552,_h553) -> (_v552,_p 2470 (Ykd_int(2119)) p _h553))) ((Yak.YkBuf.get_offset) _p0_)) _x0_))
 
@@ -8165,7 +8165,7 @@ and nullable__x16 __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v255,h2) -> (_v255,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with DOLLAR -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x16 _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with DOLLAR _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x16 _x0_ (x, __p1); x
     with Not_found ->
       let x = ((((Pred.andc (Pred.orc (let symb_pred = nullable__x3
        and f_call = (fun _x1_ _x2_ -> (sv0))
@@ -8178,7 +8178,7 @@ and nullable__x16 __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v255,h2) -> (_v255,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with DOLLAR -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt__x16 _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with DOLLAR _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt__x16 _x0_ (x, __p1); x
 
 and nullable_early_return __lookahead _p0_ _x0_ = ((((Pred.andc (Pred.orc (let symb_pred = nullable__x12
        and f_call = (fun _x1_ _x2_ -> (sv0))
@@ -8238,7 +8238,7 @@ and nullable__x17 __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v256,h2) -> (_v256,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with ATDOLLAR -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x17 _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with ATDOLLAR _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x17 _x0_ (x, __p1); x
     with Not_found ->
       let x = ((((Pred.andc (Pred.orc (let symb_pred = nullable__x3
        and f_call = (fun _x1_ _x2_ -> (sv0))
@@ -8251,7 +8251,7 @@ and nullable__x17 __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v256,h2) -> (_v256,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with ATDOLLAR -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt__x17 _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with ATDOLLAR _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt__x17 _x0_ (x, __p1); x
 
 and nullable__x18 __lookahead _p0_ _x0_ =
   let __p1 = Yak.YkBuf.get_offset _p0_ in
@@ -8269,7 +8269,7 @@ and nullable__x18 __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v257,h2) -> (_v257,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with STAR -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x18 _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with STAR _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x18 _x0_ (x, __p1); x
     with Not_found ->
       let x = ((((Pred.andc (Pred.orc (let symb_pred = nullable__x3
        and f_call = (fun _x1_ _x2_ -> (sv0))
@@ -8282,7 +8282,7 @@ and nullable__x18 __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v257,h2) -> (_v257,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with STAR -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt__x18 _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with STAR _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt__x18 _x0_ (x, __p1); x
 
 and nullable_rettype __lookahead _p0_ _x0_ =
   let __p1 = Yak.YkBuf.get_offset _p0_ in
@@ -8450,7 +8450,7 @@ and nullable__x19 __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v258,h2) -> (_v258,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with HASH -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x19 _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with HASH _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x19 _x0_ (x, __p1); x
     with Not_found ->
       let x = ((((Pred.andc (Pred.orc (let symb_pred = nullable__x3
        and f_call = (fun _x1_ _x2_ -> (sv0))
@@ -8463,7 +8463,7 @@ and nullable__x19 __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v258,h2) -> (_v258,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with HASH -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt__x19 _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with HASH _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt__x19 _x0_ (x, __p1); x
 
 and nullable_lexer_case __lookahead _p0_ _x0_ =
   let __p1 = Yak.YkBuf.get_offset _p0_ in
@@ -8757,7 +8757,7 @@ and nullable__x40 __lookahead _p0_ _x0_ = ((((Pred.andc (Pred.orc (let symb_pred
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v279,h2) -> (_v279,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with DYPGENLEX -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_)
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with DYPGENLEX _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_)
 
 and nullable__x41 __lookahead _p0_ _x0_ =
   let __p1 = Yak.YkBuf.get_offset _p0_ in
@@ -8775,7 +8775,7 @@ and nullable__x41 __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v280,h2) -> (_v280,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with REPEAT -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x41 _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with REPEAT _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x41 _x0_ (x, __p1); x
     with Not_found ->
       let x = ((((Pred.andc (Pred.orc (let symb_pred = nullable__x3
        and f_call = (fun _x1_ _x2_ -> (sv0))
@@ -8788,7 +8788,7 @@ and nullable__x41 __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v280,h2) -> (_v280,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with REPEAT -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt__x41 _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with REPEAT _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt__x41 _x0_ (x, __p1); x
 
 and nullable_infix_op_stuff __lookahead _p0_ _x0_ = ((((Pred.orc (Pred.andc (Pred.orc (Pred.orc (let symb_pred = nullable__x26
        and f_call = (fun _x1_ _x2_ -> (sv0))
@@ -8843,7 +8843,7 @@ and nullable__x42 __lookahead _p0_ _x0_ = ((((Pred.andc (Pred.orc (let symb_pred
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v281,h2) -> (_v281,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with COUNTER -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_)
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with COUNTER _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_)
 
 and nullable__x43 __lookahead _p0_ _x0_ = ((((Pred.andc (Pred.orc (let symb_pred = nullable__x3
        and f_call = (fun _x1_ _x2_ -> (sv0))
@@ -8856,7 +8856,7 @@ and nullable__x43 __lookahead _p0_ _x0_ = ((((Pred.andc (Pred.orc (let symb_pred
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v282,h2) -> (_v282,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with IMPLICIT_PARAMETERS -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_)
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with IMPLICIT_PARAMETERS _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_)
 
 and nullable_option __lookahead _p0_ _x0_ =
   let __p1 = Yak.YkBuf.get_offset _p0_ in
@@ -9118,7 +9118,7 @@ and nullable__x44 __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v283,h2) -> (_v283,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with DECLARE_LEXER -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x44 _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with DECLARE_LEXER _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x44 _x0_ (x, __p1); x
     with Not_found ->
       let x = ((((Pred.andc (Pred.orc (let symb_pred = nullable__x3
        and f_call = (fun _x1_ _x2_ -> (sv0))
@@ -9131,7 +9131,7 @@ and nullable__x44 __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v283,h2) -> (_v283,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with DECLARE_LEXER -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt__x44 _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with DECLARE_LEXER _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt__x44 _x0_ (x, __p1); x
 
 and nullable__x45 __lookahead _p0_ _x0_ =
   let __p1 = Yak.YkBuf.get_offset _p0_ in
@@ -9149,7 +9149,7 @@ and nullable__x45 __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v284,h2) -> (_v284,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with DECLARE_LEXER2 -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x45 _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with DECLARE_LEXER2 _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x45 _x0_ (x, __p1); x
     with Not_found ->
       let x = ((((Pred.andc (Pred.orc (let symb_pred = nullable__x3
        and f_call = (fun _x1_ _x2_ -> (sv0))
@@ -9162,7 +9162,7 @@ and nullable__x45 __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v284,h2) -> (_v284,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with DECLARE_LEXER2 -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt__x45 _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with DECLARE_LEXER2 _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt__x45 _x0_ (x, __p1); x
 
 and nullable_late_inputs __lookahead _p0_ _x0_ = ((((Pred.andc (Pred.orc (let symb_pred = nullable__x16
        and f_call = (fun _x1_ _x2_ -> (sv0))
@@ -9214,7 +9214,7 @@ and nullable__x46 __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v285,h2) -> (_v285,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with SET_LEXER -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x46 _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with SET_LEXER _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x46 _x0_ (x, __p1); x
     with Not_found ->
       let x = ((((Pred.andc (Pred.orc (let symb_pred = nullable__x3
        and f_call = (fun _x1_ _x2_ -> (sv0))
@@ -9227,7 +9227,7 @@ and nullable__x46 __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v285,h2) -> (_v285,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with SET_LEXER -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt__x46 _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with SET_LEXER _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt__x46 _x0_ (x, __p1); x
 
 and nullable_params __lookahead _p0_ _x0_ = (Some ((((fun p (_v448,_h449) -> (_v448,_p 1833 (Ykd_int(2066)) p _h449))) ((Yak.YkBuf.get_offset) _p0_)) _x0_))
 
@@ -9247,7 +9247,7 @@ and nullable__x20 __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v259,h2) -> (_v259,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with EXCL -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x20 _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with EXCL _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x20 _x0_ (x, __p1); x
     with Not_found ->
       let x = ((((Pred.andc (Pred.orc (let symb_pred = nullable__x3
        and f_call = (fun _x1_ _x2_ -> (sv0))
@@ -9260,7 +9260,7 @@ and nullable__x20 __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v259,h2) -> (_v259,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with EXCL -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt__x20 _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with EXCL _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt__x20 _x0_ (x, __p1); x
 
 and nullable__x21 __lookahead _p0_ _x0_ =
   let __p1 = Yak.YkBuf.get_offset _p0_ in
@@ -9278,7 +9278,7 @@ and nullable__x21 __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v260,h2) -> (_v260,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with AMP -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x21 _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with AMP _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x21 _x0_ (x, __p1); x
     with Not_found ->
       let x = ((((Pred.andc (Pred.orc (let symb_pred = nullable__x3
        and f_call = (fun _x1_ _x2_ -> (sv0))
@@ -9291,7 +9291,7 @@ and nullable__x21 __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v260,h2) -> (_v260,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with AMP -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt__x21 _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with AMP _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt__x21 _x0_ (x, __p1); x
 
 and nullable__x22 __lookahead _p0_ _x0_ = ((((Pred.andc (Pred.orc (let symb_pred = nullable__x3
        and f_call = (fun _x1_ _x2_ -> (sv0))
@@ -9304,7 +9304,7 @@ and nullable__x22 __lookahead _p0_ _x0_ = ((((Pred.andc (Pred.orc (let symb_pred
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v261,h2) -> (_v261,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with DOT -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_)
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with DOT _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_)
 
 and nullable__x23 __lookahead _p0_ _x0_ = ((((Pred.andc (Pred.orc (let symb_pred = nullable__x3
        and f_call = (fun _x1_ _x2_ -> (sv0))
@@ -9317,7 +9317,7 @@ and nullable__x23 __lookahead _p0_ _x0_ = ((((Pred.andc (Pred.orc (let symb_pred
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v262,h2) -> (_v262,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with COLON -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_)
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with COLON _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_)
 
 and nullable__x24 __lookahead _p0_ _x0_ =
   let __p1 = Yak.YkBuf.get_offset _p0_ in
@@ -9335,7 +9335,7 @@ and nullable__x24 __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v263,h2) -> (_v263,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with EQ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x24 _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with EQ _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x24 _x0_ (x, __p1); x
     with Not_found ->
       let x = ((((Pred.andc (Pred.orc (let symb_pred = nullable__x3
        and f_call = (fun _x1_ _x2_ -> (sv0))
@@ -9348,7 +9348,7 @@ and nullable__x24 __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v263,h2) -> (_v263,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with EQ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt__x24 _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with EQ _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt__x24 _x0_ (x, __p1); x
 
 and nullable_ID __lookahead _p0_ _x0_ =
   let __p1 = Yak.YkBuf.get_offset _p0_ in
@@ -9397,7 +9397,7 @@ and nullable__x25 __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v264,h2) -> (_v264,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with EQSLASH -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x25 _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with EQSLASH _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x25 _x0_ (x, __p1); x
     with Not_found ->
       let x = ((((Pred.andc (Pred.orc (let symb_pred = nullable__x3
        and f_call = (fun _x1_ _x2_ -> (sv0))
@@ -9410,7 +9410,7 @@ and nullable__x25 __lookahead _p0_ _x0_ =
       | Some v2 -> Some (f_ret p v v2)) (let f_ret = (fun p (_,h1) (_v264,h2) -> (_v264,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
-                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with EQSLASH -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt__x25 _x0_ (x, __p1); x
+                          | Some v2 -> Some (f_ret p v v2)))) (let p = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with EQSLASH _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)")) and n = (prop2) in fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb in if p pos v then Some(n pos v) else None)) __lookahead) _p0_) _x0_) in SV_hashtbl.add npt__x25 _x0_ (x, __p1); x
 
 and nullable_typestuff __lookahead _p0_ _x0_ = (Some ((((fun p (_v504,_h505) -> (_v504,_p 2181 (Ykd_int(2094)) p _h505))) ((Yak.YkBuf.get_offset) _p0_)) ((((fun p (_v500,_h501) -> (_v500,_p 2166 (Ykd_int(2092)) p _h501))) ((Yak.YkBuf.get_offset) _p0_)) ((((fun p (_v496,_h497) -> (_v496,_p 2151 (Ykd_int(2090)) p _h497))) ((Yak.YkBuf.get_offset) _p0_)) ((((fun p (_v492,_h493) -> (_v492,_p 2136 (Ykd_int(2088)) p _h493))) ((Yak.YkBuf.get_offset) _p0_)) _x0_)))))
 
@@ -9565,15 +9565,15 @@ let __p182 = (let symb_pred = nullable_alternation
      match symb_pred la ykb (f_call p v) with
         None -> None
       | Some v2 -> Some (f_ret p v v2));;
-let __p136 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with COLON -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __a335 = (fun p (_v311,_h312) -> (_v311,_p 1299 (Ykd_int(2004)) p _h312));;
+let __p125 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with RANGLE _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __p78 = (fun la ykb v -> match nullable__x33 la ykb sv0 with | None -> None | Some _ -> Some v);;
 let __a358 = (fun p (_v476,_h477) -> (_v476,_p 2052 (Ykd_int(2080)) p _h477));;
-let __p132 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with HASH -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __p21 = let f_ret = (fun p (_,h1) (_v264,h2) -> (_v264,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
                           | Some v2 -> Some (f_ret p v v2));;
+let __p119 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with LPAREN _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __p15 = let f_ret = (fun p (_,h1) (_v258,h2) -> (_v258,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
@@ -9587,7 +9587,6 @@ let __p383 = (let symb_pred = nullable_lookahead
      match symb_pred la ykb (f_call p v) with
         None -> None
       | Some v2 -> Some (f_ret p v v2));;
-let __p125 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with RANGLE -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __a263 = (fun p (_v372,_h373) -> (_v372,_p 1513 (Ykd_int(2028)) p _h373));;
 let __p110 = (fun la ykb v -> match nullable__x44 la ykb sv0 with | None -> None | Some _ -> Some v);;
 let __p183 = (let symb_pred = nullable_Ocaml_until_RBRACE
@@ -9623,8 +9622,8 @@ let __a318 = (fun p (_v444,_h445) -> (_v444,_p 1817 (Ykd_int(2062)) p _h445));;
 let __a194 = (fun p (_v404,_h405) -> (_v404,_p 1654 (Ykd_int(2044)) p _h405));;
 let __a280 = (fun p (_v512,_h513) -> (_v512,_p 2261 (Ykd_int(2099)) p _h513));;
 let __a236 = (fun p (_v324,_h325) -> (_v324,_p 1337 (Ykd_int(2007)) p _h325));;
-let __p121 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with LBRACE -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __a193 = (fun p (_v402,_h403) -> (_v402,_p 1646 (Ykd_int(2043)) p _h403));;
+let __p121 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with LBRACE _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __p19 = let f_ret = (fun p (_,h1) (_v262,h2) -> (_v262,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
@@ -9679,7 +9678,6 @@ let __p226 = (let symb_pred = nullable_ID
 let __p409 = (fun la ykb v -> match nullable_EOF la ykb sv0 with | None -> None | Some _ -> Some v);;
 let __a310 = (fun p (_v378,_h379) -> (_v378,_p 1540 (Ykd_int(2031)) p _h379));;
 let __a339 = (fun p (_v544,_h545) -> (_v544,_p 2441 (Ykd_int(2115)) p _h545));;
-let __p134 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with AMP -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __p17 = let f_ret = (fun p (_,h1) (_v260,h2) -> (_v260,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
@@ -9714,7 +9712,6 @@ let __p228 = (let symb_pred = nullable_closed_text
      match symb_pred la ykb (f_call p v) with
         None -> None
       | Some v2 -> Some (f_ret p v v2));;
-let __p151 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with OCAML -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __p410 = (let symb_pred = nullable_Ocaml_until_EQUAL
        and f_call = (_e2)
        and f_ret = (_m2 1938)
@@ -9735,6 +9732,7 @@ let __p382 = (let symb_pred = nullable_lookahead
         None -> None
       | Some v2 -> Some (f_ret p v v2));;
 let __a174 = (fun p (_v345,_h346) -> (_v345,_p 1409 (Ykd_int(2015)) p _h346));;
+let __p123 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with LBRACK _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __a373 = (fun _x0_ _x1_ -> (((fun _ -> function (Ykenv_x313(_x49,_x136),h) -> (let __yk_x1 = _x136 in Ykenv_x306(__yk_x1),h) | _ -> raise (Failure  "Expected (Ykenv_x313(_x49,_x136),h)")) _x0_) (((fun p (_v314,_h315) -> (_v314,_p 1303 (Ykd_int(2000)) p _h315)) _x0_) (((fun _ -> function (Ykenv_x306(_x49),h) -> (let __yk_x1 = _x49+1 in Ykenv_x313(_x49,__yk_x1),h) | _ -> raise (Failure  "Expected (Ykenv_x306(_x49),h)")) _x0_) _x1_))));;
 let __a218 = (fun p (_v508,_h509) -> (_v508,_p 2240 (Ykd_int(2097)) p _h509));;
 let __p189 = (let symb_pred = nullable_params
@@ -9756,6 +9754,7 @@ let __p203 = (let symb_pred = nullable_alternation
         None -> None
       | Some v2 -> Some (f_ret p v v2));;
 let __a307 = (fun p (_v420,_h421) -> (_v420,_p 1721 (Ykd_int(2053)) p _h421));;
+let __p143 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with BINVAL _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __p184 = (let symb_pred = nullable_alternation
        and f_call = (_e2)
        and f_ret = (_m2 1842)
@@ -9765,6 +9764,7 @@ let __p184 = (let symb_pred = nullable_alternation
      match symb_pred la ykb (f_call p v) with
         None -> None
       | Some v2 -> Some (f_ret p v v2));;
+let __p146 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with WHEN _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __p66 = (fun la ykb v -> match nullable__x6 la ykb sv0 with | None -> None | Some _ -> Some v);;
 let __p9 = let f_ret = (fun p (_,h1) (_v252,h2) -> (_v252,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
@@ -9790,7 +9790,6 @@ let __p270 = (let symb_pred = nullable_element
         None -> None
       | Some v2 -> Some (f_ret p v v2));;
 let __a378 = (fun p (_v338,_h339) -> (_v338,_p 1397 (Ykd_int(2012)) p _h339));;
-let __p153 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with DYPGENLEX -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __a327 = (fun p (_v516,_h517) -> (_v516,_p 2271 (Ykd_int(2098)) p _h517));;
 let __p208 = (let symb_pred = nullable_element
        and f_call = (_e2)
@@ -9812,7 +9811,6 @@ let __p411 = (let symb_pred = nullable_Ocaml_until_EQUAL
       | Some v2 -> Some (f_ret p v v2));;
 let __a299 = (fun p (_v478,_h479) -> (_v478,_p 2064 (Ykd_int(2081)) p _h479));;
 let __p104 = (fun la ykb v -> match nullable__x12 la ykb sv0 with | None -> None | Some _ -> Some v);;
-let __p141 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with DECVAL -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __p392 = (let symb_pred = nullable_rule
        and f_call = (_e2)
        and f_ret = (_m2 1280)
@@ -9822,6 +9820,7 @@ let __p392 = (let symb_pred = nullable_rule
      match symb_pred la ykb (f_call p v) with
         None -> None
       | Some v2 -> Some (f_ret p v v2));;
+let __p138 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with EQSLASH _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __p412 = (let symb_pred = nullable_Ocaml_until_RBRACKET
        and f_call = (_e2)
        and f_ret = (_m2 1941)
@@ -9831,7 +9830,6 @@ let __p412 = (let symb_pred = nullable_Ocaml_until_RBRACKET
      match symb_pred la ykb (f_call p v) with
         None -> None
       | Some v2 -> Some (f_ret p v v2));;
-let __p139 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with SLASH -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __a390 = (fun p (_v560,_h561) -> (_v560,_p 2507 (Ykd_int(2118)) p _h561));;
 let __p187 = (let symb_pred = nullable_ATID
        and f_call = (_e2)
@@ -9842,6 +9840,7 @@ let __p187 = (let symb_pred = nullable_ATID
      match symb_pred la ykb (f_call p v) with
         None -> None
       | Some v2 -> Some (f_ret p v v2));;
+let __p145 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with DOLLARPOS _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __p7 = let f_ret = (fun p (_,h1) (_v250,h2) -> (_v250,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
@@ -9901,7 +9900,6 @@ let __p212 = (let symb_pred = nullable_return_type
      match symb_pred la ykb (f_call p v) with
         None -> None
       | Some v2 -> Some (f_ret p v v2));;
-let __p145 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with DOLLARPOS -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __p111 = (fun la ykb v -> match nullable__x45 la ykb sv0 with | None -> None | Some _ -> Some v);;
 let __b53 = (let f = hex_range in
   fun (_,h) input pos ->
@@ -9911,7 +9909,7 @@ let __b53 = (let f = hex_range in
     end);;
 let __a407 = (fun p (_v534,_h535) -> (_v534,_p 2366 (Ykd_int(2109)) p _h535));;
 let __a365 = (fun p (_v528,_h529) -> (_v528,_p 2325 (Ykd_int(2104)) p _h529));;
-let __p122 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with RBRACE -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
+let __p159 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with SET_LEXER _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __p101 = (let symb_pred = nullable_alternation
        and f_call = (_e2)
        and f_ret = (_m2 1837)
@@ -9968,7 +9966,6 @@ let __p350 = (let symb_pred = nullable_Ocaml_until_RBRACKET
       | Some v2 -> Some (f_ret p v v2));;
 let __a375 = (fun p (_v550,_h551) -> (_v550,_p 2465 (Ykd_int(2112)) p _h551));;
 let __a371 = (fun p (_v556,_h557) -> (_v556,_p 2493 (Ykd_int(2121)) p _h557));;
-let __p142 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with HEXVAL -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __p326 = (let symb_pred = nullable_ID
        and f_call = (_e2)
        and f_ret = (_m2 2245)
@@ -10076,6 +10073,7 @@ let __p113 = (let symb_pred = nullable_ATID
      match symb_pred la ykb (f_call p v) with
         None -> None
       | Some v2 -> Some (f_ret p v v2));;
+let __p134 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with AMP _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __a362 = (fun p (_v502,_h503) -> (_v502,_p 2175 (Ykd_int(2093)) p _h503));;
 let __a356 = (fun p (_v388,_h389) -> (_v388,_p 1585 (Ykd_int(2032)) p _h389));;
 let __p252 = (let symb_pred = nullable_Ocaml_until_RBRACE
@@ -10096,6 +10094,7 @@ let __p43 = let f_ret = (fun p (_,h1) (_v286,h2) -> (_v286,h1)) in (fun la ykb v
                             None -> None
                           | Some v2 -> Some (f_ret p v v2));;
 let __p247 = (fun la ykb v -> match nullable__x7 la ykb sv0 with | None -> None | Some _ -> Some v);;
+let __p156 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with IMPLICIT_PARAMETERS _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __p74 = (let symb_pred = nullable_rulename
        and f_call = (_e2)
        and f_ret = (_m2 1590)
@@ -10115,6 +10114,7 @@ let __p221 = (let symb_pred = nullable_rettype
         None -> None
       | Some v2 -> Some (f_ret p v v2));;
 let __a220 = (fun p (_v514,_h515) -> (_v514,_p 2267 (Ykd_int(2100)) p _h515));;
+let __p142 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with HEXVAL _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __p68 = (fun la ykb v -> match nullable__x13 la ykb sv0 with | None -> None | Some _ -> Some v);;
 let __p240 = (fun _ -> function (Ykenv_x344(y),_) -> (y=Ocaml_lexer.Parser.RPAREN) | _ -> raise (Failure  "Expected (Ykenv_x344(y),_)"));;
 let __p95 = (let symb_pred = nullable_DIGITS
@@ -10153,6 +10153,7 @@ let __p76 = (let symb_pred = nullable_num_val
      match symb_pred la ykb (f_call p v) with
         None -> None
       | Some v2 -> Some (f_ret p v v2));;
+let __p148 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with BOX _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __p298 = (let symb_pred = nullable_Ocaml_until_EQUAL
        and f_call = (_e2)
        and f_ret = (_m2 1913)
@@ -10163,7 +10164,6 @@ let __p298 = (let symb_pred = nullable_Ocaml_until_EQUAL
         None -> None
       | Some v2 -> Some (f_ret p v v2));;
 let __p242 = (fun _ -> function (Ykenv_x344(y),_) -> (y=Ocaml_lexer.Parser.RBRACKET) | _ -> raise (Failure  "Expected (Ykenv_x344(y),_)"));;
-let __p130 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with ATDOLLAR -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __p62 = (fun la ykb v -> match nullable__x24 la ykb sv0 with | None -> None | Some _ -> Some v);;
 let __p223 = (let symb_pred = nullable_rettype
        and f_call = (_e2)
@@ -10187,10 +10187,11 @@ let __p328 = (let symb_pred = nullable_CHARVAL
      match symb_pred la ykb (f_call p v) with
         None -> None
       | Some v2 -> Some (f_ret p v v2));;
-let __p135 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with DOT -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __a180 = (fun p (_v364,_h365) -> (_v364,_p 1472 (Ykd_int(2024)) p _h365));;
 let __p80 = (fun la ykb v -> match nullable__x35 la ykb sv0 with | None -> None | Some _ -> Some v);;
 let __a288 = (fun p (_v307,_h308) -> (_v307,_p 1283 (Ykd_int(2002)) p _h308));;
+let __p158 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with DECLARE_LEXER2 _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
+let __p118 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with EOF _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __p171 = (let symb_pred = nullable_dec_range
        and f_call = (_e2)
        and f_ret = (_m2 1333)
@@ -10200,11 +10201,10 @@ let __p171 = (let symb_pred = nullable_dec_range
      match symb_pred la ykb (f_call p v) with
         None -> None
       | Some v2 -> Some (f_ret p v v2));;
-let __p149 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with BEGIN -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
-let __p133 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with EXCL -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __p112 = (fun la ykb v -> match nullable__x46 la ykb sv0 with | None -> None | Some _ -> Some v);;
+let __p137 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with EQ _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
+let __p154 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with REPEAT _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __a238 = (fun p (_v336,_h337) -> (_v336,_p 1387 (Ykd_int(2013)) p _h337));;
-let __p148 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with BOX -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __p329 = (let symb_pred = nullable_ID
        and f_call = (_e2)
        and f_ret = (_m2 2322)
@@ -10215,7 +10215,6 @@ let __p329 = (let symb_pred = nullable_ID
         None -> None
       | Some v2 -> Some (f_ret p v v2));;
 let __p286 = (fun la ykb v -> match nullable_defined_as la ykb sv0 with | None -> None | Some _ -> Some v);;
-let __p129 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with DOLLAR -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __p39 = let f_ret = (fun p (_,h1) (_v282,h2) -> (_v282,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
@@ -10224,7 +10223,6 @@ let __a200 = (fun p (_v434,_h435) -> (_v434,_p 1784 (Ykd_int(2059)) p _h435));;
 let __p243 = (fun _ -> function (Ykenv_x361(y),_) -> (y=Ocamllex_lexer.Parser.RBRACE) | _ -> raise (Failure  "Expected (Ykenv_x361(y),_)"));;
 let __a232 = (fun p -> function ((Ykenv_x243(_x4) as _v293),_h294) -> (_v293,_p 1236 (Ykd_int((match _x4 with DIGITS _x5 -> _x5 | _ -> failwith "impossible"))) p _h294) | _ -> raise (Failure  "Expected ((Ykenv_x243(_x4) as _v293),_h294)"));;
 let __p88 = (fun la ykb v -> match nullable__x10 la ykb sv0 with | None -> None | Some _ -> Some v);;
-let __p157 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with DECLARE_LEXER -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __p351 = (let symb_pred = nullable_Ocaml_until_RBRACKET
        and f_call = (_e2)
        and f_ret = (_m2 1975)
@@ -10235,6 +10233,7 @@ let __p351 = (let symb_pred = nullable_Ocaml_until_RBRACKET
         None -> None
       | Some v2 -> Some (f_ret p v v2));;
 let __a196 = (fun p (_v410,_h411) -> (_v410,_p 1681 (Ykd_int(2048)) p _h411));;
+let __p120 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with RPAREN _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __a319 = (fun p (_v446,_h447) -> (_v446,_p 1827 (Ykd_int(2065)) p _h447));;
 let __p91 = (fun la ykb v -> match nullable__x21 la ykb sv0 with | None -> None | Some _ -> Some v);;
 let __p290 = (let symb_pred = nullable_Ocaml_until_RBRACE
@@ -10246,6 +10245,8 @@ let __p290 = (let symb_pred = nullable_Ocaml_until_RBRACE
      match symb_pred la ykb (f_call p v) with
         None -> None
       | Some v2 -> Some (f_ret p v v2));;
+let __p130 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with ATDOLLAR _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
+let __p150 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with END _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __p37 = let f_ret = (fun p (_,h1) (_v280,h2) -> (_v280,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
@@ -10259,7 +10260,9 @@ let __a295 = (fun p (_v426,_h427) -> (_v426,_p 1748 (Ykd_int(2055)) p _h427));;
 let __a231 = (fun p -> function ((Ykenv_x243(_x4) as _v290),_h291) -> (_v290,_p 1227 (Ykd_x107((match _x4 with PROSEVAL _x5 -> _x5 | _ -> failwith "impossible"))) p _h291) | _ -> raise (Failure  "Expected ((Ykenv_x243(_x4) as _v290),_h291)"));;
 let __a321 = (fun p (_v500,_h501) -> (_v500,_p 2166 (Ykd_int(2092)) p _h501));;
 let __p54 = (fun la ykb v -> match nullable__x28 la ykb sv0 with | None -> None | Some _ -> Some v);;
+let __p122 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with RBRACE _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __a214 = (fun p (_v438,_h439) -> (_v438,_p 1796 (Ykd_int(2061)) p _h439));;
+let __p149 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with BEGIN _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __p332 = (let symb_pred = nullable_Ocaml_until_RBRACE
        and f_call = (_e2)
        and f_ret = (_m2 2480)
@@ -10280,7 +10283,6 @@ let __p374 = (let symb_pred = nullable_epilogue
      match symb_pred la ykb (f_call p v) with
         None -> None
       | Some v2 -> Some (f_ret p v v2));;
-let __p128 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with AT -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __a388 = (fun p (_v536,_h537) -> (_v536,_p 2382 (Ykd_int(2110)) p _h537));;
 let __p315 = (let symb_pred = nullable_element
        and f_call = (_e2)
@@ -10291,6 +10293,7 @@ let __p315 = (let symb_pred = nullable_element
      match symb_pred la ykb (f_call p v) with
         None -> None
       | Some v2 -> Some (f_ret p v v2));;
+let __p144 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with ATPOS _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __p283 = (let symb_pred = nullable_rettype
        and f_call = (_e2)
        and f_ret = (_m2 2356)
@@ -10319,6 +10322,7 @@ let __p201 = (let symb_pred = nullable_DIGITS
      match symb_pred la ykb (f_call p v) with
         None -> None
       | Some v2 -> Some (f_ret p v v2));;
+let __p136 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with COLON _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __a352 = (fun p (_v412,_h413) -> (_v412,_p 1689 (Ykd_int(2046)) p _h413));;
 let __p366 = (let symb_pred = nullable_lexer_case
        and f_call = (_e2)
@@ -10330,14 +10334,14 @@ let __p366 = (let symb_pred = nullable_lexer_case
         None -> None
       | Some v2 -> Some (f_ret p v v2));;
 let __p69 = (fun la ykb v -> match nullable__x14 la ykb sv0 with | None -> None | Some _ -> Some v);;
-let __p150 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with END -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
-let __p144 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with ATPOS -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __p27 = let f_ret = (fun p (_,h1) (_v270,h2) -> (_v270,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
                           | Some v2 -> Some (f_ret p v v2));;
 let __a276 = (fun p (_v494,_h495) -> (_v494,_p 2145 (Ykd_int(2089)) p _h495));;
+let __p157 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with DECLARE_LEXER _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __a401 = (fun p (_v340,_h341) -> (_v340,_p 1402 (Ykd_int(2011)) p _h341));;
+let __p124 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with RBRACK _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __p63 = (fun la ykb v -> match nullable__x25 la ykb sv0 with | None -> None | Some _ -> Some v);;
 let __p49 = (let symb_pred = nullable_prologue
        and f_call = (_e2)
@@ -10394,6 +10398,7 @@ let __p108 = (let symb_pred = nullable_CHARVAL
      match symb_pred la ykb (f_call p v) with
         None -> None
       | Some v2 -> Some (f_ret p v v2));;
+let __p147 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with DELAY _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __a391 = (fun p (_v564,_h565) -> (_v564,_p 2516 (Ykd_int(2124)) p _h565));;
 let __a267 = (fun p (_v472,_h473) -> (_v472,_p 2025 (Ykd_int(2078)) p _h473));;
 let __p229 = (let symb_pred = nullable_typestuff
@@ -10432,7 +10437,6 @@ let __p331 = (let symb_pred = nullable_elements
      match symb_pred la ykb (f_call p v) with
         None -> None
       | Some v2 -> Some (f_ret p v v2));;
-let __p119 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with LPAREN -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __p334 = (let symb_pred = nullable_Ocaml_until_RBRACE
        and f_call = (_e2)
        and f_ret = (_m2 2500)
@@ -10472,8 +10476,6 @@ let __p285 = (let symb_pred = nullable_closed_text
      match symb_pred la ykb (f_call p v) with
         None -> None
       | Some v2 -> Some (f_ret p v v2));;
-let __p158 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with DECLARE_LEXER2 -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
-let __p154 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with REPEAT -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __p109 = (let symb_pred = nullable_lexer_case
        and f_call = (_e2)
        and f_ret = (_m2 2330)
@@ -10493,6 +10495,7 @@ let __p268 = (let symb_pred = nullable_element
      match symb_pred la ykb (f_call p v) with
         None -> None
       | Some v2 -> Some (f_ret p v v2));;
+let __p152 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with OCAMLLEX _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __p97 = (let symb_pred = nullable_DIGITS
        and f_call = (_e2)
        and f_ret = (_m2 2042)
@@ -10544,6 +10547,7 @@ let __p36 = let f_ret = (fun p (_,h1) (_v279,h2) -> (_v279,h1)) in (fun la ykb v
                          match nullable__x3 la ykb sv0 with
                             None -> None
                           | Some v2 -> Some (f_ret p v v2));;
+let __p131 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with STAR _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __p73 = (let symb_pred = nullable_lookahead
        and f_call = (_e2)
        and f_ret = (_m2 1545)
@@ -10591,8 +10595,8 @@ let __p380 = (let symb_pred = nullable_lookahead
      match symb_pred la ykb (f_call p v) with
         None -> None
       | Some v2 -> Some (f_ret p v v2));;
+let __p141 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with DECVAL _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __a204 = (fun p (_v450,_h451) -> (_v450,_p 1857 (Ykd_int(2067)) p _h451));;
-let __p123 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with LBRACK -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __p83 = (fun la ykb v -> match nullable__x15 la ykb sv0 with | None -> None | Some _ -> Some v);;
 let __p357 = (let symb_pred = nullable_Ocaml_until_RPAREN
        and f_call = (_e2)
@@ -10650,6 +10654,7 @@ let __b61 = (fun _x0_ _x1_ _x2_ -> ((((let f = Ocamllex.until_RBRACE in
     end) (((fun p (_v359,_h360) -> (_v359,_p 1453 (Ykd_int(2022)) p _h360)) _x1_) _x0_)) _x1_) _x2_));;
 let __a314 = (fun p (_v474,_h475) -> (_v474,_p 2037 (Ykd_int(2079)) p _h475));;
 let __a213 = (fun p (_v442,_h443) -> (_v442,_p 1813 (Ykd_int(2064)) p _h443));;
+let __p140 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with LANGLE _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __p38 = let f_ret = (fun p (_,h1) (_v281,h2) -> (_v281,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
@@ -10711,8 +10716,8 @@ let __p179 = (let symb_pred = nullable_Ocaml_until_RPAREN
      match symb_pred la ykb (f_call p v) with
         None -> None
       | Some v2 -> Some (f_ret p v v2));;
+let __p155 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with COUNTER _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __p162 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with DIGITS _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
-let __p120 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with RPAREN -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __p114 = (let symb_pred = nullable_rulename
        and f_call = (_e2)
        and f_ret = (_m2 2406)
@@ -10785,6 +10790,7 @@ let __p255 = (let symb_pred = nullable_element
         None -> None
       | Some v2 -> Some (f_ret p v v2));;
 let __a389 = (fun p (_v538,_h539) -> (_v538,_p 2398 (Ykd_int(2111)) p _h539));;
+let __p127 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with DASH _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __p355 = (let symb_pred = nullable_concatenation
        and f_call = (_e2)
        and f_ret = (_m2 1582)
@@ -10810,7 +10816,6 @@ let __b60 = (fun _x0_ _x1_ _x2_ -> ((((let f = Ocaml.until_RBRACKET in
     | Some (n, __yk_x1) -> Some (n, (Ykenv_x344(__yk_x1),h))
     end) (((fun p (_v355,_h356) -> (_v355,_p 1441 (Ykd_int(2020)) p _h356)) _x1_) _x0_)) _x1_) _x2_));;
 let __a246 = (fun p (_v370,_h371) -> (_v370,_p 1499 (Ykd_int(2027)) p _h371));;
-let __p138 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with EQSLASH -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __p93 = (fun la ykb v -> match nullable__x19 la ykb sv0 with | None -> None | Some _ -> Some v);;
 let __p28 = let f_ret = (fun p (_,h1) (_v271,h2) -> (_v271,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
@@ -10820,15 +10825,13 @@ let __p22 = let f_ret = (fun p (_,h1) (_v265,h2) -> (_v265,h1)) in (fun la ykb v
                          match nullable__x3 la ykb sv0 with
                             None -> None
                           | Some v2 -> Some (f_ret p v v2));;
-let __p159 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with SET_LEXER -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
-let __p146 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with WHEN -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
+let __p153 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with DYPGENLEX _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __p16 = let f_ret = (fun p (_,h1) (_v259,h2) -> (_v259,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
                           | Some v2 -> Some (f_ret p v v2));;
 let __p163 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with ID _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __a234 = (fun p -> function ((Ykenv_x243(_x4) as _v299),_h300) -> (_v299,_p 1254 (Ykd_x107((match _x4 with ATID _x5 -> _x5 | _ -> failwith "impossible"))) p _h300) | _ -> raise (Failure  "Expected ((Ykenv_x243(_x4) as _v299),_h300)"));;
-let __p127 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with DASH -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __p347 = (let symb_pred = nullable_Ocaml_until_RBRACKET
        and f_call = (_e2)
        and f_ret = (_m2 1933)
@@ -10888,8 +10891,6 @@ let __p14 = let f_ret = (fun p (_,h1) (_v257,h2) -> (_v257,h1)) in (fun la ykb v
                          match nullable__x3 la ykb sv0 with
                             None -> None
                           | Some v2 -> Some (f_ret p v v2));;
-let __p131 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with STAR -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
-let __p124 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with RBRACK -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __a364 = (fun p (_v522,_h523) -> (_v522,_p 2298 (Ykd_int(2101)) p _h523));;
 let __a384 = (fun p (_v422,_h423) -> (_v422,_p 1729 (Ykd_int(2049)) p _h423));;
 let __p336 = (fun _ -> function (Ykenv_x306(_x49),_) -> (_x49>=1) | _ -> raise (Failure  "Expected (Ykenv_x306(_x49),_)"));;
@@ -10972,6 +10973,7 @@ let __p264 = (let symb_pred = nullable_ATID
         None -> None
       | Some v2 -> Some (f_ret p v v2));;
 let __a209 = (fun p (_v470,_h471) -> (_v470,_p 2014 (Ykd_int(2077)) p _h471));;
+let __p132 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with HASH _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __p302 = (let symb_pred = nullable_Ocaml_until_EQUAL
        and f_call = (_e2)
        and f_ret = (_m2 1972)
@@ -10981,7 +10983,6 @@ let __p302 = (let symb_pred = nullable_Ocaml_until_EQUAL
      match symb_pred la ykb (f_call p v) with
         None -> None
       | Some v2 -> Some (f_ret p v v2));;
-let __p143 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with BINVAL -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __p262 = (let symb_pred = nullable_Ocaml_until_RPAREN
        and f_call = (_e2)
        and f_ret = (_m2 1882)
@@ -10992,6 +10993,7 @@ let __p262 = (let symb_pred = nullable_Ocaml_until_RPAREN
         None -> None
       | Some v2 -> Some (f_ret p v v2));;
 let __a354 = (fun p (_v456,_h457) -> (_v456,_p 1888 (Ykd_int(2070)) p _h457));;
+let __p133 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with EXCL _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __p65 = (let symb_pred = nullable_ID
        and f_call = (_e2)
        and f_ret = (_m2 1469)
@@ -11007,6 +11009,7 @@ let __b51 = (let f = dec_range in
     | None -> None
     | Some (n, __yk_x1) -> Some (n, (Ykenv_x317(__yk_x1),h))
     end);;
+let __p128 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with AT _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __a376 = (fun p (_v326,_h327) -> (_v326,_p 1347 (Ykd_int(2006)) p _h327));;
 let __p323 = (let symb_pred = nullable_Ocaml_until_RPAREN
        and f_call = (_e2)
@@ -11041,12 +11044,11 @@ let __p10 = let f_ret = (fun p (_,h1) (_v253,h2) -> (_v253,h1)) in (fun la ykb v
                             None -> None
                           | Some v2 -> Some (f_ret p v v2));;
 let __a260 = (fun p (_v408,_h409) -> (_v408,_p 1675 (Ykd_int(2047)) p _h409));;
-let __p126 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with BAR -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __p4 = let f_ret = (fun p (_,h1) (_v247,h2) -> (_v247,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
                           | Some v2 -> Some (f_ret p v v2));;
-let __p155 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with COUNTER -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
+let __p151 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with OCAML _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __a402 = (fun p (_v458,_h459) -> (_v458,_p 1905 (Ykd_int(2071)) p _h459));;
 let __p353 = (let symb_pred = nullable_Ocaml_until_RPAREN
        and f_call = (_e2)
@@ -11058,6 +11060,7 @@ let __p353 = (let symb_pred = nullable_Ocaml_until_RPAREN
         None -> None
       | Some v2 -> Some (f_ret p v v2));;
 let __a303 = (fun p (_v486,_h487) -> (_v486,_p 2112 (Ykd_int(2085)) p _h487));;
+let __p129 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with DOLLAR _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __p415 = (let symb_pred = nullable_lookahead
        and f_call = (_e2)
        and f_ret = (_m2 2003)
@@ -11089,7 +11092,6 @@ let __p35 = let f_ret = (fun p (_,h1) (_v278,h2) -> (_v278,h1)) in (fun la ykb v
                          match nullable__x3 la ykb sv0 with
                             None -> None
                           | Some v2 -> Some (f_ret p v v2));;
-let __p140 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with LANGLE -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __p8 = let f_ret = (fun p (_,h1) (_v251,h2) -> (_v251,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
@@ -11144,7 +11146,7 @@ let __p324 = (let symb_pred = nullable_Ocaml_until_RPAREN
       | Some v2 -> Some (f_ret p v v2));;
 let __a340 = (fun p (_v546,_h547) -> (_v546,_p 2451 (Ykd_int(2116)) p _h547));;
 let __a175 = (fun p (_v349,_h350) -> (_v349,_p 1421 (Ykd_int(2017)) p _h350));;
-let __p152 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with OCAMLLEX -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
+let __p135 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with DOT _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __p398 = (fun la ykb v -> match nullable__x40 la ykb sv0 with | None -> None | Some _ -> Some v);;
 let __p251 = (let symb_pred = nullable_Ocaml_until_RBRACE
        and f_call = (_e2)
@@ -11155,6 +11157,7 @@ let __p251 = (let symb_pred = nullable_Ocaml_until_RBRACE
      match symb_pred la ykb (f_call p v) with
         None -> None
       | Some v2 -> Some (f_ret p v v2));;
+let __p139 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with SLASH _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __p75 = (let symb_pred = nullable_CHARVAL
        and f_call = (_e2)
        and f_ret = (_m2 1635)
@@ -11173,7 +11176,6 @@ let __p305 = (let symb_pred = nullable_Ocaml_until_RPAREN
      match symb_pred la ykb (f_call p v) with
         None -> None
       | Some v2 -> Some (f_ret p v v2));;
-let __p118 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with EOF -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __p89 = (let symb_pred = nullable_repetition
        and f_call = (_e2)
        and f_ret = (_m2 1854)
@@ -11183,7 +11185,6 @@ let __p89 = (let symb_pred = nullable_repetition
      match symb_pred la ykb (f_call p v) with
         None -> None
       | Some v2 -> Some (f_ret p v v2));;
-let __p156 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with IMPLICIT_PARAMETERS -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __p31 = let f_ret = (fun p (_,h1) (_v274,h2) -> (_v274,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
                          match nullable__x3 la ykb sv0 with
                             None -> None
@@ -11205,6 +11206,7 @@ let __p300 = (let symb_pred = nullable_Ocaml_until_EQUAL
      match symb_pred la ykb (f_call p v) with
         None -> None
       | Some v2 -> Some (f_ret p v v2));;
+let __p126 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with BAR _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __p107 = (let symb_pred = nullable_ID
        and f_call = (_e2)
        and f_ret = (_m2 2276)
@@ -11217,7 +11219,6 @@ let __p107 = (let symb_pred = nullable_ID
 let __a224 = (fun p (_v526,_h527) -> (_v526,_p 2317 (Ykd_int(2106)) p _h527));;
 let __a282 = (fun p (_v524,_h525) -> (_v524,_p 2311 (Ykd_int(2105)) p _h525));;
 let __a279 = (fun p (_v506,_h507) -> (_v506,_p 2234 (Ykd_int(2096)) p _h507));;
-let __p137 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with EQ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __a361 = (fun p (_v504,_h505) -> (_v504,_p 2181 (Ykd_int(2094)) p _h505));;
 let __a312 = (fun p (_v386,_h387) -> (_v386,_p 1578 (Ykd_int(2036)) p _h387));;
 let __p29 = let f_ret = (fun p (_,h1) (_v272,h2) -> (_v272,h1)) in (fun la ykb v -> let p = Yak.YkBuf.get_offset ykb in
@@ -11232,7 +11233,6 @@ let __p23 = let f_ret = (fun p (_,h1) (_v266,h2) -> (_v266,h1)) in (fun la ykb v
 let __p249 = (fun la ykb v -> match nullable__x11 la ykb sv0 with | None -> None | Some _ -> Some v);;
 let __a275 = (fun p (_v496,_h497) -> (_v496,_p 2151 (Ykd_int(2090)) p _h497));;
 let __p160 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with CHARVAL _ -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
-let __p147 = (fun _ -> function (Ykenv_x243(_x4),_) -> ((match _x4 with DELAY -> true | _ -> false)) | _ -> raise (Failure  "Expected (Ykenv_x243(_x4),_)"));;
 let __p369 = (fun la ykb v -> match nullable__x22 la ykb sv0 with | None -> None | Some _ -> Some v);;
 let __binder0 = __default_ret;;
 let __binder1 = (fun p (_,h1) (_v244,h2) -> (_v244,h1));;

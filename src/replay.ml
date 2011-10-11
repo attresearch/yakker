@@ -344,14 +344,17 @@ let _replay_%s ykinput h %s=
   let mkOUTPUT l = mkRHS (mkOutput l) in
   let mkBEFORE r l = mkSEQ[mkOUTPUT(l);r] in
   let mkAFTER r l =
-    (* Output after r, while preserving producerness *)
+    (* Output after r, while preserving producerness
+       If [r] is not already producer, then we end new
+       version of [r] with epsilon to avoid changing status of
+       [r] to producer. *)
     let ep, lp = is_producer r in
     if ep || lp then
       let eo = if ep then Some (Variables.fresh()) else None in
       let lo = if lp then Some (Variables.fresh()) else None in
       mkSEQ2(r, eo, lo, mkSEQ[mkOUTPUT(l); mkACTION2(eo, lo)])
     else
-      mkSEQ[r;mkOUTPUT(l)] in
+      mkSEQ[r;mkOUTPUT(l);mkLIT ""] in
   let mkOUT =
     if !Compileopt.postfix_history
     then mkAFTER
@@ -367,7 +370,7 @@ let _replay_%s ykinput h %s=
         ()
     | Position false ->
         (* Desugar late position into a call to delay. Since delay is
-           late-relevant, does not change relevance. *)
+           late-relevant, does not change relevance or producerness. *)
         r.r <- mkOutput r.a.pre
     | Opt r1 ->
         loop r1

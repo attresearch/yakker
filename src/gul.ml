@@ -414,6 +414,13 @@ let attribute_table_of_definitions ds =
 
 let attribute_table_of_grammar gr = attribute_table_of_definitions gr.ds
 
+let late_relevance_set_of_grammar gr =
+  List.fold_left begin fun t -> function
+    | RuleDef (n, {a = {late_relevant = true}}, _) -> PSet.add n t
+    | _ -> t
+  end
+    (PSet.create String.compare) gr.ds
+
 (** [get_reachable definitions roots] returns the subset of the
     definitions that are reachable from the roots. *)
 let get_reachable ds roots =
@@ -523,12 +530,19 @@ let remove_late_actions gr =
     | Lookahead(x, r2) -> mkLOOKAHEAD(x, loop r2)
   in
 
+  (* Clear any type annotation from the case to avoid saving the value from the token. *)
+  let rla_lexercase = function
+    | TokenLit (x,_,y) -> TokenLit (x,None,y)
+    | TokenSymb (x, _,y) -> TokenSymb (x,None,y) in
+
   let rla_def = function
     | RuleDef (n,r,a) ->
         a.Attr.late_params <- None;
         RuleDef (n, loop r, a)
-    | d -> d
-  in
+    | LexerDecl(n,np,t,l) -> LexerDecl(n,np,t, List.map rla_lexercase l)
+    | LexerDecl2(g,ty,l) -> LexerDecl2(g,ty,List.map rla_lexercase l)
+    | SingleLexerDecl(g,ty,l) -> SingleLexerDecl(g,ty, List.map rla_lexercase l)
+    | (LexerDef rs) as d -> d in
 
   {gr with
      ds= List.map rla_def gr.ds;

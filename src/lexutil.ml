@@ -82,20 +82,24 @@ let mk_lexer use_new_syntax tokenizer token_type decls =
     List.map
       (fun (nonterminal, carried_type, ocaml_constructor) ->
          let a = mkAttr() in
-         let rhs =
+         (* In case the user has left off the carrier type simply because
+            they don't care about the result, but the constructor might
+            actually have non-zero arity, we include a wildcard after the
+            constructor, a feature supported even for nullary constructors as
+            of OCaml 3.11. *)
+         let guard = mkWHEN(sprintf "(match %s with %s _ -> true | _ -> false)" x ocaml_constructor) in
+         let tail =
            match carried_type with
                Some _ ->
-                 let guard = mkWHEN(sprintf "(match %s with %s _ -> true | _ -> false)" x ocaml_constructor) in
                  let delay = mkDELAY(sprintf "(match %s with %s %s -> %s | _ -> failwith \"impossible\")" x ocaml_constructor y y,
                                      carried_type) in
-                 mkSEQ2(mkSYMB(tok,None,None),Some x,None,mkSEQ[guard;delay])
-             | None ->
-                 let guard = mkWHEN(sprintf "(match %s with %s -> true | _ -> false)" x ocaml_constructor) in
-                 mkSEQ2(mkSYMB(tok,None,None),Some x,None,guard) in
+                 mkSEQ[guard;delay]
+             | None -> guard in
+         let rhs = mkSEQ2(mkSYMB(tok,None,None),Some x,None, tail) in
          (nonterminal,(ocaml_constructor,carried_type)),RuleDef(nonterminal,rhs,a))
       decls in
   let myenv,other_defs = List.split other_defs in
-    lit_env,myenv,tok_def::other_defs
+  lit_env,myenv,tok_def::other_defs
 
 (** Desugar lexer decls to deterministic branches (instead of @when). *)
 (* TODO: previous version has the advantage that the Earley state

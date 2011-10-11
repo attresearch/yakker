@@ -347,29 +347,20 @@ let pads_transform gr =
     | d -> d in
   gr.ds <- List.map lift_lexical gr.ds;
 
-  (* identify nonterminal producers. TODO: we actually care about
-     relevance not producerness, because as long as a rhs has an
-     action anywhere in a sequence pads-lifting will add a late
-     action. Unfortunately, would require us to build our own mapping
-     from nonterminals to relevance, so I'm pushing it off for now. *)
+  (* Identify relevant nonterminals. We care about relevance rather
+     than producerness, because as long as a rhs has an action
+     anywhere in a sequence pads-lifting will add a late action. *)
   Analyze.producers gr;
-(*   let symb_attributes = attribute_table_of_grammar gr in *)
-(*   let is_lexical n = *)
-(*     try *)
-(*       begin match Hashtbl.find symb_attributes n with *)
-(*         | {Attr.classification = Lexical} -> true *)
-(*         | _ -> false *)
-(*       end *)
-(*     with Not_found -> Util.warn_undefined n; false in *)
-  let is_late_producer n = PSet.mem n gr.late_producers in
+  Analyze.relevance gr;
+  let rels = late_relevance_set_of_grammar gr in
+
   let rec loop r = begin
     match r.r with
     | Action(_,Some _) -> true
     | Action(_,None) -> false
     | Position true -> false
     | Position false -> true
-    | Symb(n,_,_,_) -> (* TODO: attributes *)
-        is_late_producer n
+    | Symb(n,_,_,_) -> PSet.mem n rels
     | Delay _ -> true
     | DBranch (_, {Gil.arity = 0}) -> false
     | DBranch (_, _) -> false
@@ -377,7 +368,19 @@ let pads_transform gr =
     | Minus(r1,r2) -> false (* TODO: should have been desugared *)
     | Assign _ | Lit _ | CharRange _ | Prose _ | When _ | Lookahead _ ->
         false
-    | Star(_,r1) -> loop r1
+    | Star(Accumulate _, r1) -> loop r1
+    | Star(Bounds _, r1) ->
+        (* First, check body relevance. If it is relevant, then we
+           know the star will be converted to a list by normal
+           lifting, so follow the star by a unit-action to
+           ensure that the rhs has the right type (unit). *)
+        let rel = loop r1 in
+        if rel then
+          let r_action = mkACTION2(None, Some "()") in
+          r.r <- (mkSEQ [dupRhs r; r_action]).r;
+          true
+        else false
+
     | Seq _ ->
         (** Convert binary Seq representation with no late binders to list of rhs *)
         let rs_of_rhs =

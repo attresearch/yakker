@@ -208,8 +208,32 @@ and pr_rule f r =
     | No_prec -> bprintf f " @no-prec"
     | Some_prec p -> bprintf f " @prec %s" p
 
+let pr_rettype f t = bprintf f "@({%s})" t
+let pr_rettype_opt f = function
+  | None -> ()
+  | Some t -> bprintf f "%a" pr_rettype t
+
+let pr_CHARVAL f = function
+  | "\"" -> bprintf f "<\">"
+  | s -> bprintf f "\"%s\"" s
+
+(* TODO: analyze text to see whether parens are needed. If only an ID, then not needed. *)
+let pr_closed_text f txt = bprintf f "(%s)" txt
+
+let pr_lexer_case f = function
+  | TokenSymb(n,t_opt,Some n2) ->
+      bprintf f "%s %a = %s" n pr_rettype_opt t_opt n2
+  | TokenSymb(n,t_opt,None) ->
+      bprintf f "%s %a" n pr_rettype_opt t_opt
+  | TokenLit(n,t_opt,s) ->
+      bprintf f "%a %a = %s" pr_CHARVAL s pr_rettype_opt t_opt n
+
+let pr_lexer_cases f cs =
+  List.iter (bprintf f "| %a\n" pr_lexer_case) cs;
+  bprintf f ".\n"
+
 let pr_definition f = function
-  | RuleDef(n,r,a) -> begin
+  | RuleDef(n,r,a) ->
       bprintf f "%s" n;
       (match a.early_params, a.early_param_type, a.input_attributes with
           None,_,[]   -> ()
@@ -238,8 +262,19 @@ let pr_definition f = function
       pr_rule f r;
       bprintf f ".";
       bprintf f "\n"
-  end
-  | _ -> () (*TODO*)
+  | LexerDecl(n,np,t,l) ->
+      bprintf f "@declare-lexer %s %a %s =\n" n pr_rettype t np;
+      pr_lexer_cases f l;
+      bprintf f "\n"
+  | LexerDecl2(g,ty,l) ->
+      bprintf f "@declare-lexer2 %a %a =\n" pr_closed_text g pr_closed_text ty;
+      pr_lexer_cases f l;
+      bprintf f "\n"
+  | SingleLexerDecl(g,ty,l) ->
+      bprintf f "@set-lexer %a %a =\n" pr_closed_text g pr_closed_text ty;
+      pr_lexer_cases f l;
+      bprintf f "\n"
+  | LexerDef _ -> Util.todo "Pr.pr_definition.LexerDef"
 
 let pr_definitions f ds = List.iter (pr_definition f) ds
 

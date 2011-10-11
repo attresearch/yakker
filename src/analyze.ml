@@ -88,7 +88,10 @@ let is_rhs_producer early_producers late_producers r =
       | Star(Bounds(0,_),r1) ->
           let x = loop r1 in
           let y = false, false in
-          if x <> y then Util.impossible "Analyze.is_rhs_producer.loop: mismatched star."
+          if x <> y then begin
+            Util.impossible ("Analyze.is_rhs_producer.loop: mismatched star in rule:\n\t"
+            ^ Pr.rule2string r)
+          end
           else y
       | Star(Bounds(_,_),r1) -> loop r1
       | Hash(Accumulate (early,late),r1) -> early <> None, late <> None
@@ -354,7 +357,7 @@ let relevance gr =
   let late_relevant x =
     try
       let reachable_from_x = PSet.add x (Tgraph.get_targets g x) in
-      not(PSet.is_empty (intersect reachable_from_x directly_late_relevant))
+      not(PSet.is_empty (intersect directly_late_relevant reachable_from_x))
     with Not_found -> false in
   List.iter
     (function RuleDef(n,r,a) -> late_relevance late_relevant r | _ -> ())

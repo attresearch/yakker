@@ -1255,17 +1255,10 @@ let get_type_info filename =
                                                           containing yak.cmi and try again.")
   else
   let res =
-    let hide_std_err = true in
     try
       Util.pipe_in_out_result
-        (if hide_std_err then
-           (Printf.sprintf "ocamlc -i -rectypes %s 2> /dev/null" filename)
-         else
-           (Printf.sprintf "ocamlc -i -rectypes %s" filename))
+        (Printf.sprintf "ocamlc -w -a -i -rectypes %s" filename)
         (fun _ -> ())
-        (* There is a space before the let, because, for some reason, the first byte of the file is eaten in this
-           process. not connected to Util.pipe_in_out_result -- happens if I
-           do the same using echo to send the command to ocamlc -i. *)
         Tyspec.parse_channel
     with _ -> raise (Failure "Failure occurred while attempting to retrieve type information.") in
   match res with

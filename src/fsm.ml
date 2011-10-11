@@ -821,12 +821,20 @@ let fsm_transducer is_sv_known gr inch outch =
   (* Print binders *)
   DynArray.iteri (fun i str -> Printf.fprintf outch "let %s%d = %s;;\n" binder_prefix i str) binders;
 
-  (* example: B_many(function Value(Yk_T x) -> match x with C1 -> t1 | C2 -> t2 | C3 -> t3) *)
+
+  (* In all three [branches2instr] functions below, we need to deal
+     with the case where the user has left off the carrier type simply
+     because they don't care about the result, but the constructor
+     might actually have non-zero arity. We address this issue by
+     including a wildcard after the constructor, a feature supported
+     even for nullary constructors as of OCaml 3.11. *)
+
   (* Version 1: [f1] is an action-like function, taking only the current position and semval. *)
+  (* example: B_many(function Value(Yk_T x) -> match x with C1 -> t1 | C2 -> t2 | C3 -> t3) *)
   let branches2instr1 (f1, c_ty, cs) =
     let mkcase (c, f2, target) =
       if c.Gil.arity = 0 then
-        Printf.sprintf "%s -> %s (), %d" c.cname f2 target
+        Printf.sprintf "%s _ -> %s (), %d" c.cname f2 target
       else
         let vars = Util.list_make c.arity (Printf.sprintf "v%d") in
         let pattern = String.concat ", " vars in
@@ -845,7 +853,7 @@ let fsm_transducer is_sv_known gr inch outch =
     let xvar = "x" in
     let mkcase (c, f2, target) =
       if c.Gil.arity = 0 then
-        Printf.sprintf "%s -> %s, %s (), %d" c.cname spanvar f2 target
+        Printf.sprintf "%s _ -> %s, %s (), %d" c.cname spanvar f2 target
       else
         let vars = Util.list_make c.arity (Printf.sprintf "v%d") in
         let pattern = String.concat ", " vars in
@@ -861,12 +869,10 @@ let fsm_transducer is_sv_known gr inch outch =
      values carried by the matched constructor are ignored and it does not involve the semantic value at all. *)
   let branches2instr3 (f1, c_ty, cs) =
     let xvar = "x" in
-    (* note that we ignore [f2] here. *)
-    let mkcase (c, _, target) =
-      if c.Gil.arity = 0 then
-        Printf.sprintf "%s -> %d" c.cname target
-      else
-        Printf.sprintf "%s _ -> %d" c.cname target in
+    (* note that we ignore [f2] here.
+       Also, we use a uniform syntax for all arity constructors b/c we're not using the results.
+    *)
+    let mkcase (c, _, target) = Printf.sprintf "%s _ -> %d" c.cname target in
     let mkmatch cs = "match " ^ xvar ^ " with " ^ String.concat " | " cs ^ " | _ -> 0" in
     let mkfunc f1 pat e = "let f1 = "^ f1 ^" in fun ykb -> match f1 ykb with "
       ^ "| None -> 0 | Some " ^ pat ^ " -> " ^ e in

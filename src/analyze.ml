@@ -350,7 +350,10 @@ let relevance gr =
          (List.map                                             (* directly late relevant nonterminals *)
             (function RuleDef(n,r,_) -> [n] | _ -> [])
             (List.filter                                       (* directly late relevant ruledefs *)
-               (function RuleDef(n,r,_) -> r.a.late_relevant | _ -> false)
+               (function
+                 | RuleDef(n,r,a) ->
+                     (r.a.late_relevant || a.Attr.late_params<>None)
+                 | _ -> false)
                gr.ds)))
       PSet.empty in
   let intersect x y = PSet.filter (fun a -> PSet.mem a x) y in

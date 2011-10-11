@@ -481,7 +481,7 @@ yakker-byte: yak.cma strings.cmo rfcs.cmo buildinfo.cmo $(FRONT_END_CMOS)
 
 yakker: yak.cmxa strings.cmx rfcs.cmx buildinfo.cmx $(FRONT_END_CMXS)
 	@echo "--x> " $@
-	@$(OCAMLOPT) $^ -package unix -linkpkg -o $@
+	@$(OCAMLOPT) $(OCAMLOPT_FLAGS) $^ -package unix -linkpkg -o $@
 endif
 
 ########################################################################

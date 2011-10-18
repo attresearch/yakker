@@ -63,8 +63,8 @@ let preprocess_decls use_new_syntax decls =
                 (nonterminal, carried_type, ocaml_constructor) )
           | TokenSymb (s1, cty, s2_opt) ->
               let s2 = Yak.Util.option_get s1 s2_opt in
-              let decl = if use_new_syntax then s1, cty, s2 else s2, cty, s1 in
-              ([], decl))
+              let nonterminal, ocaml_constructor = if use_new_syntax then s1, s2 else s2, s1 in
+              ([], (nonterminal, cty, ocaml_constructor)))
        decls)
 
 let mk_lexer use_new_syntax tokenizer token_type decls =
@@ -73,7 +73,7 @@ let mk_lexer use_new_syntax tokenizer token_type decls =
     let rettype = Some token_type in
     let a = mkAttr() in
     a.Attr.early_rettype <- rettype;
-    RuleDef(tok,mkBOX(tokenizer,rettype,Runbox_null),a) in
+    RuleDef(tok,mkBOX(tokenizer,rettype, Runbox_null),a) in
   let x = Variables.fresh() in
   let y = Variables.fresh() in
   let lit_envs, decls = preprocess_decls use_new_syntax decls in
@@ -81,7 +81,8 @@ let mk_lexer use_new_syntax tokenizer token_type decls =
   let other_defs =
     List.map
       (fun (nonterminal, carried_type, ocaml_constructor) ->
-         let a = mkAttr() in
+         let nb = if nonterminal = "EOF" then Attr.N.Unknown else Attr.N.Never_null in
+         let a = { (mkAttr ()) with Attr.nullability = nb } in
          (* In case the user has left off the carrier type simply because
             they don't care about the result, but the constructor might
             actually have non-zero arity, we include a wildcard after the
@@ -121,7 +122,8 @@ let mk_lexer2 is_simple_dbranch tokenizer token_type decls =
   let other_defs =
     List.map
       (fun (nonterminal, carried_type, ocaml_constructor) ->
-         let a = mkAttr() in
+         let nb = if nonterminal = "EOF" then Attr.N.Unknown else Attr.N.Never_null in
+         let a = { (mkAttr ()) with Attr.nullability = nb} in
          let rhs =
            (* TODO: support arities other than 0, 1. *)
            match carried_type with

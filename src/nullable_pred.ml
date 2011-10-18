@@ -484,6 +484,7 @@ module Expr_gil = struct
     | CsLookaheadE (b,cs) -> Printf.sprintf "(Pred2.lookaheadc %B 0 %s)" b (Cs.to_nice_string cs)
 
   let false_e = Lam (Lam (Lam NoneE))
+  let true_e = Lam (Lam (Lam (SomeE (Var 2))))
 
   let is_bool = function
     | Lam Lam Lam NoneE
@@ -752,6 +753,7 @@ fun _ ykb v -> match f1 v with | Yk_done %s %s (%s) -> Some (f2 v (%s)) | _ -> N
     e_simp
 
   let preds_from_grammar grm =
+    let attrs = Gul.attribute_table_of_grammar grm in
     let preds_tbl = Hashtbl.create 11 in
     let preds nt =
       try Hashtbl.find preds_tbl nt with
@@ -764,21 +766,26 @@ fun _ ykb v -> match f1 v with | Yk_done %s %s (%s) -> Some (f2 v (%s)) | _ -> N
       if Logging.activated then
         Logging.log Logging.Features.nullpred
           "Attempting rewrite of symbol %s.\n" n;
-      let e_n = compile_rule n r in
-      let e_n_rw = Expr_gil.rewrite preds e_n in
-      let e_n' = DBL.simplify e_n_rw in
-      if false then
-        begin
-          (* Sanity check *)
-          if not (DBL.is_closed e_n') then
-            Printf.eprintf "Nonterminal %s has open simpl-rewr predicate:\nbefore:   %s\nafter:  %s\n"
-              n (Expr_gil.to_string_raw 0 e_n_rw) (Expr_gil.to_string_raw 0 e_n');
-        end;
+      let e_n' = match (Hashtbl.find attrs n).Gul.Attr.nullability with
+        | Gul.Attr.N.Always_null -> Expr_gil.true_e
+        | Gul.Attr.N.Never_null -> Expr_gil.false_e
+        | Gul.Attr.N.Unknown ->
+            let e_n = compile_rule n r in
+            let e_n_rw = Expr_gil.rewrite preds e_n in
+            let e_n' = DBL.simplify e_n_rw in
+            if false then
+              begin
+                (* Sanity check *)
+                if not (DBL.is_closed e_n') then
+                  Printf.eprintf "Nonterminal %s has open simpl-rewr predicate:\nbefore:   %s\nafter:  %s\n"
+                    n (Expr_gil.to_string_raw 0 e_n_rw) (Expr_gil.to_string_raw 0 e_n');
+              end;
+            e_n' in
       Hashtbl.replace preds_tbl n e_n'
     in
     (* Sort by dependency order so that we need only traverse the grammar rules once to get the
        correct answers. *)
-    let ds_sorted = Gil.sort_definitions grm in
+    let ds_sorted = Gil.sort_definitions grm.Gul.gildefs in
     List.iter init_nt ds_sorted;
     List.iter try_rewrite_nt ds_sorted;
     preds_tbl

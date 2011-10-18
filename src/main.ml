@@ -133,7 +133,7 @@ let try_fsm f out gr = (* FSM version *)
     (Printf.sprintf
        "fsmcompile | fsmrmepsilon | fsmdeterminize | fsmprint | %s |fsmcompile | fsmrmepsilon | fsmdeterminize | fsmminimize | fsmprint"
        (Fsm.remove_CallEps()))
-    (fun w -> Fsm.grammar_fsm w gr)
+    (fun w -> Fsm.grammar_fsm w gr.gildefs)
     (fun r -> f gr r out)
 
 let try_fst f out gr = (* OpenFST version *)
@@ -142,7 +142,7 @@ let try_fst f out gr = (* OpenFST version *)
         "fstcompile --acceptor | fstrmepsilon | fstdeterminize | fstprint --acceptor | %s |fstcompile --acceptor | fstrmepsilon | fstdeterminize | fstminimize /dev/stdin | fstprint --acceptor"
        (Fsm.remove_CallEps())
     )
-    (fun w -> Fsm.grammar_fsm w gr)
+    (fun w -> Fsm.grammar_fsm w gr.gildefs)
     (fun r -> f gr r out)
 
 let gil_transducer,gil_dot =
@@ -247,7 +247,7 @@ let do_compile is_sv_known out gr =
         Gil_gen.Peg.pr_definitions out liberal gr.start_symbol gr.gildefs
     | Trans_BE ->
         print_prologue ();
-        gil_transducer is_sv_known out gr.gildefs);
+        gil_transducer is_sv_known out gr);
 
     add_boilerplate backend gr;
 
@@ -286,7 +286,7 @@ let do_compile_for_arrow out gr =
   end = struct\n"
         end;
 
-        gil_transducer true out gr.gildefs;
+        gil_transducer true out gr;
 
         if !Compileopt.wrap_codegen_in_module then begin
           Printf.fprintf out "end\nopen Internal;;\n\n";
@@ -429,7 +429,7 @@ let do_phases gr =
             do_phase "coalescing actions" (fun () -> Fusion.fuse_gil gr)
       | Inline_nullable_cmd ->
             do_phase "inlining nullability predicates" begin fun () ->
-              let npreds = Nullable_pred.Gil.preds_from_grammar gr.gildefs in
+              let npreds = Nullable_pred.Gil.preds_from_grammar gr in
               gr.gildefs <- Inline_nullable.inline npreds gr.gildefs
             end
       | Desugar_gil_cmd ->
@@ -477,7 +477,7 @@ let do_phases gr =
           end
 
       | Dot_cmd ->
-          gil_dot !outch gr.gildefs
+          gil_dot !outch gr
       | Print_gil_cmd ->
           begin
             let b = Buffer.create 11 in

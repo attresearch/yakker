@@ -562,7 +562,8 @@ typestuff =
     output_attributes = (match y with None -> []   | Some(_,attributes) -> attributes);
     early_param_type = None;
     late_params = z;
-    classification = (match w with Some "lexical" -> Lexical | _ -> Other); }}
+    classification = (match w with Some "lexical" -> Lexical | _ -> Other);
+    nullability = Attr.N.Unknown; }}
 .
 early-inputs =
   "@" "("  Ocaml_until_RPAREN$t        ;;; example: @(a:int,b:bool;x:string;y:bool*int list)

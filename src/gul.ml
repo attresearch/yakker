@@ -104,10 +104,15 @@ let rec copy_b = function
 (** deep copy *)
 and copyRhs r = {a=dupAnnot r.a;r= copy_b r.r}
 
-(* Classification of a symbol *)
+(** Classification of a symbol *)
 type symb_class = Lexical | Other
 
 module Attr = struct
+  module N = struct
+    (* Note: similar to [boxnull] type. We wrap the def. in a module to help with constructor-name clashes. *)
+    type nullability = Always_null | Never_null | Unknown
+  end
+
   type t = {mutable early_params: string option;
             early_param_type: string option;
             mutable early_rettype: string option;
@@ -115,6 +120,7 @@ module Attr = struct
             mutable input_attributes: (var * string) list;  (* (attribute name, type) pairs *)
             mutable output_attributes: (var * string) list; (* (attribute name, type) pairs *)
             classification: symb_class;
+            nullability: N.nullability;
            }
 end
 
@@ -125,6 +131,7 @@ let mkAttr() = {Attr.
                 output_attributes=[];
                 early_param_type = None;
                 classification = Other;
+                nullability = Attr.N.Unknown;
                }
 
 type text =
@@ -140,8 +147,14 @@ type directive =
   | Disamb_directive of (assoc * nonterminal list) array
 
 type token_decl =
-    TokenLit of string * string option * string         (* ocaml constructor, optional carried type, literal *)
-  | TokenSymb of string * string option * string option (* ocaml constructor, optional carried type, optional yakker nonterminal *)
+    TokenLit of string * string option * string         (** ocaml constructor, optional carried type, literal *)
+  | TokenSymb of string * string option * string option (** When appearing in LexerDecl:
+                                                              ocaml constructor, optional carried type, optional yakker nonterminal
+                                                            When the nonterminal is absent, it is set to the same string as constructor.
+
+                                                            When appearing in LexerDecl2:
+                                                              yakker nonterminal, optional carried type, optional ocaml constructor
+                                                            When the constructor is absent, it is set to the same string as nonterminal.*)
 
 type definition =
     RuleDef of nonterminal * rhs * Attr.t
@@ -508,13 +521,6 @@ let remove_late_actions gr =
     | Action (e, Some _) -> mkACTION2 (e, None)
     | Seq(r2, x,  _, r3) ->
         let r3_rla = loop r3 in
-(*         (match r3_rla.r with *)
-(*            | Action (None, None) -> loop r2 *)
-(*            | _ -> *)
-(*                let r2_rla = loop r2 in *)
-(*                (match r2_rla.r, x with *)
-(*                   | Action (None, None), None -> r3_rla *)
-(*                   | _ -> mkSEQ2 (r2_rla, x, None, r3_rla))) *)
         (* Clear binder if it cannot be used in [r3_rla]. *)
         let x_rla = match r3_rla.r with
           | Action (None, None) -> None

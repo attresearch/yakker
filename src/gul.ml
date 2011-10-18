@@ -508,13 +508,22 @@ let remove_late_actions gr =
     | Action (e, Some _) -> mkACTION2 (e, None)
     | Seq(r2, x,  _, r3) ->
         let r3_rla = loop r3 in
-        (match r3_rla.r with
-           | Action (None, None) -> loop r2
-           | _ ->
-               let r2_rla = loop r2 in
-               (match r2_rla.r, x with
-                  | Action (None, None), None -> r3_rla
-                  | _ -> mkSEQ2 (r2_rla, x, None, r3_rla)))
+(*         (match r3_rla.r with *)
+(*            | Action (None, None) -> loop r2 *)
+(*            | _ -> *)
+(*                let r2_rla = loop r2 in *)
+(*                (match r2_rla.r, x with *)
+(*                   | Action (None, None), None -> r3_rla *)
+(*                   | _ -> mkSEQ2 (r2_rla, x, None, r3_rla))) *)
+        (* Clear binder if it cannot be used in [r3_rla]. *)
+        let x_rla = match r3_rla.r with
+          | Action (None, None) -> None
+          | _ -> x in
+        let r2_rla = loop r2 in
+        (match r2_rla.r, x_rla with
+           | Action (None, None), None -> r3_rla
+           | _ -> mkSEQ2 (r2_rla, x_rla, None, r3_rla))
+
     | Assign(r2, x,  _) -> mkASSIGN(loop r2,x,None)
     | Star(Accumulate (Some _ as x, _), r2) -> mkSTAR2(Accumulate (x, None), loop r2)
     | Star(Accumulate (None, _), r2) -> mkSTAR(0, Infinity, loop r2)

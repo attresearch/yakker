@@ -96,7 +96,7 @@ and pr_rule f r =
   | Box(x,None,boxnull) ->
       bprintf f "@box%a(%s)" pr_boxnull boxnull x
   | Box(x,Some y,boxnull) ->
-      bprintf f "@box@>(%s) %a(%s)" y pr_boxnull boxnull x
+      bprintf f "@box >@(%s) %a(%s)" y pr_boxnull boxnull x
   | Delay(true,x,None) ->
       bprintf f "@delay(%s)" x
   | Delay(true,x,Some ty) ->

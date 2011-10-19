@@ -1,0 +1,1103 @@
+#!build/yakker exec
+@ocaml {
+(*******************************************************************************
+ * Copyright (c) 2010 AT&T.
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/legal/epl-v10.html
+ *
+ * Contributors:
+ *    Trevor Jim and Yitzhak Mandelbaum
+ *******************************************************************************)
+let is_con x =
+  let c = (String.get x 0) in 'A' <= c && c <= 'Z'
+open Printf
+type attribute =
+    Attribute of bool * string                (* attribute name, true=>early, false=>late *)
+let compare_a x y =
+  match x,y with
+  | Attribute(true,_),Attribute(false,_) -> -1
+  | Attribute(false,_),Attribute(true,_) -> 1
+  | Attribute(_,a),Attribute(_,b) -> compare a b
+type lhs =
+  | Lhs of string * attribute list * attribute list
+type repeat = Infinity | Num of int
+type rhs =
+    Lit of string                             (* literal string; "" is epsilon even with tokens *)
+  | Tok of string                             (* token from a lexer *)
+  | Seq of rhs list                           (* sequence *)
+  | Alt of rhs list                           (* alternation (choice) *)
+  | Pat of bool * pat                         (* binding pattern, true=>early, false=>late *)
+  | Kcl of int * repeat * rhs                 (* Kleene closure *)
+  | Whl of string * rhs                       (* while *)
+  | Sym of string * (attribute * string) list (* symbol=nonterminal with input attribute values *)
+  | Cut of bool * string                      (* eliminate/unbind an attribute from the flow, true=>early, false=>late *)
+  | Act of bool * string                      (* semantic action, true=>early, false=>late *)
+  | Box of string                             (* special semantic action that can fail or consume input, always early *)
+  | Dly of string                             (* delay value from early phase to late phase *)
+and pat =
+    Var_pat of string
+  | Con_pat of string * pat list
+  | Tup_pat of pat list
+
+type text =
+    Ocaml of string
+  | Ocamllex of string
+type grammar = {
+    (* all lists in reverse order *)
+    mutable prologue: text list;
+    mutable rules: (lhs * rhs) list;
+    mutable epilogue: text list;
+  }
+
+let one_unit x = ()
+let two_unit x y = ()
+let iter
+    ?(lit = one_unit)
+    ?(tok = one_unit)
+    ?(whl = one_unit)
+    ?(box = one_unit)
+    ?(dly = one_unit)
+    ?(cut = two_unit)
+    ?(act = two_unit)
+    ?(pat = two_unit)
+    ?(kcl = two_unit)
+    ?(sym = two_unit)
+    r =
+  let rec loop = function
+    | Box x      -> box x
+    | Dly x      -> dly x
+    | Lit x      -> lit x
+    | Tok x      -> tok x
+    | Cut(x,y)   -> cut x y
+    | Sym(x,y)   -> sym x y
+    | Act(x,y)   -> act x y
+    | Pat(x,y)   -> pat x y
+    | Whl(x,r)   -> whl x; loop r
+    | Kcl(x,y,r) -> kcl x y; loop r
+    | Seq l
+    | Alt l      -> List.iter loop l
+  in loop r
+let one_id x a = a
+let two_id x y a = a
+let fold
+    ?(lit = one_id)
+    ?(tok = one_id)
+    ?(box = one_id)
+    ?(dly = one_id)
+    ?(cut = two_id)
+    ?(act = two_id)
+    ?(pat = two_id)
+    ?(sym = two_id)
+    ?(whl = (fun x r a loop -> loop a r))
+    ?(kcl = (fun x y r a loop -> loop a r))
+    ?(alt = (fun l a loop -> List.fold_left (fun x y -> y) a (List.map (loop a) l)))
+    ?(seq = (fun l a loop -> List.fold_left loop a l))
+    a r =
+  let rec loop a = function
+    | Box x      -> box x a
+    | Dly x      -> dly x a
+    | Lit x      -> lit x a
+    | Tok x      -> tok x a
+    | Cut(x,y)   -> cut x y a
+    | Sym(x,y)   -> sym x y a
+    | Act(x,y)   -> act x y a
+    | Pat(x,y)   -> pat x y a
+    | Whl(x,r)   -> whl x r a loop
+    | Kcl(x,y,r) -> kcl x y r a loop
+    | Seq l      -> seq l a loop
+    | Alt l      -> alt l a loop
+  in loop a r
+
+let pp_attribute = function
+    Attribute(true,s)  -> sprintf "~%s" s
+  | Attribute(false,s) -> sprintf "~$%s" s
+let pp_attribute_ocaml = function
+    Attribute(_,s)  -> sprintf "~%s" s
+let pp_lhs = function
+  | Lhs(a,b,c) ->
+      let p x =
+        "[" ^ (String.concat ";" (List.map pp_attribute x))^"]" in
+      sprintf "Lhs(%s,%s,%s)" a (p b) (p c)
+let rec pp_rhs = function
+    Lit x             -> sprintf "Lit(%s)" x
+  | Tok x             -> sprintf "Tok(%s)" x
+  | Seq x             -> sprintf "Seq(%s)" (String.concat " " (List.map pp_rhs x))
+  | Alt x             -> sprintf "Alt(%s)" (String.concat "|" (List.map pp_rhs x))
+  | Pat(x,y)          -> sprintf "Pat(%b,%s)" x (pp_pat y)
+  | Kcl(m,Infinity,x) -> sprintf "Kcl(%d,*,%s)" m (pp_rhs x)
+  | Kcl(m,Num n,x)    -> sprintf "Kcl(%d,%d,%s)" m n (pp_rhs x)
+  | Whl(x,y)          -> sprintf "Whl(%s,%s)" x (pp_rhs y)
+  | Sym(x,[])         -> sprintf "Sym(%s)" x
+  | Sym(x,y)          -> sprintf "Sym(%s,%s)" x (String.concat "," (List.map (fun (a,v) -> (pp_attribute a)^":"^v) y))
+  | Cut(x,y)          -> sprintf "Cut(%b,%s)" x y
+  | Act(x,y)          -> sprintf "Act(%b,%s)" x y
+  | Box(x)            -> sprintf "Box(%s)" x
+  | Dly(x)            -> sprintf "Dly(%s)" x
+and pp_pat = function
+    Con_pat(x,[])     -> x
+  | Con_pat(x,y)      -> "(" ^ x ^ " " ^ (String.concat " " (List.map pp_pat y)) ^ ")"
+  | Var_pat x         -> x
+  | Tup_pat y         -> "(" ^ (String.concat "," (List.map pp_pat y)) ^ ")"
+let pp_grammar g =
+  String.concat "\n"
+    ((List.rev (List.map
+        (function
+            Ocaml x -> sprintf "@prologue {%s}" x
+          | Ocamllex x -> sprintf "@ocamllex {%s}" x) g.prologue))
+     @(List.rev (List.map (function (x,y) -> sprintf "%s = %s" (pp_lhs x) (pp_rhs y)) g.rules))
+     @(List.rev (List.map
+         (function
+             Ocaml x -> sprintf "@epilogue {%s}" x
+           | Ocamllex x -> sprintf "@ocamllex {%s}" x) g.epilogue)))
+
+let all_but_last s =
+  let l = String.length s in
+  if l=0 then s else
+  String.sub s 0 (l - 1)
+
+module Sset = Set.Make(struct type t = string let compare = String.compare end)
+let list_of_set set = Sset.fold (fun x y -> x::y) set []
+let set_of_list l = List.fold_right Sset.add l Sset.empty
+
+let error fmt = (eprintf "Error: "; kfprintf (fun _ -> eprintf "\n%!") stderr fmt)
+let inputs_of g b symbol =
+  let rec loop = function
+    | [] -> error "undefined nonterminal %s" symbol; Sset.empty
+    | (Lhs(symbol',inputs,_),_)::tl ->
+        if symbol=symbol' then
+          List.fold_right Sset.add
+            (List.map (function Attribute(_,v) -> v)
+               (List.filter (function Attribute(b',_) -> b=b') inputs))
+            Sset.empty
+        else loop tl
+  in loop g.rules
+let outputs_of g b symbol =
+  let rec loop = function
+    | [] -> error "undefined nonterminal %s" symbol; Sset.empty
+    | (Lhs(symbol',_,outputs),_)::tl ->
+        if symbol=symbol' then
+          List.fold_right Sset.add
+            (List.map (function Attribute(_,v) -> v)
+               (List.filter (function Attribute(b',_) -> b=b') outputs))
+            Sset.empty
+        else loop tl
+  in loop g.rules
+let attributes_of_pat p =
+  let s = ref Sset.empty in
+  let rec loop = function
+    | Var_pat v ->
+        if Sset.mem v !s then error "%s is assigned twice in pattern" v else
+        s := Sset.add v !s
+    | Con_pat (_,l) -> List.iter loop l
+    | Tup_pat l -> List.iter loop l in
+  loop p;
+  !s
+let attributes_of_rhs g b r =
+  fold ~pat:(fun b' p a -> if b=b' then Sset.union a (attributes_of_pat p) else a)
+    ~cut:(fun b' x a ->  if b=b' then Sset.remove x a else a)
+    ~sym:(fun x y a -> Sset.union a (outputs_of g b x))
+    ~alt:(fun l a loop -> List.fold_left Sset.union Sset.empty (List.map (loop a) l))
+    Sset.empty
+    r
+
+module Sanity = struct
+  let uniq l =
+    Sset.cardinal(List.fold_right Sset.add l Sset.empty) = List.length l
+  let rec canonize = function (* unnest Alt and Seq *)
+    | (Cut _ | Act _ | Sym _ | Pat _ | Box _ | Dly _ | Lit _ | Tok _) as r -> r
+    | Kcl(x,y,r) -> Kcl(x,y,canonize r)
+    | Whl(x,r) -> Whl(x,canonize r)
+    | Seq [x]
+    | Alt [x] -> canonize x
+    | Seq l ->
+        Seq
+          (List.concat
+             (List.map
+                (function Seq x -> x | x -> [x])
+                (List.map canonize l)))
+    | Alt l ->
+        Alt
+          (List.concat
+             (List.map
+                (function Alt x -> x | x -> [x])
+                (List.map canonize l)))
+  let flowcheck g b =
+    let each_rule = function (Lhs(symbol,_,_),r) ->
+      let inflow = inputs_of g b symbol in
+      let outflow =
+        fold
+          ~cut:(fun x y inflow ->
+            if x=b then
+              if Sset.mem y inflow then Sset.remove y inflow
+              else (error "cannot cut attribute %s" y; inflow)
+            else inflow)
+          ~sym:(fun symbol args inflow ->
+            (* Check that supplied attributes are equal to required attributes *)
+            let required = inputs_of g b symbol in
+            let actual =
+              List.fold_right Sset.add
+                (List.map (function (Attribute(_,v),_) -> v)
+                   (List.filter (function (Attribute(b',_),_) -> b=b') args))
+                Sset.empty in
+            if not(Sset.equal required actual) then begin
+              Sset.iter
+                (fun attribute ->
+                  error "call to %s does not provide required attribute %s" symbol attribute)
+                (Sset.diff required actual);
+              Sset.iter
+                (fun attribute ->
+                  error "call to %s provides attribute %s which is not required" symbol attribute)
+                (Sset.diff actual required);
+            end;
+            Sset.union (outputs_of g b symbol) inflow)
+          ~pat:(fun x y inflow ->
+            if x=b then Sset.union (attributes_of_pat y) inflow
+            else inflow)
+          ~kcl:(fun _ _ r inflow loop ->
+            let outflow = loop inflow r in
+            Sset.iter
+              (fun attribute ->
+                error "in %s attribute %s is defined before while but not after" symbol attribute)
+              (Sset.diff inflow outflow);
+            Sset.iter
+              (fun attribute ->
+                error "in %s attribute %s is defined after while but not before" symbol attribute)
+              (Sset.diff outflow inflow);
+            outflow)
+          ~whl:(fun _ r inflow loop ->
+            let outflow = loop inflow r in
+            Sset.iter
+              (fun attribute ->
+                error "in %s attribute %s is defined before while but not after" symbol attribute)
+              (Sset.diff inflow outflow);
+            Sset.iter
+              (fun attribute ->
+                error "in %s attribute %s is defined after while but not before" symbol attribute)
+              (Sset.diff outflow inflow);
+            outflow)
+          ~alt:(fun l inflow loop ->
+            match l with [] -> inflow
+            | hd::tl ->
+                let outflow = loop inflow hd in
+                let outflows = List.map (loop inflow) tl in
+                List.iter
+                  (fun x ->
+                    Sset.iter
+                      (fun attribute ->
+                        error "attribute %s is defined by one alternative in %s but not another" attribute symbol)
+                      (Sset.union (Sset.diff outflow x) (Sset.diff x outflow)))
+                  outflows;
+                outflow)
+          inflow
+          r in
+      Sset.iter
+        (function attribute ->
+          error "%s does not produce declared output attribute %s" symbol attribute)
+        (Sset.diff (outputs_of g b symbol) outflow);
+      () in
+    List.iter each_rule g.rules
+  let check g =
+    (* Make sure all nonterminals are defined exactly once *)
+    let syms = ref Sset.empty in
+    List.iter
+      (fun (Lhs(x,_,_),_) ->
+        if Sset.mem x !syms then error "%s has multiple definitions" x else
+        syms := Sset.add x !syms)
+      g.rules;
+    List.iter
+      (fun (_,r) ->
+        iter r ~sym:(fun x _ -> if Sset.mem x !syms then () else error "%s is not defined" x))
+      g.rules;
+    (* Make sure all input and output attributes are defined exactly once *)
+    List.iter
+      (fun (Lhs(x,y,z),_) ->
+        let early_a = function Attribute(x,_) -> x in
+        let get_a =  List.map (function Attribute(_,s) -> s) in
+        let e,l = List.partition early_a y in
+        if not(uniq(get_a e)) then error "duplicate input attributes";
+        if not(uniq(get_a l)) then error "duplicate late input attributes";
+        let e,l = List.partition early_a z in
+        if not(uniq(get_a e)) then error "duplicate output attributes";
+        if not(uniq(get_a l)) then error "duplicate late output attributes";
+        ())
+      g.rules;
+    (* Early and late flow checks *)
+    flowcheck g true;
+    flowcheck g false;
+    (* Make sure all tokens are defined exactly once *)
+    ()
+end
+}
+
+@ocaml {
+(* Interface to the ocaml lexer *)
+module Ocaml = struct
+  open Ocaml_lexer.Parser
+  open Lexing
+  let is t x = (x=t)
+  (* consume the longest balanced sequence of tokens until we reach a token
+     satisfying f, or we reach an unbalanced token.  Return the last token read. *)
+  let rec balanced f lexbuf =
+    let resume() = balanced f lexbuf in
+    let resume_after tk =
+      let last = balanced (is tk) lexbuf in
+      if last = tk then resume() else tk in
+    let tk = Ocaml_lexer.token lexbuf in
+    if f tk then tk else
+    match tk with
+    | LBRACE          -> resume_after RBRACE        (* {}   *)
+    | LBRACELESS      -> resume_after GREATERRBRACE (* {<>} *)
+    | LBRACKET        -> resume_after RBRACKET      (* []   *)
+    | LBRACKETBAR     -> resume_after BARRBRACKET   (* [||] *)
+    | LBRACKETLESS    -> resume_after RBRACKET      (* [<]  *)
+    | LBRACKETGREATER -> resume_after RBRACKET      (* [>]  *)
+    | LPAREN          -> resume_after RPAREN        (* ()   *)
+    | EOF
+    | RBRACE
+    | RBRACKET
+    | RPAREN
+    | BARRBRACKET
+    | GREATERRBRACE   -> tk (* unbalanced tokens *)
+    | GREATERRBRACKET -> resume() (* >] defined but not used in ocaml-3.11 *)
+    | _               -> resume()
+  let wrap f = Yak.YkBuf.wrap_ocamllex (balanced f)
+  let until_RBRACE = wrap (is RBRACE)
+  let until_RPAREN = wrap (is RPAREN)
+  let until_EQUAL = wrap (is EQUAL)
+  let until_RBRACKET = wrap (is RBRACKET)
+  let one_balanced lexbuf =
+    let tk = Ocaml_lexer.token lexbuf in
+    (match tk with
+    | LBRACE          -> balanced (is RBRACE)        lexbuf (* {}   *)
+    | LBRACELESS      -> balanced (is GREATERRBRACE) lexbuf (* {<>} *)
+    | LBRACKET        -> balanced (is RBRACKET)      lexbuf (* []   *)
+    | LBRACKETBAR     -> balanced (is BARRBRACKET)   lexbuf (* [||] *)
+    | LBRACKETLESS    -> balanced (is RBRACKET)      lexbuf (* [<]  *)
+    | LBRACKETGREATER -> balanced (is RBRACKET)      lexbuf (* [>]  *)
+    | LPAREN          -> balanced (is RPAREN)        lexbuf (* ()   *)
+    | _               -> tk);
+    ()
+  let one = Yak.YkBuf.wrap_ocamllex one_balanced
+  (* read inferred types from a signature file *)
+  let read_types file =
+    let type_assoc = ref [] in
+    let relevant ident =
+      (* We are only interested in the types of identifiers starting with "_ty_" *)
+      (4 < String.length ident) && ("_ty_" = String.sub ident 0 4) in
+    let inch = open_in file in
+    let lexbuf = Lexing.from_channel inch in
+    let next() = Ocaml_lexer.token lexbuf in
+    let rec loop () =
+      match next() with
+      | EOF -> ()
+      | VAL ->
+          (match next() with
+          | LIDENT ident when relevant ident ->
+              (match next() with
+              | COLON ->
+                  let offset_start = Lexing.lexeme_end lexbuf in
+                  ignore(balanced (is MINUSGREATER ) lexbuf);
+                  let offset_end = Lexing.lexeme_start lexbuf in
+                  type_assoc := (ident,offset_start,offset_end)::!type_assoc;
+                  loop()
+              | _ -> loop())
+          | _ -> loop())
+      | _ -> loop()
+    in
+    loop();
+    let read_span offset_start offset_end =
+      let len = offset_end - offset_start in
+      let buf = String.create len in
+      seek_in inch offset_start;
+      really_input inch buf 0 len;
+      buf in
+    let types =
+      List.map
+        (fun (ident,offset_start,offset_end) -> (ident, read_span offset_start offset_end))
+        (List.rev !type_assoc) in
+    close_in inch;
+    types
+end
+}
+@ocaml {
+(* Interface to the ocamllex lexer *)
+module Ocamllex = struct
+  open Ocamllex_lexer.Parser
+  let is = Ocaml.is
+  let rec balanced f lexbuf =
+    let resume() = balanced f lexbuf in
+    let resume_after tk =
+      let last = balanced (is tk) lexbuf in
+      if last = tk then resume() else tk in
+    let tk = Ocamllex_lexer.main lexbuf in
+    if f tk then tk else
+    match tk with
+    | Tlparen   -> resume_after Trbracket      (* () *)
+    | Tlbracket -> resume_after Trbracket      (* [] *)
+    | Trparen
+    | Trbracket
+    | Teof
+    | RBRACE    -> tk (* unbalanced tokens *)
+    | _         -> resume()
+  let wrap f = Yak.YkBuf.wrap_ocamllex (balanced f)
+  let until_RBRACE = wrap (is RBRACE)
+end
+}
+@ocaml {
+module Infer = struct
+  open Sanity
+  let flow_with_value flow = "(" ^ String.concat "," ("__v__"::(list_of_set flow)) ^ ")"
+  let gen_type name constructor ty_set =
+    if Sset.is_empty ty_set then
+      printf "type %s = %s\n" name constructor
+    else begin
+      let count = ref 0 in
+      let next() = count := !count+1; !count in
+      printf "type %s =\n" name;
+      Sset.iter
+        (fun ty -> printf "| %s%d of (%s)\n" constructor (next()) ty)
+        ty_set
+    end
+  let precompute_flow_transitions g =
+    (* record (inflow,outflow) pairs for places in the grammar where flows change.
+       NB in some places they change only in TYPE and not attributes, e.g., actions. *)
+    let flows = Queue.create() in
+    let add inflow outflow = (Queue.add (flow_with_value inflow,flow_with_value outflow) flows; outflow) in
+    let each_rule (Lhs(symbol,_,_),r) =
+      let inflow = inputs_of g true symbol in
+      ignore (fold
+                ~pat:(fun b p a -> if not b then a else add a (Sset.union a (attributes_of_pat p)))
+                ~cut:(fun b x a -> if not b then a else add a (Sset.remove x a))
+                ~act:(fun b _ a -> if not b then a else add a a)
+                ~box:(fun _ a   -> add a a)
+                ~sym:(fun x _ a -> add a (Sset.union a (outputs_of g true x)))
+                inflow
+                r) in
+    List.iter each_rule g.rules;
+    flows
+  let infer_types g =
+    (*TODO: use temporary files instead of clobbering foobar.ml[i] *)
+    let outch = open_out "foobar.ml" in
+    let flow_transitions = precompute_flow_transitions g in
+    let copy_of_flows = Queue.copy flow_transitions in
+    let infer_phase b =
+      (* Generate code that forces type inference.
+         Use a trick: the code
+
+             let rec _ty_foobar x = x and ... _ty_foobar(v) ...
+
+         forces the argument of _ty_foobar to be the type of v.  Use ocamlc -i to do
+         type inference, and it will print out
+
+             val _ty_foobar : ...typeofv... -> ...typeofv...
+
+         Then you can easily read typeofv using the ocaml lexer, skipping paren-balanced tokens
+         until you reach the first (unnested) ->
+       *)
+      let fn_replay x = sprintf "_replay_%s_%s" (if b then "e" else "l") x in
+      let dcount = ref 0 in (* for saving the types of delayed values *)
+      let infer_delay_type expr =
+        fprintf outch " ignore(_ty_delay_%d(%s));\n" (dcount := !dcount + 1; !dcount) expr in
+      let inference_functions = ref Sset.empty in
+      let infer inference_fn expr =
+        inference_functions := Sset.add inference_fn !inference_functions;
+        fprintf outch " ignore(%s %s);\n" inference_fn expr in
+      let vcount = ref 0 in (* for saving the types of early-phase values *)
+      let infer_flow_type () =
+        let (_,outflow) = Queue.take flow_transitions in
+        let fn = sprintf "_ty_flow_%d" (vcount := !vcount + 1; !vcount) in
+        infer fn outflow in
+      let infer_argument_type symbol =
+        let fn = sprintf "_ty_arg_%s" symbol in
+        infer fn (flow_with_value (inputs_of g b symbol)) in
+      let infer_return_type symbol =
+        let fn = sprintf "_ty_return_%s" symbol in
+        infer fn (flow_with_value (outputs_of g b symbol)) in
+      let each_rule (Lhs(x,inputs,outputs),r) =
+        let infer_attribute_type s =
+          (* NB we only need to infer types for early-phase attributes *)
+          let a = (x^"__"^s) in
+          let fn = sprintf "_ty_attribute_%s" a in
+          infer fn s in
+        fprintf outch "%s " (fn_replay x);
+        let inputs = List.filter (function Attribute(b',_) -> b=b') inputs in
+        fprintf outch "%s __n__ =\n" (String.concat " " (List.map pp_attribute_ocaml inputs));
+        if b then (*remove*)
+          List.iter (function Attribute(_,s) -> infer_attribute_type s) inputs;
+        fprintf outch " let __v__ = () in\n";
+        if b then
+          infer_argument_type x;
+        let rec loop inflow = function
+          | Lit _
+          | Tok _
+          | Cut _ -> ()
+          | Box x      ->
+              if b then begin
+                fprintf outch " let __v__ = %s in\n" x;
+                infer_flow_type()
+              end
+          | Dly x      ->
+              if b then begin
+                (* NB does not clobber default value (__v__), this lets us easily insert @delays for replay *)
+                infer_delay_type x
+              end
+              else begin
+                let i = (dcount := !dcount + 1; !dcount) in
+                fprintf outch " let __v__ = (match !_cell_%d with None -> raise Not_found | Some x -> x) in\n" i
+              end;
+          | Act(x,y) ->
+              if x=b then begin
+                fprintf outch " let __v__ = %s in\n" y;
+                if b then
+                  infer_flow_type()
+              end
+          | Sym(x,y) ->
+              let args = List.filter (function (Attribute(b',_),_) -> b=b') y in
+              fprintf outch " let %s = (%s %s __n__) in\n" (flow_with_value (outputs_of g b x)) (fn_replay x)
+                (String.concat " " (List.map (fun (a,v) -> (pp_attribute_ocaml a)^":"^v) args));
+              if b then
+                infer_flow_type()
+          | Pat(x,y) ->
+              if x=b then begin
+                fprintf outch " let %s = __v__ in\n let __v__ = () in\n" (pp_pat y);
+                if b then begin
+                  Sset.iter infer_attribute_type (attributes_of_pat y); (*remove*)
+                  infer_flow_type()
+                end
+              end
+          | Whl(x,r) ->
+              let grab =
+                let defs = attributes_of_rhs g b r in
+                let defs = list_of_set defs in
+                "(" ^ (String.concat "," ("__v__"::defs)) ^ ")" in
+              fprintf outch " let %s =\n let rec _w_ %s =\n if 0<>__n__() then %s else (\n" grab grab grab;
+              if b then
+                fprintf outch " ignore(true=(%s));\n" x;
+              loop inflow r;
+              fprintf outch " %s) in _w_ %s in\n" grab grab
+          | Kcl(_,_,r) ->
+              let grab =
+                let defs = attributes_of_rhs g b r in
+                let defs = list_of_set defs in
+                "(" ^ (String.concat "," ("__v__"::defs)) ^ ")" in
+              fprintf outch " let %s =\n let rec _w_ %s =\n if 0<>__n__() then %s else (\n" grab grab grab;
+              loop inflow r;
+              fprintf outch " %s) in _w_ %s in\n" grab grab
+          | Seq l ->
+              List.iter (loop inflow) l
+          | Alt l ->
+              let grab =
+                let defs = attributes_of_rhs g b (Alt l) in
+                let defs = list_of_set defs in
+                "(" ^ (String.concat "," ("__v__"::defs)) ^ ")" in
+              fprintf outch " let %s =\n (match __n__() with\n" grab;
+              let count = ref (-1) in
+              let rec each_alt = function
+                | [] -> ()
+                | [hd] ->
+                    fprintf outch " | _ -> (\n";
+                    loop inflow hd;
+                    fprintf outch " %s)\n" grab
+                | hd::tl ->
+                    fprintf outch " | %d -> (\n" (count := !count+1; !count);
+                    loop inflow hd;
+                    fprintf outch " %s)\n" grab;
+                    each_alt tl in
+              each_alt l;
+              fprintf outch ") in\n" in
+        loop (inputs_of g b x) r;
+        if b then infer_return_type x;
+        fprintf outch " %s\n" (flow_with_value (outputs_of g b x));
+        () in
+      let first_decl = if b then "let rec " else "and " in
+      ignore(List.fold_left (fun _let_ rule -> fprintf outch "%s" _let_; each_rule rule; "and ") first_decl g.rules);
+      if b then
+        for i = 1 to !dcount do
+          fprintf outch "and _ty_delay_%d x = (_cell_%d := Some x; x)\n" i i;
+          fprintf outch "and _cell_%d = ref None\n" i;
+        done;
+      List.iter
+        (fun s -> fprintf outch "and %s x = x\n" s)
+        (List.sort
+           (* output flow types in numeric order, not string order: 2 before 10 *)
+           (fun a b ->
+             try
+               let a_num = Scanf.sscanf a "_ty_flow_%d" (fun x -> x) in
+               let b_num = Scanf.sscanf b "_ty_flow_%d" (fun x -> x) in
+               compare a_num b_num
+             with
+               Scanf.Scan_failure _ -> compare a b)
+           (list_of_set !inference_functions));
+      if not b then fprintf outch ";;\n" else () in
+    infer_phase true;
+    infer_phase false;
+    close_out outch;
+    ignore(Sys.command "ocamlc -i foobar.ml > foobar.mli");
+    let type_assoc = Ocaml.read_types "foobar.mli" in
+    type_assoc
+
+  let precompute_flows g =
+    Queue.create() (* dummy function *)
+  let gen_gil g =
+    let each_rule = function (Lhs(symbol,inputs,outputs),r) ->
+      let next() = Queue.take (precompute_flows g) in
+      let rec loop = function
+        | Cut(x,y)   ->
+            if x then
+              let (constructor,inflow,outflow) = next() in
+              Gil.Action
+                (sprintf "svx ~%s:(fun %s -> %s)" constructor inflow outflow)
+                (* example:  svx ~fc1:(fun (__v__,...) -> Fc2(__v__,...)) *)
+            else
+              Gil.Lit(true,"")
+        | Sym(x,y)   ->
+            let (flow_constructor,inflow,outflow) = next() in
+            let (retn_constructor,to_x,from_x) = next() in
+            let bindings =
+                  List.map (function Attribute(_,v),e -> (v,e))
+                    (List.filter(function Attribute(b,_),_ -> b) y) in
+            let call = Buffer.create 11 in
+            bprintf call "svx ~%s:(fun %s ->\n" flow_constructor inflow;
+            List.iter
+              (fun (v,e) -> bprintf call " let %s = %s in\n" v e)
+              bindings;
+            bprintf call "%s" to_x;
+            Gil.Symb
+              (x,
+               Some(Buffer.contents call),
+               Some(sprintf "svx ~%s:(fun %s -> %s)" retn_constructor from_x outflow))
+        | Act(x,y)   ->
+            if x then
+              let (constructor,inflow,outflow) = next() in
+              Gil.Action
+                (sprintf "svx ~%s:(fun %s -> let __v__ = %s in %s)" constructor inflow y outflow)
+                (* example:  svx ~fc1:(fun (__v__,...) -> let __v__ = expr in Fc2(__v__,...)) *)
+            else
+              Gil.Lit(true,"")
+        | Pat(x,y)   ->
+            if x then
+              let (constructor,inflow,outflow) = next() in
+              Gil.Action
+                (sprintf "svx ~%s:(fun %s -> let %s = __v__ in %s)" constructor inflow (pp_pat y) outflow)
+                (* example:  svx ~fc1:(fun (__v__,...) -> let pat = __v__ in Fc2(__v__,...)) *)
+            else
+              Gil.Lit(true,"")
+        | Box _
+        | Dly _
+        | Tok _      -> raise Exit
+        | Whl(e,r)   -> raise Exit
+        | Kcl(m,n,r) when m>0 ->
+            loop (Kcl(m-1,n,r))
+        | Kcl(m,n,r) when m<0 -> raise Exit
+        | Kcl(0,Num 0,r) -> Gil.Lit(true,"")
+        | Kcl(0,Num n,r) when n<0 -> raise Exit
+        | Kcl(0,Num n,r) ->
+            Gil.Alt(Gil.Lit(true,""),
+                    Gil.Seq(loop r,loop (Kcl(0,Num(n-1),r))))
+        | Kcl(0,Infinity,r) ->
+            Gil.Star(loop r)
+        | Lit x      ->
+            Gil.Lit(true,x)
+        | Seq [] -> loop (Lit "")
+        | Seq [hd] -> loop hd
+        | Seq(hd::tl) ->
+            List.fold_left
+              (fun gil r -> Gil.Seq(gil,loop r))
+              (loop hd)
+              tl
+        | Alt [] -> loop (Lit "")
+        | Alt [hd] -> loop hd
+        | Alt(hd::tl) ->
+            List.fold_left
+              (fun gil r -> Gil.Alt(gil,loop r))
+              (loop hd)
+              tl in
+      loop r in
+    List.map each_rule g.rules
+end
+}
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; (* A lexer for Yakker input files *)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+@ocamllex {
+{
+module Location = Ocaml_lexer.Location
+type tok =
+  | EOF
+  | BOX
+  | DELAY
+  | OCAMLLEX
+  | PROLOGUE
+  | EPILOGUE
+  | DECLARELEXER
+  | LPAREN
+  | RPAREN
+  | LBRACE
+  | LBRACESTAR
+  | LBRACEDOLLAR
+  | RBRACE
+  | LBRACK
+  | RBRACK
+  | BAR
+  | SEMICOLON
+  | COLON
+  | UNDERSCORE
+  | COMMA
+  | QUESTION
+  | QUESTIONDOLLAR
+  | STAR
+  | HASH
+  | EQ
+  | SLASH
+  | SLASHDOLLAR
+  | DIGITS of int
+  | ID of string
+  | ATTRIBUTE of attribute
+  | TOK of string
+  | STRING of string
+
+}
+let newline = ('\010' | '\013' | "\013\010")
+let blank = [' ' '\009' '\012']
+let lowercase = ['a'-'z' '\223'-'\246' '\248'-'\255' '_']
+let uppercase = ['A'-'Z' '\192'-'\214' '\216'-'\222']
+let leadchar = lowercase | uppercase
+let identchar =
+  ['A'-'Z' 'a'-'z' '-' '_' '\192'-'\214' '\216'-'\246' '\248'-'\255' '\'' '0'-'9']
+
+rule tok = parse
+  | newline
+      { Ocaml_lexer.update_loc lexbuf None 1 false 0;
+        tok lexbuf
+      }
+  | blank +
+      { tok lexbuf }
+  | "\""
+      { Ocaml_lexer.reset_string_buffer();
+        let string_start = lexbuf.Lexing.lex_start_p in
+        Ocaml_lexer.string_start_loc := Location.curr lexbuf;
+        string lexbuf;
+        lexbuf.Lexing.lex_start_p <- string_start;
+        STRING (Ocaml_lexer.get_stored_string()) }
+  | "(*"
+      { Ocaml_lexer.comment_start_loc := [Location.curr lexbuf];
+        comment lexbuf;
+        tok lexbuf }
+  | "(*)"
+      { let loc = Location.curr lexbuf in
+        Location.prerr_warning loc Ocaml_lexer.Warnings.Comment_start;
+        Ocaml_lexer.comment_start_loc := [Location.curr lexbuf];
+        comment lexbuf;
+        tok lexbuf
+      }
+  | "*)"
+      { let loc = Location.curr lexbuf in
+        Location.prerr_warning loc Ocaml_lexer.Warnings.Comment_not_end;
+        lexbuf.Lexing.lex_curr_pos <- lexbuf.Lexing.lex_curr_pos - 1;
+        let curpos = lexbuf.Lexing.lex_curr_p in
+        lexbuf.Lexing.lex_curr_p <- { curpos with Lexing.pos_cnum = curpos.Lexing.pos_cnum - 1 };
+        STAR
+      }
+  | "#" [' ' '\t']* (['0'-'9']+ as num) [' ' '\t']*
+        ("\"" ([^ '\010' '\013' '\034' ] * as name) "\"")?
+        [^ '\010' '\013'] * newline
+      { Ocaml_lexer.update_loc lexbuf name (int_of_string num) true 0;
+        tok lexbuf
+      }
+  | leadchar identchar *
+      { ID(Lexing.lexeme lexbuf) }
+  | "~" lowercase identchar *
+      { let x = Lexing.lexeme lexbuf in
+        ATTRIBUTE(Attribute(true,String.sub x 1 (String.length x - 1))) }
+  | "~$" lowercase identchar *
+      { let x = Lexing.lexeme lexbuf in
+        ATTRIBUTE(Attribute(false,String.sub x 2 (String.length x - 2))) }
+  | "'" leadchar identchar * "'"
+      { let x = Lexing.lexeme lexbuf in
+        TOK(String.sub x 1 (String.length x - 2)) }
+  | ['0'-'9'] ['0'-'9' '_']*
+      { try
+          DIGITS (int_of_string(Lexing.lexeme lexbuf))
+        with Failure _ ->
+          raise (Ocaml_lexer.Error(Ocaml_lexer.Literal_overflow "int", Location.curr lexbuf))
+      }
+  | "@box"           { BOX }
+  | "@delay"         { DELAY }
+  | "@declare-lexer" { DECLARELEXER }
+  | "@epilogue"      { EPILOGUE }
+  | "@ocamllex"      { OCAMLLEX }
+  | "@prologue"      { PROLOGUE }
+  | "*"              { STAR }
+  | ","              { COMMA }
+  | "="              { EQ }
+  | "?"              { QUESTION }
+  | "?$"             { QUESTIONDOLLAR }
+  | "_"              { UNDERSCORE }
+  | "|"              { BAR }
+  | "/"              { SLASH }
+  | "/$"             { SLASHDOLLAR }
+  | ";"              { SEMICOLON }
+  | ":"              { COLON }
+  | "("              { LPAREN }
+  | ")"              { RPAREN }
+  | "{"              { LBRACE }
+  | "{*"             { LBRACESTAR }
+  | "{$"             { LBRACEDOLLAR }
+  | "}"              { RBRACE }
+  | eof              { EOF }
+  | _
+      { raise (Ocaml_lexer.Error(Ocaml_lexer.Illegal_character (Lexing.lexeme_char lexbuf 0),
+                     Location.curr lexbuf))
+      }
+
+and comment = parse
+    "(*"
+      { Ocaml_lexer.comment_start_loc := (Location.curr lexbuf) :: !Ocaml_lexer.comment_start_loc;
+        comment lexbuf;
+      }
+  | "*)"
+      { match !Ocaml_lexer.comment_start_loc with
+        | [] -> assert false
+        | [x] -> Ocaml_lexer.comment_start_loc := [];
+        | _ :: l -> Ocaml_lexer.comment_start_loc := l;
+                    comment lexbuf;
+       }
+  | "\""
+      { Ocaml_lexer.reset_string_buffer();
+        Ocaml_lexer.string_start_loc := Location.curr lexbuf;
+        begin try string lexbuf
+        with Ocaml_lexer.Error (Ocaml_lexer.Unterminated_string, _) ->
+          match !Ocaml_lexer.comment_start_loc with
+          | [] -> assert false
+          | loc :: _ -> Ocaml_lexer.comment_start_loc := [];
+                        raise (Ocaml_lexer.Error (Ocaml_lexer.Unterminated_string_in_comment, loc))
+        end;
+        Ocaml_lexer.reset_string_buffer ();
+        comment lexbuf }
+  | "''"
+      { comment lexbuf }
+  | "'" newline "'"
+      { Ocaml_lexer.update_loc lexbuf None 1 false 1;
+        comment lexbuf
+      }
+  | "'" [^ '\\' '\'' '\010' '\013' ] "'"
+      { comment lexbuf }
+  | "'\\" ['\\' '\034' '\'' 'n' 't' 'b' 'r' ' '] "'"
+      { comment lexbuf }
+  | "'\\" ['0'-'9'] ['0'-'9'] ['0'-'9'] "'"
+      { comment lexbuf }
+  | "'\\" 'x' ['0'-'9' 'a'-'f' 'A'-'F'] ['0'-'9' 'a'-'f' 'A'-'F'] "'"
+      { comment lexbuf }
+  | eof
+      { match !Ocaml_lexer.comment_start_loc with
+        | [] -> assert false
+        | loc :: _ -> Ocaml_lexer.comment_start_loc := [];
+                      raise (Ocaml_lexer.Error (Ocaml_lexer.Unterminated_comment, loc))
+      }
+  | newline
+      { Ocaml_lexer.update_loc lexbuf None 1 false 0;
+        comment lexbuf
+      }
+  | _
+      { comment lexbuf }
+
+and string = parse
+    '\034'
+      { () }
+  | '\\' newline ([' ' '\t'] * as space)
+      { Ocaml_lexer.update_loc lexbuf None 1 false (String.length space);
+        string lexbuf
+      }
+  | '\\' ['\\' '\'' '\034' 'n' 't' 'b' 'r' ' ']
+      { Ocaml_lexer.store_string_char(Ocaml_lexer.char_for_backslash(Lexing.lexeme_char lexbuf 1));
+        string lexbuf }
+  | '\\' ['0'-'9'] ['0'-'9'] ['0'-'9']
+      { Ocaml_lexer.store_string_char(Ocaml_lexer.char_for_decimal_code lexbuf 1);
+         string lexbuf }
+  | '\\' 'x' ['0'-'9' 'a'-'f' 'A'-'F'] ['0'-'9' 'a'-'f' 'A'-'F']
+      { Ocaml_lexer.store_string_char(Ocaml_lexer.char_for_hexadecimal_code lexbuf 2);
+         string lexbuf }
+  | '\\' _
+      { if Ocaml_lexer.in_comment ()
+        then string lexbuf
+        else begin
+(*  Should be an error, but we are very lax.
+          raise (Error (Illegal_escape (Lexing.lexeme lexbuf),
+                        Location.curr lexbuf))
+*)
+          let loc = Location.curr lexbuf in
+          Location.prerr_warning loc Ocaml_lexer.Warnings.Illegal_backslash;
+          Ocaml_lexer.store_string_char (Lexing.lexeme_char lexbuf 0);
+          Ocaml_lexer.store_string_char (Lexing.lexeme_char lexbuf 1);
+          string lexbuf
+        end
+      }
+  | newline
+      { Ocaml_lexer.update_loc lexbuf None 1 false 0;
+        let s = Lexing.lexeme lexbuf in
+        for i = 0 to String.length s - 1 do
+          Ocaml_lexer.store_string_char s.[i];
+        done;
+        string lexbuf
+      }
+  | eof
+      { raise (Ocaml_lexer.Error (Ocaml_lexer.Unterminated_string, !Ocaml_lexer.string_start_loc)) }
+  | _
+      { Ocaml_lexer.store_string_char(Lexing.lexeme_char lexbuf 0);
+        string lexbuf }
+
+and skip_sharp_bang = parse
+  | "#!" [^ '\n']* '\n' [^ '\n']* "\n!#\n"
+       { Ocaml_lexer.update_loc lexbuf None 3 false 0 }
+  | "#!" [^ '\n']* '\n'
+       { Ocaml_lexer.update_loc lexbuf None 1 false 0 }
+  | "" { () }
+
+{
+  let token = Yak.YkBuf.wrap_ocamllex tok
+  let token_peek = Yak.YkBuf.peek_ocamllex tok
+}
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; (* Interface to the Yakker lexer *)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+@declare-lexer token @({tok}) token_peek =
+  EOF
+| BOX =                   "@box"
+| DELAY =                 "@delay"
+| OCAMLLEX =              "@ocamllex"
+| PROLOGUE =              "@prologue"
+| EPILOGUE =              "@epilogue"
+| DECLARELEXER =          "@declare-lexer"
+| HASH =                  "#"
+| STAR =                  "*"
+| COMMA =                 ","
+| EQ =                    "="
+| QUESTION =              "?"
+| QUESTIONDOLLAR =        "?$"
+| UNDERSCORE =            "_"
+| BAR =                   "|"
+| LPAREN =                "("
+| RPAREN =                ")"
+| LBRACE =                "{"
+| LBRACESTAR =            "{*"
+| LBRACEDOLLAR =          "{$"
+| RBRACE =                "}"
+| LBRACK =                "["
+| RBRACK =                "]"
+| SEMICOLON =             ";"
+| COLON =                 ":"
+| SLASH =                 "/"
+| SLASHDOLLAR =           "/$"
+| DIGITS@({int})
+| ID@({string})
+| ATTRIBUTE@({attribute})
+| TOK@({string})
+| STRING@({string})
+.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; THE GRAMMAR
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+file = { { prologue=[]; rules=[]; epilogue=[]; } }$g
+       1*( prologue$x { g.prologue <- x::g.prologue } "" |
+           rule$x     { g.rules    <- x::g.rules } "" |
+           epilogue$x { g.epilogue <- x::g.epilogue } "")
+       EOF
+       { (*printf "%s\n%!" (pp_grammar g);*)
+         Sanity.check g;
+         let type_assoc = Infer.infer_types g in
+         List.iter
+           (fun (ident,typ) ->
+             printf "%s : %s\n" ident typ)
+           type_assoc;
+         Infer.gen_type "all_t" "AA"
+           (set_of_list (List.map snd type_assoc))
+       }
+.
+prologue =
+  "@prologue" "{" Ocaml_until_RBRACE$x { Ocaml x }
+| "@ocamllex" "{" Ocamllex_until_RBRACE$x { Ocamllex x }
+.
+epilogue = "@epilogue" "{" Ocaml_until_RBRACE$x { Ocaml x }
+.
+declare-lexer =
+  "@declare-lexer" ID "=" lexer-cases
+.
+lexer-cases =
+  ["|"] lexer-case *("|" lexer-case)
+.
+lexer-case =
+  TOK "=" ID
+| TOK "=" ID "(" ID ")"
+.
+rule = lhs$x "=" rhs$y ";" {x,y}
+.
+lhs =
+  ID$n *ATTRIBUTE $x [ ":" 1*ATTRIBUTE ]$y { match y with None -> Lhs(n,x,[]) | Some y -> Lhs(n,x,y) }
+.
+application =
+  ID$x *argument $y                       { Sym(x,y) }
+.
+argument =
+  ATTRIBUTE$x ":" ONE$y                   { (x,y) }
+.
+rhs = rhs3
+.
+rhs0 =
+  STRING$x                               { Lit x }
+| "?" pat$x                              { Pat(true,x) }
+| "?$" pat$x                             { Pat(false,x) }
+| "/" ID$x                               { Cut(true,x) }
+| "/$" ID$x                              { Cut(false,x) }
+| "(" rhs$x ")"                          { x }
+| application$x                          { x }
+| TOK$x                                  { Tok x }
+| "{" Ocaml_until_RBRACE$x               { Act(true,x) }
+| "{$" Ocaml_until_RBRACE$x              { Act(false,x) }
+| "@box" "(" Ocaml_until_RPAREN$x        { Box(x) }
+| "@delay" "(" Ocaml_until_RPAREN$x      { Dly(x) }
+rhs1 =
+  "*" rhs1$x                             { Kcl(0,Infinity,x) }
+| DIGITS$m "*" rhs1$x                    { Kcl(m,Infinity,x) }
+| "*" DIGITS$n rhs1$x                    { Kcl(0,Num n,x) }
+| DIGITS$m "*" DIGITS$n rhs1$x           { Kcl(m,Num n,x) }
+| "{*" Ocaml_until_RBRACE$x rhs1$y       { Whl(x,y) }
+| rhs0$x                                 { x }
+.
+rhs2 =
+  rhs1$x rhs2$y                          { match y with Seq l -> Seq(x::l) | _ -> Seq([x;y]) }
+| rhs1$x                                 { x }
+.
+rhs3 =
+  rhs2$x "|" rhs3$y                      { match y with Alt l -> Alt(x::l) | _ -> Alt([x;y]) }
+| rhs2$x                                 { x }
+.
+pat =
+  ID$x { if is_con x then Con_pat(x,[]) else
+         match x with "true" -> Con_pat("true",[]) | "false" -> Con_pat("false",[]) | _ -> Var_pat x }
+| "(" pat2$x ")" { x }
+.
+pat1 =
+  ID$x 1*pat1 $y                    { if not(is_con x) then eprintf "Error: %s used as constructor\n%!" x; Con_pat(x,y) }
+| pat$x                             { x }
+.
+pat2 =
+  pat1$x *("," pat1)$y              { if y<>[] then Tup_pat(x::y) else x }
+.
+ONE = (@box (Ocaml.one))
+.
+Ocaml_until_RBRACE = (@box >@(Ocaml_lexer.Parser.token) (Ocaml.until_RBRACE))@y$x @when(y=Ocaml_lexer.Parser.RBRACE) { all_but_last x }
+.
+Ocaml_until_RPAREN = (@box >@(Ocaml_lexer.Parser.token) (Ocaml.until_RPAREN))@y$x @when(y=Ocaml_lexer.Parser.RPAREN) { all_but_last x }
+.
+Ocamllex_until_RBRACE = @box >@(Ocamllex_lexer.Parser.token) (Ocamllex.until_RBRACE)@y$x @when(y=Ocamllex_lexer.Parser.RBRACE) { all_but_last x }
+.
+@end {
+Yak.Logging.add_features Yak.Logging.Features.position;
+Yak.Pami.Simple.test parse_file visualize_file
+}

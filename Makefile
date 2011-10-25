@@ -223,6 +223,10 @@ DEPEND.pdf: $(SOURCES) $(FRONT_END_SOURCES)
 	(echo yak.cmo: $(CMOS); ocamldep -I $(TOPDIR)/src -I $(TOPDIR)/batteries yak.ml $^) | ocamldot | dot -Tpdf > $@
 	$(RM) yak.ml
 
+# New front end
+nu: yak.cmxa ocaml_lexer.cmx ocamllex_lexer.cmx tgraph.cmx variables.cmx meta_prog.cmx compileopt.cmx gul.cmx gil.cmx pr.cmx nu.cmx
+	$(OCAMLOPT) -o $@ -linkpkg -package unix $^
+
 # Qian's debugging stuff
 yakker-pcomb-parser.opt: tgraph.cmx bnf.cmx yak.cmxa
 	@echo "x--> yakker_pcomb.ml"

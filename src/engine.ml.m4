@@ -557,24 +557,75 @@ module type NULLRET = sig
   module SV_set : Set.S with type elt = sv
 
   type nullable_set
-  type nullable_rel
+
   val create : int -> nullable_set
-  val create_p : int -> nullable_rel
   val clear : nullable_set -> unit
-  val clear_p : nullable_rel -> unit
   val mem : nullable_set -> PI.nonterm -> bool
+  val add : nullable_set -> PI.nonterm -> unit
+
+  type nullable_rel
+
+  val create_p : int -> nullable_rel
+  val clear_p : nullable_rel -> unit
   val mem_p : nullable_rel -> PI.nonterm -> sv -> sv -> bool
   val find_p : nullable_rel -> PI.nonterm -> sv -> SV_set.t
-  val res_not_empty : SV_set.t -> bool
-  val res_iter : SV_set.t -> (sv -> unit) -> unit
-  val add : nullable_set -> PI.nonterm -> unit
   val add_p : nullable_rel -> PI.nonterm -> sv -> sv -> unit
+  val res_iter : SV_set.t -> (sv -> unit) -> unit
 
   val derive_dense : PI.label array array -> 'a PJDN.pnt_table -> PI.nonterm array array
 end
 
-module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL)
-  IF_TRUE(DO_NULL_RET, `(NR : NULLRET with type sv = Sem_val.t)') = struct
+
+module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
+(*   IF_TRUE(DO_NULL_RET, `(NR : NULLRET with type sv = Sem_val.t)') = struct *)
+  IF_TRUE(DO_NULL_RET,
+    module NR : NULLRET with type sv = Sem_val.t = struct
+      type sv = Sem_val.t
+      module SV_set = Set.Make(struct type t = sv let compare = Sem_val.cmp end)
+
+      type nullable_set = Wf_set.Int_set.t
+
+      let create = Wf_set.Int_set.make
+      let clear = Wf_set.Int_set.clear
+      let mem = Wf_set.Int_set.mem
+      let add  = Wf_set.Int_set.insert
+
+      module SV_map = Map.Make(struct type t = sv let compare = Sem_val.cmp end)
+      type nullable_rel = SV_set.t SV_map.t Wf_set.Int_map.t
+
+      let create_p sz = WI.make sz SV_map.empty
+      let clear_p = WI.clear
+      let find_p r nt arg = SV_map.find arg (WI.find r nt)
+
+      let mem_p r nt arg sv =
+        try
+          SV_set.mem sv (SV_map.find arg (WI.find r nt))
+        with Not_found -> false
+
+      let add_p r nt arg sv =
+        if WI.mem r nt then
+          let map = WI.get r nt in
+          let set =
+            try SV_set.add sv (SV_map.find arg map)
+            with Not_found -> SV_set.singleton sv in
+          WI.set r nt (SV_map.add arg set map)
+        else
+          WI.insert r nt (SV_map.singleton arg (SV_set.singleton sv))
+
+      let res_iter s f = SV_set.iter f s
+
+      let derive_dense nts p_nts =
+        Array.init (Array.length nts) begin fun s ->
+          let a = nts.(s) in
+          let b = p_nts.(s) in
+          let n = Array.length a in     (* [b] should have the same length. *)
+          let r = ref [] in
+          for k = 0 to n - 1 do
+            if a.(k) != 0 || b.(k) != [||] then r := k::!r
+          done;
+          Array.of_list !r
+        end
+    end)
 
   module ES_flat = struct
 
@@ -1442,11 +1493,12 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL)
          `let nts = dense_nonterm_table.(s) in
           for k = 0 to Array.length nts - 1 do
             let nt = nts.(k) in
-            let results = NR.find_p null_p_rets nt arg in
-            if NR.res_not_empty results then
+            try
+              let results = NR.find_p null_p_rets nt arg in
               NR.res_iter results begin fun sv ->
                 CONTINUE_CODE(`false', `s', `socvas_s')
               end
+            with Not_found -> ()
           done;
 
           let nts = dense_nonterm_table.(target) in
@@ -1454,11 +1506,12 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL)
           let socvas_target = ESET_CONTAINER_SINGLETON(target_cva) in
           for k = 0 to Array.length nts - 1 do
             let nt = nts.(k) in
-            let results = NR.find_p null_p_rets nt arg in
-            if NR.res_not_empty results then
+            try
+              let results = NR.find_p null_p_rets nt arg in
               NR.res_iter results begin fun sv ->
                 CONTINUE_CODE(`false', `target', `socvas_target')
               end
+            with Not_found -> ()
           done;'
         )
 

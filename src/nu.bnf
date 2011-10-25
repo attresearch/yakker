@@ -12,14 +12,14 @@
  *******************************************************************************)
 let is_con x =
   let c = (String.get x 0) in 'A' <= c && c <= 'Z'
+let all_but_last s =
+  let l = String.length s in
+  if l=0 then s else
+  String.sub s 0 (l - 1)
+
 open Printf
 type attribute =
     Attribute of bool * string                (* attribute name, true=>early, false=>late *)
-let compare_a x y =
-  match x,y with
-  | Attribute(true,_),Attribute(false,_) -> -1
-  | Attribute(false,_),Attribute(true,_) -> 1
-  | Attribute(_,a),Attribute(_,b) -> compare a b
 type lhs =
   | Lhs of string * attribute list * attribute list
 type repeat = Infinity | Num of int
@@ -110,53 +110,6 @@ let fold
     | Alt l      -> alt l a loop
   in loop a r
 
-let pp_attribute = function
-    Attribute(true,s)  -> sprintf "~%s" s
-  | Attribute(false,s) -> sprintf "~$%s" s
-let pp_attribute_ocaml = function
-    Attribute(_,s)  -> sprintf "~%s" s
-let pp_lhs = function
-  | Lhs(a,b,c) ->
-      let p x =
-        "[" ^ (String.concat ";" (List.map pp_attribute x))^"]" in
-      sprintf "Lhs(%s,%s,%s)" a (p b) (p c)
-let rec pp_rhs = function
-    Lit x             -> sprintf "Lit(%s)" x
-  | Tok x             -> sprintf "Tok(%s)" x
-  | Seq x             -> sprintf "Seq(%s)" (String.concat " " (List.map pp_rhs x))
-  | Alt x             -> sprintf "Alt(%s)" (String.concat "|" (List.map pp_rhs x))
-  | Pat(x,y)          -> sprintf "Pat(%b,%s)" x (pp_pat y)
-  | Kcl(m,Infinity,x) -> sprintf "Kcl(%d,*,%s)" m (pp_rhs x)
-  | Kcl(m,Num n,x)    -> sprintf "Kcl(%d,%d,%s)" m n (pp_rhs x)
-  | Whl(x,y)          -> sprintf "Whl(%s,%s)" x (pp_rhs y)
-  | Sym(x,[])         -> sprintf "Sym(%s)" x
-  | Sym(x,y)          -> sprintf "Sym(%s,%s)" x (String.concat "," (List.map (fun (a,v) -> (pp_attribute a)^":"^v) y))
-  | Cut(x,y)          -> sprintf "Cut(%b,%s)" x y
-  | Act(x,y)          -> sprintf "Act(%b,%s)" x y
-  | Box(x)            -> sprintf "Box(%s)" x
-  | Dly(x)            -> sprintf "Dly(%s)" x
-and pp_pat = function
-    Con_pat(x,[])     -> x
-  | Con_pat(x,y)      -> "(" ^ x ^ " " ^ (String.concat " " (List.map pp_pat y)) ^ ")"
-  | Var_pat x         -> x
-  | Tup_pat y         -> "(" ^ (String.concat "," (List.map pp_pat y)) ^ ")"
-let pp_grammar g =
-  String.concat "\n"
-    ((List.rev (List.map
-        (function
-            Ocaml x -> sprintf "@prologue {%s}" x
-          | Ocamllex x -> sprintf "@ocamllex {%s}" x) g.prologue))
-     @(List.rev (List.map (function (x,y) -> sprintf "%s = %s" (pp_lhs x) (pp_rhs y)) g.rules))
-     @(List.rev (List.map
-         (function
-             Ocaml x -> sprintf "@epilogue {%s}" x
-           | Ocamllex x -> sprintf "@ocamllex {%s}" x) g.epilogue)))
-
-let all_but_last s =
-  let l = String.length s in
-  if l=0 then s else
-  String.sub s 0 (l - 1)
-
 module Sset = Set.Make(struct type t = string let compare = String.compare end)
 let list_of_set set = Sset.fold (fun x y -> x::y) set []
 let set_of_list l = List.fold_right Sset.add l Sset.empty
@@ -202,29 +155,93 @@ let attributes_of_rhs g b r =
     Sset.empty
     r
 
+
+let pp_attribute = function
+    Attribute(true,s)  -> sprintf "~%s" s
+  | Attribute(false,s) -> sprintf "~$%s" s
+let pp_attribute_ocaml = function
+    Attribute(_,s)  -> sprintf "~%s" s
+let pp_lhs = function
+  | Lhs(a,b,c) ->
+      let p x =
+        "[" ^ (String.concat ";" (List.map pp_attribute x))^"]" in
+      sprintf "Lhs(%s,%s,%s)" a (p b) (p c)
+let rec pp_rhs = function
+    Lit x             -> sprintf "Lit(%s)" x
+  | Tok x             -> sprintf "Tok(%s)" x
+  | Seq x             -> sprintf "Seq(%s)" (String.concat " " (List.map pp_rhs x))
+  | Alt x             -> sprintf "Alt(%s)" (String.concat "|" (List.map pp_rhs x))
+  | Pat(x,y)          -> sprintf "Pat(%b,%s)" x (pp_pat y)
+  | Kcl(m,Infinity,x) -> sprintf "Kcl(%d,*,%s)" m (pp_rhs x)
+  | Kcl(m,Num n,x)    -> sprintf "Kcl(%d,%d,%s)" m n (pp_rhs x)
+  | Whl(x,y)          -> sprintf "Whl(%s,%s)" x (pp_rhs y)
+  | Sym(x,[])         -> sprintf "Sym(%s)" x
+  | Sym(x,y)          -> sprintf "Sym(%s,%s)" x (String.concat "," (List.map (fun (a,v) -> (pp_attribute a)^":"^v) y))
+  | Cut(x,y)          -> sprintf "Cut(%b,%s)" x y
+  | Act(x,y)          -> sprintf "Act(%b,%s)" x y
+  | Box(x)            -> sprintf "Box(%s)" x
+  | Dly(x)            -> sprintf "Dly(%s)" x
+and pp_pat = function
+    Con_pat(x,[])     -> x
+  | Con_pat(x,y)      -> "(" ^ x ^ " " ^ (String.concat " " (List.map pp_pat y)) ^ ")"
+  | Var_pat x         -> x
+  | Tup_pat y         -> "(" ^ (String.concat "," (List.map pp_pat y)) ^ ")"
+let pp_grammar g =
+  String.concat "\n"
+    ((List.rev (List.map
+        (function
+            Ocaml x -> sprintf "@prologue {%s}" x
+          | Ocamllex x -> sprintf "@ocamllex {%s}" x) g.prologue))
+     @(List.rev (List.map (function (x,y) -> sprintf "%s = %s" (pp_lhs x) (pp_rhs y)) g.rules))
+     @(List.rev (List.map
+         (function
+             Ocaml x -> sprintf "@epilogue {%s}" x
+           | Ocamllex x -> sprintf "@ocamllex {%s}" x) g.epilogue)))
+
 module Sanity = struct
   let uniq l =
     Sset.cardinal(List.fold_right Sset.add l Sset.empty) = List.length l
-  let rec canonize = function (* unnest Alt and Seq *)
-    | (Cut _ | Act _ | Sym _ | Pat _ | Box _ | Dly _ | Lit _ | Tok _) as r -> r
-    | Kcl(x,y,r) -> Kcl(x,y,canonize r)
-    | Whl(x,r) -> Whl(x,canonize r)
-    | Seq [x]
-    | Alt [x] -> canonize x
-    | Seq l ->
-        Seq
-          (List.concat
-             (List.map
-                (function Seq x -> x | x -> [x])
-                (List.map canonize l)))
-    | Alt l ->
-        Alt
-          (List.concat
-             (List.map
-                (function Alt x -> x | x -> [x])
-                (List.map canonize l)))
+  let canonize g =
+    let rec loop = function (* unnest Alt and Seq *)
+      | (Cut _ | Act _ | Sym _ | Pat _ | Box _ | Dly _ | Lit _ | Tok _) as r -> r
+      | Kcl(m,n,r) ->
+          if m<0 then raise Exit else
+          if m>0 then loop (Kcl(m-1,n,r)) else
+          (match n with
+          | Infinity -> Kcl(m,n,loop r)
+          | Num 0 -> Lit("")
+          | Num n ->
+              if n<0 then raise Exit else
+              loop(Alt[Lit("");
+                       Seq[r;Kcl(0,Num(n-1),r)]]))
+      | Whl(e,r) ->
+          (* {*e} r -> *({e}?true r) {e}?false *)
+          loop
+            (Seq[Kcl(0,Infinity,
+                     Seq[Act(true,e);
+                         Pat(true,Con_pat("true",[]));
+                         r]);
+                 Act(true,e);
+                 Pat(true,Con_pat("false",[]))])
+      | Alt [] -> Lit("")
+      | Seq [] -> Lit("")
+      | Seq [x]
+      | Alt [x] -> loop x
+      | Seq l ->
+          Seq
+            (List.concat
+               (List.map
+                  (function Seq x -> x | x -> [x])
+                  (List.map loop l)))
+      | Alt l ->
+          Alt
+            (List.concat
+               (List.map
+                  (function Alt x -> x | x -> [x])
+                  (List.map loop l))) in
+    g.rules <- List.map (fun (lhs,r) -> (lhs,loop r)) g.rules
   let flowcheck g b =
-    let each_rule = function (Lhs(symbol,_,_),r) ->
+    let each_rule = function (Lhs(symbol,_,_) as lhs,r) ->
       let inflow = inputs_of g b symbol in
       let outflow =
         fold
@@ -296,8 +313,15 @@ module Sanity = struct
         (function attribute ->
           error "%s does not produce declared output attribute %s" symbol attribute)
         (Sset.diff (outputs_of g b symbol) outflow);
-      () in
-    List.iter each_rule g.rules
+      (* ensure that we don't return undeclared output attributes *)
+      (*TODO: a sequence>1 of cuts will be expensive, try to cut all at once*)
+      let cuts = List.map (fun x -> Cut(b,x)) (list_of_set(Sset.diff outflow (outputs_of g b symbol))) in
+      let r =
+        if []=cuts then r else
+        match r with Seq l -> Seq(l@cuts)
+        | _ -> Seq(r::cuts) in
+      (lhs,r) in
+    g.rules <- List.map each_rule g.rules
   let check g =
     (* Make sure all nonterminals are defined exactly once *)
     let syms = ref Sset.empty in
@@ -449,39 +473,46 @@ end
 module Infer = struct
   open Sanity
   let flow_with_value flow = "(" ^ String.concat "," ("__v__"::(list_of_set flow)) ^ ")"
-  let gen_type name constructor ty_set =
-    if Sset.is_empty ty_set then
-      printf "type %s = %s\n" name constructor
-    else begin
-      let count = ref 0 in
-      let next() = count := !count+1; !count in
-      printf "type %s =\n" name;
-      Sset.iter
-        (fun ty -> printf "| %s%d of (%s)\n" constructor (next()) ty)
-        ty_set
+  let gen_type name constructor type_table =
+    let types_and_constructors =
+      let all_types = ref Sset.empty in
+      Hashtbl.iter
+        (fun _ typ -> all_types := Sset.add typ !all_types)
+        type_table;
+      List.rev
+        (snd
+           (List.fold_left
+              (fun (i,l) typ -> (i+1,(typ,sprintf "%s%d" constructor i)::l))
+              (0,[])
+              (list_of_set !all_types))) in
+    if []=types_and_constructors then begin
+      printf "type %s = %s\n" name constructor;
+      (fun i ->
+        error "no constructor for flow %d; no constructors at all" i; raise Exit)
     end
-  let precompute_flow_transitions g =
-    (* record (inflow,outflow) pairs for places in the grammar where flows change.
-       NB in some places they change only in TYPE and not attributes, e.g., actions. *)
-    let flows = Queue.create() in
-    let add inflow outflow = (Queue.add (flow_with_value inflow,flow_with_value outflow) flows; outflow) in
-    let each_rule (Lhs(symbol,_,_),r) =
-      let inflow = inputs_of g true symbol in
-      ignore (fold
-                ~pat:(fun b p a -> if not b then a else add a (Sset.union a (attributes_of_pat p)))
-                ~cut:(fun b x a -> if not b then a else add a (Sset.remove x a))
-                ~act:(fun b _ a -> if not b then a else add a a)
-                ~box:(fun _ a   -> add a a)
-                ~sym:(fun x _ a -> add a (Sset.union a (outputs_of g true x)))
-                inflow
-                r) in
-    List.iter each_rule g.rules;
-    flows
-  let infer_types g =
+    else begin
+      printf "type %s =\n" name;
+      List.iter
+        (fun (ty,this_constructor) ->
+          printf "  | %s of (%s)\n" this_constructor ty)
+        types_and_constructors;
+      List.iter
+        (fun (ty,this_constructor) ->
+          printf "let _%s f = function %s x -> f x | _ -> raise Exit\n"
+            (String.lowercase this_constructor) this_constructor)
+        types_and_constructors;
+      let constructor_table = Hashtbl.create 11 in
+      Hashtbl.iter
+        (fun i typ -> Hashtbl.add constructor_table i (List.assoc typ types_and_constructors))
+        type_table;
+      (fun i ->
+        try Hashtbl.find constructor_table i
+        with Not_found ->
+          (error "no constructor for flow %d" i; raise Exit))
+    end
+  let infer_types flow_table g =
     (*TODO: use temporary files instead of clobbering foobar.ml[i] *)
     let outch = open_out "foobar.ml" in
-    let flow_transitions = precompute_flow_transitions g in
-    let copy_of_flows = Queue.copy flow_transitions in
     let infer_phase b =
       (* Generate code that forces type inference.
          Use a trick: the code
@@ -496,43 +527,46 @@ module Infer = struct
          Then you can easily read typeofv using the ocaml lexer, skipping paren-balanced tokens
          until you reach the first (unnested) ->
        *)
-      let fn_replay x = sprintf "_replay_%s_%s" (if b then "e" else "l") x in
       let dcount = ref 0 in (* for saving the types of delayed values *)
       let infer_delay_type expr =
-        fprintf outch " ignore(_ty_delay_%d(%s));\n" (dcount := !dcount + 1; !dcount) expr in
+        let d = !dcount in
+        dcount := !dcount + 1;
+        fprintf outch " ignore(_ty_delay_%d(%s));\n" d expr in
       let inference_functions = ref Sset.empty in
       let infer inference_fn expr =
         inference_functions := Sset.add inference_fn !inference_functions;
         fprintf outch " ignore(%s %s);\n" inference_fn expr in
-      let vcount = ref 0 in (* for saving the types of early-phase values *)
-      let infer_flow_type () =
-        let (_,outflow) = Queue.take flow_transitions in
-        let fn = sprintf "_ty_flow_%d" (vcount := !vcount + 1; !vcount) in
-        infer fn outflow in
-      let infer_argument_type symbol =
-        let fn = sprintf "_ty_arg_%s" symbol in
+      let infer_flow_type =
+        let count = ref 0 in (* for saving the types of early-phase values *)
+        (fun () ->
+          let c = !count in
+          count := !count + 1;
+          let flow = Hashtbl.find flow_table c in
+          let flowvalue = flow_with_value flow in
+          let fn = sprintf "_ty_flow_%d" c in
+          infer fn flowvalue) in
+      let infer_call_type symbol =
+        let fn = sprintf "_ty_call_%s" symbol in
         infer fn (flow_with_value (inputs_of g b symbol)) in
       let infer_return_type symbol =
         let fn = sprintf "_ty_return_%s" symbol in
         infer fn (flow_with_value (outputs_of g b symbol)) in
+      let fn_replay x = sprintf "_replay_%s_%s" (if b then "e" else "l") x in
       let each_rule (Lhs(x,inputs,outputs),r) =
-        let infer_attribute_type s =
-          (* NB we only need to infer types for early-phase attributes *)
-          let a = (x^"__"^s) in
-          let fn = sprintf "_ty_attribute_%s" a in
-          infer fn s in
         fprintf outch "%s " (fn_replay x);
         let inputs = List.filter (function Attribute(b',_) -> b=b') inputs in
         fprintf outch "%s __n__ =\n" (String.concat " " (List.map pp_attribute_ocaml inputs));
-        if b then (*remove*)
-          List.iter (function Attribute(_,s) -> infer_attribute_type s) inputs;
         fprintf outch " let __v__ = () in\n";
         if b then
-          infer_argument_type x;
-        let rec loop inflow = function
+          infer_call_type x;
+        if b then
+          infer_flow_type();
+        let rec loop = function
           | Lit _
-          | Tok _
-          | Cut _ -> ()
+          | Tok _ -> ()
+          | Cut(x,_) ->
+              if x=b && b then
+                infer_flow_type()
           | Box x      ->
               if b then begin
                 fprintf outch " let __v__ = %s in\n" x;
@@ -563,7 +597,6 @@ module Infer = struct
               if x=b then begin
                 fprintf outch " let %s = __v__ in\n let __v__ = () in\n" (pp_pat y);
                 if b then begin
-                  Sset.iter infer_attribute_type (attributes_of_pat y); (*remove*)
                   infer_flow_type()
                 end
               end
@@ -575,7 +608,7 @@ module Infer = struct
               fprintf outch " let %s =\n let rec _w_ %s =\n if 0<>__n__() then %s else (\n" grab grab grab;
               if b then
                 fprintf outch " ignore(true=(%s));\n" x;
-              loop inflow r;
+              loop r;
               fprintf outch " %s) in _w_ %s in\n" grab grab
           | Kcl(_,_,r) ->
               let grab =
@@ -583,10 +616,10 @@ module Infer = struct
                 let defs = list_of_set defs in
                 "(" ^ (String.concat "," ("__v__"::defs)) ^ ")" in
               fprintf outch " let %s =\n let rec _w_ %s =\n if 0<>__n__() then %s else (\n" grab grab grab;
-              loop inflow r;
+              loop r;
               fprintf outch " %s) in _w_ %s in\n" grab grab
           | Seq l ->
-              List.iter (loop inflow) l
+              List.iter loop l
           | Alt l ->
               let grab =
                 let defs = attributes_of_rhs g b (Alt l) in
@@ -598,16 +631,16 @@ module Infer = struct
                 | [] -> ()
                 | [hd] ->
                     fprintf outch " | _ -> (\n";
-                    loop inflow hd;
+                    loop hd;
                     fprintf outch " %s)\n" grab
                 | hd::tl ->
                     fprintf outch " | %d -> (\n" (count := !count+1; !count);
-                    loop inflow hd;
+                    loop hd;
                     fprintf outch " %s)\n" grab;
                     each_alt tl in
               each_alt l;
               fprintf outch ") in\n" in
-        loop (inputs_of g b x) r;
+        loop r;
         if b then infer_return_type x;
         fprintf outch " %s\n" (flow_with_value (outputs_of g b x));
         () in
@@ -636,30 +669,130 @@ module Infer = struct
     close_out outch;
     ignore(Sys.command "ocamlc -i foobar.ml > foobar.mli");
     let type_assoc = Ocaml.read_types "foobar.mli" in
-    type_assoc
-
-  let precompute_flows g =
-    Queue.create() (* dummy function *)
-  let gen_gil g =
+    let call_types = Hashtbl.create 11 in
+    let return_types = Hashtbl.create 11 in
+    let flow_types = Hashtbl.create 11 in
+    let delay_types = Hashtbl.create 11 in
+    List.iter
+      (fun (ident,typ) ->
+        printf "%s : %s\n" ident typ;
+        try
+          Scanf.sscanf ident "_ty_flow_%d" (fun x -> Hashtbl.add flow_types x typ)
+        with _ ->
+        try
+          Scanf.sscanf ident "_ty_delay_%d" (fun x -> Hashtbl.add delay_types x typ)
+        with _ ->
+        try
+          Scanf.sscanf ident "_ty_call_%s" (fun x -> Hashtbl.add call_types x typ)
+        with _ ->
+        try
+          Scanf.sscanf ident "_ty_call_%s" (fun x -> Hashtbl.add return_types x typ)
+        with _ -> ())
+      type_assoc;
+    call_types,
+    return_types,
+    flow_types,
+    delay_types
+  let gen g =
+    let predecessor_of =
+      (* Compute an index for each (control) flow (point) and record the predecessor of each.
+         The flowcheck function ensures that it is sufficient for our purposes to use a single
+         predecessor for each flow point: the attributes flowing out of an alt are required
+         to be identical. *)
+      let tbl = Hashtbl.create 11 in
+      let count = ref 0 in
+      let set x =
+        let c = !count in
+        (count := !count + 1;
+         Hashtbl.add tbl c x;
+         printf "%d<-%d\n" x c;
+         c) in
+      let each_rule (Lhs(symbol,_,_),r) =
+        printf "Pred calc for %s\n%!" symbol;
+        let a = set (!count) in
+        ignore (fold
+                  ~pat:(fun b p a -> if not b then a else set a)
+                  ~cut:(fun b x a -> if not b then a else set a)
+                  ~act:(fun b _ a -> if not b then a else set a)
+                  ~box:(fun _ a   -> set a)
+                  ~sym:(fun x _ a -> set a)
+                  a
+                  r) in
+      List.iter each_rule g.rules;
+      (fun i ->
+        try Hashtbl.find tbl i
+        with Not_found ->
+          (error "no predecessor found for flow %d" i; raise Exit)) in
+    let call_return_table = Hashtbl.create 11 in
+    let flow_table =
+      (* Compute the flow for each index *)
+      let tbl = Hashtbl.create 11 in
+      let count = ref 0 in
+      let set x = let c = !count in (count := !count + 1; Hashtbl.add tbl c x; x) in
+      let each_rule (Lhs(symbol,_,_),r) =
+        let first = !count in
+        let a = set (inputs_of g true symbol) in
+        ignore (fold
+                  ~pat:(fun b p a -> if not b then a else set (Sset.union a (attributes_of_pat p)))
+                  ~cut:(fun b x a -> if not b then a else set (Sset.remove x a))
+                  ~act:(fun b _ a -> if not b then a else set a)
+                  ~box:(fun _ a   -> set a)
+                  ~sym:(fun x _ a -> set (Sset.union a (outputs_of g true x)))
+                  a
+                  r);
+        let last = !count - 1 in
+        Hashtbl.add call_return_table symbol (first,last) in
+      List.iter each_rule g.rules;
+      tbl in
+    let call_types,
+      return_types,
+      flow_types,
+      delay_types = infer_types flow_table g in
+    let flow_constructors = gen_type "_y_t" "Y_" flow_types in
+    let next =
+      let count = ref 0 in
+      (fun () ->
+        let c = !count in
+        printf "## %d->%!" c;
+        count := !count + 1;
+        let p = predecessor_of c in
+        printf "%d ##\n%!" p;
+        let c_value = flow_with_value (Hashtbl.find flow_table c) in
+        let p_value = flow_with_value (Hashtbl.find flow_table p) in
+        let c_constructor = flow_constructors c in
+        let p_constructor = flow_constructors p in
+        (p_constructor,
+         p_value,
+         sprintf "%s%s" c_constructor c_value)) in
+    let call_return symbol =
+      let (first,last) = Hashtbl.find call_return_table symbol in
+      let call_value = flow_with_value (Hashtbl.find flow_table first) in
+      let return_value = flow_with_value (Hashtbl.find flow_table last) in
+      let call_constructor = flow_constructors first in
+      let return_constructor = flow_constructors last in
+      (return_constructor,
+       return_value,
+       sprintf "%s%s" call_constructor call_value) in
     let each_rule = function (Lhs(symbol,inputs,outputs),r) ->
-      let next() = Queue.take (precompute_flows g) in
+      printf "Generating %s\n%!" symbol;
+      ignore(next());
       let rec loop = function
         | Cut(x,y)   ->
             if x then
               let (constructor,inflow,outflow) = next() in
               Gil.Action
-                (sprintf "svx ~%s:(fun %s -> %s)" constructor inflow outflow)
-                (* example:  svx ~fc1:(fun (__v__,...) -> Fc2(__v__,...)) *)
+                (sprintf "%s (fun %s -> %s)" (String.lowercase constructor) inflow outflow)
+                (* example:  _y_1 (fun (__v__,...) -> Y_2(__v__,...)) *)
             else
               Gil.Lit(true,"")
         | Sym(x,y)   ->
             let (flow_constructor,inflow,outflow) = next() in
-            let (retn_constructor,to_x,from_x) = next() in
+            let (retn_constructor,to_x,from_x) = call_return x in
             let bindings =
                   List.map (function Attribute(_,v),e -> (v,e))
                     (List.filter(function Attribute(b,_),_ -> b) y) in
             let call = Buffer.create 11 in
-            bprintf call "svx ~%s:(fun %s ->\n" flow_constructor inflow;
+            bprintf call "%s (fun %s ->\n" (String.lowercase flow_constructor) inflow;
             List.iter
               (fun (v,e) -> bprintf call " let %s = %s in\n" v e)
               bindings;
@@ -667,54 +800,55 @@ module Infer = struct
             Gil.Symb
               (x,
                Some(Buffer.contents call),
-               Some(sprintf "svx ~%s:(fun %s -> %s)" retn_constructor from_x outflow))
+               Some(sprintf "%s (fun %s -> %s)" (String.lowercase retn_constructor) from_x outflow))
         | Act(x,y)   ->
             if x then
               let (constructor,inflow,outflow) = next() in
               Gil.Action
-                (sprintf "svx ~%s:(fun %s -> let __v__ = %s in %s)" constructor inflow y outflow)
-                (* example:  svx ~fc1:(fun (__v__,...) -> let __v__ = expr in Fc2(__v__,...)) *)
+                (sprintf "%s (fun %s -> let __v__ = %s in %s)" (String.lowercase constructor) inflow y outflow)
+                (* example: _y_1 (fun (__v__,...) -> let __v__ = expr in Y_2(__v__,...)) *)
             else
               Gil.Lit(true,"")
         | Pat(x,y)   ->
             if x then
               let (constructor,inflow,outflow) = next() in
               Gil.Action
-                (sprintf "svx ~%s:(fun %s -> let %s = __v__ in %s)" constructor inflow (pp_pat y) outflow)
-                (* example:  svx ~fc1:(fun (__v__,...) -> let pat = __v__ in Fc2(__v__,...)) *)
+                (sprintf "%s (fun %s -> let %s = __v__ in %s)" (String.lowercase constructor) inflow (pp_pat y) outflow)
+                (* example: _y_1 (fun (__v__,...) -> let pat = __v__ in Y_2(__v__,...)) *)
             else
               Gil.Lit(true,"")
-        | Box _
+        | Box _ ->
+            (*TODO. NB requires next()*)
+            raise Exit
         | Dly _
         | Tok _      -> raise Exit
-        | Whl(e,r)   -> raise Exit
-        | Kcl(m,n,r) when m>0 ->
-            loop (Kcl(m-1,n,r))
-        | Kcl(m,n,r) when m<0 -> raise Exit
-        | Kcl(0,Num 0,r) -> Gil.Lit(true,"")
-        | Kcl(0,Num n,r) when n<0 -> raise Exit
-        | Kcl(0,Num n,r) ->
-            Gil.Alt(Gil.Lit(true,""),
-                    Gil.Seq(loop r,loop (Kcl(0,Num(n-1),r))))
-        | Kcl(0,Infinity,r) ->
-            Gil.Star(loop r)
+        | Whl(e,r)   ->
+            error "while should have been canonized";
+            raise Exit
+        | Kcl(0,Infinity,r) -> Gil.Star(loop r)
+        | Kcl(m,n,r) ->
+            error "Kleene closure should have been canonized";
+            raise Exit
         | Lit x      ->
             Gil.Lit(true,x)
-        | Seq [] -> loop (Lit "")
-        | Seq [hd] -> loop hd
+        | Seq [] ->
+            error "Seq[] should have been canonized";
+            raise Exit
+        | Alt [] ->
+            error "Alt[] should have been canonized";
+            raise Exit
         | Seq(hd::tl) ->
             List.fold_left
               (fun gil r -> Gil.Seq(gil,loop r))
               (loop hd)
               tl
-        | Alt [] -> loop (Lit "")
-        | Alt [hd] -> loop hd
         | Alt(hd::tl) ->
             List.fold_left
               (fun gil r -> Gil.Alt(gil,loop r))
               (loop hd)
               tl in
-      loop r in
+      let gil = loop r in
+      printf "%s\n%!" (Pr.Gil.Pretty.rule2string gil) in
     List.map each_rule g.rules
 end
 }
@@ -1009,14 +1143,9 @@ file = { { prologue=[]; rules=[]; epilogue=[]; } }$g
            epilogue$x { g.epilogue <- x::g.epilogue } "")
        EOF
        { (*printf "%s\n%!" (pp_grammar g);*)
+         Sanity.canonize g;
          Sanity.check g;
-         let type_assoc = Infer.infer_types g in
-         List.iter
-           (fun (ident,typ) ->
-             printf "%s : %s\n" ident typ)
-           type_assoc;
-         Infer.gen_type "all_t" "AA"
-           (set_of_list (List.map snd type_assoc))
+         Infer.gen g
        }
 .
 prologue =

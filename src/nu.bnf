@@ -23,6 +23,14 @@ type attribute =
 type lhs =
   | Lhs of string * attribute list * attribute list
 type repeat = Infinity | Num of int
+(* Compared to Gul:
+   Dropped Hash, Prose, DBranch, Opt, Rcount
+   TODO: Lookahead, Charrange, Position, Minus, nullities on Box
+   We only use attributes, and Pat instead of Assign
+   Lexical scope can be mimicked with Cut
+   Added While and Token
+   Seq and Alt are n-ary instead of binary
+*)
 type rhs =
     Lit of string                             (* literal string; "" is epsilon even with tokens *)
   | Tok of string                             (* token from a lexer *)
@@ -214,7 +222,10 @@ module Sanity = struct
               if n<0 then raise Exit else
               loop(Alt[Lit("");
                        Seq[r;Kcl(0,Num(n-1),r)]]))
-      | Whl(e,r) ->
+      | Whl(e,r) -> Whl(e, loop r)
+(* The problem with this is that it clobbers the value before the while, the value is
+   not available in the body or after the while, and furthermore it forces the type
+   of that value to be boolean.
           (* {*e} r -> *({e}?true r) {e}?false *)
           loop
             (Seq[Kcl(0,Infinity,
@@ -223,6 +234,7 @@ module Sanity = struct
                          r]);
                  Act(true,e);
                  Pat(true,Con_pat("false",[]))])
+*)
       | Alt [] -> Lit("")
       | Seq [] -> Lit("")
       | Seq [x]
@@ -510,7 +522,7 @@ module Infer = struct
         with Not_found ->
           (error "no constructor for flow %d" i; raise Exit))
     end
-  let infer_types flow_table g =
+  let infer_types flow_find g =
     (*TODO: use temporary files instead of clobbering foobar.ml[i] *)
     let outch = open_out "foobar.ml" in
     let infer_phase b =
@@ -541,7 +553,7 @@ module Infer = struct
         (fun () ->
           let c = !count in
           count := !count + 1;
-          let flow = Hashtbl.find flow_table c in
+          let flow = flow_find c in
           let flowvalue = flow_with_value flow in
           let fn = sprintf "_ty_flow_%d" c in
           infer fn flowvalue) in
@@ -606,8 +618,10 @@ module Infer = struct
                 let defs = list_of_set defs in
                 "(" ^ (String.concat "," ("__v__"::defs)) ^ ")" in
               fprintf outch " let %s =\n let rec _w_ %s =\n if 0<>__n__() then %s else (\n" grab grab grab;
-              if b then
+              if b then begin
+                infer_flow_type();
                 fprintf outch " ignore(true=(%s));\n" x;
+              end;
               loop r;
               fprintf outch " %s) in _w_ %s in\n" grab grab
           | Kcl(_,_,r) ->
@@ -667,7 +681,8 @@ module Infer = struct
     infer_phase true;
     infer_phase false;
     close_out outch;
-    ignore(Sys.command "ocamlc -i foobar.ml > foobar.mli");
+    let retval = Sys.command "ocamlc -i foobar.ml > foobar.mli" in
+    if 0<>retval then (error "type inference failed"; raise Exit);
     let type_assoc = Ocaml.read_types "foobar.mli" in
     let call_types = Hashtbl.create 11 in
     let return_types = Hashtbl.create 11 in
@@ -705,17 +720,18 @@ module Infer = struct
         let c = !count in
         (count := !count + 1;
          Hashtbl.add tbl c x;
-         printf "%d<-%d\n" x c;
+         printf "%d<-%d\n%!" x c;
          c) in
       let each_rule (Lhs(symbol,_,_),r) =
         printf "Pred calc for %s\n%!" symbol;
         let a = set (!count) in
         ignore (fold
-                  ~pat:(fun b p a -> if not b then a else set a)
-                  ~cut:(fun b x a -> if not b then a else set a)
-                  ~act:(fun b _ a -> if not b then a else set a)
-                  ~box:(fun _ a   -> set a)
-                  ~sym:(fun x _ a -> set a)
+                  ~act:(fun b _ a      -> if not b then a else set a)
+                  ~box:(fun _ a        -> set a)
+                  ~cut:(fun b x a      -> if not b then a else set a)
+                  ~pat:(fun b p a      -> if not b then a else set a)
+                  ~sym:(fun x _ a      -> set a)
+                  ~whl:(fun _ r a loop -> set a; loop a r)
                   a
                   r) in
       List.iter each_rule g.rules;
@@ -724,30 +740,41 @@ module Infer = struct
         with Not_found ->
           (error "no predecessor found for flow %d" i; raise Exit)) in
     let call_return_table = Hashtbl.create 11 in
-    let flow_table =
+    let flow_find =
       (* Compute the flow for each index *)
       let tbl = Hashtbl.create 11 in
       let count = ref 0 in
-      let set x = let c = !count in (count := !count + 1; Hashtbl.add tbl c x; x) in
+      let set x =
+        let c = !count in
+        (count := !count + 1;
+         Hashtbl.add tbl c x;
+         printf "%d: %s\n%!" c (flow_with_value x);
+         x) in
       let each_rule (Lhs(symbol,_,_),r) =
+        printf "Flow calc for %s\n%!" symbol;
         let first = !count in
         let a = set (inputs_of g true symbol) in
         ignore (fold
-                  ~pat:(fun b p a -> if not b then a else set (Sset.union a (attributes_of_pat p)))
-                  ~cut:(fun b x a -> if not b then a else set (Sset.remove x a))
-                  ~act:(fun b _ a -> if not b then a else set a)
-                  ~box:(fun _ a   -> set a)
-                  ~sym:(fun x _ a -> set (Sset.union a (outputs_of g true x)))
+                  ~act:(fun b _ a      -> if not b then a else set a)
+                  ~box:(fun _ a        -> set a)
+                  ~cut:(fun b x a      -> if not b then a else set (Sset.remove x a))
+                  ~pat:(fun b p a      -> if not b then a else set (Sset.union a (attributes_of_pat p)))
+                  ~sym:(fun x _ a      -> set (Sset.union a (outputs_of g true x)))
+                  ~whl:(fun _ r a loop -> set a; loop a r)
                   a
                   r);
         let last = !count - 1 in
         Hashtbl.add call_return_table symbol (first,last) in
       List.iter each_rule g.rules;
-      tbl in
+      (fun x ->
+        try Hashtbl.find tbl x
+        with Not_found ->
+          error "flow_find failed on %d" x;
+          raise Exit) in
     let call_types,
       return_types,
       flow_types,
-      delay_types = infer_types flow_table g in
+      delay_types = infer_types flow_find g in
     let flow_constructors = gen_type "_y_t" "Y_" flow_types in
     let next =
       let count = ref 0 in
@@ -757,8 +784,8 @@ module Infer = struct
         count := !count + 1;
         let p = predecessor_of c in
         printf "%d ##\n%!" p;
-        let c_value = flow_with_value (Hashtbl.find flow_table c) in
-        let p_value = flow_with_value (Hashtbl.find flow_table p) in
+        let c_value = flow_with_value (flow_find c) in
+        let p_value = flow_with_value (flow_find p) in
         let c_constructor = flow_constructors c in
         let p_constructor = flow_constructors p in
         (p_constructor,
@@ -766,8 +793,8 @@ module Infer = struct
          sprintf "%s%s" c_constructor c_value)) in
     let call_return symbol =
       let (first,last) = Hashtbl.find call_return_table symbol in
-      let call_value = flow_with_value (Hashtbl.find flow_table first) in
-      let return_value = flow_with_value (Hashtbl.find flow_table last) in
+      let call_value = flow_with_value (flow_find first) in
+      let return_value = flow_with_value (flow_find last) in
       let call_constructor = flow_constructors first in
       let return_constructor = flow_constructors last in
       (return_constructor,
@@ -819,12 +846,20 @@ module Infer = struct
               Gil.Lit(true,"")
         | Box _ ->
             (*TODO. NB requires next()*)
+            error "box is not implemented in gen";
             raise Exit
-        | Dly _
-        | Tok _      -> raise Exit
+        | Dly _ ->
+            error "delay is not implemented in gen";
+            raise Exit
+        | Tok _ ->
+            error "token is not implemented in gen";
+            raise Exit
         | Whl(e,r)   ->
-            error "while should have been canonized";
-            raise Exit
+            let (constructor,inflow,outflow) = next() in
+            Gil.Seq(Gil.Star(Gil.When(sprintf "%s (fun %s -> %s)" (String.lowercase constructor) inflow e,
+                                      "fun x->x")),
+                    Gil.When(sprintf "%s (fun %s -> not(%s))" (String.lowercase constructor) inflow e,
+                             "fun x->x"))
         | Kcl(0,Infinity,r) -> Gil.Star(loop r)
         | Kcl(m,n,r) ->
             error "Kleene closure should have been canonized";

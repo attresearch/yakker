@@ -1179,6 +1179,18 @@ module DNELR = struct
       mk_table Full_opt p start_symb start_state min_nonterm num_nonterms
         f_no_arg f_no_binder
 
+    let mk_called_table {nonterm_table = nts; p_nonterm_table = p_nts} =
+      Array.init (Array.length nts) begin fun s ->
+        let a = nts.(s) in
+        let b = p_nts.(s) in
+        let n = Array.length a in     (* [b] should have the same length. *)
+        let r = ref [] in
+        for nt = 0 to n - 1 do
+          if a.(nt) > 0 || b.(nt) != [||] then r := nt :: !r
+        done;
+        Array.of_list !r
+      end
+
     let measure_percent {term_table=tbl} p =
       let rec loop tbl p sz i n =
         if i = sz then n

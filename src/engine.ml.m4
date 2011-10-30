@@ -571,13 +571,10 @@ module type NULLRET = sig
   val find_p : nullable_rel -> PI.nonterm -> sv -> SV_set.t
   val add_p : nullable_rel -> PI.nonterm -> sv -> sv -> unit
   val res_iter : SV_set.t -> (sv -> unit) -> unit
-
-  val derive_dense : PI.label array array -> 'a PJDN.pnt_table -> PI.nonterm array array
 end
 
 
 module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
-(*   IF_TRUE(DO_NULL_RET, `(NR : NULLRET with type sv = Sem_val.t)') = struct *)
   IF_TRUE(DO_NULL_RET,
     module NR : NULLRET with type sv = Sem_val.t = struct
       type sv = Sem_val.t
@@ -614,17 +611,6 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
 
       let res_iter s f = SV_set.iter f s
 
-      let derive_dense nts p_nts =
-        Array.init (Array.length nts) begin fun s ->
-          let a = nts.(s) in
-          let b = p_nts.(s) in
-          let n = Array.length a in     (* [b] should have the same length. *)
-          let r = ref [] in
-          for k = 0 to n - 1 do
-            if a.(k) != 0 || b.(k) != [||] then r := k::!r
-          done;
-          Array.of_list !r
-        end
     end)
 
   module ES_flat = struct
@@ -1483,11 +1469,10 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
 
   DEF3(`CALL_P_CODE', `target', `grow_callset', `call_act',`(
      IF_TRUE(grow_callset,`PCS_ADD_CALL_ITEM_C(`pre_cc', `s', `socvas_s');')
-       (* TODO: convert below to a MAP and then use results of map in NULL_RET code. *)
 
-     ESET_CONTAINER_ITER(`socvas_s', `(callset, sv, sv_arg)',
+     ESET_CONTAINER_ITER(`socvas_s', `((_, sv_item, _) IF_TRUE(DO_NULL_RET, `as item_cva') )',
        `let curr_pos = current_callset.id in
-        let arg = call_act curr_pos sv in
+        let arg = call_act curr_pos sv_item in
 
         IF_TRUE(DO_NULL_RET,
          `let nts = dense_nonterm_table.(s) in
@@ -1496,20 +1481,19 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
             try
               let results = NR.find_p null_p_rets nt arg in
               NR.res_iter results begin fun sv ->
-                CONTINUE_CODE(`false', `s', `socvas_s')
+                P_CALL_CONTINUE_CODE(`s', `item_cva', `arg', `sv')
               end
             with Not_found -> ()
           done;
 
           let nts = dense_nonterm_table.(target) in
           let target_cva = (current_callset, arg, arg) in
-          let socvas_target = ESET_CONTAINER_SINGLETON(target_cva) in
           for k = 0 to Array.length nts - 1 do
             let nt = nts.(k) in
             try
               let results = NR.find_p null_p_rets nt arg in
               NR.res_iter results begin fun sv ->
-                CONTINUE_CODE(`false', `target', `socvas_target')
+                P_CALL_CONTINUE_CODE(`target', `target_cva', `arg', `sv')
               end
             with Not_found -> ()
           done;'
@@ -1526,7 +1510,7 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
 
 
   (* Check for possible continuations on the specified item.
-     If no_args is false, captures [sv], ...*)
+     If no_args is false, captures [sv], ... *)
   DEF3(`CONTINUE_CODE', `no_args', `s_l', `socvas_l',`(
     let t = PJ.lookup_trans_nt nonterm_table s_l nt in
     if t > 0 then begin
@@ -1535,22 +1519,41 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
         Logging.log Logging.Features.comp_ne "%d => %d [%d]\n" s_l t nt
       );
     end;
-    IFE_TRUE(no_args, `',
-             `match PJDN.lookup_trans_pnt p_nonterm_table s_l nt with
-               | [||] -> ()
-               | entries ->
-                   for idx = 0 to Array.length entries - 1 do
-                     let {PJDN.ctarget = t; carg = arg_act; cbinder = binder} = entries.(idx) in
-                     LOGp(comp_ne, "@%d: %d => %d [%d(_)]? " callset.id s_l t nt);
-                     ESET_CONTAINER_ITER(`socvas_l', `(callset_s_l, sv_s_l, sv_arg_s_l)', `
-                                   if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
-                                     LOGp(comp_ne, "Y");
-                                     ESet.insert_elt_ig ESET_WLD cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
-                                   end else LOGp(comp_ne, "N")');
-                     LOGp(comp_ne, "\n");
-                   done');
+    IF_FALSE(no_args,
+      `match PJDN.lookup_trans_pnt p_nonterm_table s_l nt with
+        | [||] -> ()
+        | entries ->
+            for idx = 0 to Array.length entries - 1 do
+              let {PJDN.ctarget = t; carg = arg_act; cbinder = binder} = entries.(idx) in
+              LOGp(comp_ne, "@%d: %d => %d [%d(_)]? " callset.id s_l t nt);
+              ESET_CONTAINER_ITER(`socvas_l', `(callset_s_l, sv_s_l, sv_arg_s_l)', `
+                            if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
+                              LOGp(comp_ne, "Y");
+                              ESet.insert_elt_ig ESET_WLD cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
+                            end else LOGp(comp_ne, "N")');
+              LOGp(comp_ne, "\n");
+            done');
    )')
 
+  (** Check for possible continuations on a single Earley item (s_l, cva_l)
+      We only check in the p_nonterm_table because a parameterized call can
+      only correspond to an entry in that table (vice versa is not true, because
+      an unparameterized call with a binder will result in a p_nonterm_table entry).
+  *)
+  DEF4(`P_CALL_CONTINUE_CODE', `s_l', `cva_l', `sv_arg', `sv_res', `(
+     match PJDN.lookup_trans_pnt p_nonterm_table s_l nt with
+        | [||] -> ()
+        | entries ->
+            for idx = 0 to Array.length entries - 1 do
+              let {PJDN.ctarget = t; carg = arg_act; cbinder = binder} = entries.(idx) in
+              LOGp(comp_ne, "@%d: %d => %d [%d(_)]? " current_callset.id s_l t nt);
+              let (callset_s_l, sv_s_l, sv_arg_s_l) = cva_l in
+              if Sem_val.cmp (arg_act current_callset.id sv_s_l) sv_arg = 0 then begin
+                LOGp(comp_ne, "Y\n");
+                ESet.insert_elt_ig ESET_WLD cs t callset_s_l (binder curr_pos sv_s_l sv_res) sv_arg_s_l
+              end else LOGp(comp_ne, "N\n")
+            done
+   )')
 
   DEF4(`HANDLE_NULL_RET', `no_args', `nt', `sv_arg', `sv', `(
     (* Check if this completion has already been processed. *)
@@ -1565,7 +1568,7 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
     end
        ) ' )
 
-  DEF2(`COMPLETE_CODE', `no_args', `nt',`(
+  DEF3(`COMPLETE_CODE', `no_args', `at_eof', `nt',`(
     LOG(
       IF_HIER(`if Logging.features_are_set Logging.Features.stats then begin
         let n = Socvas.cardinal socvas_s in
@@ -1574,10 +1577,12 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
 
       Logging.log Logging.Features.comp_ne "Attempting completion on nonterminal %d.\n" nt;
     );
+    IF_TRUE(at_eof, `let is_nt = nt = start_nt in')
     IF_FALSE(no_args,`let curr_pos = current_callset.id in')
     ESET_CONTAINER_ITER(`socvas_s',
       `IFE_TRUE(no_args, `(callset, _, _)', `(callset, sv, sv_arg)') ',
-      `CHECK_NULL_RET(
+      `IF_TRUE(at_eof, `if is_nt && callset.id = 0 then succeeded := true;')
+       CHECK_NULL_RET(
          `HANDLE_NULL_RET(no_args, nt, sv_arg, sv)',
          `let items = callset.data in
           for l = 0 to Array.length items - 1 do
@@ -1872,8 +1877,8 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
            | PJDN.Call_trans t -> CALL_CODE(`t',`true')
            | PJDN.Call_p_trans (call_act, t) -> CALL_P_CODE(`t',`true',`call_act')
 
-           | PJDN.Complete_trans nt -> COMPLETE_CODE(`true', `nt')
-           | PJDN.Complete_p_trans nt -> COMPLETE_CODE(`false',`nt')
+           | PJDN.Complete_trans nt ->   COMPLETE_CODE(`true', `false', `nt')
+           | PJDN.Complete_p_trans nt -> COMPLETE_CODE(`false', `false', `nt')
            | PJDN.MComplete_trans nts -> MCOMPLETE_CODE(`true',`nts')
            | PJDN.MComplete_p_trans nts -> MCOMPLETE_CODE(`false',`nts')
 
@@ -1986,44 +1991,8 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
            | PJDN.Call_trans t -> CALL_CODE(`t', DO_NULL_RET)
            | PJDN.Call_p_trans (call_act, t) -> CALL_P_CODE(`t', DO_NULL_RET, `call_act')
 
-           | PJDN.Complete_trans nt ->
-               let is_nt = nt = start_nt in
-               ESET_CONTAINER_ITER(`socvas_s', `(callset,_,_)', `
-                 if is_nt && callset.id = 0 then succeeded := true;
-                 let items = callset.data in
-                 for l = 0 to Array.length items - 1 do
-                   let ESET_ITEM_PATT(`s_l', `c_l') = items.(l) in
-                   let t = PJ.lookup_trans_nt nonterm_table s_l nt in
-                   if t > 0 then ESet.insert_container ESET_WLD cs t c_l
-                 done')
-
-           | PJDN.Complete_p_trans nt ->
-               let is_nt = nt = start_nt in
-               let curr_pos = current_callset.id in
-               ESET_CONTAINER_ITER(`socvas_s', `(callset, sv, sv_arg)', `
-                 if is_nt && callset.id = 0 then succeeded := true;
-                 let items = callset.data in
-                 for l = 0 to Array.length items - 1 do
-                   let ESET_ITEM_PATT(`s_l', `socvas_l') = items.(l) in
-
-                   let t = PJ.lookup_trans_nt nonterm_table s_l nt in
-                   if t > 0 then ESet.insert_container ESET_WLD cs t socvas_l;
-
-                   match PJDN.lookup_trans_pnt p_nonterm_table s_l nt with
-                     | [||] -> ()
-                     | entries ->
-                         for idx = 0 to Array.length entries - 1 do
-                           let {PJDN.ctarget = t; carg = arg_act; cbinder = binder} = entries.(idx) in
-                           LOGp(comp_ne, "@%d: %d => %d [%d(_)]? " callset.id s_l t nt);
-                           ESET_CONTAINER_ITER(`socvas_l', `(callset_s_l, sv_s_l, sv_arg_s_l)', `
-                                         if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
-                                           LOGp(comp_ne, "Y");
-                                           ESet.insert_elt_ig ESET_WLD cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
-                                         end else LOGp(comp_ne, "N")');
-                           LOGp(comp_ne, "\n");
-                         done
-
-                 done')
+           | PJDN.Complete_trans nt ->   COMPLETE_CODE(`true', `true', `nt')
+           | PJDN.Complete_p_trans nt -> COMPLETE_CODE(`false', `true', `nt')
 
            | PJDN.MComplete_trans nts ->
                let m_nts = Array.length nts - 1 in
@@ -2035,12 +2004,12 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
                      let nt = nts.(k) in
                      if is_start && nt = start_nt then
                        succeeded := true (* ... and do not bother performing the completion. *)
-                     else
-                       for l = 0 to m_items do
+                     else CHECK_NULL_RET(
+                       `HANDLE_NULL_RET(`true', nt, sv_arg, sv)',
+                       `for l = 0 to m_items do
                          let ESET_ITEM_PATT(`s_l', `c_l') = items.(l) in
-                         let t = PJ.lookup_trans_nt nonterm_table s_l nt in
-                         if t > 0 then ESet.insert_container ESET_WLD cs t c_l
-                       done
+                         CONTINUE_CODE(`true', `s_l', `c_l')
+                       done ')
                    done')
 
            | PJDN.MComplete_p_trans nts ->
@@ -2054,27 +2023,12 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
                      let nt = nts.(k) in
                      if is_start && nt = start_nt then
                        succeeded := true (* ... and do not bother performing the completion. *)
-                     else
-                       for l = 0 to m_items do
+                     else CHECK_NULL_RET(
+                       `HANDLE_NULL_RET(`true', nt, sv_arg, sv)',
+                       `for l = 0 to m_items do
                          let ESET_ITEM_PATT(`s_l', `socvas_l') = items.(l) in
-
-                         let t = PJ.lookup_trans_nt nonterm_table s_l nt in
-                         if t > 0 then ESet.insert_container ESET_WLD cs t socvas_l;
-
-                         match PJDN.lookup_trans_pnt p_nonterm_table s_l nt with
-                           | [||] -> ()
-                           | entries ->
-                               for idx = 0 to Array.length entries - 1 do
-                                 let {PJDN.ctarget = t; carg = arg_act; cbinder = binder} = entries.(idx) in
-                                 LOGp(comp_ne, "@%d: %d => %d [%d(_)]? " callset.id s_l t nt);
-                                 ESET_CONTAINER_ITER(`socvas_l', `(callset_s_l, sv_s_l, sv_arg_s_l)', `
-                                               if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
-                                                 LOGp(comp_ne, "Y");
-                                                 ESet.insert_elt_ig ESET_WLD cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
-                                               end else LOGp(comp_ne, "N")');
-                                 LOGp(comp_ne, "\n");
-                               done
-                       done
+                         CONTINUE_CODE(`false', `s_l', `socvas_l')
+                       done ')
                    done')
 
            | PJDN.Many_trans trans ->
@@ -2144,9 +2098,9 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
                   | target -> ESet.insert_container ESET_WLD cs target socvas_s)
 
   and _parse is_exact_match
-      {PJDN.start_symb = start_nt; start_state = start_state;
+      ({PJDN.start_symb = start_nt; start_state = start_state;
        term_table = term_table; nonterm_table = nonterm_table;
-       p_nonterm_table = p_nonterm_table;}
+       p_nonterm_table = p_nonterm_table;} as trans_data)
       sv0 (ykb : YkBuf.t) =
 
     LOG(
@@ -2180,7 +2134,7 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
     IF_TRUE(DO_NULL_RET,
      `let null_rets = NR.create (Array.length nonterm_table) in
       let null_p_rets = NR.create_p (Array.length nonterm_table) in
-      let dense_nonterm_table = NR.derive_dense nonterm_table p_nonterm_table in ')
+      let dense_nonterm_table = PJDN.mk_called_table trans_data in ')
 
     if Logging.activated then begin
       Imp_position.set_position 0

@@ -9,7 +9,15 @@
  *    Trevor Jim and Yitzhak Mandelbaum
  *******************************************************************************)
 
+(*
+Based on the paper:
+  Preston Briggs and Linda Torczon's 1993 paper, "An Efficient Representation for Sparse Sets"
 
+See Russ Cox's overview:
+  http://research.swtch.com/2008/03/using-uninitialized-memory-for-fun-and.html
+
+
+ *)
 
 module Int_set = struct
   type t = { mutable count : int; dense : int array; sparse : int array}
@@ -52,7 +60,7 @@ module Int_map = struct
   type 'a t = { mutable count : int; dense_s : int array; dense_sv : 'a array; sparse : int array}
 
   let make sz x = { count = 0; dense_s = Array.make sz 0;
-			dense_sv = Array.make sz x; sparse = Array.make sz 0; }
+                        dense_sv = Array.make sz x; sparse = Array.make sz 0; }
 
   let clear s = s.count <- 0
 
@@ -107,6 +115,13 @@ module Int_map = struct
   let mem s i =
     let k = s.sparse.(i) in
     k < s.count && i = s.dense_s.(k)
+
+  (** raises [Not_found] if [i] is not in [s]. *)
+  let find s i =
+    let sp = s.sparse in
+    let k = sp.(i) in
+    if k < s.count && i = s.dense_s.(k) then s.dense_sv.(sp.(i))
+    else raise Not_found
 
   let iter f s =
     let ds = s.dense_s in

@@ -189,6 +189,13 @@ module DNELR :
       'a Pam_internal.action2 -> 'a Pam_internal.binder2 ->
       'a data
 
+    (** Derive a summary of both [nonterm_table] and [p_nonterm_table]
+        fields, mapping each state to a list of nonterms with continuations
+        for that state. In effect, records the called nonterminals for
+        each callsite. The length of the result will be the number of states,
+        with a (variable-length) array of nonterminals at each index. *)
+    val mk_called_table : 'a data -> Pam_internal.nonterm array array
+
     val measure_percent : 'a data -> ('a trans -> bool) -> float
     val measure_percenti : 'a data -> (int -> 'a trans -> bool) -> float
     val call_targets : 'a trans array -> bool array

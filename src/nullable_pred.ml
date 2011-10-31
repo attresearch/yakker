@@ -455,7 +455,7 @@ end
     which are called by other predicates (after the analysis)). Hopefully, memoization will not be used often. Still,
     I'm concerned about performance (time + memory) implications.  We will have to revisit this at some point to test affect.
 
-    Worth testing because we correctness only requires we memoize recursive predicates. So, if performance is an issue we
+    Worth testing because correctness only requires we memoize recursive predicates. So, if performance is an issue we
     could see what happens if we only memoize recursive predicates, instead of all called predicates.
 *)
 

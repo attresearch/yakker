@@ -12,9 +12,11 @@ else
 ifdef USE_CORS
   $(info **Using coroutines**)
 else
-  $(info **Using arrow notation**)
+  $(info **Using arrow notation (default)**)
   YOPTS+=-arrow-notation
 endif
+
+#YOPTS+=-no-nullability-preds
 
 ifeq ($(MAKECMDGOALS),install)
 ifndef PREFIX

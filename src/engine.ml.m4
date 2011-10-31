@@ -87,12 +87,15 @@ define(`DEF5', `define(`$1', _DEF_5ARG(`$2',VAR(`1'),`$3',VAR(`2'),
                                        `$7'))')
 
 DEF1(`IF_FLA', `block', `if support_FLA then begin block end')
-DEF2(`IFE_FLA', `ibranch', `ebranch', `(if support_FLA then ibranch else ebranch)')
+DEF2(`IFE_FLA', `tbranch', `ebranch', `(if support_FLA then tbranch else ebranch)')
 
-DEF1(`LOG', `block', `if Logging.activated then begin block end')
+(* Compile with -noassert to turn logging off.  *)
+DEF1(`LOG', `block', `assert (begin block end; true)')
+DEF2(`IFE_LOG', `tbranch', `ebranch',
+     `if Logging.activated then begin tbranch end
+      else begin ebranch end')
 DEF2(`LOGp', `feature', `message',
-     `if Logging.activated then begin
-       Logging.log Logging.Features.feature message end')
+     `LOG(Logging.log Logging.Features.feature message)')
 
 
 
@@ -203,11 +206,10 @@ module Imp_position = struct
   let current_position = ref 0
 
   let set_position i =
-    if Logging.activated then
-      begin
+    LOG(
         if i mod 100 = 0 then
           Logging.log Logging.Features.position "CP=%d\n%!" i;
-      end;
+    );
     current_position := i
 
   let get_position () = !current_position
@@ -724,16 +726,14 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
         end);
     ignore (insert_elt wl es state cva)
 
-  let insert_container_nc =
-    if Logging.activated then begin
-      fun es state cva ->
+  let insert_container_nc es state cva =
+    LOG(
         if Logging.features_are_set Logging.Features.eset_stats then begin
           Logging.Counters.increment "insert_container_nc";
           Logging.Counters.decrement "insert_elt_nc";
-        end;
-        insert_elt_nc es state cva
-    end else
-      insert_elt_nc
+        end
+    );
+    insert_elt_nc es state cva
 
   (** Check for a succesful parse. *)
   let check_done term_table start_nt cs =
@@ -1129,20 +1129,20 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
         let socvas = WI.get es state in
         WI.set es state (Socvas.add cva socvas);
 
-        if Logging.activated then begin
+        LOG(
           let (callset, _, _) = cva in
           Logging.log Logging.Features.reg_ne
             "+> %d:(%d,%d).\n" (Imp_position.get_position ()) state callset.id;
-        end;
+        );
       else
         begin
           WI.insert es state (Socvas.singleton cva);
 
-          if Logging.activated then begin
+          LOG(
             let (callset, _, _) = cva in
             Logging.log Logging.Features.reg_ne
               "+> %d:(%d,%d).\n" (Imp_position.get_position ()) state callset.id;
-          end
+          );
         end
 
     let insert_container i ol es state socvas_new =
@@ -1637,8 +1637,8 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
 
   DEF4(`REGLA_CODE', `presence', `la_target', `la_nt', `target',`(
      let cp = YkBuf.save ykb in
-     if Logging.activated then begin
-       let cf = !Logging.current_features in
+     IFE_LOG(
+      `let cf = !Logging.current_features in
        Logging.set_features Logging.Features.none;
        let old_pos = Imp_position.get_position () in
 
@@ -1656,12 +1656,10 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
            "Lookahead succeeded: %d.\n" lookahead_pos;
        end;
        YkBuf.restore ykb cp;
-       result
-     end else begin
-       let b = lookahead_regexp_NELR0_tbl term_table la_nt ykb la_target in
+       result',
+      `let b = lookahead_regexp_NELR0_tbl term_table la_nt ykb la_target in
        YkBuf.restore ykb cp;
-       b = presence
-     end
+       b = presence')
   )')
 
   DEF4(`EXTLA_CODE', `presence', `la_target', `la_nt', `target',
@@ -1776,8 +1774,8 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
       la_nt la_target ykb =
     let sv = Terms.save () in
     let cp = YkBuf.save ykb in
-    if Logging.activated then begin
-      let cf = !Logging.current_features in
+    IFE_LOG(
+     `let cf = !Logging.current_features in
       Logging.set_features Logging.Features.none;
       let old_pos = Imp_position.get_position () in
 
@@ -1793,17 +1791,15 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
       Imp_position.set_position old_pos;
       YkBuf.restore ykb cp;
       Terms.restore sv;
-      r
-    end else begin
-      let r = _parse false
+      r',
+     `let r = _parse false
         {PJDN.start_symb = la_nt; start_state = la_target;
          term_table = term_table; nonterm_table = nonterm_table;
          p_nonterm_table = p_nonterm_table;}
         sv0 ykb <> [] in
       YkBuf.restore ykb cp;
       Terms.restore sv;
-      r
-    end
+      r')
 
   and process_trans
       (** Parse-engine state. *)
@@ -2154,9 +2150,7 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
       let null_p_rets = NR.create_p (Array.length nonterm_table) in
       let dense_nonterm_table = PJDN.mk_called_table trans_data in ')
 
-    if Logging.activated then begin
-      Imp_position.set_position 0
-    end;
+    LOG( Imp_position.set_position 0 );
 
     (* We initialize next_set, rather than current_set, because they
        are swapped first-thing in the loop. *)

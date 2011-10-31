@@ -1,7 +1,16 @@
-OBJDIR := build
 
-ifeq ($(DO_PROF),1)
+# Set the build directory:
+ifdef DO_PROF
   OBJDIR = profbuild
+else ifdef DO_LOG
+  OBJDIR = logbuild
+else
+ OBJDIR = build
+endif
+
+ifndef DO_LOG
+engine.cmo: OCAML_FLAGS+= -noassert
+engine.cmx: OCAMLOPT_FLAGS+= -noassert
 endif
 
 ifneq ($(OBJDIR),$(notdir $(CURDIR)))

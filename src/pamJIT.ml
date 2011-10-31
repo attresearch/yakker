@@ -1191,6 +1191,8 @@ module DNELR = struct
         Array.of_list !r
       end
 
+    let get_num_states {term_table=t} = Array.length t
+
     let measure_percent {term_table=tbl} p =
       let rec loop tbl p sz i n =
         if i = sz then n
@@ -1277,6 +1279,9 @@ module DNELR = struct
     (* sure could use a good optimizing compiler here: *)
     List.length (reachable_calls term_table start)
 
+  (** Computer an interger property for every state included in the
+      [states] set. [states] is encoded with a boolean array. If [states.(i)]
+      then [i] is in the set. *)
   let compute_integer_property p term_table states =
     let n = Array.length states in
     let rec loop i vs =

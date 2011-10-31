@@ -98,7 +98,8 @@ DEF2(`LOGp', `feature', `message',
 
 
 define(`ESET_IMPL',`hier')
-define(`DO_NULL_RET',`true')
+        (* TODO: move creation of dense_nonterm_table our of _parse, so its only done once. *)
+define(`DO_NULL_RET',`false')
 
 
 (**
@@ -393,6 +394,7 @@ type 'it callset = { id : int;
 let mk_callset id = {id=id; data= [||];}
 let hash_callset {id=x} = x
 let cmp_callset {id=x1} {id=x2} = x1 - x2
+let length_callset {data=a} = Array.length a
 
 (** Triple of Callset, semantic Value, and Argument. *)
 type ('it,'sv) cva = 'it callset * 'sv * 'sv
@@ -427,6 +429,17 @@ module Dummy_inspector = struct
   let summarize_inspection x = "n/a"
 end
 
+(** This module parameterizes over the operations needed to manipulate
+    the YkBuf to produce new terminals. However, it doesn't quite
+    abstract over the terminal language, as the name suggests. It
+    can't because the underlying buffer can only contain integers,
+    hence there's no way to fill it with arbitrary values.
+
+    However, together with the [Lexer_trans] instruction, we can accomplish an
+    equivalent result. That said, the functionality is still limited with respect
+    to typical lexers because the function carried by a [Lexer_trans] can't manipulate
+    the semantic value in any way.
+*)
 module type TERM_LANG = sig
   type state
 
@@ -1281,8 +1294,11 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
        Early-set inspection code.
     *)
 
-    (** Get the size of an Earley set *)
+    (** Get the size of an Earley set in terms of items. *)
     let get_size m = WI.fold (fun _ socvas n -> n + (Socvas.cardinal socvas)) m 0
+
+    (** Get the number of active states *)
+    let get_active_states = WI.cardinal
 
     module Int_set = Hashtbl.Make(struct type t = int
                                          let equal = (==)
@@ -1459,10 +1475,10 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
          Logging.log Logging.Features.calls_ne
            "+C %d:%d.\n" (Imp_position.get_position ()) target;
 
-         if Logging.features_are_set Logging.Features.stats then begin
-           let n = PamJIT.DNELR.count_reachable_calls term_table target in
-           Logging.Distributions.add_value "MCC" n;
-         end;
+(*          if Logging.features_are_set Logging.Features.stats then begin *)
+(*            let n = PamJIT.DNELR.count_reachable_calls term_table target in *)
+(*            Logging.Distributions.add_value "MCC" n; *)
+(*          end; *)
        end
      );
   )')
@@ -2106,7 +2122,8 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
     LOG(
       if Logging.features_are_set Logging.Features.stats then begin
         Logging.Distributions.init ();
-        Logging.Distributions.register "CSS"; (* call-set size. *)
+        Logging.Distributions.register "CSS"; (* Call-Set Size. Distribution of sizes of callsets
+                                                 encountered during completion.  *)
         Logging.Distributions.register "CPSS";(* parameterized call-set size. *)
         Logging.Distributions.register "MCC"; (* Missed call collapsing. *)
       end;
@@ -2204,7 +2221,8 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
       PROCESS_WORKLIST(`pes', `cs', `term_table', `overflow');
 
       (* Report size of the Earley set. *)
-      LOGp(stats, "%d %d\n" ccs.id (ESet.get_size cs));
+      LOGp(stats, "ES %d %d\n" ccs.id (ESet.get_size cs));
+      IF_HIER(LOGp(stats, "ESs %d %d" ccs.id (ESet.get_active_states cs));)
 
       (* Report memory size of the data accessable from the Earley set (focusing on
          the semantic values). *)
@@ -2231,8 +2249,13 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
           s_matched := true;'
       );
 
-      (* cleanup and setup for next round. *)
+      (* Cleanup and setup for next round. *)
+
+      (* Convert the precallset to an actual callset *)
       ccs.data <- Pcs.convert_current_callset cs pre_cc;
+      (* Report size of the call set. *)
+      LOGp(stats, "CS %d %d\n" ccs.id (length_callset ccs));
+
       let pos = ccs.id + 1 in
       current_callset := mk_callset pos;
       Terms.advance ykb;

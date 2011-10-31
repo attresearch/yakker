@@ -51,17 +51,19 @@ let support_FLA = false
 
 
 
+
+
+        (* TODO: move creation of dense_nonterm_table our of _parse, so its only done once. *)
+
+
+
 (**
    Abstract set interface for earley sets and worklists.
 
    Note: For insertions, the NC versions are basically pure insertions.
    The others are insertion plus some  sort of other bookkeeping/checking.
 
-... TODO
-
 *)
-
-
 
 
 
@@ -80,6 +82,7 @@ let support_FLA = false
 
 (*  conditional fold. includes folowup action for sets with > 1
   elements. *)
+
 
 
 
@@ -320,6 +323,7 @@ type 'it callset = { id : int;
 let mk_callset id = {id=id; data= [||];}
 let hash_callset {id=x} = x
 let cmp_callset {id=x1} {id=x2} = x1 - x2
+let length_callset {data=a} = Array.length a
 
 (** Triple of Callset, semantic Value, and Argument. *)
 type ('it,'sv) cva = 'it callset * 'sv * 'sv
@@ -334,8 +338,11 @@ type insertion_result = Ignore_elt | Reprocess_elt | Process_elt
    checking outways the possible benefit of saving the no-op
    completion in the case of returns to the current
    callset.
+
+   Therefore, we only check for it if we're explicitly interested in handling it
+   differently, which, for now, only occurs if we're not using nullability preds.
+
 *)
-(*define(`CURRENT_CALLSET_GUARD', `callset.id <> current_callset.id')*)
 
 
 (** This module provides dummy values for the [idata] and [inspector]
@@ -348,6 +355,17 @@ module Dummy_inspector = struct
   let summarize_inspection x = "n/a"
 end
 
+(** This module parameterizes over the operations needed to manipulate
+    the YkBuf to produce new terminals. However, it doesn't quite
+    abstract over the terminal language, as the name suggests. It
+    can't because the underlying buffer can only contain integers,
+    hence there's no way to fill it with arbitrary values.
+
+    However, together with the [Lexer_trans] instruction, we can accomplish an
+    equivalent result. That said, the functionality is still limited with respect
+    to typical lexers because the function carried by a [Lexer_trans] can't manipulate
+    the semantic value in any way.
+*)
 module type TERM_LANG = sig
   type state
 
@@ -470,7 +488,33 @@ end
 
 module PJDN = PamJIT.DNELR
 
+(** This signature encapsulates the functionality needed to handle
+    completion of nullable nonterminals. The name stands for
+    Nullable Returns. *)
+module type NULLRET = sig
+  type sv
+  module SV_set : Set.S with type elt = sv
+
+  type nullable_set
+
+  val create : int -> nullable_set
+  val clear : nullable_set -> unit
+  val mem : nullable_set -> PI.nonterm -> bool
+  val add : nullable_set -> PI.nonterm -> unit
+
+  type nullable_rel
+
+  val create_p : int -> nullable_rel
+  val clear_p : nullable_rel -> unit
+  val mem_p : nullable_rel -> PI.nonterm -> sv -> sv -> bool
+  val find_p : nullable_rel -> PI.nonterm -> sv -> SV_set.t
+  val add_p : nullable_rel -> PI.nonterm -> sv -> sv -> unit
+  val res_iter : SV_set.t -> (sv -> unit) -> unit
+end
+
+
 module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
+  
 
   module ES_flat = struct
 
@@ -492,10 +536,10 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
         else compare_cva a.cva b.cva
     end
 
-    
-    
-    
-    
+      
+      
+      
+      
 
     module Earley_set = Set.Make(Item)
 
@@ -870,6 +914,15 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
           Array.unsafe_set arr i (x, WI.get item_set x);
         done;
         arr
+
+      let iter_current_callset item_set pcc f =
+        let len = pcc.S.count in
+        for i = 0 to len - 1 do
+          let s_l = Array.unsafe_get pcc.S.dense i in
+          let socvas_l = WI.get item_set s_l in
+          f s_l socvas_l
+        done
+
     end
 
     module Proto_callset = Proto_callset_wfis_socvas
@@ -1112,8 +1165,11 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
        Early-set inspection code.
     *)
 
-    (** Get the size of an Earley set *)
+    (** Get the size of an Earley set in terms of items. *)
     let get_size m = WI.fold (fun _ socvas n -> n + (Socvas.cardinal socvas)) m 0
+
+    (** Get the number of active states *)
+    let get_active_states = WI.cardinal
 
     module Int_set = Hashtbl.Make(struct type t = int
                                          let equal = (==)
@@ -1260,7 +1316,25 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
           | _ -> false in
     step term_table la_nt ykb start
 
-      (* PERF: push [is_new] binding code into logging -- it plays no other role. *)
+  (* PERF: push [is_new] binding code into logging -- it plays no other role.
+     For non-logging, all we need is to handle the [Process_elt] case.
+     Low priority b/c I doubt it will make any difference. *)
+  
+
+  
+
+
+  (* Check for possible continuations on the specified item.
+     If no_args is false, captures [sv], ... *)
+  
+
+  (** Check for possible continuations on a single Earley item (s_l, cva_l)
+      We only check in the p_nonterm_table because a parameterized call can
+      only correspond to an entry in that table (vice versa is not true, because
+      an unparameterized call with a binder will result in a p_nonterm_table entry).
+  *)
+  
+
   
 
   
@@ -1330,6 +1404,16 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
         cs, ns,
         (** The nascent current callset. *)
         pre_cc,
+        (** [null_rets]: the current "null return" set, for handling null returns.
+            Set of nonterminals.
+
+            [null_p_rets]: the current "null return" set, for handling null returns of parameterized
+            nonterms. Map from nonterminal, call semval pair to set of semval results.
+
+            [dense_nonterm_table]: a dense summary of both [nonterm_table] and [p_nonterm_table]
+            mapping each state to a list of nonterms with continuations for that state.
+        *)
+        
         (** The actual current callset. Used only for its id and its pointer --
             the actual contents are meaningless until the [pre_cc] is processed
             and used to backpatch this value. *)
@@ -1422,6 +1506,7 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
 
            | PJDN.Call_trans t ->                 (
                              (Pcs.add_call_state pre_cc s)                         ;
+
      let target_cva = (current_callset, sv0, sv0) in
      let is_new =
        match ESet.insert_elt i ol cs t target_cva with
@@ -1431,154 +1516,178 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
                                      (Pcs.add_call_state pre_cc t)                         ;
                true in
 
+     
+
                   if Logging.activated then begin if is_new then begin
          Logging.log Logging.Features.calls_ne
            "+C %d:%d.\n" (Imp_position.get_position ()) t;
 
-         if Logging.features_are_set Logging.Features.stats then begin
-           let n = PamJIT.DNELR.count_reachable_calls term_table t in
-           Logging.Distributions.add_value "MCC" n;
-         end;
+(*          if Logging.features_are_set Logging.Features.stats then begin *)
+(*            let n = PamJIT.DNELR.count_reachable_calls term_table target in *)
+(*            Logging.Distributions.add_value "MCC" n; *)
+(*          end; *)
        end
       end             ;
   )                 
            | PJDN.Call_p_trans (call_act, t) ->                         (
                              (Pcs.add_call_state pre_cc s)                         ;
+
                              (match socvas_s with
              | Socvas.Empty -> ()
-             | Socvas.Singleton (callset, sv, sv_arg) -> (let curr_pos = current_callset.id in
-        let arg = call_act curr_pos sv in
+             | Socvas.Singleton ((_, sv_item, _)  ) -> (let curr_pos = current_callset.id in
+        let arg = call_act curr_pos sv_item in
+
+        
+
         let target_cva = (current_callset, arg, arg) in
-         (match ESet.insert_elt i ol cs t target_cva with
-            | Ignore_elt | Reprocess_elt -> ()
-            | Process_elt ->                         (Pcs.add_call_state pre_cc t)                         )
+           (match ESet.insert_elt i ol cs t target_cva with
+              | Ignore_elt | Reprocess_elt -> ()
+              | Process_elt ->                         (Pcs.add_call_state pre_cc t)                         )
      )
-             | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, sv, sv_arg) -> let curr_pos = current_callset.id in
-        let arg = call_act curr_pos sv in
+             | Socvas.Other __s__ -> Socvas.MS.iter (fun ((_, sv_item, _)  ) -> let curr_pos = current_callset.id in
+        let arg = call_act curr_pos sv_item in
+
+        
+
         let target_cva = (current_callset, arg, arg) in
-         (match ESet.insert_elt i ol cs t target_cva with
-            | Ignore_elt | Reprocess_elt -> ()
-            | Process_elt ->                         (Pcs.add_call_state pre_cc t)                         )
+           (match ESet.insert_elt i ol cs t target_cva with
+              | Ignore_elt | Reprocess_elt -> ()
+              | Process_elt ->                         (Pcs.add_call_state pre_cc t)                         )
      ) __s__)                          
   )                         
 
-           | PJDN.Complete_trans nt ->
-                            if Logging.activated then begin if Logging.features_are_set Logging.Features.stats then begin
-                   let n = Socvas.cardinal socvas_s in
-                   Logging.Distributions.add_value "CSS" n;
-                 end;
-                end             ;
-                                       (match socvas_s with
+           | PJDN.Complete_trans nt ->                           (
+                 if Logging.activated then begin if Logging.features_are_set Logging.Features.stats then begin
+        let n = Socvas.cardinal socvas_s in
+        Logging.Distributions.add_value "CSS" n;
+      end;
+
+      Logging.log Logging.Features.comp_ne "Attempting completion on nonterminal %d.\n" nt;
+     end             ;
+    
+    
+                            (match socvas_s with
              | Socvas.Empty -> ()
-             | Socvas.Singleton (callset, _, _) -> (
-                 if true then begin
-                   let items = callset.data in
-                   for l = 0 to Array.length items - 1 do
-                     let s_l, socvas_l = items.(l) in
-                     let t = PJ.lookup_trans_nt nonterm_table s_l nt in
-                     if t > 0 then ESet.insert_container i ol cs t socvas_l
-                   done
-                 end)
-             | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, _, _) -> 
-                 if true then begin
-                   let items = callset.data in
-                   for l = 0 to Array.length items - 1 do
-                     let s_l, socvas_l = items.(l) in
-                     let t = PJ.lookup_trans_nt nonterm_table s_l nt in
-                     if t > 0 then ESet.insert_container i ol cs t socvas_l
-                   done
-                 end) __s__)                          
+             | Socvas.Singleton (callset, _, _)  -> (
+                       let items = callset.data in
+          for l = 0 to Array.length items - 1 do
+            let s_l, socvas_l = items.(l) in
+                                    (
+    let t = PJ.lookup_trans_nt nonterm_table s_l nt in
+    if t > 0 then begin
+      ESet.insert_container i ol cs t socvas_l;
+                   if Logging.activated then begin Logging.log Logging.Features.comp_ne "%d => %d [%d]\n" s_l t nt
+       end             ;
+    end;
+    ;
+   )                         
+          done                    )
+             | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, _, _)  -> 
+                       let items = callset.data in
+          for l = 0 to Array.length items - 1 do
+            let s_l, socvas_l = items.(l) in
+                                    (
+    let t = PJ.lookup_trans_nt nonterm_table s_l nt in
+    if t > 0 then begin
+      ESet.insert_container i ol cs t socvas_l;
+                   if Logging.activated then begin Logging.log Logging.Features.comp_ne "%d => %d [%d]\n" s_l t nt
+       end             ;
+    end;
+    ;
+   )                         
+          done                    ) __s__)                          
+  )                         
+           | PJDN.Complete_p_trans nt ->                         (
+                 if Logging.activated then begin if Logging.features_are_set Logging.Features.stats then begin
+        let n = Socvas.cardinal socvas_s in
+        Logging.Distributions.add_value "CPSS" n;
+      end;
 
-           | PJDN.Complete_p_trans nt ->
-                            if Logging.activated then begin if Logging.features_are_set Logging.Features.stats then begin
-                   let n = Socvas.cardinal socvas_s in
-                   Logging.Distributions.add_value "CPSS" n;
-                 end;
-
-                 Logging.log Logging.Features.comp_ne "Attempting completion on nonterminal %d.\n" nt;
-                end             ;
-               let curr_pos = current_callset.id in
-                                       (match socvas_s with
+      Logging.log Logging.Features.comp_ne "Attempting completion on nonterminal %d.\n" nt;
+     end             ;
+    
+    let curr_pos = current_callset.id in
+                            (match socvas_s with
              | Socvas.Empty -> ()
-             | Socvas.Singleton (callset, sv, sv_arg) -> (
-                 let items = callset.data in
-                 for l = 0 to Array.length items - 1 do
-                   let s_l, socvas_l = items.(l) in
-
-                   let t = PJ.lookup_trans_nt nonterm_table s_l nt in
-                   if t > 0 then begin
-                     ESet.insert_container i ol cs t socvas_l;
-                                  if Logging.activated then begin Logging.log Logging.Features.comp_ne "%d => %d [%d]\n" s_l t nt
-                      end             ;
-                   end;
-
-                   match PJDN.lookup_trans_pnt p_nonterm_table s_l nt with
-                     | [||] -> ()
-                     | entries ->
-                         for idx = 0 to Array.length entries - 1 do
-                           let {PJDN.ctarget = t; carg = arg_act; cbinder = binder} = entries.(idx) in
-                                           if Logging.activated then begin
+             | Socvas.Singleton (callset, sv, sv_arg)  -> (
+                       let items = callset.data in
+          for l = 0 to Array.length items - 1 do
+            let s_l, socvas_l = items.(l) in
+                                    (
+    let t = PJ.lookup_trans_nt nonterm_table s_l nt in
+    if t > 0 then begin
+      ESet.insert_container i ol cs t socvas_l;
+                   if Logging.activated then begin Logging.log Logging.Features.comp_ne "%d => %d [%d]\n" s_l t nt
+       end             ;
+    end;
+    match PJDN.lookup_trans_pnt p_nonterm_table s_l nt with
+        | [||] -> ()
+        | entries ->
+            for idx = 0 to Array.length entries - 1 do
+              let {PJDN.ctarget = t; carg = arg_act; cbinder = binder} = entries.(idx) in
+                              if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "@%d: %d => %d [%d(_)]? " callset.id s_l t nt end                 ;
-                                                   (match socvas_l with
+                                      (match socvas_l with
              | Socvas.Empty -> ()
              | Socvas.Singleton (callset_s_l, sv_s_l, sv_arg_s_l) -> (
-                                         if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
-                                                           if Logging.activated then begin
+                            if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
+                                              if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "Y" end                 ;
-                                           ESet.insert_elt_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
-                                         end else                 if Logging.activated then begin
+                              ESet.insert_elt_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
+                            end else                 if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "N" end                 )
              | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset_s_l, sv_s_l, sv_arg_s_l) -> 
-                                         if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
-                                                           if Logging.activated then begin
+                            if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
+                                              if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "Y" end                 ;
-                                           ESet.insert_elt_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
-                                         end else                 if Logging.activated then begin
+                              ESet.insert_elt_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
+                            end else                 if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "N" end                 ) __s__)                          ;
-                                           if Logging.activated then begin
+                              if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "\n" end                 ;
-                         done
-                 done)
-             | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, sv, sv_arg) -> 
-                 let items = callset.data in
-                 for l = 0 to Array.length items - 1 do
-                   let s_l, socvas_l = items.(l) in
-
-                   let t = PJ.lookup_trans_nt nonterm_table s_l nt in
-                   if t > 0 then begin
-                     ESet.insert_container i ol cs t socvas_l;
-                                  if Logging.activated then begin Logging.log Logging.Features.comp_ne "%d => %d [%d]\n" s_l t nt
-                      end             ;
-                   end;
-
-                   match PJDN.lookup_trans_pnt p_nonterm_table s_l nt with
-                     | [||] -> ()
-                     | entries ->
-                         for idx = 0 to Array.length entries - 1 do
-                           let {PJDN.ctarget = t; carg = arg_act; cbinder = binder} = entries.(idx) in
-                                           if Logging.activated then begin
+            done;
+   )                         
+          done                    )
+             | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, sv, sv_arg)  -> 
+                       let items = callset.data in
+          for l = 0 to Array.length items - 1 do
+            let s_l, socvas_l = items.(l) in
+                                    (
+    let t = PJ.lookup_trans_nt nonterm_table s_l nt in
+    if t > 0 then begin
+      ESet.insert_container i ol cs t socvas_l;
+                   if Logging.activated then begin Logging.log Logging.Features.comp_ne "%d => %d [%d]\n" s_l t nt
+       end             ;
+    end;
+    match PJDN.lookup_trans_pnt p_nonterm_table s_l nt with
+        | [||] -> ()
+        | entries ->
+            for idx = 0 to Array.length entries - 1 do
+              let {PJDN.ctarget = t; carg = arg_act; cbinder = binder} = entries.(idx) in
+                              if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "@%d: %d => %d [%d(_)]? " callset.id s_l t nt end                 ;
-                                                   (match socvas_l with
+                                      (match socvas_l with
              | Socvas.Empty -> ()
              | Socvas.Singleton (callset_s_l, sv_s_l, sv_arg_s_l) -> (
-                                         if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
-                                                           if Logging.activated then begin
+                            if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
+                                              if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "Y" end                 ;
-                                           ESet.insert_elt_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
-                                         end else                 if Logging.activated then begin
+                              ESet.insert_elt_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
+                            end else                 if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "N" end                 )
              | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset_s_l, sv_s_l, sv_arg_s_l) -> 
-                                         if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
-                                                           if Logging.activated then begin
+                            if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
+                                              if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "Y" end                 ;
-                                           ESet.insert_elt_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
-                                         end else                 if Logging.activated then begin
+                              ESet.insert_elt_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
+                            end else                 if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "N" end                 ) __s__)                          ;
-                                           if Logging.activated then begin
+                              if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "\n" end                 ;
-                         done
-                 done) __s__)                          
-
+            done;
+   )                         
+          done                    ) __s__)                          
+  )                         
            | PJDN.MComplete_trans nts ->                 (
                       if Logging.activated then begin if Logging.features_are_set Logging.Features.stats then begin
              let n = Socvas.cardinal socvas_s in
@@ -1589,26 +1698,40 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
           end             ;
          let m_nts = Array.length nts - 1 in
          
-                                   (match socvas_s with
+                                 (match socvas_s with
              | Socvas.Empty -> ()
-             | Socvas.Singleton (callset, _, _)  -> (let items = callset.data in
-                       for l = 0 to Array.length items - 1 do
-                         let s_l, socvas_l = items.(l) in
-                         for k = 0 to m_nts do
-                           let t = PJ.lookup_trans_nt nonterm_table s_l nts.(k) in
-                           if t > 0 then ESet.insert_container i ol cs t socvas_l;
-                           ;
-                         done
-                       done )
-             | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, _, _)  -> let items = callset.data in
-                       for l = 0 to Array.length items - 1 do
-                         let s_l, socvas_l = items.(l) in
-                         for k = 0 to m_nts do
-                           let t = PJ.lookup_trans_nt nonterm_table s_l nts.(k) in
-                           if t > 0 then ESet.insert_container i ol cs t socvas_l;
-                           ;
-                         done
-                       done ) __s__)                          
+             | Socvas.Singleton (callset, _, _)  -> (                let items = callset.data in
+              for l = 0 to Array.length items - 1 do
+                let s_l, socvas_l = items.(l) in
+                for k = 0 to m_nts do
+                  let nt = nts.(k) in
+                                          (
+    let t = PJ.lookup_trans_nt nonterm_table s_l nt in
+    if t > 0 then begin
+      ESet.insert_container i ol cs t socvas_l;
+                   if Logging.activated then begin Logging.log Logging.Features.comp_ne "%d => %d [%d]\n" s_l t nt
+       end             ;
+    end;
+    ;
+   )                         
+                done
+              done                     )
+             | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, _, _)  ->                 let items = callset.data in
+              for l = 0 to Array.length items - 1 do
+                let s_l, socvas_l = items.(l) in
+                for k = 0 to m_nts do
+                  let nt = nts.(k) in
+                                          (
+    let t = PJ.lookup_trans_nt nonterm_table s_l nt in
+    if t > 0 then begin
+      ESet.insert_container i ol cs t socvas_l;
+                   if Logging.activated then begin Logging.log Logging.Features.comp_ne "%d => %d [%d]\n" s_l t nt
+       end             ;
+    end;
+    ;
+   )                         
+                done
+              done                     ) __s__)                          
        )                 
            | PJDN.MComplete_p_trans nts ->                 (
                       if Logging.activated then begin if Logging.features_are_set Logging.Features.stats then begin
@@ -1620,76 +1743,90 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
           end             ;
          let m_nts = Array.length nts - 1 in
          let curr_pos = current_callset.id in
-                                   (match socvas_s with
+                                 (match socvas_s with
              | Socvas.Empty -> ()
-             | Socvas.Singleton (callset, sv, sv_arg)  -> (let items = callset.data in
-                       for l = 0 to Array.length items - 1 do
-                         let s_l, socvas_l = items.(l) in
-                         for k = 0 to m_nts do
-                           let t = PJ.lookup_trans_nt nonterm_table s_l nts.(k) in
-                           if t > 0 then ESet.insert_container i ol cs t socvas_l;
-                           match PJDN.lookup_trans_pnt p_nonterm_table s_l nts.(k) with
-                                      | [||] -> ()
-                                      | entries ->
-                                          for idx = 0 to Array.length entries - 1 do
-                                            let {PJDN.ctarget = t; carg = arg_act; cbinder = binder} = entries.(idx) in
-                                                            if Logging.activated then begin
-       Logging.log Logging.Features.comp_ne "@%d: %d => %d [%d(_)]? " callset.id s_l t nts.(k) end                 ;
-                                                                    (match socvas_l with
-             | Socvas.Empty -> ()
-             | Socvas.Singleton (callset_s_l, sv_s_l, sv_arg_s_l) -> (
-                                                          if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
-                                                                            if Logging.activated then begin
-       Logging.log Logging.Features.comp_ne "Y" end                 ;
-                                                            ESet.insert_elt_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
-                                                          end else                 if Logging.activated then begin
-       Logging.log Logging.Features.comp_ne "N" end                 )
-             | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset_s_l, sv_s_l, sv_arg_s_l) -> 
-                                                          if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
-                                                                            if Logging.activated then begin
-       Logging.log Logging.Features.comp_ne "Y" end                 ;
-                                                            ESet.insert_elt_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
-                                                          end else                 if Logging.activated then begin
-       Logging.log Logging.Features.comp_ne "N" end                 ) __s__)                          ;
-                                                            if Logging.activated then begin
-       Logging.log Logging.Features.comp_ne "\n" end                 ;
-                                          done;
-                         done
-                       done )
-             | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, sv, sv_arg)  -> let items = callset.data in
-                       for l = 0 to Array.length items - 1 do
-                         let s_l, socvas_l = items.(l) in
-                         for k = 0 to m_nts do
-                           let t = PJ.lookup_trans_nt nonterm_table s_l nts.(k) in
-                           if t > 0 then ESet.insert_container i ol cs t socvas_l;
-                           match PJDN.lookup_trans_pnt p_nonterm_table s_l nts.(k) with
-                                      | [||] -> ()
-                                      | entries ->
-                                          for idx = 0 to Array.length entries - 1 do
-                                            let {PJDN.ctarget = t; carg = arg_act; cbinder = binder} = entries.(idx) in
-                                                            if Logging.activated then begin
-       Logging.log Logging.Features.comp_ne "@%d: %d => %d [%d(_)]? " callset.id s_l t nts.(k) end                 ;
-                                                                    (match socvas_l with
+             | Socvas.Singleton (callset, sv, sv_arg)  -> (                let items = callset.data in
+              for l = 0 to Array.length items - 1 do
+                let s_l, socvas_l = items.(l) in
+                for k = 0 to m_nts do
+                  let nt = nts.(k) in
+                                          (
+    let t = PJ.lookup_trans_nt nonterm_table s_l nt in
+    if t > 0 then begin
+      ESet.insert_container i ol cs t socvas_l;
+                   if Logging.activated then begin Logging.log Logging.Features.comp_ne "%d => %d [%d]\n" s_l t nt
+       end             ;
+    end;
+    match PJDN.lookup_trans_pnt p_nonterm_table s_l nt with
+        | [||] -> ()
+        | entries ->
+            for idx = 0 to Array.length entries - 1 do
+              let {PJDN.ctarget = t; carg = arg_act; cbinder = binder} = entries.(idx) in
+                              if Logging.activated then begin
+       Logging.log Logging.Features.comp_ne "@%d: %d => %d [%d(_)]? " callset.id s_l t nt end                 ;
+                                      (match socvas_l with
              | Socvas.Empty -> ()
              | Socvas.Singleton (callset_s_l, sv_s_l, sv_arg_s_l) -> (
-                                                          if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
-                                                                            if Logging.activated then begin
+                            if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
+                                              if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "Y" end                 ;
-                                                            ESet.insert_elt_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
-                                                          end else                 if Logging.activated then begin
+                              ESet.insert_elt_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
+                            end else                 if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "N" end                 )
              | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset_s_l, sv_s_l, sv_arg_s_l) -> 
-                                                          if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
-                                                                            if Logging.activated then begin
+                            if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
+                                              if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "Y" end                 ;
-                                                            ESet.insert_elt_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
-                                                          end else                 if Logging.activated then begin
+                              ESet.insert_elt_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
+                            end else                 if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "N" end                 ) __s__)                          ;
-                                                            if Logging.activated then begin
+                              if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "\n" end                 ;
-                                          done;
-                         done
-                       done ) __s__)                          
+            done;
+   )                         
+                done
+              done                     )
+             | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, sv, sv_arg)  ->                 let items = callset.data in
+              for l = 0 to Array.length items - 1 do
+                let s_l, socvas_l = items.(l) in
+                for k = 0 to m_nts do
+                  let nt = nts.(k) in
+                                          (
+    let t = PJ.lookup_trans_nt nonterm_table s_l nt in
+    if t > 0 then begin
+      ESet.insert_container i ol cs t socvas_l;
+                   if Logging.activated then begin Logging.log Logging.Features.comp_ne "%d => %d [%d]\n" s_l t nt
+       end             ;
+    end;
+    match PJDN.lookup_trans_pnt p_nonterm_table s_l nt with
+        | [||] -> ()
+        | entries ->
+            for idx = 0 to Array.length entries - 1 do
+              let {PJDN.ctarget = t; carg = arg_act; cbinder = binder} = entries.(idx) in
+                              if Logging.activated then begin
+       Logging.log Logging.Features.comp_ne "@%d: %d => %d [%d(_)]? " callset.id s_l t nt end                 ;
+                                      (match socvas_l with
+             | Socvas.Empty -> ()
+             | Socvas.Singleton (callset_s_l, sv_s_l, sv_arg_s_l) -> (
+                            if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
+                                              if Logging.activated then begin
+       Logging.log Logging.Features.comp_ne "Y" end                 ;
+                              ESet.insert_elt_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
+                            end else                 if Logging.activated then begin
+       Logging.log Logging.Features.comp_ne "N" end                 )
+             | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset_s_l, sv_s_l, sv_arg_s_l) -> 
+                            if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
+                                              if Logging.activated then begin
+       Logging.log Logging.Features.comp_ne "Y" end                 ;
+                              ESet.insert_elt_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
+                            end else                 if Logging.activated then begin
+       Logging.log Logging.Features.comp_ne "N" end                 ) __s__)                          ;
+                              if Logging.activated then begin
+       Logging.log Logging.Features.comp_ne "\n" end                 ;
+            done;
+   )                         
+                done
+              done                     ) __s__)                          
        )                 
 
            | PJDN.Many_trans trans ->
@@ -1810,7 +1947,9 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
                   | target -> (* returns to next set *)
                       ESet.insert_container_nc ns target socvas_s)
 
-  and process_eof_trans start_nt succeeded cs socvas_s term_table nonterm_table p_nonterm_table nplookahead_fn
+  and process_eof_trans start_nt succeeded cs
+      
+      socvas_s term_table nonterm_table p_nonterm_table nplookahead_fn
       s sv0 current_callset ykb i ol = function
            | PJDN.No_trans -> ()
            | PJDN.Scan_trans _ | PJDN.MScan_trans _ -> ()
@@ -1860,6 +1999,7 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
                  ESet.insert_container i ol cs target socvas_s
            | PJDN.Call_trans t ->                 (
      
+
      let target_cva = (current_callset, sv0, sv0) in
      let is_new =
        match ESet.insert_elt i ol cs t target_cva with
@@ -1869,131 +2009,172 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
              
                true in
 
+     
+
                   if Logging.activated then begin if is_new then begin
          Logging.log Logging.Features.calls_ne
            "+C %d:%d.\n" (Imp_position.get_position ()) t;
 
-         if Logging.features_are_set Logging.Features.stats then begin
-           let n = PamJIT.DNELR.count_reachable_calls term_table t in
-           Logging.Distributions.add_value "MCC" n;
-         end;
+(*          if Logging.features_are_set Logging.Features.stats then begin *)
+(*            let n = PamJIT.DNELR.count_reachable_calls term_table target in *)
+(*            Logging.Distributions.add_value "MCC" n; *)
+(*          end; *)
        end
       end             ;
   )                 
            | PJDN.Call_p_trans (call_act, t) ->                         (
      
+
                              (match socvas_s with
              | Socvas.Empty -> ()
-             | Socvas.Singleton (callset, sv, sv_arg) -> (let curr_pos = current_callset.id in
-        let arg = call_act curr_pos sv in
+             | Socvas.Singleton ((_, sv_item, _)  ) -> (let curr_pos = current_callset.id in
+        let arg = call_act curr_pos sv_item in
+
+        
+
         ESet.insert_elt_ig i ol cs t current_callset arg arg
      )
-             | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, sv, sv_arg) -> let curr_pos = current_callset.id in
-        let arg = call_act curr_pos sv in
+             | Socvas.Other __s__ -> Socvas.MS.iter (fun ((_, sv_item, _)  ) -> let curr_pos = current_callset.id in
+        let arg = call_act curr_pos sv_item in
+
+        
+
         ESet.insert_elt_ig i ol cs t current_callset arg arg
      ) __s__)                          
   )                         
 
-           | PJDN.Complete_trans nt ->
-               let is_nt = nt = start_nt in
-                                       (match socvas_s with
+           | PJDN.Complete_trans nt ->                           (
+                 if Logging.activated then begin if Logging.features_are_set Logging.Features.stats then begin
+        let n = Socvas.cardinal socvas_s in
+        Logging.Distributions.add_value "CSS" n;
+      end;
+
+      Logging.log Logging.Features.comp_ne "Attempting completion on nonterminal %d.\n" nt;
+     end             ;
+    let is_nt = nt = start_nt in
+    
+                            (match socvas_s with
              | Socvas.Empty -> ()
-             | Socvas.Singleton (callset,_,_) -> (
-                 if is_nt && callset.id = 0 then succeeded := true;
-                 let items = callset.data in
-                 for l = 0 to Array.length items - 1 do
-                   let s_l, c_l = items.(l) in
-                   let t = PJ.lookup_trans_nt nonterm_table s_l nt in
-                   if t > 0 then ESet.insert_container i ol cs t c_l
-                 done)
-             | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset,_,_) -> 
-                 if is_nt && callset.id = 0 then succeeded := true;
-                 let items = callset.data in
-                 for l = 0 to Array.length items - 1 do
-                   let s_l, c_l = items.(l) in
-                   let t = PJ.lookup_trans_nt nonterm_table s_l nt in
-                   if t > 0 then ESet.insert_container i ol cs t c_l
-                 done) __s__)                          
+             | Socvas.Singleton (callset, _, _)  -> (if is_nt && callset.id = 0 then succeeded := true;
+                       let items = callset.data in
+          for l = 0 to Array.length items - 1 do
+            let s_l, socvas_l = items.(l) in
+                                    (
+    let t = PJ.lookup_trans_nt nonterm_table s_l nt in
+    if t > 0 then begin
+      ESet.insert_container i ol cs t socvas_l;
+                   if Logging.activated then begin Logging.log Logging.Features.comp_ne "%d => %d [%d]\n" s_l t nt
+       end             ;
+    end;
+    ;
+   )                         
+          done                    )
+             | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, _, _)  -> if is_nt && callset.id = 0 then succeeded := true;
+                       let items = callset.data in
+          for l = 0 to Array.length items - 1 do
+            let s_l, socvas_l = items.(l) in
+                                    (
+    let t = PJ.lookup_trans_nt nonterm_table s_l nt in
+    if t > 0 then begin
+      ESet.insert_container i ol cs t socvas_l;
+                   if Logging.activated then begin Logging.log Logging.Features.comp_ne "%d => %d [%d]\n" s_l t nt
+       end             ;
+    end;
+    ;
+   )                         
+          done                    ) __s__)                          
+  )                         
+           | PJDN.Complete_p_trans nt ->                         (
+                 if Logging.activated then begin if Logging.features_are_set Logging.Features.stats then begin
+        let n = Socvas.cardinal socvas_s in
+        Logging.Distributions.add_value "CPSS" n;
+      end;
 
-           | PJDN.Complete_p_trans nt ->
-               let is_nt = nt = start_nt in
-               let curr_pos = current_callset.id in
-                                       (match socvas_s with
+      Logging.log Logging.Features.comp_ne "Attempting completion on nonterminal %d.\n" nt;
+     end             ;
+    let is_nt = nt = start_nt in
+    let curr_pos = current_callset.id in
+                            (match socvas_s with
              | Socvas.Empty -> ()
-             | Socvas.Singleton (callset, sv, sv_arg) -> (
-                 if is_nt && callset.id = 0 then succeeded := true;
-                 let items = callset.data in
-                 for l = 0 to Array.length items - 1 do
-                   let s_l, socvas_l = items.(l) in
-
-                   let t = PJ.lookup_trans_nt nonterm_table s_l nt in
-                   if t > 0 then ESet.insert_container i ol cs t socvas_l;
-
-                   match PJDN.lookup_trans_pnt p_nonterm_table s_l nt with
-                     | [||] -> ()
-                     | entries ->
-                         for idx = 0 to Array.length entries - 1 do
-                           let {PJDN.ctarget = t; carg = arg_act; cbinder = binder} = entries.(idx) in
-                                           if Logging.activated then begin
+             | Socvas.Singleton (callset, sv, sv_arg)  -> (if is_nt && callset.id = 0 then succeeded := true;
+                       let items = callset.data in
+          for l = 0 to Array.length items - 1 do
+            let s_l, socvas_l = items.(l) in
+                                    (
+    let t = PJ.lookup_trans_nt nonterm_table s_l nt in
+    if t > 0 then begin
+      ESet.insert_container i ol cs t socvas_l;
+                   if Logging.activated then begin Logging.log Logging.Features.comp_ne "%d => %d [%d]\n" s_l t nt
+       end             ;
+    end;
+    match PJDN.lookup_trans_pnt p_nonterm_table s_l nt with
+        | [||] -> ()
+        | entries ->
+            for idx = 0 to Array.length entries - 1 do
+              let {PJDN.ctarget = t; carg = arg_act; cbinder = binder} = entries.(idx) in
+                              if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "@%d: %d => %d [%d(_)]? " callset.id s_l t nt end                 ;
-                                                   (match socvas_l with
+                                      (match socvas_l with
              | Socvas.Empty -> ()
              | Socvas.Singleton (callset_s_l, sv_s_l, sv_arg_s_l) -> (
-                                         if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
-                                                           if Logging.activated then begin
+                            if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
+                                              if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "Y" end                 ;
-                                           ESet.insert_elt_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
-                                         end else                 if Logging.activated then begin
+                              ESet.insert_elt_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
+                            end else                 if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "N" end                 )
              | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset_s_l, sv_s_l, sv_arg_s_l) -> 
-                                         if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
-                                                           if Logging.activated then begin
+                            if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
+                                              if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "Y" end                 ;
-                                           ESet.insert_elt_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
-                                         end else                 if Logging.activated then begin
+                              ESet.insert_elt_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
+                            end else                 if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "N" end                 ) __s__)                          ;
-                                           if Logging.activated then begin
+                              if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "\n" end                 ;
-                         done
-
-                 done)
-             | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, sv, sv_arg) -> 
-                 if is_nt && callset.id = 0 then succeeded := true;
-                 let items = callset.data in
-                 for l = 0 to Array.length items - 1 do
-                   let s_l, socvas_l = items.(l) in
-
-                   let t = PJ.lookup_trans_nt nonterm_table s_l nt in
-                   if t > 0 then ESet.insert_container i ol cs t socvas_l;
-
-                   match PJDN.lookup_trans_pnt p_nonterm_table s_l nt with
-                     | [||] -> ()
-                     | entries ->
-                         for idx = 0 to Array.length entries - 1 do
-                           let {PJDN.ctarget = t; carg = arg_act; cbinder = binder} = entries.(idx) in
-                                           if Logging.activated then begin
+            done;
+   )                         
+          done                    )
+             | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, sv, sv_arg)  -> if is_nt && callset.id = 0 then succeeded := true;
+                       let items = callset.data in
+          for l = 0 to Array.length items - 1 do
+            let s_l, socvas_l = items.(l) in
+                                    (
+    let t = PJ.lookup_trans_nt nonterm_table s_l nt in
+    if t > 0 then begin
+      ESet.insert_container i ol cs t socvas_l;
+                   if Logging.activated then begin Logging.log Logging.Features.comp_ne "%d => %d [%d]\n" s_l t nt
+       end             ;
+    end;
+    match PJDN.lookup_trans_pnt p_nonterm_table s_l nt with
+        | [||] -> ()
+        | entries ->
+            for idx = 0 to Array.length entries - 1 do
+              let {PJDN.ctarget = t; carg = arg_act; cbinder = binder} = entries.(idx) in
+                              if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "@%d: %d => %d [%d(_)]? " callset.id s_l t nt end                 ;
-                                                   (match socvas_l with
+                                      (match socvas_l with
              | Socvas.Empty -> ()
              | Socvas.Singleton (callset_s_l, sv_s_l, sv_arg_s_l) -> (
-                                         if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
-                                                           if Logging.activated then begin
+                            if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
+                                              if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "Y" end                 ;
-                                           ESet.insert_elt_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
-                                         end else                 if Logging.activated then begin
+                              ESet.insert_elt_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
+                            end else                 if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "N" end                 )
              | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset_s_l, sv_s_l, sv_arg_s_l) -> 
-                                         if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
-                                                           if Logging.activated then begin
+                            if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
+                                              if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "Y" end                 ;
-                                           ESet.insert_elt_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
-                                         end else                 if Logging.activated then begin
+                              ESet.insert_elt_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
+                            end else                 if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "N" end                 ) __s__)                          ;
-                                           if Logging.activated then begin
+                              if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "\n" end                 ;
-                         done
-
-                 done) __s__)                          
+            done;
+   )                         
+          done                    ) __s__)                          
+  )                         
 
            | PJDN.MComplete_trans nts ->
                let m_nts = Array.length nts - 1 in
@@ -2007,12 +2188,18 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
                      let nt = nts.(k) in
                      if is_start && nt = start_nt then
                        succeeded := true (* ... and do not bother performing the completion. *)
-                     else
-                       for l = 0 to m_items do
+                     else                 for l = 0 to m_items do
                          let s_l, c_l = items.(l) in
-                         let t = PJ.lookup_trans_nt nonterm_table s_l nt in
-                         if t > 0 then ESet.insert_container i ol cs t c_l
-                       done
+                                                 (
+    let t = PJ.lookup_trans_nt nonterm_table s_l nt in
+    if t > 0 then begin
+      ESet.insert_container i ol cs t c_l;
+                   if Logging.activated then begin Logging.log Logging.Features.comp_ne "%d => %d [%d]\n" s_l t nt
+       end             ;
+    end;
+    ;
+   )                         
+                       done                  
                    done)
              | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset,_,_) -> 
                    let is_start = callset.id = 0 in
@@ -2022,12 +2209,18 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
                      let nt = nts.(k) in
                      if is_start && nt = start_nt then
                        succeeded := true (* ... and do not bother performing the completion. *)
-                     else
-                       for l = 0 to m_items do
+                     else                 for l = 0 to m_items do
                          let s_l, c_l = items.(l) in
-                         let t = PJ.lookup_trans_nt nonterm_table s_l nt in
-                         if t > 0 then ESet.insert_container i ol cs t c_l
-                       done
+                                                 (
+    let t = PJ.lookup_trans_nt nonterm_table s_l nt in
+    if t > 0 then begin
+      ESet.insert_container i ol cs t c_l;
+                   if Logging.activated then begin Logging.log Logging.Features.comp_ne "%d => %d [%d]\n" s_l t nt
+       end             ;
+    end;
+    ;
+   )                         
+                       done                  
                    done) __s__)                          
 
            | PJDN.MComplete_p_trans nts ->
@@ -2043,40 +2236,43 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
                      let nt = nts.(k) in
                      if is_start && nt = start_nt then
                        succeeded := true (* ... and do not bother performing the completion. *)
-                     else
-                       for l = 0 to m_items do
+                     else                 for l = 0 to m_items do
                          let s_l, socvas_l = items.(l) in
-
-                         let t = PJ.lookup_trans_nt nonterm_table s_l nt in
-                         if t > 0 then ESet.insert_container i ol cs t socvas_l;
-
-                         match PJDN.lookup_trans_pnt p_nonterm_table s_l nt with
-                           | [||] -> ()
-                           | entries ->
-                               for idx = 0 to Array.length entries - 1 do
-                                 let {PJDN.ctarget = t; carg = arg_act; cbinder = binder} = entries.(idx) in
-                                                 if Logging.activated then begin
+                                                 (
+    let t = PJ.lookup_trans_nt nonterm_table s_l nt in
+    if t > 0 then begin
+      ESet.insert_container i ol cs t socvas_l;
+                   if Logging.activated then begin Logging.log Logging.Features.comp_ne "%d => %d [%d]\n" s_l t nt
+       end             ;
+    end;
+    match PJDN.lookup_trans_pnt p_nonterm_table s_l nt with
+        | [||] -> ()
+        | entries ->
+            for idx = 0 to Array.length entries - 1 do
+              let {PJDN.ctarget = t; carg = arg_act; cbinder = binder} = entries.(idx) in
+                              if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "@%d: %d => %d [%d(_)]? " callset.id s_l t nt end                 ;
-                                                         (match socvas_l with
+                                      (match socvas_l with
              | Socvas.Empty -> ()
              | Socvas.Singleton (callset_s_l, sv_s_l, sv_arg_s_l) -> (
-                                               if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
-                                                                 if Logging.activated then begin
+                            if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
+                                              if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "Y" end                 ;
-                                                 ESet.insert_elt_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
-                                               end else                 if Logging.activated then begin
+                              ESet.insert_elt_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
+                            end else                 if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "N" end                 )
              | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset_s_l, sv_s_l, sv_arg_s_l) -> 
-                                               if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
-                                                                 if Logging.activated then begin
+                            if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
+                                              if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "Y" end                 ;
-                                                 ESet.insert_elt_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
-                                               end else                 if Logging.activated then begin
+                              ESet.insert_elt_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
+                            end else                 if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "N" end                 ) __s__)                          ;
-                                                 if Logging.activated then begin
+                              if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "\n" end                 ;
-                               done
-                       done
+            done;
+   )                         
+                       done                  
                    done)
              | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset, sv, sv_arg) -> 
                    let is_start = callset.id = 0 in
@@ -2086,46 +2282,51 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
                      let nt = nts.(k) in
                      if is_start && nt = start_nt then
                        succeeded := true (* ... and do not bother performing the completion. *)
-                     else
-                       for l = 0 to m_items do
+                     else                 for l = 0 to m_items do
                          let s_l, socvas_l = items.(l) in
-
-                         let t = PJ.lookup_trans_nt nonterm_table s_l nt in
-                         if t > 0 then ESet.insert_container i ol cs t socvas_l;
-
-                         match PJDN.lookup_trans_pnt p_nonterm_table s_l nt with
-                           | [||] -> ()
-                           | entries ->
-                               for idx = 0 to Array.length entries - 1 do
-                                 let {PJDN.ctarget = t; carg = arg_act; cbinder = binder} = entries.(idx) in
-                                                 if Logging.activated then begin
+                                                 (
+    let t = PJ.lookup_trans_nt nonterm_table s_l nt in
+    if t > 0 then begin
+      ESet.insert_container i ol cs t socvas_l;
+                   if Logging.activated then begin Logging.log Logging.Features.comp_ne "%d => %d [%d]\n" s_l t nt
+       end             ;
+    end;
+    match PJDN.lookup_trans_pnt p_nonterm_table s_l nt with
+        | [||] -> ()
+        | entries ->
+            for idx = 0 to Array.length entries - 1 do
+              let {PJDN.ctarget = t; carg = arg_act; cbinder = binder} = entries.(idx) in
+                              if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "@%d: %d => %d [%d(_)]? " callset.id s_l t nt end                 ;
-                                                         (match socvas_l with
+                                      (match socvas_l with
              | Socvas.Empty -> ()
              | Socvas.Singleton (callset_s_l, sv_s_l, sv_arg_s_l) -> (
-                                               if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
-                                                                 if Logging.activated then begin
+                            if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
+                                              if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "Y" end                 ;
-                                                 ESet.insert_elt_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
-                                               end else                 if Logging.activated then begin
+                              ESet.insert_elt_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
+                            end else                 if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "N" end                 )
              | Socvas.Other __s__ -> Socvas.MS.iter (fun (callset_s_l, sv_s_l, sv_arg_s_l) -> 
-                                               if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
-                                                                 if Logging.activated then begin
+                            if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
+                                              if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "Y" end                 ;
-                                                 ESet.insert_elt_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
-                                               end else                 if Logging.activated then begin
+                              ESet.insert_elt_ig i ol cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
+                            end else                 if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "N" end                 ) __s__)                          ;
-                                                 if Logging.activated then begin
+                              if Logging.activated then begin
        Logging.log Logging.Features.comp_ne "\n" end                 ;
-                               done
-                       done
+            done;
+   )                         
+                       done                  
                    done) __s__)                          
 
            | PJDN.Many_trans trans ->
                let n = Array.length trans in
                for j = 0 to n-1 do
-                 process_eof_trans start_nt succeeded cs socvas_s term_table nonterm_table p_nonterm_table nplookahead_fn s sv0
+                 process_eof_trans start_nt succeeded cs
+                   
+                   socvas_s term_table nonterm_table p_nonterm_table nplookahead_fn s sv0
                    current_callset ykb i ol trans.(j)
                done
 
@@ -2220,14 +2421,16 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
                   | target -> ESet.insert_container i ol cs target socvas_s)
 
   and _parse is_exact_match
-      {PJDN.start_symb = start_nt; start_state = start_state;
+      ({PJDN.start_symb = start_nt; start_state = start_state;
        term_table = term_table; nonterm_table = nonterm_table;
        p_nonterm_table = p_nonterm_table;}
+       )
       sv0 (ykb : YkBuf.t) =
 
                  if Logging.activated then begin if Logging.features_are_set Logging.Features.stats then begin
         Logging.Distributions.init ();
-        Logging.Distributions.register "CSS"; (* call-set size. *)
+        Logging.Distributions.register "CSS"; (* Call-Set Size. Distribution of sizes of callsets
+                                                 encountered during completion.  *)
         Logging.Distributions.register "CPSS";(* parameterized call-set size. *)
         Logging.Distributions.register "MCC"; (* Missed call collapsing. *)
       end;
@@ -2251,6 +2454,8 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
 
     let futuresq = Ordered_queue.init () in
     let nplookahead_fn = mk_lookahead term_table nonterm_table p_nonterm_table sv0 in
+
+    
 
     if Logging.activated then begin
       Imp_position.set_position 0
@@ -2283,9 +2488,12 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
      **************************************************************)
 
     let s_matched = ref false in
-    while (                 (if support_FLA then (is_exact_match || not !s_matched) else true)                  &&
-              if              (!next_set).WI.count > 0              then !can_scan
-              else fast_forward current_callset futuresq !next_set ykb) do
+    let main_loop_unfinished = ref (
+                      (if support_FLA then (is_exact_match || not !s_matched) else true)                 
+      && if              (!next_set).WI.count > 0              then !can_scan
+      else fast_forward current_callset futuresq !next_set ykb
+    ) in
+    while ( !main_loop_unfinished ) do
 
       (* swap_and_clear. We place this code here,
          rather than at the end of the loop, with the other
@@ -2312,7 +2520,9 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
           Parse-engine state.
       *)
       let pes = term_table, nonterm_table, p_nonterm_table, sv0,
-            cs, ns, pre_cc, ccs, ykb, futuresq, nplookahead_fn, overflow in
+            cs, ns, pre_cc,
+            
+            ccs, ykb, futuresq, nplookahead_fn, overflow in
 
       (* Process the worklist (which can grow during processing). *)
                                       
@@ -2360,7 +2570,9 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
 
       (* Report size of the Earley set. *)
                       if Logging.activated then begin
-       Logging.log Logging.Features.stats "%d %d\n" ccs.id (ESet.get_size cs) end                 ;
+       Logging.log Logging.Features.stats "ES %d %d\n" ccs.id (ESet.get_size cs) end                 ;
+                      if Logging.activated then begin
+       Logging.log Logging.Features.stats "ESs %d %d" ccs.id (ESet.get_active_states cs) end                 ;
 
       (* Report memory size of the data accessable from the Earley set (focusing on
          the semantic values). *)
@@ -2385,13 +2597,20 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
           s_matched := true;
        end             ;
 
-      (* cleanup and setup for next round. *)
+      (* Cleanup and setup for next round. *)
+
+      (* Convert the precallset to an actual callset *)
       ccs.data <- Pcs.convert_current_callset cs pre_cc;
+      (* Report size of the call set. *)
+                      if Logging.activated then begin
+       Logging.log Logging.Features.stats "CS %d %d\n" ccs.id (length_callset ccs) end                 ;
+
       let pos = ccs.id + 1 in
       current_callset := mk_callset pos;
       Terms.advance ykb;
       can_scan := Terms.fill ykb;
       Pcs.reset pre_cc;
+      
 
       (* Check whether there's any blackbox results to load into the next set. *)
       if Ordered_queue.next futuresq = pos then begin
@@ -2401,6 +2620,13 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
 
                    if Logging.activated then begin Imp_position.set_position pos;
        end             ;
+
+      main_loop_unfinished := (
+                        (if support_FLA then (is_exact_match || not !s_matched) else true)                 
+        && if              (!next_set).WI.count > 0              then !can_scan
+        else fast_forward current_callset futuresq !next_set ykb
+      );
+
     done;
 
     (**************************************************************
@@ -2424,8 +2650,9 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
       let proc_eof_item i ol s socvas =
                         if Logging.activated then begin
        Logging.log Logging.Features.eof_ne "Processing state %d.\n" s end                 ;
-        process_eof_trans start_nt succeeded cs socvas
-          term_table nonterm_table p_nonterm_table nplookahead_fn
+        process_eof_trans start_nt succeeded cs
+          
+          socvas term_table nonterm_table p_nonterm_table nplookahead_fn
           s sv0 !current_callset ykb i ol term_table.(s) in
 
                               begin

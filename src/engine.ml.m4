@@ -2116,7 +2116,8 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
   and _parse is_exact_match
       ({PJDN.start_symb = start_nt; start_state = start_state;
        term_table = term_table; nonterm_table = nonterm_table;
-       p_nonterm_table = p_nonterm_table;} as trans_data)
+       p_nonterm_table = p_nonterm_table;}
+       IF_TRUE(DO_NULL_RET, ` as trans_data'))
       sv0 (ykb : YkBuf.t) =
 
     LOG(
@@ -2184,9 +2185,12 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
      **************************************************************)
 
     let s_matched = ref false in
-    while ( IFE_FLA(`(is_exact_match || not !s_matched)',`true') &&
-              if ESET_NOT_EMPTY(`!next_set') then !can_scan
-              else fast_forward current_callset futuresq !next_set ykb) do
+    let main_loop_unfinished = ref (
+      IFE_FLA(`(is_exact_match || not !s_matched)',`true')
+      && if ESET_NOT_EMPTY(`!next_set') then !can_scan
+      else fast_forward current_callset futuresq !next_set ykb
+    ) in
+    while ( !main_loop_unfinished ) do
 
       (* swap_and_clear. We place this code here,
          rather than at the end of the loop, with the other
@@ -2272,6 +2276,13 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
       LOG(
         Imp_position.set_position pos;
       );
+
+      main_loop_unfinished := (
+        IFE_FLA(`(is_exact_match || not !s_matched)',`true')
+        && if ESET_NOT_EMPTY(`!next_set') then !can_scan
+        else fast_forward current_callset futuresq !next_set ykb
+      );
+
     done;
 
     (**************************************************************

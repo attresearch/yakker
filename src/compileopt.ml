@@ -58,8 +58,14 @@ let gen_optimize_pam = ref true
       transducer representation before exection. On by default. *)
 
 let gen_nullpreds = ref true
-  (** Flag: Use nullability predicates in place of completions on epsilon. On by default. *)
+  (** Flag: Use nullability predicates in place of completions on epsilon. On by default.
+      If disabled, nullability predicates will not be generated and an engine implementation
+      will be chosen (for the generated code) that supports completions on epsilon. *)
 
+let use_sparse_set = ref true
+  (** Flag: Generate code that uses the engine implementation based on
+      sparse sets. On by default. If disabled, uses the implementation
+      based on standard OCaml sets. *)
 
 (*
    testing-related flags

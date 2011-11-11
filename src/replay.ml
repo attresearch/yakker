@@ -312,20 +312,31 @@ let transform gr =
     reverse gr i_con; (* some grammars have late actions but never push anything on the history *)
     (* define [getp] based on i_con to avoid warning over unnecessary match case. *)
     let getp = if i_con = "" then "_o#next()" else Printf.sprintf "match _o#next() with | %s(p) -> p | _ -> failwith \"wrong constructor for position.\"" i_con in
-    add_to_prologue gr
-      (Printf.sprintf
-         "
+    if !Compileopt.repress_replay then
+      add_to_prologue gr
+        (Printf.sprintf
+           "\nlet _replay_%s ykinput h %s= ignore(new rvs (h#right_to_left))\n"
+           start_symbol start_params)
+    else
+      add_to_prologue gr
+        (Printf.sprintf
+           "
 let _replay_%s ykinput h %s=
   let _o = new rvs (h#right_to_left) in
   let _n() = _o#next() in
   let _p() = %s in
   _r_%s(_n,_p,ykinput%s)\n"
-         start_symbol
-         start_params
-         getp
-         start_symbol
-         comma_start_params)
-  end else begin
+           start_symbol
+           start_params
+           getp
+           start_symbol
+           comma_start_params)
+  end else if !Compileopt.repress_replay then
+    add_to_prologue gr
+      (Printf.sprintf
+         "\nlet _replay_%s ykinput h %s= ignore(h#left_to_right)\n"
+         start_symbol start_params)
+  else
     add_to_prologue gr
       (Printf.sprintf
          "
@@ -337,8 +348,7 @@ let _replay_%s ykinput h %s=
          start_symbol
          start_params
          start_symbol
-         comma_start_params)
-  end;
+         comma_start_params);
   let is_producer = Analyze.is_rhs_producer gr.early_producers gr.late_producers in
   let mkOutput l = Delay(false,Printf.sprintf "%s(%d)" i_con l,None) in
   let mkOUTPUT l = mkRHS (mkOutput l) in

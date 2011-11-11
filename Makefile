@@ -11,6 +11,12 @@ endif
 ifndef DO_LOG
 engine.cmo: OCAML_FLAGS+= -noassert
 engine.cmx: OCAMLOPT_FLAGS+= -noassert
+engine_nr.cmo: OCAML_FLAGS+= -noassert
+engine_nr.cmx: OCAMLOPT_FLAGS+= -noassert
+engine_fl.cmo: OCAML_FLAGS+= -noassert
+engine_fl.cmx: OCAMLOPT_FLAGS+= -noassert
+engine_nrfl.cmo: OCAML_FLAGS+= -noassert
+engine_nrfl.cmx: OCAMLOPT_FLAGS+= -noassert
 endif
 
 ifneq ($(OBJDIR),$(notdir $(CURDIR)))
@@ -44,7 +50,7 @@ BATTERIES_SOURCES = enum.ml enum.mli dynArray.ml pMap.ml pMap.mli return.ml retu
 YAKKER_SOURCES := logging.ml util.ml ykBuf.ml cs.ml \
            wf_set.ml pam_internal.mli pam_internal.ml pamJIT.mli pamJIT.ml \
 	   history.mli history.ml viz.ml\
-           allp.ml pami.ml engine.ml
+           allp.ml pami.ml engine.ml engine_nr.ml engine_fl.ml engine_nrfl.ml
 
 SOURCES := $(BATTERIES_SOURCES) $(YAKKER_SOURCES)
 
@@ -448,6 +454,7 @@ show-%.mli : %.ml
 
 ########################################
 ## Bootstrap-related targets
+## TODO: use mktemp
 ########################################
 
 .PHONY: update-yakker restore-yakker
@@ -471,15 +478,44 @@ bootstrap-yakker_grammar: bootstrap-%: $(SRCDIR)/syntax/%.bnf
                            | perl -p -e 's/# ([0-9]+) "[^"]*ml".*$$/# \1 "yakker_grammar_lexer.ml"/g;' -e 's/# ([0-9]+) "[^"]*mll".*$$/# \1 "yakker_grammar_lexer.mll"/g' \
                            > $(SRCDIR)/$*.ml))
 
+# Note: I've tried running m4 with -s to get better error messages
+# when there are compilation errors. However, m4's method of assigning
+# line numbers is worse than nothing at all. FWIW, I post-processed m4's
+# output with
+#   perl -p -e 's/^#line/#/g;'
+# to be ocaml compatible.
+M4DEF=$(M4PP) -D ESET_IMPL=hier -D DO_NULL_RET=false
+M4NR=$(M4PP) -D ESET_IMPL=hier -D DO_NULL_RET=true
+M4FL=$(M4PP) -D ESET_IMPL=flat -D DO_NULL_RET=false
+M4NRFL=$(M4PP) -D ESET_IMPL=flat -D DO_NULL_RET=true
 gen-engine: gen-% : $(SRCDIR)/engine.ml.m4
 	@echo checking generated file $*.ml
-	@$(M4PP) $< | cmp -s - $(SRCDIR)/$*.ml ||\
-		(echo '    updating' $* && cp $(SRCDIR)/$*.ml $(SRCDIR)/prev_$*.ml && $(M4PP) $< > $(SRCDIR)/$*.ml)
+	@$(M4DEF) $< | cmp -s - $(SRCDIR)/$*.ml ||\
+		(echo '    updating' $* && cp $(SRCDIR)/$*.ml $(SRCDIR)/prev_$*.ml \
+                                        && $(M4DEF) $< > $(SRCDIR)/$*.ml)
+	@echo checking generated file $*_nr.ml
+	@$(M4NR) $< | cmp -s - $(SRCDIR)/$*_nr.ml ||\
+		(echo '    updating' $*_nr && cp $(SRCDIR)/$*_nr.ml $(SRCDIR)/prev_$*_nr.ml \
+                                        && $(M4NR) $< > $(SRCDIR)/$*_nr.ml)
+	@echo checking generated file $*_fl.ml
+	@$(M4FL) $< | cmp -s - $(SRCDIR)/$*_fl.ml ||\
+		(echo '    updating' $*_fl && cp $(SRCDIR)/$*_fl.ml $(SRCDIR)/prev_$*_fl.ml \
+                                        && $(M4FL) $< > $(SRCDIR)/$*_fl.ml)
+	@echo checking generated file $*_nrfl.ml
+	@$(M4NRFL) $< | cmp -s - $(SRCDIR)/$*_nrfl.ml ||\
+		(echo '    updating' $*_nrfl && cp $(SRCDIR)/$*_nrfl.ml $(SRCDIR)/prev_$*_nrfl.ml \
+                                        && $(M4NRFL) $< > $(SRCDIR)/$*_nrfl.ml)
 
 update-yakker: bootstrap-yakker_grammar bootstrap-cmdline bootstrap-extract_grammar bootstrap-tyspec gen-engine
 
-restore-yakker_grammar restore-cmdline restore-extract_grammar restore-tyspec restore-engine: restore-%:
+restore-yakker_grammar restore-cmdline restore-extract_grammar restore-tyspec: restore-%:
 	mv $(SRCDIR)/prev_$*.ml $(SRCDIR)/$*.ml
+
+restore-engine:
+	mv $(SRCDIR)/prev_$*.ml $(SRCDIR)/$*.ml
+	mv $(SRCDIR)/prev_$*_nr.ml $(SRCDIR)/$*_nr.ml
+	mv $(SRCDIR)/prev_$*_fl.ml $(SRCDIR)/$*_fl.ml
+	mv $(SRCDIR)/prev_$*_nrfl.ml $(SRCDIR)/$*_nrfl.ml
 
 restore-yakker: restore-yakker_grammar restore-cmdline restore-extract_grammar restore-tyspec restore-engine
 

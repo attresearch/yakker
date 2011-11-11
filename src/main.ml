@@ -156,10 +156,24 @@ let gil_transducer,gil_dot =
 let add_boilerplate backend gr =
   if backend = Wadler_BE then ()
   else
-    let mk_trans_bp1 = Printf.sprintf "
+  (* The [unit_history] flag overrides the standard history relevance. *)
+  let post_parse_function =
+    if gr.grammar_late_relevant && not !Compileopt.unit_history then
+      let name = Variables.bnf2ocaml gr.start_symbol in
+      if gr.grammar_early_relevant then
+        Printf.sprintf "(fun ykinput (_,h) -> _replay_%s ykinput h)" name
+      else Printf.sprintf "_replay_%s" name
+    else
+      "(fun ykinput x -> ())" in
+  let boilerplate_vary =
+    match backend with
+      | Trans_BE ->
+          let mk_trans_bp1 = Printf.sprintf "
+module Parse_engine = %s
+
 let start_symb = get_symb_action %S
 
-module P2__ = Yak.Engine.Full_yakker (%s)
+module P2__ = Parse_engine.Full_yakker (%s)
                                      (struct type t = sv let cmp = sv_compare %s end)
 
 let _wfe_data_ = Yak.PamJIT.DNELR.mk_table %s (Yak.Pam_internal.load_internal_program program)
@@ -169,43 +183,35 @@ let _wfe_data_ = Yak.PamJIT.DNELR.mk_table %s (Yak.Pam_internal.load_internal_pr
 let parse = Yak.Pami.Wfe.mk_parse P2__.parse _wfe_data_ sv0 %s
 let visualize = parse
 let visualize_file = Yak.Pami.Simple.parse_file visualize
-let visualize_string = Yak.Pami.Simple.parse_string visualize
-\n" in
-  let mk_other_bp1 = Printf.sprintf "\nlet visualize = Yak.Pami.mk_parse_fun __parse
+let visualize_string = Yak.Pami.Simple.parse_string visualize\n\n" in
+          let parse_engine =
+            match !Compileopt.gen_nullpreds, !Compileopt.use_sparse_set with
+              | true, true -> "Yak.Engine"
+              | false, true -> "Yak.Engine_nr"
+              | true, false -> "Yak.Engine_fl"
+              | false, false -> "Yak.Engine_nrfl" in
+          let term_lang = if gr.has_single_lexer then Variables.tk_mod else "Parse_engine.Scannerless_term_lang" in
+          let inspector_fields =
+            if gr.grammar_late_relevant && not !Compileopt.unit_history then
+              let patt = if gr.grammar_early_relevant then "(_,h)" else "h" in
+              Printf.sprintf "type idata = Yk_History.Root_id_set.t
+  let create_idata () = Yk_History.Root_id_set.empty
+  let inspect %s s = Yk_History.add_id_set h#get_root s
+  let summarize_inspection s = string_of_int (Yk_History.Root_id_set.cardinal s)" patt
+            else
+              "include Parse_engine.Dummy_inspector" in
+          let opt_mode = if !Compileopt.gen_optimize_pam then "Yak.PamJIT.Full_opt"
+            else "Yak.PamJIT.No_opt" in
+          mk_trans_bp1 parse_engine gr.start_symbol term_lang inspector_fields opt_mode Fsm.min_symbol Fsm.default_call_tx
+            Fsm.default_binder_tx post_parse_function
+      | Fun_BE | Peg_BE _ ->
+          let mk_other_bp1 = Printf.sprintf "\nlet visualize = Yak.Pami.mk_parse_fun __parse
    (fun input state_node ->
       Printf.printf \"Visualization not supported by Gil interpreter.\n\")
 let visualize_file = Yak.Pami.Simple.parse_file visualize
 let visualize_string = Yak.Pami.Simple.parse_string visualize
 
-let parse = Yak.Pami.mk_parse_fun __parse %s
-" in
-  let term_lang = if gr.has_single_lexer then Variables.tk_mod else "Yak.Engine.Scannerless_term_lang" in
-  (* The [unit_history] flag overrides the standard history relevance. *)
-  let post_parse_function =
-    if gr.grammar_late_relevant && not !Compileopt.unit_history  && not !Compileopt.repress_replay then
-      let name = Variables.bnf2ocaml gr.start_symbol in
-      if gr.grammar_early_relevant then
-        Printf.sprintf "(fun ykinput (_,h) -> _replay_%s ykinput h)" name
-      else Printf.sprintf "_replay_%s" name
-    else
-      "(fun ykinput x -> ())" in
-  let inspector_fields =
-    if gr.grammar_late_relevant && not !Compileopt.unit_history then
-      let patt = if gr.grammar_early_relevant then "(_,h)" else "h" in
-      Printf.sprintf "type idata = Yk_History.Root_id_set.t
-  let create_idata () = Yk_History.Root_id_set.empty
-  let inspect %s s = Yk_History.add_id_set h#get_root s
-  let summarize_inspection s = string_of_int (Yk_History.Root_id_set.cardinal s)" patt
-    else
-      "include Yak.Engine.Dummy_inspector" in
-  let boilerplate_vary =
-    match backend with
-      | Trans_BE ->
-          let opt_mode = if !Compileopt.gen_optimize_pam then "Yak.PamJIT.Full_opt"
-            else "Yak.PamJIT.No_opt" in
-          mk_trans_bp1 gr.start_symbol term_lang inspector_fields opt_mode Fsm.min_symbol Fsm.default_call_tx
-            Fsm.default_binder_tx post_parse_function
-      | Fun_BE | Peg_BE _ ->
+let parse = Yak.Pami.mk_parse_fun __parse %s\n" in
           mk_other_bp1 post_parse_function
       | Wadler_BE -> "" in
   let boilerplate_shared =

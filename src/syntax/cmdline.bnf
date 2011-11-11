@@ -155,6 +155,7 @@ args =
       | "-no-optimize-pam" o              { Compileopt.gen_optimize_pam := false } ""
       | "-no-replay" o                    { Compileopt.repress_replay := true } ""
       | "-no-skip-opt" o                  { Compileopt.skip_opt := false } ""
+      | "-no-sparse-set" o                { Compileopt.use_sparse_set := false } ""
       | "-only" o                         { only := true } ""
       | "-prefix-history" o               { Compileopt.postfix_history := false } ""
       | "-root" o arg$x o                 { roots := x::!roots } ""

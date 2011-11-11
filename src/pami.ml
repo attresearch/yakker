@@ -57,7 +57,30 @@ module Simple = struct
       parse string [s] with parsing function [f]. *)
   let parse_string f s = f (YkBuf.string2buf s)
 
-  let _test verbose print_pos parse visualize =
+  let log_stats fmt = Logging.log Logging.Features.stats fmt
+
+  let report_transducer_info = function
+    | None -> ()
+    | Some trans_data ->
+        let pct_mt = PamJIT.DNELR.measure_percent trans_data (function PamJIT.DNELR.Many_trans _ -> true | _ -> false) in
+        let pct_scan = PamJIT.DNELR.measure_percent trans_data (function PamJIT.DNELR.Scan_trans _ | PamJIT.DNELR.MScan_trans _ -> true | _ -> false) in
+        let call_targets = PamJIT.DNELR.call_targets trans_data.PamJIT.DNELR.term_table in
+        let pct_ndc = PamJIT.DNELR.measure_percenti trans_data (fun i tx -> call_targets.(i) && (match tx with PamJIT.DNELR.Many_trans _ -> true | _ -> false)) in
+        log_stats "%d states.\n" (PamJIT.DNELR.get_num_states trans_data);
+        log_stats "%.2f%% of states are nondeterministic.\n%.2f%% of call targets are nondeterministic.\n%.2f%% of states are scans.\n"
+          (pct_mt *. 100.0) (pct_ndc *. 100.0) (pct_scan *. 100.0)
+
+  let report_callc_info = function
+    | None -> ()
+    | Some trans_data ->
+        let tcrs = PamJIT.DNELR.compute_callee_reachable_calls trans_data.PamJIT.DNELR.term_table in
+        let r_counts = snd (List.split tcrs) in
+        let rc_distro = Logging.Distributions.calculate r_counts in
+        log_stats "Transducer callee reachable stats:\n";
+        Logging.Distributions.log_distro rc_distro;
+        log_stats "\n"
+
+  let _test verbose print_pos parse visualize info_opt =
     let visualize_flag = ref false in
     let args =
       match Array.to_list Sys.argv with
@@ -72,8 +95,20 @@ module Simple = struct
                   exit 1
                 end;
                 loop tl
-            | "-"::tl -> visualize_flag := true; loop tl
-            | "-viz"::tl -> visualize_flag := true; loop tl
+(*             | "--no-warn-extla"::tl -> PamJIT.DNELR.warn_extla := false; loop tl *)
+            | "-"::tl | "--viz"::tl -> visualize_flag := true; loop tl
+            | "-s"::tl | "--stats"::tl ->
+                Logging.add_features Logging.Features.stats; loop tl
+            | "-i"::tl | "--info"::tl ->
+                Logging.add_features Logging.Features.stats;
+                report_transducer_info info_opt;
+                report_callc_info info_opt;
+                if tl = [] then exit 0 else loop tl
+            | "--cc"::tl ->
+                Logging.add_features Logging.Features.stats;
+                report_callc_info info_opt;
+                if tl = [] then exit 0 else loop tl
+            | "--exit"::[] -> exit 0    (* point is to allow measurement of basic transducer manipulations. *)
             | hd::tl -> hd::(loop tl) in
           loop args) in
     let args = if args=[] then ["/dev/stdin"] else args in
@@ -100,13 +135,16 @@ module Simple = struct
     in
     List.iter process_file args
 
-  let test parse visualize = _test true false parse visualize
+  let test parse visualize = _test true false parse visualize None
 
   (** quiet test. only reports failure. *)
-  let qtest parse visualize = _test false false parse visualize
+  let qtest parse visualize = _test false false parse visualize None
 
-  let run parse = _test true true parse (fun _ -> failwith "Visualization not available.")
-  let qrun parse = _test false true parse (fun _ -> failwith "Visualization not available.")
+  let run parse = _test true true parse (fun _ -> failwith "Visualization not available.") None
+  let qrun parse = _test false true parse (fun _ -> failwith "Visualization not available.") None
+
+  (** quiet, debug run.  admit command line args turning on logging and reporting transducer stats.  *)
+  let qdrun parse info = _test false true parse (fun _ -> failwith "Visualization not available.") (Some info)
 
   (* deprecated *)
   let test_recognize f_r = test (fun file -> f_r file; ()) (fun _ -> ())

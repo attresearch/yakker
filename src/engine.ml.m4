@@ -97,13 +97,9 @@ DEF2(`IFE_LOG', `tbranch', `ebranch',
 DEF2(`LOGp', `feature', `message',
      `LOG(Logging.log Logging.Features.feature message)')
 
-
-
-
-define(`ESET_IMPL',`hier')
-        (* TODO: move creation of dense_nonterm_table our of _parse, so its only done once. *)
-define(`DO_NULL_RET',`false')
-
+(* TODO: move creation of dense_nonterm_table our of _parse, so its only done once. *)
+ifdef(`ESET_IMPL', `', `define(`ESET_IMPL',`hier')')
+ifdef(`DO_NULL_RET', `', `define(`DO_NULL_RET',`false')')
 
 (**
    Abstract set interface for earley sets and worklists.
@@ -675,6 +671,10 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
         let arr = (Obj.obj (Obj.new_block 0 len) : item array) in
         ignore (Earley_set.fold (fun item i -> Array.unsafe_set arr i item; i+1) cset 0);
         arr
+
+      let iter_current_callset item_set pcc f =
+        let cset = !pcc in
+        Earley_set.iter (fun {state=state; cva=cva} -> f state cva) cset
 
     end
 
@@ -2122,7 +2122,7 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
         Logging.Distributions.register "CSS"; (* Call-Set Size. Distribution of sizes of callsets
                                                  encountered during completion.  *)
         Logging.Distributions.register "CPSS";(* parameterized call-set size. *)
-        Logging.Distributions.register "MCC"; (* Missed call collapsing. *)
+(*         Logging.Distributions.register "MCC"; (\* Missed call collapsing. *\) *)
       end;
 
       if Logging.features_are_set Logging.Features.eset_stats then begin
@@ -2220,7 +2220,7 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
 
       (* Report size of the Earley set. *)
       LOGp(stats, "ES %d %d\n" ccs.id (ESet.get_size cs));
-      IF_HIER(LOGp(stats, "ESs %d %d" ccs.id (ESet.get_active_states cs));)
+      IF_HIER(LOGp(stats, "ESs %d %d\n" ccs.id (ESet.get_active_states cs));)
 
       (* Report memory size of the data accessable from the Earley set (focusing on
          the semantic values). *)

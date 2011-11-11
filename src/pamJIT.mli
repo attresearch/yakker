@@ -58,6 +58,8 @@ type elr0_trans =
 val lookup_trans_nt : Pam_internal.label array array -> Pam_internal.label -> int
   -> Pam_internal.label
 
+val error_nt : int
+
 (** [parse_ELR0_tbl pam_program start_symb start_state min_symb num_symbs]
     @return start_nonterminal, start_state, term_table, nonterm_table
 *)

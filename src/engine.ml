@@ -51,11 +51,7 @@ let support_FLA = false
 
 
 
-
-
-
-
-        (* TODO: move creation of dense_nonterm_table our of _parse, so its only done once. *)
+(* TODO: move creation of dense_nonterm_table our of _parse, so its only done once. *)
 
 
 
@@ -84,6 +80,8 @@ let support_FLA = false
 
 (*  conditional fold. includes folowup action for sets with > 1
   elements. *)
+
+
 
 
 
@@ -562,6 +560,10 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
         let arr = (Obj.obj (Obj.new_block 0 len) : item array) in
         ignore (Earley_set.fold (fun item i -> Array.unsafe_set arr i item; i+1) cset 0);
         arr
+
+      let iter_current_callset item_set pcc f =
+        let cset = !pcc in
+        Earley_set.iter (fun {state=state; cva=cva} -> f state cva) cset
 
     end
 
@@ -1328,8 +1330,78 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
   
 
 
+  let rec try_recover_hier pes cs term_table nonterm_table overflow =
+      let d = cs.WI.dense_s in
+      let dcs = cs.WI.dense_sv in
+      let n_ex = cs.WI.count in
+
+      (* Scan all *existing* elements of eset looking for error transition.
+         if found, add in the same way we would during normal progression --
+         should end up either on the worklist or the overflow list. *)
+      for k = 0 to n_ex - 1 do
+        let s = d.(k) in
+
+        (* Check state s for error trans *)
+        let t = PJ.lookup_trans_nt nonterm_table s PJ.error_nt in
+        if t > 0 then begin
+          ESet.insert_container k overflow cs t dcs.(k);
+                       assert (begin Logging.log Logging.Features.comp_ne "%d => %d [ERROR]\n" s t
+           end; true)             ;
+        end;
+      done;
+
+      (* Next, continue with all *new* elements, still checking
+         for error trans. same with overflow, until all is done. *)
+
+      let rec inner_loop pes d dcs k overflow cs term_table nonterm_table =
+        (* Process state s *)
+        let s = d.(k) in
+
+        process_trans pes s dcs.(k) k term_table.(s);
+
+        let t = PJ.lookup_trans_nt nonterm_table s PJ.error_nt in
+        if t > 0 then begin
+          ESet.insert_container k overflow cs t dcs.(k);
+                       assert (begin Logging.log Logging.Features.comp_ne "%d => %d [ERROR]\n" s t
+           end; true)             ;
+        end;
+
+        let k2 = k + 1 in
+        if k2 >= cs.WI.count then k
+        else
+          inner_loop pes d dcs k2 overflow cs term_table nonterm_table in
+
+      (* Effectively, List.iter inlined to avoid closure allocation: *)
+      let rec overflow_loop pes k cs term_table nonterm_table = function
+        | [] -> ()
+        | (s, socvas)::xs ->
+            process_trans pes s socvas k term_table.(s);
+            let t = PJ.lookup_trans_nt nonterm_table s PJ.error_nt in
+            if t > 0 then begin
+              ESet.insert_container k overflow cs t socvas;
+                           assert (begin Logging.log Logging.Features.comp_ne "%d => %d [ERROR]\n" s t
+               end; true)             ;
+            end;
+            overflow_loop pes k cs term_table nonterm_table xs in
+
+      let i = ref n_ex in
+      while !i < cs.WI.count do
+        i := inner_loop pes d dcs !i overflow cs term_table nonterm_table;
+
+        (* Handle overflow from the worklist. *)
+        while !overflow <> [] do
+          let owl = !overflow in
+          overflow := [];
+          overflow_loop pes !i cs term_table nonterm_table owl;
+        done;
+
+        incr i;
+      done 
+
+  
+
   (** Invokes full-blown lookahead in CfgLA case. *)
-  let rec mk_lookahead term_table nonterm_table p_nonterm_table sv0
+  and mk_lookahead term_table nonterm_table p_nonterm_table sv0
       la_nt la_target ykb =
     let sv = Terms.save () in
     let cp = YkBuf.save ykb in
@@ -2348,7 +2420,7 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
         Logging.Distributions.register "CSS"; (* Call-Set Size. Distribution of sizes of callsets
                                                  encountered during completion.  *)
         Logging.Distributions.register "CPSS";(* parameterized call-set size. *)
-        Logging.Distributions.register "MCC"; (* Missed call collapsing. *)
+(*         Logging.Distributions.register "MCC"; (\* Missed call collapsing. *\) *)
       end;
 
       if Logging.features_are_set Logging.Features.eset_stats then begin
@@ -2400,11 +2472,9 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
     (**************************************************************
      *                      BEGIN MAIN LOOP
      **************************************************************)
-
     let s_matched = ref false in
     let main_loop_unfinished = ref (
-                      (if support_FLA then (is_exact_match || not !s_matched) else true)                 
-      && if              (!next_set).WI.count > 0              then !can_scan
+      if              (!next_set).WI.count > 0              then !can_scan
       else fast_forward current_callset futuresq !next_set ykb
     ) in
     while ( !main_loop_unfinished ) do
@@ -2439,31 +2509,23 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
             ccs, ykb, futuresq, nplookahead_fn, overflow in
 
       (* Process the worklist (which can grow during processing). *)
-                                      
-         begin
-           let d = cs.WI.dense_s in
-           let dcs = cs.WI.dense_sv in
+                                      begin
+      let rec inner_loop pes d dcs k overflow cs term_table =
+        (* Process state s *)
+        let s = d.(k) in
+        process_trans pes s dcs.(k) k term_table.(s);
+        let k2 = k + 1 in
+        if k2 >= cs.WI.count then k
+        else
+          inner_loop pes d dcs k2 overflow cs term_table in
 
-           let i = ref 0 in
-           while !i < cs.WI.count do
-             let rec loop pes d dcs k overflow cs term_table =
-               let s = d.(k) in
+      let d = cs.WI.dense_s in
+      let dcs = cs.WI.dense_sv in
 
-               (* Process state s *)
-          (* FINAL VERSION (PERF): inline this call by hand but take care with
-             socvas_s -> dcs.(!i) in inlined version because both dcs and i are mutable
-             so you need to add
-             let socvas_s = dcs.(!i) in some cases rather than simply substituting.
-          *)
-          process_trans pes s dcs.(k) k term_table.(s);
+      let i = ref 0 in
+      while !i < cs.WI.count do
 
-          let k2 = k + 1 in
-          if k2 < cs.WI.count then
-            loop pes d dcs k2 overflow cs term_table
-          else k
-        in
-
-        i := loop pes d dcs !i overflow cs term_table;
+        i := inner_loop pes d dcs !i overflow cs term_table;
 
         (* Handle overflow from the worklist. *)
         while !overflow <> [] do
@@ -2484,7 +2546,7 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
 
       (* Report size of the Earley set. *)
                                    assert (begin Logging.log Logging.Features.stats "ES %d %d\n" ccs.id (ESet.get_size cs) end; true)                              ;
-                                   assert (begin Logging.log Logging.Features.stats "ESs %d %d" ccs.id (ESet.get_active_states cs) end; true)                              ;
+                                   assert (begin Logging.log Logging.Features.stats "ESs %d %d\n" ccs.id (ESet.get_active_states cs) end; true)                              ;
 
       (* Report memory size of the data accessable from the Earley set (focusing on
          the semantic values). *)
@@ -2505,22 +2567,16 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
                p es_size sv_count msize insp_summary
        end; true)             ;
 
-                   if support_FLA then begin if not is_exact_match && ESet.check_done term_table start_nt cs then
-          s_matched := true;
-       end             ;
-
       (* Cleanup and setup for next round. *)
 
       (* Convert the precallset to an actual callset *)
       ccs.data <- Pcs.convert_current_callset cs pre_cc;
+      Pcs.reset pre_cc;
+
       (* Report size of the call set. *)
                                    assert (begin Logging.log Logging.Features.stats "CS %d %d\n" ccs.id (length_callset ccs) end; true)                              ;
 
       let pos = ccs.id + 1 in
-      current_callset := mk_callset pos;
-      Terms.advance ykb;
-      can_scan := Terms.fill ykb;
-      Pcs.reset pre_cc;
       
 
       (* Check whether there's any blackbox results to load into the next set. *)
@@ -2532,12 +2588,41 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
                    assert (begin Imp_position.set_position pos;
        end; true)             ;
 
-      main_loop_unfinished := (
-                        (if support_FLA then (is_exact_match || not !s_matched) else true)                 
-        && if              (!next_set).WI.count > 0              then !can_scan
-        else fast_forward current_callset futuresq !next_set ykb
-      );
-
+                   if support_FLA then begin if not is_exact_match then s_matched := ESet.check_done term_table start_nt cs end             ;
+      if                 (if support_FLA then !s_matched else false)                  then
+        main_loop_unfinished := false
+      else if (ns).WI.count > 0 then
+        begin
+          current_callset := mk_callset pos;
+          Terms.advance ykb;
+          main_loop_unfinished := Terms.fill ykb
+        end
+      else
+        let (k, l) = Ordered_queue.pop futuresq in
+        if k <> -1 then
+          begin
+            (* PERF: manually lift up this closure *)
+            List.iter (fun (s,cva) -> ESet.insert_elt_nc ns s cva) l;
+            ignore (YkBuf.skip ykb (k - ccs.id));
+            current_callset := mk_callset k;
+            main_loop_unfinished := YkBuf.fill2 ykb 1
+          end
+        else
+          begin
+            try_recover_hier pes cs term_table nonterm_table overflow;
+                         if support_FLA then begin if not is_exact_match then
+                     s_matched := ESet.check_done term_table start_nt cs end             ;
+            if                 (if support_FLA then !s_matched else false)                  then
+              main_loop_unfinished := false
+            else if (ns).WI.count > 0 then
+              begin
+                current_callset := mk_callset pos;
+                Terms.advance ykb;
+                main_loop_unfinished := Terms.fill ykb
+              end
+            else
+              main_loop_unfinished := fast_forward current_callset futuresq ns ykb
+          end
     done;
 
     (**************************************************************
@@ -2549,7 +2634,7 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
     (* PERF: apply the same optimizations used above to the following code. *)
 
     (* We've either hit a shortest match or we're either at EOF or a failure. *)
-    if support_FLA && not is_exact_match && !s_matched then
+    if support_FLA && !s_matched then
       [sv0] (* stands in for boolean true. *)
     else if              (!next_set).WI.count > 0              then begin
       (* Compute closure on final set. Ignore scans b/c we're at EOF. *)
@@ -2631,7 +2716,7 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
     end
     else begin
       (* There was no succesful scan of the last element (token, byte,
-         etc.), so we backtrack by one to ensure proper error
+         etc.) We backtrack by one to ensure proper error
          reporting -- specifically, that the penultimate element is
          reported as at fault, rather than the EOF. *)
       Terms.step_back ykb;

@@ -101,6 +101,8 @@ let lookup_trans_nt (tbl : PI.label array array) s nt =
 (*   tbl.(s).(nt) *)
   Array.unsafe_get (Array.unsafe_get tbl s) nt
 
+let error_nt = 0
+
 exception Not_ELR0 of string
 
 (* convert a program into lookup tables for

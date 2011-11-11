@@ -473,7 +473,7 @@ let do_phases gr =
                is where those files end up during the build.
                TODO: eventually this ought to be the install location *)
             let args = String.concat " " (List.map (fun s -> "\""^s^"\"") (!Cmdline.exec_l)) in
-            let command = Printf.sprintf "ocaml -I \"%s\" unix.cma yak.cma %s %s" Buildinfo.build_dir temp_file_name args in
+            let command = Printf.sprintf "ocaml -rectypes -I \"%s\" unix.cma yak.cma %s %s" Buildinfo.build_dir temp_file_name args in
             (match Unix.system command with
               Unix.WEXITED x ->   () (* Printf.eprintf "ocaml exited with %d\n%!" x        *)
             | Unix.WSIGNALED x -> () (* Printf.eprintf "ocaml exited with signal %d\n%!" x *)

@@ -728,7 +728,10 @@ fun _ ykb v -> match f1 v with | Yk_done %s %s (%s) -> Some (f2 v (%s)) | _ -> N
   | Gil.Seq (r1,r2) -> AndE (trans' r1, trans' r2)
   | Gil.Alt (r1,r2) -> OrE (trans' r1, trans' r2)
   | Gil.Star _ -> true_e ()
-  | Gil.Lookahead (b, Gil.Symb(nt,None,None)) -> CfgLookaheadE(b,nt)
+  | Gil.Lookahead (b, Gil.Symb(nt,None,None)) ->
+      Util.warn Util.Sys_warn
+        ("using extended lookahead for nonterminal " ^ nt ^ " in nullability predicate.");
+      CfgLookaheadE(b,nt)
   | Gil.Lookahead (b, r1) as r ->
       (match Gil.to_cs r1 with
          | Some cs -> CsLookaheadE(b,cs)

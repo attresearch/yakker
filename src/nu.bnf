@@ -827,15 +827,22 @@ module Infer = struct
       (return_constructor,
        return_value,
        sprintf "%s%s" call_constructor call_value) in
+    let gil_function_count = ref 0 in
     let each_rule = function (Lhs(symbol,inputs,outputs),r) ->
       debug "Generating %s\n%!" symbol;
+      let flow_action constructor body =
+        let i = !gil_function_count in
+        gil_function_count := 1 + !gil_function_count;
+        add_to_prologue g (sprintf "let _f%d_ = _%s %s\n" i (String.lowercase constructor) body);
+        (sprintf "_f%d_" i) in
+      let gil_action constructor body = Gil.Action(flow_action constructor body) in
       ignore(next());
       let rec loop = function
         | Cut(x,y)   ->
             if x then
               let (constructor,inflow,outflow) = next() in
-              Gil.Action
-                (sprintf "%s (fun %s -> %s)" (String.lowercase constructor) inflow outflow)
+              gil_action constructor
+                (sprintf "(fun %s -> %s)" inflow outflow)
                 (* example:  _y_1 (fun (__v__,...) -> Y_2(__v__,...)) *)
             else
               Gil.Lit(true,"")
@@ -846,28 +853,28 @@ module Infer = struct
                   List.map (function Attribute(_,v),e -> (v,e))
                     (List.filter(function Attribute(b,_),_ -> b) y) in
             let call = Buffer.create 11 in
-            bprintf call "%s (fun %s ->\n" (String.lowercase flow_constructor) inflow;
+            bprintf call "(fun %s ->\n" inflow;
             List.iter
               (fun (v,e) -> bprintf call " let %s = %s in\n" v e)
               bindings;
             bprintf call "%s" to_x;
             Gil.Symb
               (x,
-               Some(Buffer.contents call),
-               Some(sprintf "%s (fun %s -> %s)" (String.lowercase retn_constructor) from_x outflow))
+               Some(flow_action flow_constructor (Buffer.contents call)),
+               Some(flow_action retn_constructor (sprintf "(fun %s -> %s)" from_x outflow)))
         | Act(x,y)   ->
             if x then
               let (constructor,inflow,outflow) = next() in
-              Gil.Action
-                (sprintf "%s (fun %s -> let __v__ = %s in %s)" (String.lowercase constructor) inflow y outflow)
+              gil_action constructor
+                (sprintf "(fun %s -> let __v__ = %s in %s)" inflow y outflow)
                 (* example: _y_1 (fun (__v__,...) -> let __v__ = expr in Y_2(__v__,...)) *)
             else
               Gil.Lit(true,"")
         | Pat(x,y)   ->
             if x then
               let (constructor,inflow,outflow) = next() in
-              Gil.Action
-                (sprintf "%s (fun %s -> let %s = __v__ in %s)" (String.lowercase constructor) inflow (pp_pat y) outflow)
+              gil_action constructor
+                (sprintf "(fun %s -> let %s = __v__ in %s)" inflow (pp_pat y) outflow)
                 (* example: _y_1 (fun (__v__,...) -> let pat = __v__ in Y_2(__v__,...)) *)
             else
               Gil.Lit(true,"")
@@ -883,9 +890,10 @@ module Infer = struct
             raise Exit
         | Whl(e,r)   ->
             let (constructor,inflow,outflow) = next() in
-            Gil.Seq(Gil.Star(Gil.When(sprintf "%s (fun %s -> %s)" (String.lowercase constructor) inflow e,
-                                      "fun x->x")),
-                    Gil.When(sprintf "%s (fun %s -> not(%s))" (String.lowercase constructor) inflow e,
+            Gil.Seq(Gil.Star(Gil.Seq(Gil.When(flow_action constructor (sprintf "(fun %s -> %s)" inflow e),
+                                              "fun x->x"),
+                                     loop r)),
+                    Gil.When(flow_action constructor (sprintf "(fun %s -> not(%s))" inflow e),
                              "fun x->x"))
         | Kcl(0,Infinity,r) -> Gil.Star(loop r)
         | Kcl(m,n,r) ->
@@ -1226,8 +1234,8 @@ file = { { prologue=[]; rules=[]; gildefs=[]; epilogue=[]; } }$g
          Sanity.canonize g;
          Sanity.check g;
          Infer.generate_gil g;
-         (*printf "%s\n%!" (pp_gil g)*)
-         List.iter (function Ocaml x -> printf "%s" x | _ -> raise Exit) (List.rev g.prologue);
+         printf "%s\n%!" (pp_gil g);
+         (*List.iter (function Ocaml x -> printf "%s" x | _ -> raise Exit) (List.rev g.prologue);*)
 (* Doesn't currently work because we need a Gul grammar not a nu grammar
          BE.try_fst (Fsm.fsm_transducer true)
 *)

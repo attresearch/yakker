@@ -224,7 +224,7 @@ DEPEND.pdf: $(SOURCES) $(FRONT_END_SOURCES)
 	$(RM) yak.ml
 
 # New front end
-nu: yak.cmxa ocaml_lexer.cmx ocamllex_lexer.cmx tgraph.cmx variables.cmx meta_prog.cmx compileopt.cmx gul.cmx gil.cmx pr.cmx nu.cmx
+nu: yak.cmxa ocaml_lexer.cmx ocamllex_lexer.cmx tgraph.cmx variables.cmx meta_prog.cmx compileopt.cmx gul.cmx gil.cmx pr.cmx nullable_pred.cmx fsm.cmx nu.cmx
 	$(OCAMLOPT) -o $@ -linkpkg -package unix $^
 
 # Qian's debugging stuff

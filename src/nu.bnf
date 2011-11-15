@@ -10,6 +10,13 @@
  * Contributors:
  *    Trevor Jim and Yitzhak Mandelbaum
  *******************************************************************************)
+
+(* Run like this:
+
+echo 'A ~x ~y : ~z = "a" { x + y} *{ x + y } ?z { x+y+z } | (A ~x:x ~y:y)?y{y}; B ~a : ~b ~c = {(a,3)}?(b,c) {0} {*b=c}"a" (A ~x:a ~y:b);' | build/nu
+
+*)
+open Yak
 let is_con x =
   let c = (String.get x 0) in 'A' <= c && c <= 'Z'
 let all_but_last s =
@@ -56,8 +63,10 @@ type grammar = {
     (* all lists in reverse order *)
     mutable prologue: text list;
     mutable rules: (lhs * rhs) list;
+    mutable gildefs: (string * string Gil.rhs) list;
     mutable epilogue: text list;
   }
+let add_to_prologue g s = g.prologue <- (Ocaml s)::g.prologue
 
 let one_unit x = ()
 let two_unit x y = ()
@@ -123,6 +132,11 @@ let list_of_set set = Sset.fold (fun x y -> x::y) set []
 let set_of_list l = List.fold_right Sset.add l Sset.empty
 
 let error fmt = (eprintf "Error: "; kfprintf (fun _ -> eprintf "\n%!") stderr fmt)
+let debug_on = false
+let debug fmt =
+  if debug_on then eprintf fmt
+  else ifprintf stderr fmt
+
 let inputs_of g b symbol =
   let rec loop = function
     | [] -> error "undefined nonterminal %s" symbol; Sset.empty
@@ -163,6 +177,15 @@ let attributes_of_rhs g b r =
     Sset.empty
     r
 
+let pp_text = function
+    Ocaml x -> sprintf "@ocaml {%s}\n" x
+  | Ocamllex x -> sprintf "@ocamllex {%s}\n" x
+
+let pp_gil g =
+  String.concat ""
+    ((List.map pp_text (List.rev g.prologue))
+     @[(let buf = Buffer.create 11 in Pr.Gil.Pretty.pr_definitions buf g.gildefs; Buffer.contents buf)]
+     @(List.map pp_text (List.rev g.epilogue)))
 
 let pp_attribute = function
     Attribute(true,s)  -> sprintf "~%s" s
@@ -485,7 +508,7 @@ end
 module Infer = struct
   open Sanity
   let flow_with_value flow = "(" ^ String.concat "," ("__v__"::(list_of_set flow)) ^ ")"
-  let gen_type name constructor type_table =
+  let gen_type g name constructor type_table =
     let types_and_constructors =
       let all_types = ref Sset.empty in
       Hashtbl.iter
@@ -494,25 +517,27 @@ module Infer = struct
       List.rev
         (snd
            (List.fold_left
-              (fun (i,l) typ -> (i+1,(typ,sprintf "%s%d" constructor i)::l))
+              (fun (i,l) typ -> (i+1,(typ,sprintf "%s%d_" constructor i)::l))
               (0,[])
               (list_of_set !all_types))) in
     if []=types_and_constructors then begin
-      printf "type %s = %s\n" name constructor;
+      add_to_prologue g (sprintf "\ntype %s = %s\n" name constructor);
       (fun i ->
         error "no constructor for flow %d; no constructors at all" i; raise Exit)
     end
     else begin
-      printf "type %s =\n" name;
+      let buf = Buffer.create 11 in
+      bprintf buf "\ntype %s =\n" name;
       List.iter
         (fun (ty,this_constructor) ->
-          printf "  | %s of (%s)\n" this_constructor ty)
+          bprintf buf "  | %s of (%s)\n" this_constructor ty)
         types_and_constructors;
       List.iter
         (fun (ty,this_constructor) ->
-          printf "let _%s f = function %s x -> f x | _ -> raise Exit\n"
+          bprintf buf "let _%s f = function %s x -> f x | _ -> raise Exit\n"
             (String.lowercase this_constructor) this_constructor)
         types_and_constructors;
+      add_to_prologue g (Buffer.contents buf);
       let constructor_table = Hashtbl.create 11 in
       Hashtbl.iter
         (fun i typ -> Hashtbl.add constructor_table i (List.assoc typ types_and_constructors))
@@ -525,6 +550,8 @@ module Infer = struct
   let infer_types flow_find g =
     (*TODO: use temporary files instead of clobbering foobar.ml[i] *)
     let outch = open_out "foobar.ml" in
+    fprintf outch "let _pos = 0\n"; (* dummy values for < > operators *)
+    fprintf outch "let _extent p1 p2 = \"\"\n";
     let infer_phase b =
       (* Generate code that forces type inference.
          Use a trick: the code
@@ -690,7 +717,7 @@ module Infer = struct
     let delay_types = Hashtbl.create 11 in
     List.iter
       (fun (ident,typ) ->
-        printf "%s : %s\n" ident typ;
+        debug "%s : %s\n" ident typ;
         try
           Scanf.sscanf ident "_ty_flow_%d" (fun x -> Hashtbl.add flow_types x typ)
         with _ ->
@@ -708,7 +735,7 @@ module Infer = struct
     return_types,
     flow_types,
     delay_types
-  let gen g =
+  let generate_gil g =
     let predecessor_of =
       (* Compute an index for each (control) flow (point) and record the predecessor of each.
          The flowcheck function ensures that it is sufficient for our purposes to use a single
@@ -720,10 +747,10 @@ module Infer = struct
         let c = !count in
         (count := !count + 1;
          Hashtbl.add tbl c x;
-         printf "%d<-%d\n%!" x c;
+         debug "%d<-%d\n%!" x c;
          c) in
       let each_rule (Lhs(symbol,_,_),r) =
-        printf "Pred calc for %s\n%!" symbol;
+        debug "Pred calc for %s\n%!" symbol;
         let a = set (!count) in
         ignore (fold
                   ~act:(fun b _ a      -> if not b then a else set a)
@@ -748,10 +775,10 @@ module Infer = struct
         let c = !count in
         (count := !count + 1;
          Hashtbl.add tbl c x;
-         printf "%d: %s\n%!" c (flow_with_value x);
+         debug "%d: %s\n%!" c (flow_with_value x);
          x) in
       let each_rule (Lhs(symbol,_,_),r) =
-        printf "Flow calc for %s\n%!" symbol;
+        debug "Flow calc for %s\n%!" symbol;
         let first = !count in
         let a = set (inputs_of g true symbol) in
         ignore (fold
@@ -775,15 +802,15 @@ module Infer = struct
       return_types,
       flow_types,
       delay_types = infer_types flow_find g in
-    let flow_constructors = gen_type "_y_t" "Y_" flow_types in
+    let flow_constructors = gen_type g "_y_t" "Y" flow_types in
     let next =
       let count = ref 0 in
       (fun () ->
         let c = !count in
-        printf "## %d->%!" c;
+        debug "## %d->%!" c;
         count := !count + 1;
         let p = predecessor_of c in
-        printf "%d ##\n%!" p;
+        debug "%d ##\n%!" p;
         let c_value = flow_with_value (flow_find c) in
         let p_value = flow_with_value (flow_find p) in
         let c_constructor = flow_constructors c in
@@ -801,7 +828,7 @@ module Infer = struct
        return_value,
        sprintf "%s%s" call_constructor call_value) in
     let each_rule = function (Lhs(symbol,inputs,outputs),r) ->
-      printf "Generating %s\n%!" symbol;
+      debug "Generating %s\n%!" symbol;
       ignore(next());
       let rec loop = function
         | Cut(x,y)   ->
@@ -883,8 +910,18 @@ module Infer = struct
               (loop hd)
               tl in
       let gil = loop r in
-      printf "%s\n%!" (Pr.Gil.Pretty.rule2string gil) in
-    List.map each_rule g.rules
+      (symbol,gil) in
+    g.gildefs <- List.map each_rule g.rules
+end
+module BE = struct
+let try_fst f out gr = (* OpenFST version *)
+  Util.pipe_in_out
+    (Printf.sprintf
+        "fstcompile --acceptor | fstrmepsilon | fstdeterminize | fstprint --acceptor | %s |fstcompile --acceptor | fstrmepsilon | fstdeterminize | fstminimize /dev/stdin | fstprint --acceptor"
+       (Fsm.remove_CallEps())
+    )
+    (fun w -> Fsm.grammar_fsm w gr.gildefs)
+    (fun r -> f gr r out)
 end
 }
 
@@ -911,6 +948,8 @@ type tok =
   | RBRACE
   | LBRACK
   | RBRACK
+  | LANGLE
+  | RANGLE
   | BAR
   | SEMICOLON
   | COLON
@@ -1013,6 +1052,10 @@ rule tok = parse
   | ":"              { COLON }
   | "("              { LPAREN }
   | ")"              { RPAREN }
+  | "["              { LBRACK }
+  | "]"              { RBRACK }
+  | "<"              { LANGLE }
+  | ">"              { RANGLE }
   | "{"              { LBRACE }
   | "{*"             { LBRACESTAR }
   | "{$"             { LBRACEDOLLAR }
@@ -1159,6 +1202,8 @@ and skip_sharp_bang = parse
 | RBRACE =                "}"
 | LBRACK =                "["
 | RBRACK =                "]"
+| LANGLE =                "<"
+| RANGLE =                ">"
 | SEMICOLON =             ";"
 | COLON =                 ":"
 | SLASH =                 "/"
@@ -1172,7 +1217,7 @@ and skip_sharp_bang = parse
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; THE GRAMMAR
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-file = { { prologue=[]; rules=[]; epilogue=[]; } }$g
+file = { { prologue=[]; rules=[]; gildefs=[]; epilogue=[]; } }$g
        1*( prologue$x { g.prologue <- x::g.prologue } "" |
            rule$x     { g.rules    <- x::g.rules } "" |
            epilogue$x { g.epilogue <- x::g.epilogue } "")
@@ -1180,7 +1225,12 @@ file = { { prologue=[]; rules=[]; epilogue=[]; } }$g
        { (*printf "%s\n%!" (pp_grammar g);*)
          Sanity.canonize g;
          Sanity.check g;
-         Infer.gen g
+         Infer.generate_gil g;
+         (*printf "%s\n%!" (pp_gil g)*)
+         List.iter (function Ocaml x -> printf "%s" x | _ -> raise Exit) (List.rev g.prologue);
+(* Doesn't currently work because we need a Gul grammar not a nu grammar
+         BE.try_fst (Fsm.fsm_transducer true)
+*)
        }
 .
 prologue =
@@ -1223,6 +1273,8 @@ rhs0 =
 | TOK$x                                  { Tok x }
 | "{" Ocaml_until_RBRACE$x               { Act(true,x) }
 | "{$" Ocaml_until_RBRACE$x              { Act(false,x) }
+| "<"                                    { Seq[Act(true,"_pos");Pat(true,Var_pat "_pos_saved")] }
+| ">"                                    { Seq[Act(true,"_extent _pos_saved _pos");Cut(true,"_pos_saved")] }
 | "@box" "(" Ocaml_until_RPAREN$x        { Box(x) }
 | "@delay" "(" Ocaml_until_RPAREN$x      { Dly(x) }
 rhs1 =

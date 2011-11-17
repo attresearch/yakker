@@ -11,6 +11,8 @@ endif
 ifndef DO_LOG
 engine.cmo: OCAML_FLAGS+= -noassert
 engine.cmx: OCAMLOPT_FLAGS+= -noassert
+engine_hh.cmo: OCAML_FLAGS+= -noassert
+engine_hh.cmx: OCAMLOPT_FLAGS+= -noassert
 engine_nr.cmo: OCAML_FLAGS+= -noassert
 engine_nr.cmx: OCAMLOPT_FLAGS+= -noassert
 engine_fl.cmo: OCAML_FLAGS+= -noassert
@@ -50,7 +52,7 @@ BATTERIES_SOURCES = enum.ml enum.mli dynArray.ml pMap.ml pMap.mli return.ml retu
 YAKKER_SOURCES := logging.ml util.ml ykBuf.ml cs.ml \
            wf_set.ml pam_internal.mli pam_internal.ml pamJIT.mli pamJIT.ml \
 	   history.mli history.ml viz.ml\
-           allp.ml pami.ml engine.ml engine_nr.ml engine_fl.ml engine_nrfl.ml
+           allp.ml pami.ml engine.ml engine_hh.ml engine_nr.ml engine_fl.ml engine_nrfl.ml
 
 SOURCES := $(BATTERIES_SOURCES) $(YAKKER_SOURCES)
 
@@ -485,6 +487,7 @@ bootstrap-yakker_grammar: bootstrap-%: $(SRCDIR)/syntax/%.bnf
 #   perl -p -e 's/^#line/#/g;'
 # to be ocaml compatible.
 M4DEF=$(M4PP) -D ESET_IMPL=hier -D DO_NULL_RET=false
+M4HH=$(M4PP) -D ESET_IMPL=hierhash -D DO_NULL_RET=false
 M4NR=$(M4PP) -D ESET_IMPL=hier -D DO_NULL_RET=true
 M4FL=$(M4PP) -D ESET_IMPL=flat -D DO_NULL_RET=false
 M4NRFL=$(M4PP) -D ESET_IMPL=flat -D DO_NULL_RET=true
@@ -493,6 +496,10 @@ gen-engine: gen-% : $(SRCDIR)/engine.ml.m4
 	@$(M4DEF) $< | cmp -s - $(SRCDIR)/$*.ml ||\
 		(echo '    updating' $* && cp $(SRCDIR)/$*.ml $(SRCDIR)/prev_$*.ml \
                                         && $(M4DEF) $< > $(SRCDIR)/$*.ml)
+	@echo checking generated file $*_hh.ml
+	@$(M4HH) $< | cmp -s - $(SRCDIR)/$*_hh.ml ||\
+		(echo '    updating' $*_hh && cp $(SRCDIR)/$*_hh.ml $(SRCDIR)/prev_$*_hh.ml \
+                                        && $(M4HH) $< > $(SRCDIR)/$*_hh.ml)
 	@echo checking generated file $*_nr.ml
 	@$(M4NR) $< | cmp -s - $(SRCDIR)/$*_nr.ml ||\
 		(echo '    updating' $*_nr && cp $(SRCDIR)/$*_nr.ml $(SRCDIR)/prev_$*_nr.ml \

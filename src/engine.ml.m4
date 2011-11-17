@@ -2569,10 +2569,7 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
      *                      BEGIN MAIN LOOP
      **************************************************************)
     let s_matched = ref false in
-    let main_loop_unfinished = ref (
-      if ESET_NOT_EMPTY(`!next_set') then !can_scan
-      else fast_forward current_callset futuresq !next_set ykb
-    ) in
+    let main_loop_unfinished = ref (ESET_NOT_EMPTY(`!next_set') && !can_scan) in
     while ( !main_loop_unfinished ) do
 
       (* swap_and_clear. We place this code here,

@@ -185,11 +185,13 @@ let visualize = parse
 let visualize_file = Yak.Pami.Simple.parse_file visualize
 let visualize_string = Yak.Pami.Simple.parse_string visualize\n\n" in
           let parse_engine =
-            match !Compileopt.gen_nullpreds, !Compileopt.use_sparse_set with
-              | true, true -> "Yak.Engine"
-              | false, true -> "Yak.Engine_nr"
-              | true, false -> "Yak.Engine_fl"
-              | false, false -> "Yak.Engine_nrfl" in
+            match !Compileopt.gen_nullpreds, !Compileopt.earley_ds with
+              | true, Compileopt.Sparse_eds -> "Yak.Engine"
+              | false, Compileopt.Sparse_eds -> "Yak.Engine_nr"
+              | true, Compileopt.Hier_eds -> "Yak.Engine_hh"
+              | false, Compileopt.Hier_eds -> Util.todo "Hierarchical engine data structures cannot (yet) be used without nullpreds."
+              | true, Compileopt.Flat_eds -> "Yak.Engine_fl"
+              | false, Compileopt.Flat_eds -> "Yak.Engine_nrfl" in
           let term_lang = if gr.has_single_lexer then Variables.tk_mod else "Parse_engine.Scannerless_term_lang" in
           let inspector_fields =
             if gr.grammar_late_relevant && not !Compileopt.unit_history then

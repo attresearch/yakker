@@ -9,6 +9,8 @@
  *    Trevor Jim and Yitzhak Mandelbaum
  *******************************************************************************)
 
+type earley_ds = Flat_eds | Hier_eds | Sparse_eds
+
 (* Compile-time options for Yakker *)
 let inline_cs = ref false
 let inline_regular = ref false
@@ -62,10 +64,9 @@ let gen_nullpreds = ref true
       If disabled, nullability predicates will not be generated and an engine implementation
       will be chosen (for the generated code) that supports completions on epsilon. *)
 
-let use_sparse_set = ref true
-  (** Flag: Generate code that uses the engine implementation based on
-      sparse sets. On by default. If disabled, uses the implementation
-      based on standard OCaml sets. *)
+let earley_ds = ref Sparse_eds
+  (** Designates the choice of the engine's (Earley) data structures.
+      Uses sparse sets by default.*)
 
 (*
    testing-related flags

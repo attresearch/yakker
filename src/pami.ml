@@ -99,6 +99,13 @@ module Simple = struct
             | "-"::tl | "--viz"::tl -> visualize_flag := true; loop tl
             | "-s"::tl | "--stats"::tl ->
                 Logging.add_features Logging.Features.stats; loop tl
+            | "-l"::tl | "--log-engine"::tl ->
+                Logging.add_features (Logging.Features.scans
+                                      lor Logging.Features.reg_ne
+                                      lor Logging.Features.comp_ne
+                                      lor Logging.Features.calls_ne
+                                      lor Logging.Features.eof_ne);
+                loop tl
             | "-i"::tl | "--info"::tl ->
                 Logging.add_features Logging.Features.stats;
                 report_transducer_info info_opt;

@@ -112,6 +112,7 @@ ifdef(`DO_NULL_RET', `', `define(`DO_NULL_RET',`false')')
 
 define(`IF_HIER',`ifelse(ESET_IMPL,`hier',`$1')')
 define(`IF_HIERHASH',`ifelse(ESET_IMPL,`hierhash',`$1')')
+define(`IF_HIERMAP',`ifelse(ESET_IMPL,`hiermap',`$1')')
 define(`IF_FLAT',`ifelse(ESET_IMPL,`flat',`$1')')
 
 (**************************************************************)
@@ -196,6 +197,53 @@ define(`PROCESS_WORKLIST',`PROCESS_WORKLIST_HIERHASH(`$1',`$2',`$3',`$4') ')
 define(`PROCESS_EOF_WORKLIST', `PROCESS_EOF_WORKLIST_HIERHASH(`$1',`$2',`$3') ')
 
 define(`ESET_MODULE', `ES_hierarchical_hash')
+
+(* We ignore the third argument (the container) because this implementation just
+   tracks the transducer state in the pcc. *)
+DEF3(`PCS_ADD_CALL_ITEM_C', `pre_cc', `s', `c', `(Pcs.add_call_state pre_cc s)')
+
+(* We ignore the third argument (the element) because this implementation only
+   tracks the transducer state in the pcc. *)
+DEF3(`PCS_ADD_CALL_ITEM_E', `pre_cc', `s', `elt', `(Pcs.add_call_state pre_cc s)')
+
+define(`ESET_ITEM_PATT', `$1, $2')
+')
+
+(**************************************************************)
+(**************************************************************)
+(**
+   Abstract set implementation for hierarchical earley sets and
+   worklists, based on OCaml maps.
+*)
+
+
+IF_HIERMAP(`
+define(`ESET_CONTAINER_ITER', `SOCVAS_ITER(`$1',`$2',`$3') ')
+define(`ESET_CONTAINER_MAP',  `SOCVAS_MAP(`$1',`$2',`$3') ')
+define(`ESET_CONTAINER_FOLD', `SOCVAS_FOLD(`$1',`$2',`$3',`$4',`$5') ')
+
+(*  conditional fold. includes folowup action for sets with > 1
+  elements. *)
+define(`ESET_CONTAINER_FOLD_C', `SOCVAS_FOLD_C(`$1',`$2',`$3',`$4') ')
+
+define(`ESET_CONTAINER_ADD', `Socvas.MS.add')
+define(`ESET_CONTAINER_SINGLETON', `Socvas.singleton ($1)')
+
+define(`ESET_EXTEND_PES_EXPR',`$1, overflow')
+define(`ESET_EXTEND_PES_PATT',`$1, ol')
+define(`ESET_PT_ADDL_ARGS', `')
+define(`ESET_WLD', `ol')
+define(`ESET_TRY_RECOVER', `try_recover_hiermap')
+
+DEF1(`ESET_NOT_EMPTY', `ns', `(not (Int_map.is_empty !(ns)))')
+DEF1(`ESET_EMPTY', `ns', `(Int_map.is_empty !(ns))')
+
+DEF1(`ESET_CLEAR', `t', `(t) := Int_map.empty')
+
+define(`PROCESS_WORKLIST',`PROCESS_WORKLIST_HIERMAP(`$1',`$2',`$3',`$4') ')
+define(`PROCESS_EOF_WORKLIST', `PROCESS_EOF_WORKLIST_HIERMAP(`$1',`$2',`$3') ')
+
+define(`ESET_MODULE', `ES_hierarchical_map')
 
 (* We ignore the third argument (the container) because this implementation just
    tracks the transducer state in the pcc. *)
@@ -1419,7 +1467,7 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
 
     end
 
-    let create = Hashtbl.create
+    let create _ = Hashtbl.create 173
 
     let insert_elt ol es state cva =
       LOG(if Logging.features_are_set Logging.Features.eset_stats then begin
@@ -1439,13 +1487,15 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
           Reprocess_elt
         end
       with Not_found ->
-          LOG(
-            let (callset, _, _) = cva in
-            Logging.log Logging.Features.reg_ne
-              "+n %d:(%d,%d).\n" (Imp_position.get_position ()) state callset.id;
-          );
-          Hashtbl.add es state (Socvas.singleton cva);
-          Process_elt
+        LOG(
+          let (callset, _, _) = cva in
+          Logging.log Logging.Features.reg_ne
+            "+n %d:(%d,%d).\n" (Imp_position.get_position ()) state callset.id;
+        );
+        let socvas = Socvas.singleton cva in
+        Hashtbl.add es state socvas;
+        ol := (state, socvas) :: !ol;
+        Process_elt
 
     let insert_elt_ig ol es state x y z = ignore (insert_elt ol es state (x,y,z))
 
@@ -1491,7 +1541,9 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
           Logging.log Logging.Features.reg_ne
             "+n %d:(%d,?).\n" (Imp_position.get_position ()) state
         );
-        Hashtbl.add es state socvas_new
+        Hashtbl.add es state socvas_new;
+        ol := (state, socvas_new) :: !ol
+
 
     let insert_container_nc es state socvas_new =
       LOG(
@@ -1595,6 +1647,220 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
       Hashtbl.iter f cs
 
     let get_size m = Hashtbl.fold (fun _ socvas n -> n + (Socvas.cardinal socvas)) m 0
+
+  end
+
+  (**************************************************************)
+  (**************************************************************)
+
+  module Int_map = Map.Make(struct type t = int let compare = (-) end)
+
+  module ES_hierarchical_map = struct
+    module Proto_callset = struct
+
+      include ES_hierarchical.Proto_callset_wfis_socvas
+
+      let convert_current_callset item_set pcc =
+        let len = pcc.S.count in
+        let arr = (Obj.obj (Obj.new_block 0 len) : (int * Socvas.t) array) in
+        let set = !item_set in
+        for i = 0 to len - 1 do
+          let x = Array.unsafe_get pcc.S.dense i in
+          Array.unsafe_set arr i (x, Int_map.find x set);
+        done;
+        arr
+
+      let iter_current_callset item_set pcc f =
+        let len = pcc.S.count in
+        let set = !item_set in
+        for i = 0 to len - 1 do
+          let s_l = Array.unsafe_get pcc.S.dense i in
+          let socvas_l = Int_map.find s_l set in
+          f s_l socvas_l
+        done
+
+    end
+
+    let create _ = ref Int_map.empty
+
+    let insert_elt ol es state cva =
+      LOG(if Logging.features_are_set Logging.Features.eset_stats then begin
+            Logging.Counters.increment "insert_elt";
+        end);
+      try
+        let socvas = Int_map.find state !es in
+        if Socvas.mem cva socvas then Ignore_elt
+        else begin
+          LOG(
+            let (callset, _, _) = cva in
+            Logging.log Logging.Features.reg_ne
+              "+o %d:(%d,%d).\n" (Imp_position.get_position ()) state callset.id;
+          );
+          es := Int_map.add state (Socvas.add cva socvas) !es;
+          ol := (state, Socvas.singleton cva) :: !ol;
+          Reprocess_elt
+        end
+      with Not_found ->
+        LOG(
+          let (callset, _, _) = cva in
+          Logging.log Logging.Features.reg_ne
+            "+n %d:(%d,%d).\n" (Imp_position.get_position ()) state callset.id;
+        );
+        let socvas = Socvas.singleton cva in
+        es := Int_map.add state socvas !es;
+        ol := (state, socvas) :: !ol;
+        Process_elt
+
+    let insert_elt_ig ol es state x y z = ignore (insert_elt ol es state (x,y,z))
+
+    let insert_elt_nc es state cva =
+      LOG(if Logging.features_are_set Logging.Features.eset_stats then begin
+            Logging.Counters.increment "insert_elt_nc";
+          end);
+      try
+        let socvas = Int_map.find state !es in
+        es := Int_map.add state (Socvas.add cva socvas) !es;
+
+        LOG(
+          let (callset, _, _) = cva in
+          Logging.log Logging.Features.reg_ne
+            "+> %d:(%d,%d).\n" (Imp_position.get_position ()) state callset.id;
+        )
+      with Not_found ->
+          es := Int_map.add state (Socvas.singleton cva) !es;
+          LOG(
+            let (callset, _, _) = cva in
+            Logging.log Logging.Features.reg_ne
+              "+> %d:(%d,%d).\n" (Imp_position.get_position ()) state callset.id;
+          )
+
+    let insert_container ol es state socvas_new =
+      LOG(if Logging.features_are_set Logging.Features.eset_stats then begin
+            Logging.Counters.increment "insert_container";
+          end);
+      try
+        let socvas = Int_map.find state !es in
+        LOG(
+          Logging.log Logging.Features.reg_ne
+            "+o %d:(%d,?).\n" (Imp_position.get_position ()) state;
+        );
+
+        let s_d = Socvas.diff socvas_new socvas in
+        if not (Socvas.is_empty s_d) then begin
+          es := Int_map.add state (Socvas.union s_d socvas) !es;
+          ol := (state, s_d) :: !ol;
+        end
+      with Not_found ->
+        LOG(
+          Logging.log Logging.Features.reg_ne
+            "+n %d:(%d,?).\n" (Imp_position.get_position ()) state
+        );
+        es := Int_map.add state socvas_new !es;
+        ol := (state, socvas_new) :: !ol
+
+
+    let insert_container_nc es state socvas_new =
+      LOG(
+        if Logging.features_are_set Logging.Features.eset_stats then begin
+        Logging.Counters.increment "insert_container_nc";
+        end;
+        Logging.log Logging.Features.reg_ne
+          "+> %d:(%d,?).\n" (Imp_position.get_position ()) state
+      );
+      try
+        let socvas = Int_map.find state !es in
+        es := Int_map.add state (Socvas.union socvas socvas_new) !es
+      with Not_found ->
+        es := Int_map.add state socvas_new !es
+
+    exception Is_found
+
+    let check_done term_table start_nt cs =
+      let check_callset (callset, _, _) b = b || callset.id = 0 in
+      let do_check start_nt socvas = function
+        | PJDN.Complete_trans nt
+        | PJDN.Complete_p_trans nt ->
+            if nt = start_nt then begin
+              LOGp(eof_ne, `"Final state found, start symbol.\n"');
+              Socvas.fold check_callset socvas false
+            end else begin
+              LOGp(eof_ne, `"Final state found, not start: %d.\n" nt');
+              false
+            end
+
+        | PJDN.MComplete_trans nts
+        | PJDN.MComplete_p_trans nts ->
+            if Util.int_array_contains start_nt nts then begin
+              LOGp(eof_ne, `"Final state found, start symbol.\n"');
+              Socvas.fold check_callset socvas false
+            end else (LOGp(eof_ne, `"Final states found, no start.\n"'); false)
+        | _ -> false in
+      let rec iter_do_check start_nt socvas txs n j =
+        if j >= n then false
+        else (do_check start_nt socvas txs.(j)
+              || iter_do_check start_nt socvas txs n (j + 1)) in
+
+      let search_for_succ term_table start_nt s socvas =
+        LOGp(eof_ne, "Checking state %d.\n" s);
+        let is_done = match term_table.(s) with
+          | PJDN.Complete_trans _ | PJDN.Complete_p_trans _
+          | PJDN.MComplete_trans _ | PJDN.MComplete_p_trans _ ->
+              do_check start_nt socvas term_table.(s)
+          | PJDN.Many_trans txs -> iter_do_check start_nt socvas txs (Array.length txs) 0
+          | PJDN.Box_trans _ | PJDN.When_trans _ | PJDN.When2_trans _ | PJDN.Action_trans _
+          | PJDN.Call_p_trans _
+          | PJDN.Maybe_nullable_trans2 _
+          | PJDN.Call_trans _| PJDN.Det_multi_trans _
+          | PJDN.TokLookahead_trans _ | PJDN.RegLookahead_trans _ | PJDN.ExtLookahead_trans _
+          | PJDN.Lookahead_trans _| PJDN.MScan_trans _
+          | PJDN.Scan_trans _ | PJDN.No_trans | PJDN.Det_trans _ | PJDN.Lexer_trans _ -> false in
+        if is_done then raise Is_found in
+
+      LOGp(eof_ne, "Checking for successful parses.\n");
+      try Int_map.iter (search_for_succ term_table start_nt) !cs; false with Is_found -> true
+
+    let collect_done_at_eof start_nt successes cs term_table =
+      let do_check socvas = function
+        | PJDN.Complete_trans nt
+        | PJDN.Complete_p_trans nt ->
+            if nt = start_nt then begin
+              LOGp(eof_ne, `"Final state found, start symbol.\n"');
+              successes :=
+                Socvas.fold (fun (callset, sv, _) a ->
+                               if callset.id <> 0 then a else sv::a)
+                  socvas
+                  !successes
+            end else LOGp(eof_ne, `"Final state found, not start: %d.\n" nt')
+
+        | PJDN.MComplete_trans nts
+        | PJDN.MComplete_p_trans nts ->
+            if Util.int_array_contains start_nt nts then begin
+              LOGp(eof_ne, `"Final state found, start symbol.\n"');
+              successes :=
+                Socvas.fold (fun (callset, sv, _) a ->
+                               if callset.id <> 0 then a else sv::a)
+                  socvas
+                  !successes
+            end else LOGp(eof_ne, `"Final states found, no start.\n"')
+        | _ -> () in
+      let f s socvas =
+        LOGp(eof_ne, "Checking state %d.\n" s);
+        match term_table.(s) with
+          | PJDN.Complete_trans _ | PJDN.Complete_p_trans _
+          | PJDN.MComplete_trans _ | PJDN.MComplete_p_trans _ ->
+              do_check socvas term_table.(s)
+          | PJDN. Many_trans txs -> Array.iter (do_check socvas) txs
+          | PJDN.Box_trans _ | PJDN.When_trans _ | PJDN.When2_trans _ | PJDN.Action_trans _
+          | PJDN.Call_p_trans _
+          | PJDN.Maybe_nullable_trans2 _
+          | PJDN.Call_trans _| PJDN.Det_multi_trans _
+          | PJDN.TokLookahead_trans _ | PJDN.RegLookahead_trans _ | PJDN.ExtLookahead_trans _
+          | PJDN.Lookahead_trans _| PJDN.MScan_trans _
+          | PJDN.Scan_trans _ | PJDN.No_trans | PJDN.Det_trans _ | PJDN.Lexer_trans _
+              -> () in
+      Int_map.iter f !cs
+
+    let get_size m = Int_map.fold (fun _ socvas n -> n + (Socvas.cardinal socvas)) !m 0
 
   end
 
@@ -2015,6 +2281,30 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
       done;
     end ' )
 
+  DEF4(`PROCESS_WORKLIST_HIERMAP', `pes', `cs', `term_table', `overflow',
+    `begin
+      let g s socvas = process_trans pes s socvas term_table.(s) in
+      let h (s, socvas) = process_trans pes s socvas term_table.(s) in
+      Int_map.iter g !cs;
+      while !overflow <> [] do
+        let owl = !overflow in
+        overflow := [];
+        List.iter h owl;
+      done;
+    end ' )
+
+  DEF3(`PROCESS_EOF_WORKLIST_HIERMAP', `cs', `proc_eof_item', `overflow',
+   `begin
+      let g s socvas = proc_eof_item overflow s socvas in
+      let h (s, socvas) = proc_eof_item overflow s socvas in
+      Int_map.iter g !cs;
+      while !overflow <> [] do
+        let owl = !overflow in
+        overflow := [];
+        List.iter h owl;
+      done;
+    end ' )
+
   DEF4(`PROCESS_WORKLIST_FLAT', `pes', `cs', `term_table', `worklist',
    `begin
       (* Breadth-first processing of Earley set. *)
@@ -2118,6 +2408,7 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
 
   (* (TODO?) UNIMPLEMENTED. As of now, this feature does not factor into our performance tests. *)
   IF_HIERHASH(`let rec try_recover_hierhash pes cs term_table nonterm_table worklist = ()')
+  IF_HIERMAP(`let rec try_recover_hiermap pes cs term_table nonterm_table worklist = ()')
 
   IF_FLAT(`let rec try_recover_flat pes cs term_table nonterm_table worklist =
       (* Scan all *existing* elements of eset looking for error transition.

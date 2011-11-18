@@ -628,45 +628,6 @@ ocamlparser_regular-parser.opt: OCAMLOPT_FLAGS+= \
 ocamlparser_regular.cmo : OCAML_FLAGS+=$(OCAML_COMP_INCLUDES)
 ocamlparser_regular.cmx: OCAMLOPT_FLAGS+=$(OCAML_COMP_INCLUDES)
 
-ocamlparser: yak.cma ocamlparser.cmo llexer.cmo opdriver.cmo
-	$(OCAMLC) $(OCAML_COMP_DIR)/config.cmo \
-           $(OCAML_COMP_DIR)/misc.cmo \
-           $(OCAML_COMP_DIR)/clflags.cmo $(OCAML_COMP_DIR)/linenum.cmo \
-           $(OCAML_COMP_DIR)/warnings.cmo \
-           $(OCAML_COMP_DIR)/location.cmo \
-           $(OCAML_COMP_DIR)/syntaxerr.cmo \
-           $^ -package unix -linkpkg -o $@
-
-ocamlparser.opt: yak.cmxa ocamlparser.cmx llexer.cmx opdriver.cmx
-	$(OCAMLOPT) $(OCAML_COMP_DIR)/config.cmx \
-           $(OCAML_COMP_DIR)/misc.cmx \
-           $(OCAML_COMP_DIR)/clflags.cmx $(OCAML_COMP_DIR)/linenum.cmx \
-           $(OCAML_COMP_DIR)/warnings.cmx \
-           $(OCAML_COMP_DIR)/location.cmx \
-           $(OCAML_COMP_DIR)/syntaxerr.cmx \
-           $^ -package unix -linkpkg -o $@
-
-ocamlparser.cmx llexer.cmx opdriver.cmx : %.cmx: %.ml
-	$(OCAMLOPT) $(OCAML_COMP_INCLUDES) -c $< -o $@
-
-ocamlparser.cmo llexer.cmo opdriver.cmo : %.cmo: %.ml
-	$(OCAMLC) $(OCAML_COMP_INCLUDES) -c $< -o $@
-
-ocamlparser.cmi: %.cmi : %.mli
-	$(OCAMLOPT) $(OCAML_COMP_INCLUDES) -c $< -o $@
-
-opdriver.cmo: ocamlparser.cmi llexer.cmi
-opdriver.cmx: ocamlparser.cmi llexer.cmi
-ocamlparser.cmo: ocamlparser.cmi
-ocamlparser.cmx: ocamlparser.cmi
-
-
-llexer.cmo: ocamlparser.cmi
-llexer.cmx: ocamlparser.cmi
-
-ocamlparser.ml: ocamlparser.bnf
-	./yakker compile $< > $(TOPDIR)/src/ocamlparser.ml
-
 %.ml: %.mll
 	ocamllex $<
 

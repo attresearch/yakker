@@ -595,7 +595,7 @@ end
 open PHOAS
 
 (******************************************************************************)
-let to_string' callts get_action get_start memo_cs =
+let to_string' callts get_action get_start memo_cs warn_lookahead =
   let rec recur c = function
     | Lam f ->
         let x = mk_var c in
@@ -620,8 +620,11 @@ let to_string' callts get_action get_start memo_cs =
         (* ignore [f2]. TODO-dbranch: use [f2] properly. *)
         let pat = if c.Gil.arity = 0 then "" else " _" in
         Printf.sprintf "(Pred.dbranchc (%s) (function | %s%s -> true | _ -> false))" f1 c.Gil.cname pat
-    | CfgLookaheadE (b,n) ->
-        let n_act = get_action n in
+    | CfgLookaheadE (b,nt) ->
+        if warn_lookahead then
+          Util.warn Util.Sys_warn
+            ("using extended lookahead for nonterminal " ^ nt ^ " in nullability predicate.");
+        let n_act = get_action nt in
         Printf.sprintf "(Pred.full_lookaheadc %B %d %d)" b n_act (get_start n_act)
     | CsLookaheadE (b,la_cs) ->
         (* Complement w.r.t. 257 to account for EOF, which we represent as character 256. *)
@@ -729,8 +732,6 @@ fun _ ykb v -> match f1 v with | Yk_done %s %s (%s) -> Some (f2 v (%s)) | _ -> N
   | Gil.Alt (r1,r2) -> OrE (trans' r1, trans' r2)
   | Gil.Star _ -> true_e ()
   | Gil.Lookahead (b, Gil.Symb(nt,None,None)) ->
-      Util.warn Util.Sys_warn
-        ("using extended lookahead for nonterminal " ^ nt ^ " in nullability predicate.");
       CfgLookaheadE(b,nt)
   | Gil.Lookahead (b, r1) as r ->
       (match Gil.to_cs r1 with
@@ -856,9 +857,9 @@ fun _ ykb v -> match f1 v with | Yk_done %s %s (%s) -> Some (f2 v (%s)) | _ -> N
               | _ ->  app3 (p.e()) (Var lookahead_name) (Var ykb) (Var v)
             in
             let tbls, preds = acc in
+            let body_code = to_string' gil_callc get_action get_start memo_cs true 1 body in
             (* TODO: extend comment here to explain memoization process *)
             if ntcalled then begin
-              let body_code = to_string' gil_callc get_action get_start memo_cs 1 body in
               let tbl = mk_nptblname nt in
               let pred = Printf.sprintf "%s %s %s %s =\n  \
                 let __p1 = Yak.YkBuf.get_offset %s in\n    \
@@ -876,8 +877,7 @@ fun _ ykb v -> match f1 v with | Yk_done %s %s (%s) -> Some (f2 v (%s)) | _ -> N
               nt :: tbls, pred :: preds
             end
             else begin
-              let pred = Printf.sprintf "%s %s %s %s = %s\n\n" (mk_npname nt) lookahead_name ykb v
-                (to_string' gil_callc get_action get_start memo_cs 1 body) in
+              let pred = Printf.sprintf "%s %s %s %s = %s\n\n" (mk_npname nt) lookahead_name ykb v body_code in
               tbls, pred :: preds
             end in
     let tyannot = if is_sv_known then ": (sv option * int) SV_hashtbl.t" else "" in

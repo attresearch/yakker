@@ -9,7 +9,7 @@
  *    Trevor Jim and Yitzhak Mandelbaum
  *******************************************************************************)
 
-type earley_ds = Flat_eds | Hier_eds | Sparse_eds
+type earley_ds = Flat_eds | Hierhash_eds | Hiermap_eds | Sparse_eds
 
 (* Compile-time options for Yakker *)
 let inline_cs = ref false

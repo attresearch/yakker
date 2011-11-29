@@ -815,8 +815,14 @@ let fsm_transducer is_sv_known gr inch outch =
   Printf.fprintf outch "module Pred3 = Yak.Pam_internal.Pred3\n";
 
   (* (Optionally) print the nullability predicates. *)
-  if !Compileopt.gen_nullpreds then
-    Nullable_pred.Gil.process_grammar outch (Hashtbl.find tbl_ntnames) (fun nt -> List.assoc nt !starts) is_sv_known gr;
+  begin
+    match gr.Gul.npreds with
+      | Some npreds ->
+          Nullable_pred.Gil.print_preds outch
+            (Hashtbl.find tbl_ntnames) (fun nt -> List.assoc nt !starts)
+          is_sv_known npreds
+      | None -> ()
+  end;
 
   (* Print the expression bindings used in the automaton.
      Note: for expressions which are already variables (defn = v), we

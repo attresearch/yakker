@@ -199,6 +199,7 @@ type grammar = {
 
     mutable tokmap: (expr * (nonterminal * (nonterminal * expr option)) list) list;
     mutable gildefs: (nonterminal * string Gil.rhs) list;
+    mutable npreds: (nonterminal, Gil.DB_levels.exp) Hashtbl.t option;
 
     mutable precs : (assoc * nonterminal list) array
 }
@@ -223,6 +224,7 @@ let mkGrammar ds m p e pd =
    has_single_lexer = false;
    tokmap = [];
    gildefs = [];
+   npreds = None;
    precs = pd;
   }
 

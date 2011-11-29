@@ -441,7 +441,8 @@ let do_phases gr =
           if !Compileopt.gen_nullpreds then
             do_phase "inlining nullability predicates" begin fun () ->
               let npreds = Nullable_pred.Gil.preds_from_grammar gr in
-              gr.gildefs <- Inline_nullable.inline npreds gr.gildefs
+              gr.gildefs <- Inline_nullable.inline npreds gr.gildefs;
+              gr.npreds <- Some npreds;
             end
       | Desugar_gil_cmd ->
             do_phase "desugaring Gil" begin fun () ->

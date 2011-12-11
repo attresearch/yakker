@@ -77,6 +77,9 @@ type backend =
   | Trans_BE (** Transducer backend. *)
 
 let backend = ref Trans_BE
+
+module O = Compileopt
+
 }
 cmd-line-args = command$c *args eof { cmd := c }.
 o = %d0 .
@@ -103,8 +106,8 @@ phases = ; these commands can be controlled by -after
       | "replay" o                        { Replay_cmd }
 command =
         phases$p                          { (match p with
-                                               Inline_regular_cmd -> Compileopt.inline_regular := true
-                                             | Unroll_star_cmd -> if !Compileopt.unroll_star_n<1 then Compileopt.unroll_star_n := 1
+                                               Inline_regular_cmd -> O.inline_regular := true
+                                             | Unroll_star_cmd -> if !O.unroll_star_n<1 then O.unroll_star_n := 1
                                              | _ -> ());
                                             p }
       | "compile" o                       { Compile_cmd }
@@ -113,7 +116,7 @@ command =
       | "dot" o                           { Dot_cmd }
       | "exec" o arg$f *(o arg$x {x})$l o { files := f::!files; exec_l := l; Exec_cmd }
       | "extract" o                       { Extract_cmd }
-      | "fuse" o                          { Compileopt.coalesce := true; Fuse_cmd }
+      | "fuse" o                          { O.coalesce := true; Fuse_cmd }
       | "get-generators" o                { Generators_analysis_cmd }
       | "info" o                          { Info_cmd }
       | "lookahead-analysis" o            { Lookahead_analysis_cmd }
@@ -132,35 +135,40 @@ command =
 
 args =
         "-after" o phases$p               { after := Some p } ""
-      | "-arrow-notation" o               { Compileopt.use_wrap_and_attr := false;      
-                                            Compileopt.use_coroutines    := false } ""
-      | "-hybrid-arrow" o                 { Compileopt.use_coroutines := false } ""  ; For testing; not (yet) of practical use.
+      | "-arrow-notation" o               { O.use_wrap_and_attr := false;      
+                                            O.use_coroutines    := false } ""
+      | "-hybrid-arrow" o                 { O.use_coroutines := false } ""  ; For testing; not (yet) of practical use.
       | "-backend" o
           ( "fun" {Fun_BE}
           | "tx"  {Trans_BE}
           | "wadler"  {Wadler_BE}
           | "peg-strict" {Peg_BE false}
           | "peg" {Peg_BE true} )$b o     { backend := b } ""
-      | "-case-insensitive" o             { Compileopt.case_sensitive := false } ""
-      | "-check-labels" o                 { Compileopt.check_labels := true } ""
+      | "-case-insensitive" o             { O.case_sensitive := false } ""
+      | "-check-labels" o                 { O.check_labels := true } ""
       | "-counter" o (1*DIGIT)$n o        { Variables.counter := (int_of_string n) } ""
-      | "-inline-cs" o                    { Compileopt.inline_cs := true } ""
-      | "-inline-regular" o               { Compileopt.inline_regular := true } ""
-      | "-lookahead" o                    { Compileopt.lookahead := true } ""
-      | "-memoize-history" o              { Compileopt.memoize_history := true } ""
-      | "-no-coalesce" o                  { Compileopt.coalesce := false } ""
-      | "-no-collapse-calls" o            { Compileopt.collapse_calls := false } ""
-      | "-no-memoize-history" o           { Compileopt.memoize_history := false } ""
-      | "-no-optimize-pam" o              { Compileopt.gen_optimize_pam := false } ""
-      | "-no-replay" o                    { Compileopt.repress_replay := true } ""
-      | "-no-skip-opt" o                  { Compileopt.skip_opt := false } ""
+      | "-inline-cs" o                    { O.inline_cs := true } ""
+      | "-inline-regular" o               { O.inline_regular := true } ""
+      | "-lookahead" o                    { O.lookahead := true } ""
+      | "-memoize-history" o              { O.memoize_history := true } ""
+      | "-no-coalesce" o                  { O.coalesce := false } ""
+      | "-no-collapse-calls" o            { O.collapse_calls := false } ""
+      | "-no-memoize-history" o           { O.memoize_history := false } ""
+      | "-no-nullability-preds" o         { O.gen_nullpreds := false } ""
+      | "-no-optimize-pam" o              { O.gen_optimize_pam := false } ""
+      | "-no-replay" o                    { O.repress_replay := true } ""
+      | "-no-skip-opt" o                  { O.skip_opt := false } ""
       | "-only" o                         { only := true } ""
-      | "-prefix-history" o               { Compileopt.postfix_history := false } ""
+      | "-prefix-history" o               { O.postfix_history := false } ""
       | "-root" o arg$x o                 { roots := x::!roots } ""
-      | "-unit-history" o                 { Compileopt.unit_history := true } ""
-      | "-unroll-star" o (1*DIGIT)$n o    { Compileopt.unroll_star_n := (int_of_string n) } ""
-      | "-use-fsm" o                      { Compileopt.use_fsm := true } ""
-      | "-use-fst" o                      { Compileopt.use_fsm := false } ""
+      | "-unit-history" o                 { O.unit_history := true } ""
+      | "-unroll-star" o (1*DIGIT)$n o    { O.unroll_star_n := (int_of_string n) } ""
+      | "-use-flat-set" o                 { O.earley_ds := O.Flat_eds } ""
+      | "-use-hierh-set" o                { O.earley_ds := O.Hierhash_eds } ""
+      | "-use-hierm-set" o                { O.earley_ds := O.Hiermap_eds } ""
+      | "-use-sparse-set" o               { O.earley_ds := O.Sparse_eds } ""
+      | "-use-fsm" o                      { O.use_fsm := true } ""
+      | "-use-fst" o                      { O.use_fsm := false } ""
       | "-v" o                            { Yak.Logging.add_features Yak.Logging.Features.verbose } ""
       | file$f o                          { files := f::!files } ""
 .

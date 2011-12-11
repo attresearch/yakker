@@ -15,3 +15,6 @@ OCTET = %d0-255.
 SP = %d32.
 VCHAR = %d33-126.
 WSP = SP|HTAB.
+
+; Dummy definition of special error-recovery nonterminal
+error = "a".

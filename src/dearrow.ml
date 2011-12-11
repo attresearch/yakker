@@ -916,7 +916,7 @@ let transform gr =
       | Return_bind (b, out_attrs) -> gen_ret b out_attrs in
 
   (** Translate IRRELEVANT Gul right-parts to Gil. *)
-  let rec gul2gil r = (* should only be called by dispatch, so invariants are satisfied *)
+  let rec gul2gil r =
     match r.r with
     | CharRange(x, y) -> Gil.CharRange(x, y)
     | Lit(x, y)  -> Gil.Lit(x, y)
@@ -936,7 +936,11 @@ let transform gr =
     | Action _    -> Util.impossible "Dearrow.transform.gul2gil.Action"
     | When _      -> Util.impossible "Dearrow.transform.gul2gil.When"
     | DBranch (e,c)   -> (* TODO-dbranch Util.impossible "Dearrow.transform.gul2gil.DBranch". i.e., allow for relevant dbranches *)
-        (* note: presently, this is the only real use of dbranch. *)
+        (* note: presently, the only real use of dbranch is with
+           closed expressions and only a constructor. For now, we'll assume that
+           a DBranch appearing in a lookahead meets this asssumption, but is brittle.
+           TODO: fix the brittleness of this code.
+        *)
         Gil.DBranch(e, c, "")
     | Symb(n,Some _,   _,     _) -> Util.impossible (Printf.sprintf "Dearrow.transform.gul2gil.Symb(%s) with early arguments" n)
     | Symb(n,     _,_::_,     _) -> Util.impossible (Printf.sprintf "Dearrow.transform.gul2gil.Symb(%s) with attributes" n)

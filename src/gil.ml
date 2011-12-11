@@ -214,3 +214,149 @@ module Meta = struct
   let phoas_simplify_to_string = map_expr (PHOAS.to_string $ PHOAS.simplify)
 
 end
+
+(*****************************************)
+(* DeBruijn-levels based abstraction of Gil.
+
+   Used specifically in nullability predicate generation.
+   Included here because of dependencies issues.
+*)
+
+module DB_levels =
+struct
+
+  type exp =
+    Var of int
+  | App of exp * exp
+  | Lam of exp
+  | NoneE
+  | SomeE of exp
+  | CallE of string * exp * exp
+  | AndE of exp * exp
+  | StarE of exp
+  | OrE of exp * exp
+  | InjectE of string
+  | CfgLookaheadE of bool * string (** context-free lookahead*)
+  | CsLookaheadE of bool * Cs.t
+  | DBranchE of string * constr * string
+
+  let app2 f x y = App (App (f,x), y)
+  let app3 f x y z = App (App (App (f, x), y), z)
+
+  let exp_map f e =
+    let rec walk c = function
+      | Var i -> f c i
+      | Lam f -> Lam (walk (c+1) f)
+      | App (e1, e2) -> App (walk c e1, walk c e2)
+      | NoneE -> NoneE
+      | SomeE e -> SomeE (walk c e)
+      | StarE e -> StarE (walk c e)
+      | CallE (nt,e1,e2) -> CallE (nt, walk c e1, walk c e2)
+      | AndE (e1, e2) -> AndE (walk c e1, walk c e2)
+      | OrE (e1, e2) -> OrE (walk c e1, walk c e2)
+      | InjectE s -> InjectE s
+      | DBranchE (f1, c, f2) -> DBranchE (f1, c, f2)
+      | CfgLookaheadE (b,n) -> CfgLookaheadE (b,n)
+      | CsLookaheadE (b,cs) -> CsLookaheadE (b,cs)
+    in
+    walk 0 e
+
+  (** Adjust the numbering of bound variables so that the expression
+      can be placed in a new context. Free variables remain
+      unchanged. Note that we abstract over the distinction between
+      free and bound by taking it as an argument, [mf]. So, what we
+      call "free" is actually relatively free, with respect to [mf].
+
+      mf = the maximum free variable.
+      n = the amount by which to shift.
+
+      For example, if we want to place [e] in a context with two more
+      outer lambdas than the current context, we need to increase the
+      value of all bound variables by two, because their binders are about to
+      be forced deeper into the tree.
+
+      The result expression will have minimum bound variable of mf + 1 + n
+      (which is equivalent to maximum free variable of mf + n).
+
+      (A note regarding the wildcard on the first argument of the
+      function supplied to [exp_map]. This argument, [c], is the count
+      of binders traversed during the map process.
+      Now, every variable should be in 0..c + mf, because free variables should only
+      be taken from 0..mf and variables i, mf < i <= c + mf, are bound variables.
+      So, we can ignore c.)
+  *)
+  let shift mf n e = exp_map (fun _ i_var -> if mf < i_var then Var (i_var + n) else Var i_var) e
+
+  (**
+      subst m e_s e ==  [m -> e_s]e
+
+      e_s and e must be numbered relative to the same maximum free variable m.  That is,
+      variables <= m are free for both e_s and e.
+      We simplify to assume that we are substituting for the greatest free variable in e,
+      namely m.
+  *)
+  let subst mf e_s e = exp_map (fun c i -> if i = mf then (shift mf c e_s) else Var i) e
+
+  (* e1 has an mf of k, while e2 has an mf of k-1. So, we shift e2 up to equalize the mf,
+     and then shift down the result, because we've eliminated free variable k.
+  *)
+  let beta_reduce k e1 e2 = shift k (-1) (subst k (shift (k-1) 1 e2) e1)
+
+  (** Beta-reduce where possible *)
+  let simplify e =
+    let rec simplify' c = function  (* c is the count of binders *)
+      | App (e1, e2) ->
+          let e1 = simplify' c e1 in
+          let e2 = simplify' c e2 in
+          (match e1 with
+             | Lam e -> simplify' c (beta_reduce c e e2)
+             | _ -> App (e1, e2))
+      | Var i -> Var i
+      | Lam f -> Lam (simplify' (c+1) f)
+      | NoneE -> NoneE
+      | SomeE e -> SomeE (simplify' c e)
+      | StarE e -> StarE (simplify' c e)
+      | AndE (e1, e2) -> AndE (simplify' c e1, simplify' c e2)
+      | OrE (e1, e2) ->  OrE (simplify' c e1, simplify' c e2)
+      | InjectE s -> InjectE s
+      | DBranchE (f1, c, f2) -> DBranchE (f1, c, f2)
+      | CfgLookaheadE (b,n) -> CfgLookaheadE (b,n)
+      | CsLookaheadE (b,cs) -> CsLookaheadE (b,cs)
+      | CallE (nt,e1,e2) -> CallE (nt, simplify' c e1, simplify' c e2)
+    in simplify' 0 e
+
+  (** check that the expression has at most [n] free variables.*)
+  let rec check_free_at_most n = function
+    | Var i -> i < n
+    | Lam f -> check_free_at_most (n+1) f
+    | App (e1, e2) -> check_free_at_most n e1 && check_free_at_most n e2
+    | NoneE -> true
+    | SomeE e | StarE e -> check_free_at_most n e
+    | CallE (nt,e1,e2) -> check_free_at_most n e1 && check_free_at_most n e2
+    | AndE (e1, e2) -> check_free_at_most n e1 && check_free_at_most n e2
+    | OrE (e1, e2) -> check_free_at_most n e1 && check_free_at_most n e2
+    | InjectE _ -> true
+    | DBranchE _ -> true
+    | CfgLookaheadE _ -> true
+    | CsLookaheadE _ -> true
+
+  let is_closed = check_free_at_most 0
+
+  (** Note any called nonterminals *)
+  let rec note_called s = function
+    | InjectE _
+    | DBranchE _
+    | CfgLookaheadE _
+    | CsLookaheadE _
+    | Var _
+    | NoneE
+    | SomeE _ -> s
+    | Lam f -> note_called s f
+    | AndE (e1, e2)
+    | OrE (e1, e2)
+    | App (e1, e2) -> note_called (note_called s e1) e2
+    | StarE e -> note_called s e
+    | CallE (nt,_,_) -> PSet.add nt s
+
+end
+

@@ -19,7 +19,8 @@
 let support_FLA = false
 
 
-define(`IF_TRUE',`ifelse(`$1',`true',$2)')
+define(`IF_TRUE',`ifelse(`$1',`true',`$2')')
+define(`IF_FALSE',`ifelse(`$1',`false',`$2')')
 define(`IFE_TRUE',`ifelse(`$1',`true',`$2',`$3')')
 define(`VAR',`$$1')
 
@@ -86,15 +87,20 @@ define(`DEF5', `define(`$1', _DEF_5ARG(`$2',VAR(`1'),`$3',VAR(`2'),
                                        `$7'))')
 
 DEF1(`IF_FLA', `block', `if support_FLA then begin block end')
-DEF2(`IFE_FLA', `ibranch', `ebranch', `(if support_FLA then ibranch else ebranch)')
+DEF2(`IFE_FLA', `tbranch', `ebranch', `(if support_FLA then tbranch else ebranch)')
 
-DEF1(`LOG', `block', `if Logging.activated then begin block end')
+(* Compile with -noassert to turn logging off.  *)
+DEF1(`LOG', `block', `assert (begin block end; true)')
+DEF2(`IFE_LOG', `tbranch', `ebranch',
+     `if Logging.activated then begin tbranch end
+      else begin ebranch end')
 DEF2(`LOGp', `feature', `message',
-     `if Logging.activated then begin
-       Logging.log Logging.Features.feature message end')
+     `LOG(Logging.log Logging.Features.feature message)')
 
-
-
+(* TODO: move creation of dense_nonterm_table out of _parse,
+   so its only done once. *)
+ifdef(`ESET_IMPL', `', `define(`ESET_IMPL',`hier')')
+ifdef(`DO_NULL_RET', `', `define(`DO_NULL_RET',`false')')
 
 (**
    Abstract set interface for earley sets and worklists.
@@ -102,19 +108,18 @@ DEF2(`LOGp', `feature', `message',
    Note: For insertions, the NC versions are basically pure insertions.
    The others are insertion plus some  sort of other bookkeeping/checking.
 
-... TODO
-
 *)
 
-define(`ESET_IMPL',`hier')
-
 define(`IF_HIER',`ifelse(ESET_IMPL,`hier',`$1')')
+define(`IF_HIERHASH',`ifelse(ESET_IMPL,`hierhash',`$1')')
+define(`IF_HIERMAP',`ifelse(ESET_IMPL,`hiermap',`$1')')
 define(`IF_FLAT',`ifelse(ESET_IMPL,`flat',`$1')')
 
 (**************************************************************)
 (**************************************************************)
 (**
-   Abstract set implementation for hierarchical earley sets and worklists.
+   Abstract set implementation for hierarchical earley sets and
+   worklists, based on sparse sets.
 *)
 
 
@@ -128,13 +133,16 @@ define(`ESET_CONTAINER_FOLD', `SOCVAS_FOLD(`$1',`$2',`$3',`$4',`$5') ')
 define(`ESET_CONTAINER_FOLD_C', `SOCVAS_FOLD_C(`$1',`$2',`$3',`$4') ')
 
 define(`ESET_CONTAINER_ADD', `Socvas.MS.add')
+define(`ESET_CONTAINER_SINGLETON', `Socvas.singleton ($1)')
 
 define(`ESET_EXTEND_PES_EXPR',`$1, overflow')
 define(`ESET_EXTEND_PES_PATT',`$1, ol')
 define(`ESET_PT_ADDL_ARGS', `i')
 define(`ESET_WLD', `i ol')
+define(`ESET_TRY_RECOVER', `try_recover_hier')
 
 DEF1(`ESET_NOT_EMPTY', `ns', `(ns).WI.count > 0')
+DEF1(`ESET_EMPTY', `ns', `(ns).WI.count = 0')
 
 DEF1(`ESET_CLEAR', `t', `WI.clear t')
 
@@ -142,6 +150,100 @@ define(`PROCESS_WORKLIST',`PROCESS_WORKLIST_HIER(`$1',`$2',`$3',`$4') ')
 define(`PROCESS_EOF_WORKLIST', `PROCESS_EOF_WORKLIST_HIER(`$1',`$2',`$3') ')
 
 define(`ESET_MODULE', `ES_hierarchical')
+
+(* We ignore the third argument (the container) because this implementation just
+   tracks the transducer state in the pcc. *)
+DEF3(`PCS_ADD_CALL_ITEM_C', `pre_cc', `s', `c', `(Pcs.add_call_state pre_cc s)')
+
+(* We ignore the third argument (the element) because this implementation only
+   tracks the transducer state in the pcc. *)
+DEF3(`PCS_ADD_CALL_ITEM_E', `pre_cc', `s', `elt', `(Pcs.add_call_state pre_cc s)')
+
+define(`ESET_ITEM_PATT', `$1, $2')
+')
+
+(**************************************************************)
+(**************************************************************)
+(**
+   Abstract set implementation for hierarchical earley sets and
+   worklists, based on OCaml hashtables.
+*)
+
+
+IF_HIERHASH(`
+define(`ESET_CONTAINER_ITER', `SOCVAS_ITER(`$1',`$2',`$3') ')
+define(`ESET_CONTAINER_MAP',  `SOCVAS_MAP(`$1',`$2',`$3') ')
+define(`ESET_CONTAINER_FOLD', `SOCVAS_FOLD(`$1',`$2',`$3',`$4',`$5') ')
+
+(*  conditional fold. includes folowup action for sets with > 1
+  elements. *)
+define(`ESET_CONTAINER_FOLD_C', `SOCVAS_FOLD_C(`$1',`$2',`$3',`$4') ')
+
+define(`ESET_CONTAINER_ADD', `Socvas.MS.add')
+define(`ESET_CONTAINER_SINGLETON', `Socvas.singleton ($1)')
+
+define(`ESET_EXTEND_PES_EXPR',`$1, overflow')
+define(`ESET_EXTEND_PES_PATT',`$1, ol')
+define(`ESET_PT_ADDL_ARGS', `')
+define(`ESET_WLD', `ol')
+define(`ESET_TRY_RECOVER', `try_recover_hierhash')
+
+DEF1(`ESET_NOT_EMPTY', `ns', `Hashtbl.length (ns) > 0')
+DEF1(`ESET_EMPTY', `ns', `Hashtbl.length (ns) = 0')
+
+DEF1(`ESET_CLEAR', `t', `Hashtbl.clear (t)')
+
+define(`PROCESS_WORKLIST',`PROCESS_WORKLIST_HIERHASH(`$1',`$2',`$3',`$4') ')
+define(`PROCESS_EOF_WORKLIST', `PROCESS_EOF_WORKLIST_HIERHASH(`$1',`$2',`$3') ')
+
+define(`ESET_MODULE', `ES_hierarchical_hash')
+
+(* We ignore the third argument (the container) because this implementation just
+   tracks the transducer state in the pcc. *)
+DEF3(`PCS_ADD_CALL_ITEM_C', `pre_cc', `s', `c', `(Pcs.add_call_state pre_cc s)')
+
+(* We ignore the third argument (the element) because this implementation only
+   tracks the transducer state in the pcc. *)
+DEF3(`PCS_ADD_CALL_ITEM_E', `pre_cc', `s', `elt', `(Pcs.add_call_state pre_cc s)')
+
+define(`ESET_ITEM_PATT', `$1, $2')
+')
+
+(**************************************************************)
+(**************************************************************)
+(**
+   Abstract set implementation for hierarchical earley sets and
+   worklists, based on OCaml maps.
+*)
+
+
+IF_HIERMAP(`
+define(`ESET_CONTAINER_ITER', `SOCVAS_ITER(`$1',`$2',`$3') ')
+define(`ESET_CONTAINER_MAP',  `SOCVAS_MAP(`$1',`$2',`$3') ')
+define(`ESET_CONTAINER_FOLD', `SOCVAS_FOLD(`$1',`$2',`$3',`$4',`$5') ')
+
+(*  conditional fold. includes folowup action for sets with > 1
+  elements. *)
+define(`ESET_CONTAINER_FOLD_C', `SOCVAS_FOLD_C(`$1',`$2',`$3',`$4') ')
+
+define(`ESET_CONTAINER_ADD', `Socvas.MS.add')
+define(`ESET_CONTAINER_SINGLETON', `Socvas.singleton ($1)')
+
+define(`ESET_EXTEND_PES_EXPR',`$1, overflow')
+define(`ESET_EXTEND_PES_PATT',`$1, ol')
+define(`ESET_PT_ADDL_ARGS', `')
+define(`ESET_WLD', `ol')
+define(`ESET_TRY_RECOVER', `try_recover_hiermap')
+
+DEF1(`ESET_NOT_EMPTY', `ns', `(not (Int_map.is_empty !(ns)))')
+DEF1(`ESET_EMPTY', `ns', `(Int_map.is_empty !(ns))')
+
+DEF1(`ESET_CLEAR', `t', `(t) := Int_map.empty')
+
+define(`PROCESS_WORKLIST',`PROCESS_WORKLIST_HIERMAP(`$1',`$2',`$3',`$4') ')
+define(`PROCESS_EOF_WORKLIST', `PROCESS_EOF_WORKLIST_HIERMAP(`$1',`$2',`$3') ')
+
+define(`ESET_MODULE', `ES_hierarchical_map')
 
 (* We ignore the third argument (the container) because this implementation just
    tracks the transducer state in the pcc. *)
@@ -173,13 +275,16 @@ define(`ESET_CONTAINER_FOLD', `SINGLE_CVA_FOLD(`$1',`$2',`$3',`$4',`$5') ')
 define(`ESET_CONTAINER_FOLD_C', `SINGLE_CVA_FOLD_C(`$1',`$2') ')
 
 define(`ESET_CONTAINER_ADD', `errprint(`ESET_CONTAINER_ADD undefined for ES_flat') ')
+define(`ESET_CONTAINER_SINGLETON', `$1')
 
 define(`ESET_EXTEND_PES_EXPR',`$1, overflow')
 define(`ESET_EXTEND_PES_PATT',`$1, ol')
 define(`ESET_PT_ADDL_ARGS', `')
 define(`ESET_WLD', `ol')
+define(`ESET_TRY_RECOVER', `try_recover_flat')
 
 DEF1(`ESET_NOT_EMPTY', `ns', `not (ESet.Earley_set.is_empty (!(ns)))')
+DEF1(`ESET_EMPTY', `ns', `ESet.Earley_set.is_empty (!(ns))')
 
 DEF1(`ESET_CLEAR', `t', `t := ESet.Earley_set.empty')
 
@@ -199,11 +304,10 @@ module Imp_position = struct
   let current_position = ref 0
 
   let set_position i =
-    if Logging.activated then
-      begin
+    LOG(
         if i mod 100 = 0 then
           Logging.log Logging.Features.position "CP=%d\n%!" i;
-      end;
+    );
     current_position := i
 
   let get_position () = !current_position
@@ -390,6 +494,7 @@ type 'it callset = { id : int;
 let mk_callset id = {id=id; data= [||];}
 let hash_callset {id=x} = x
 let cmp_callset {id=x1} {id=x2} = x1 - x2
+let length_callset {data=a} = Array.length a
 
 (** Triple of Callset, semantic Value, and Argument. *)
 type ('it,'sv) cva = 'it callset * 'sv * 'sv
@@ -404,9 +509,15 @@ type insertion_result = Ignore_elt | Reprocess_elt | Process_elt
    checking outways the possible benefit of saving the no-op
    completion in the case of returns to the current
    callset.
+
+   Therefore, we only check for it if we're explicitly interested in handling it
+   differently, which, for now, only occurs if we're not using nullability preds.
+
 *)
-(*define(`CURRENT_CALLSET_GUARD', `callset.id <> current_callset.id')*)
-define(`CURRENT_CALLSET_GUARD', `true')
+DEF2(`CHECK_NULL_RET', `THEN_CODE', `ELSE_CODE',
+     IFE_TRUE(DO_NULL_RET,
+               `if callset.id = current_callset.id then THEN_CODE else ELSE_CODE',
+               `ELSE_CODE'))
 
 (** This module provides dummy values for the [idata] and [inspector]
     fields of the [SEMVAL] signature. Clients wishing to instantiate
@@ -418,6 +529,17 @@ module Dummy_inspector = struct
   let summarize_inspection x = "n/a"
 end
 
+(** This module parameterizes over the operations needed to manipulate
+    the YkBuf to produce new terminals. However, it doesn't quite
+    abstract over the terminal language, as the name suggests. It
+    can't because the underlying buffer can only contain integers,
+    hence there's no way to fill it with arbitrary values.
+
+    However, together with the [Lexer_trans] instruction, we can accomplish an
+    equivalent result. That said, the functionality is still limited with respect
+    to typical lexers because the function carried by a [Lexer_trans] can't manipulate
+    the semantic value in any way.
+*)
 module type TERM_LANG = sig
   type state
 
@@ -540,7 +662,69 @@ end
 
 module PJDN = PamJIT.DNELR
 
+(** This signature encapsulates the functionality needed to handle
+    completion of nullable nonterminals. The name stands for
+    Nullable Returns. *)
+module type NULLRET = sig
+  type sv
+  module SV_set : Set.S with type elt = sv
+
+  type nullable_set
+
+  val create : int -> nullable_set
+  val clear : nullable_set -> unit
+  val mem : nullable_set -> PI.nonterm -> bool
+  val add : nullable_set -> PI.nonterm -> unit
+
+  type nullable_rel
+
+  val create_p : int -> nullable_rel
+  val clear_p : nullable_rel -> unit
+  val mem_p : nullable_rel -> PI.nonterm -> sv -> sv -> bool
+  val find_p : nullable_rel -> PI.nonterm -> sv -> SV_set.t
+  val add_p : nullable_rel -> PI.nonterm -> sv -> sv -> unit
+  val res_iter : SV_set.t -> (sv -> unit) -> unit
+end
+
+
 module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
+  IF_TRUE(DO_NULL_RET,
+    module NR : NULLRET with type sv = Sem_val.t = struct
+      type sv = Sem_val.t
+      module SV_set = Set.Make(struct type t = sv let compare = Sem_val.cmp end)
+
+      type nullable_set = Wf_set.Int_set.t
+
+      let create = Wf_set.Int_set.make
+      let clear = Wf_set.Int_set.clear
+      let mem = Wf_set.Int_set.mem
+      let add  = Wf_set.Int_set.insert
+
+      module SV_map = Map.Make(struct type t = sv let compare = Sem_val.cmp end)
+      type nullable_rel = SV_set.t SV_map.t Wf_set.Int_map.t
+
+      let create_p sz = WI.make sz SV_map.empty
+      let clear_p = WI.clear
+      let find_p r nt arg = SV_map.find arg (WI.find r nt)
+
+      let mem_p r nt arg sv =
+        try
+          SV_set.mem sv (SV_map.find arg (WI.find r nt))
+        with Not_found -> false
+
+      let add_p r nt arg sv =
+        if WI.mem r nt then
+          let map = WI.get r nt in
+          let set =
+            try SV_set.add sv (SV_map.find arg map)
+            with Not_found -> SV_set.singleton sv in
+          WI.set r nt (SV_map.add arg set map)
+        else
+          WI.insert r nt (SV_map.singleton arg (SV_set.singleton sv))
+
+      let res_iter s f = SV_set.iter f s
+
+    end)
 
   module ES_flat = struct
 
@@ -562,11 +746,11 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
         else compare_cva a.cva b.cva
     end
 
-    DEF3(`SINGLE_CVA_ITER', `cva', `pattern', `body',`(let pattern = cva in body)')
-    DEF3(`SINGLE_CVA_MAP',  `cva', `pattern', `body',`(let pattern = cva in body)')
-    DEF5(`SINGLE_CVA_FOLD', `cva', `v_init', `pattern', `p_acc', `body',
-       `(let pattern = cva in let p_acc = v_init in body)')
-    DEF2(`SINGLE_CVA_FOLD_C', `cva', `case_s', `(match cva with case_s)')
+      DEF3(`SINGLE_CVA_ITER', `cva', `pattern', `body',`(let pattern = cva in body)')
+      DEF3(`SINGLE_CVA_MAP',  `cva', `pattern', `body',`(let pattern = cva in body)')
+      DEF5(`SINGLE_CVA_FOLD', `cva', `v_init', `pattern', `p_acc', `body',
+           `(let pattern = cva in let p_acc = v_init in body)')
+      DEF2(`SINGLE_CVA_FOLD_C', `cva', `case_s', `(match cva with case_s)')
 
     module Earley_set = Set.Make(Item)
 
@@ -589,6 +773,10 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
         let arr = (Obj.obj (Obj.new_block 0 len) : item array) in
         ignore (Earley_set.fold (fun item i -> Array.unsafe_set arr i item; i+1) cset 0);
         arr
+
+      let iter_current_callset item_set pcc f =
+        let cset = !pcc in
+        Earley_set.iter (fun {state=state; cva=cva} -> f state cva) cset
 
     end
 
@@ -640,16 +828,14 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
         end);
     ignore (insert_elt wl es state cva)
 
-  let insert_container_nc =
-    if Logging.activated then begin
-      fun es state cva ->
+  let insert_container_nc es state cva =
+    LOG(
         if Logging.features_are_set Logging.Features.eset_stats then begin
           Logging.Counters.increment "insert_container_nc";
           Logging.Counters.decrement "insert_elt_nc";
-        end;
-        insert_elt_nc es state cva
-    end else
-      insert_elt_nc
+        end
+    );
+    insert_elt_nc es state cva
 
   (** Check for a succesful parse. *)
   let check_done term_table start_nt cs =
@@ -964,6 +1150,15 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
           Array.unsafe_set arr i (x, WI.get item_set x);
         done;
         arr
+
+      let iter_current_callset item_set pcc f =
+        let len = pcc.S.count in
+        for i = 0 to len - 1 do
+          let s_l = Array.unsafe_get pcc.S.dense i in
+          let socvas_l = WI.get item_set s_l in
+          f s_l socvas_l
+        done
+
     end
 
     module Proto_callset = Proto_callset_wfis_socvas
@@ -1036,20 +1231,20 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
         let socvas = WI.get es state in
         WI.set es state (Socvas.add cva socvas);
 
-        if Logging.activated then begin
+        LOG(
           let (callset, _, _) = cva in
           Logging.log Logging.Features.reg_ne
             "+> %d:(%d,%d).\n" (Imp_position.get_position ()) state callset.id;
-        end;
+        );
       else
         begin
           WI.insert es state (Socvas.singleton cva);
 
-          if Logging.activated then begin
+          LOG(
             let (callset, _, _) = cva in
             Logging.log Logging.Features.reg_ne
               "+> %d:(%d,%d).\n" (Imp_position.get_position ()) state callset.id;
-          end
+          );
         end
 
     let insert_container i ol es state socvas_new =
@@ -1104,11 +1299,7 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
 
     (** Check for a succesful parse. *)
     let check_done term_table start_nt cs =
-      let d = cs.WI.dense_s in
-      let dcs = cs.WI.dense_sv in
-      let count = cs.WI.count in
       let check_callset (callset, _, _) b = b || callset.id = 0 in
-      LOGp(eof_ne, "Checking for successful parses.\n");
       let do_check start_nt socvas = function
         | PJDN.Complete_trans nt
         | PJDN.Complete_p_trans nt ->
@@ -1149,13 +1340,14 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
             | PJDN.Scan_trans _ | PJDN.No_trans | PJDN.Det_trans _ | PJDN.Lexer_trans _ -> false in
           is_done || search_for_succ term_table d dcs start_nt n (j + 1)
         end in
+      let d = cs.WI.dense_s in
+      let dcs = cs.WI.dense_sv in
+      let count = cs.WI.count in
+      LOGp(eof_ne, "Checking for successful parses.\n");
       search_for_succ term_table d dcs start_nt count 0
 
     (** Collect the succesful parses at eof. *)
     let collect_done_at_eof start_nt successes cs term_table =
-      let d = cs.WI.dense_s in
-      let dcs = cs.WI.dense_sv in
-      let count = cs.WI.count in
       let do_check socvas = function
         | PJDN.Complete_trans nt
         | PJDN.Complete_p_trans nt ->
@@ -1179,6 +1371,9 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
                   !successes
             end else LOGp(eof_ne, `"Final states found, no start.\n"')
         | _ -> () in
+      let d = cs.WI.dense_s in
+      let dcs = cs.WI.dense_sv in
+      let count = cs.WI.count in
       for j = 0 to count - 1 do
         let s = d.(j) in
         LOGp(eof_ne, "Checking state %d.\n" s);
@@ -1201,8 +1396,11 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
        Early-set inspection code.
     *)
 
-    (** Get the size of an Earley set *)
+    (** Get the size of an Earley set in terms of items. *)
     let get_size m = WI.fold (fun _ socvas n -> n + (Socvas.cardinal socvas)) m 0
+
+    (** Get the number of active states *)
+    let get_active_states = WI.cardinal
 
     module Int_set = Hashtbl.Make(struct type t = int
                                          let equal = (==)
@@ -1245,6 +1443,429 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
   (**************************************************************)
   (**************************************************************)
 
+  module ES_hierarchical_hash = struct
+    module Proto_callset = struct
+
+      include ES_hierarchical.Proto_callset_wfis_socvas
+
+      let convert_current_callset item_set pcc =
+        let len = pcc.S.count in
+        let arr = (Obj.obj (Obj.new_block 0 len) : (int * Socvas.t) array) in
+        for i = 0 to len - 1 do
+          let x = Array.unsafe_get pcc.S.dense i in
+          Array.unsafe_set arr i (x, Hashtbl.find item_set x);
+        done;
+        arr
+
+      let iter_current_callset item_set pcc f =
+        let len = pcc.S.count in
+        for i = 0 to len - 1 do
+          let s_l = Array.unsafe_get pcc.S.dense i in
+          let socvas_l = Hashtbl.find item_set s_l in
+          f s_l socvas_l
+        done
+
+    end
+
+    let create _ = Hashtbl.create 173
+
+    let insert_elt ol es state cva =
+      LOG(if Logging.features_are_set Logging.Features.eset_stats then begin
+            Logging.Counters.increment "insert_elt";
+        end);
+      try
+        let socvas = Hashtbl.find es state in
+        if Socvas.mem cva socvas then Ignore_elt
+        else begin
+          LOG(
+            let (callset, _, _) = cva in
+            Logging.log Logging.Features.reg_ne
+              "+o %d:(%d,%d).\n" (Imp_position.get_position ()) state callset.id;
+          );
+          Hashtbl.replace es state (Socvas.add cva socvas);
+          ol := (state, Socvas.singleton cva) :: !ol;
+          Reprocess_elt
+        end
+      with Not_found ->
+        LOG(
+          let (callset, _, _) = cva in
+          Logging.log Logging.Features.reg_ne
+            "+n %d:(%d,%d).\n" (Imp_position.get_position ()) state callset.id;
+        );
+        let socvas = Socvas.singleton cva in
+        Hashtbl.add es state socvas;
+        ol := (state, socvas) :: !ol;
+        Process_elt
+
+    let insert_elt_ig ol es state x y z = ignore (insert_elt ol es state (x,y,z))
+
+    let insert_elt_nc es state cva =
+      LOG(if Logging.features_are_set Logging.Features.eset_stats then begin
+            Logging.Counters.increment "insert_elt_nc";
+          end);
+      try
+        let socvas = Hashtbl.find es state in
+        Hashtbl.replace es state (Socvas.add cva socvas);
+
+        LOG(
+          let (callset, _, _) = cva in
+          Logging.log Logging.Features.reg_ne
+            "+> %d:(%d,%d).\n" (Imp_position.get_position ()) state callset.id;
+        )
+      with Not_found ->
+          Hashtbl.add es state (Socvas.singleton cva);
+          LOG(
+            let (callset, _, _) = cva in
+            Logging.log Logging.Features.reg_ne
+              "+> %d:(%d,%d).\n" (Imp_position.get_position ()) state callset.id;
+          )
+
+    let insert_container ol es state socvas_new =
+      LOG(if Logging.features_are_set Logging.Features.eset_stats then begin
+            Logging.Counters.increment "insert_container";
+          end);
+      try
+        let socvas = Hashtbl.find es state in
+        LOG(
+          Logging.log Logging.Features.reg_ne
+            "+o %d:(%d,?).\n" (Imp_position.get_position ()) state;
+        );
+
+        let s_d = Socvas.diff socvas_new socvas in
+        if not (Socvas.is_empty s_d) then begin
+          Hashtbl.replace es state (Socvas.union s_d socvas);
+          ol := (state, s_d) :: !ol;
+        end
+      with Not_found ->
+        LOG(
+          Logging.log Logging.Features.reg_ne
+            "+n %d:(%d,?).\n" (Imp_position.get_position ()) state
+        );
+        Hashtbl.add es state socvas_new;
+        ol := (state, socvas_new) :: !ol
+
+
+    let insert_container_nc es state socvas_new =
+      LOG(
+        if Logging.features_are_set Logging.Features.eset_stats then begin
+        Logging.Counters.increment "insert_container_nc";
+        end;
+        Logging.log Logging.Features.reg_ne
+          "+> %d:(%d,?).\n" (Imp_position.get_position ()) state
+      );
+      try
+        let socvas = Hashtbl.find es state in
+        Hashtbl.replace es state (Socvas.union socvas socvas_new)
+      with Not_found ->
+        Hashtbl.add es state socvas_new
+
+    exception Is_found
+
+    let check_done term_table start_nt cs =
+      let check_callset (callset, _, _) b = b || callset.id = 0 in
+      let do_check start_nt socvas = function
+        | PJDN.Complete_trans nt
+        | PJDN.Complete_p_trans nt ->
+            if nt = start_nt then begin
+              LOGp(eof_ne, `"Final state found, start symbol.\n"');
+              Socvas.fold check_callset socvas false
+            end else begin
+              LOGp(eof_ne, `"Final state found, not start: %d.\n" nt');
+              false
+            end
+
+        | PJDN.MComplete_trans nts
+        | PJDN.MComplete_p_trans nts ->
+            if Util.int_array_contains start_nt nts then begin
+              LOGp(eof_ne, `"Final state found, start symbol.\n"');
+              Socvas.fold check_callset socvas false
+            end else (LOGp(eof_ne, `"Final states found, no start.\n"'); false)
+        | _ -> false in
+      let rec iter_do_check start_nt socvas txs n j =
+        if j >= n then false
+        else (do_check start_nt socvas txs.(j)
+              || iter_do_check start_nt socvas txs n (j + 1)) in
+
+      let search_for_succ term_table start_nt s socvas =
+        LOGp(eof_ne, "Checking state %d.\n" s);
+        let is_done = match term_table.(s) with
+          | PJDN.Complete_trans _ | PJDN.Complete_p_trans _
+          | PJDN.MComplete_trans _ | PJDN.MComplete_p_trans _ ->
+              do_check start_nt socvas term_table.(s)
+          | PJDN.Many_trans txs -> iter_do_check start_nt socvas txs (Array.length txs) 0
+          | PJDN.Box_trans _ | PJDN.When_trans _ | PJDN.When2_trans _ | PJDN.Action_trans _
+          | PJDN.Call_p_trans _
+          | PJDN.Maybe_nullable_trans2 _
+          | PJDN.Call_trans _| PJDN.Det_multi_trans _
+          | PJDN.TokLookahead_trans _ | PJDN.RegLookahead_trans _ | PJDN.ExtLookahead_trans _
+          | PJDN.Lookahead_trans _| PJDN.MScan_trans _
+          | PJDN.Scan_trans _ | PJDN.No_trans | PJDN.Det_trans _ | PJDN.Lexer_trans _ -> false in
+        if is_done then raise Is_found in
+
+      LOGp(eof_ne, "Checking for successful parses.\n");
+      try Hashtbl.iter (search_for_succ term_table start_nt) cs; false with Is_found -> true
+
+    let collect_done_at_eof start_nt successes cs term_table =
+      let do_check socvas = function
+        | PJDN.Complete_trans nt
+        | PJDN.Complete_p_trans nt ->
+            if nt = start_nt then begin
+              LOGp(eof_ne, `"Final state found, start symbol.\n"');
+              successes :=
+                Socvas.fold (fun (callset, sv, _) a ->
+                               if callset.id <> 0 then a else sv::a)
+                  socvas
+                  !successes
+            end else LOGp(eof_ne, `"Final state found, not start: %d.\n" nt')
+
+        | PJDN.MComplete_trans nts
+        | PJDN.MComplete_p_trans nts ->
+            if Util.int_array_contains start_nt nts then begin
+              LOGp(eof_ne, `"Final state found, start symbol.\n"');
+              successes :=
+                Socvas.fold (fun (callset, sv, _) a ->
+                               if callset.id <> 0 then a else sv::a)
+                  socvas
+                  !successes
+            end else LOGp(eof_ne, `"Final states found, no start.\n"')
+        | _ -> () in
+      let f s socvas =
+        LOGp(eof_ne, "Checking state %d.\n" s);
+        match term_table.(s) with
+          | PJDN.Complete_trans _ | PJDN.Complete_p_trans _
+          | PJDN.MComplete_trans _ | PJDN.MComplete_p_trans _ ->
+              do_check socvas term_table.(s)
+          | PJDN. Many_trans txs -> Array.iter (do_check socvas) txs
+          | PJDN.Box_trans _ | PJDN.When_trans _ | PJDN.When2_trans _ | PJDN.Action_trans _
+          | PJDN.Call_p_trans _
+          | PJDN.Maybe_nullable_trans2 _
+          | PJDN.Call_trans _| PJDN.Det_multi_trans _
+          | PJDN.TokLookahead_trans _ | PJDN.RegLookahead_trans _ | PJDN.ExtLookahead_trans _
+          | PJDN.Lookahead_trans _| PJDN.MScan_trans _
+          | PJDN.Scan_trans _ | PJDN.No_trans | PJDN.Det_trans _ | PJDN.Lexer_trans _
+              -> () in
+      Hashtbl.iter f cs
+
+    let get_size m = Hashtbl.fold (fun _ socvas n -> n + (Socvas.cardinal socvas)) m 0
+
+  end
+
+  (**************************************************************)
+  (**************************************************************)
+
+  module Int_map = Map.Make(struct type t = int let compare = (-) end)
+
+  module ES_hierarchical_map = struct
+    module Proto_callset = struct
+
+      include ES_hierarchical.Proto_callset_wfis_socvas
+
+      let convert_current_callset item_set pcc =
+        let len = pcc.S.count in
+        let arr = (Obj.obj (Obj.new_block 0 len) : (int * Socvas.t) array) in
+        let set = !item_set in
+        for i = 0 to len - 1 do
+          let x = Array.unsafe_get pcc.S.dense i in
+          Array.unsafe_set arr i (x, Int_map.find x set);
+        done;
+        arr
+
+      let iter_current_callset item_set pcc f =
+        let len = pcc.S.count in
+        let set = !item_set in
+        for i = 0 to len - 1 do
+          let s_l = Array.unsafe_get pcc.S.dense i in
+          let socvas_l = Int_map.find s_l set in
+          f s_l socvas_l
+        done
+
+    end
+
+    let create _ = ref Int_map.empty
+
+    let insert_elt ol es state cva =
+      LOG(if Logging.features_are_set Logging.Features.eset_stats then begin
+            Logging.Counters.increment "insert_elt";
+        end);
+      try
+        let socvas = Int_map.find state !es in
+        if Socvas.mem cva socvas then Ignore_elt
+        else begin
+          LOG(
+            let (callset, _, _) = cva in
+            Logging.log Logging.Features.reg_ne
+              "+o %d:(%d,%d).\n" (Imp_position.get_position ()) state callset.id;
+          );
+          es := Int_map.add state (Socvas.add cva socvas) !es;
+          ol := (state, Socvas.singleton cva) :: !ol;
+          Reprocess_elt
+        end
+      with Not_found ->
+        LOG(
+          let (callset, _, _) = cva in
+          Logging.log Logging.Features.reg_ne
+            "+n %d:(%d,%d).\n" (Imp_position.get_position ()) state callset.id;
+        );
+        let socvas = Socvas.singleton cva in
+        es := Int_map.add state socvas !es;
+        ol := (state, socvas) :: !ol;
+        Process_elt
+
+    let insert_elt_ig ol es state x y z = ignore (insert_elt ol es state (x,y,z))
+
+    let insert_elt_nc es state cva =
+      LOG(if Logging.features_are_set Logging.Features.eset_stats then begin
+            Logging.Counters.increment "insert_elt_nc";
+          end);
+      try
+        let socvas = Int_map.find state !es in
+        es := Int_map.add state (Socvas.add cva socvas) !es;
+
+        LOG(
+          let (callset, _, _) = cva in
+          Logging.log Logging.Features.reg_ne
+            "+> %d:(%d,%d).\n" (Imp_position.get_position ()) state callset.id;
+        )
+      with Not_found ->
+          es := Int_map.add state (Socvas.singleton cva) !es;
+          LOG(
+            let (callset, _, _) = cva in
+            Logging.log Logging.Features.reg_ne
+              "+> %d:(%d,%d).\n" (Imp_position.get_position ()) state callset.id;
+          )
+
+    let insert_container ol es state socvas_new =
+      LOG(if Logging.features_are_set Logging.Features.eset_stats then begin
+            Logging.Counters.increment "insert_container";
+          end);
+      try
+        let socvas = Int_map.find state !es in
+        LOG(
+          Logging.log Logging.Features.reg_ne
+            "+o %d:(%d,?).\n" (Imp_position.get_position ()) state;
+        );
+
+        let s_d = Socvas.diff socvas_new socvas in
+        if not (Socvas.is_empty s_d) then begin
+          es := Int_map.add state (Socvas.union s_d socvas) !es;
+          ol := (state, s_d) :: !ol;
+        end
+      with Not_found ->
+        LOG(
+          Logging.log Logging.Features.reg_ne
+            "+n %d:(%d,?).\n" (Imp_position.get_position ()) state
+        );
+        es := Int_map.add state socvas_new !es;
+        ol := (state, socvas_new) :: !ol
+
+
+    let insert_container_nc es state socvas_new =
+      LOG(
+        if Logging.features_are_set Logging.Features.eset_stats then begin
+        Logging.Counters.increment "insert_container_nc";
+        end;
+        Logging.log Logging.Features.reg_ne
+          "+> %d:(%d,?).\n" (Imp_position.get_position ()) state
+      );
+      try
+        let socvas = Int_map.find state !es in
+        es := Int_map.add state (Socvas.union socvas socvas_new) !es
+      with Not_found ->
+        es := Int_map.add state socvas_new !es
+
+    exception Is_found
+
+    let check_done term_table start_nt cs =
+      let check_callset (callset, _, _) b = b || callset.id = 0 in
+      let do_check start_nt socvas = function
+        | PJDN.Complete_trans nt
+        | PJDN.Complete_p_trans nt ->
+            if nt = start_nt then begin
+              LOGp(eof_ne, `"Final state found, start symbol.\n"');
+              Socvas.fold check_callset socvas false
+            end else begin
+              LOGp(eof_ne, `"Final state found, not start: %d.\n" nt');
+              false
+            end
+
+        | PJDN.MComplete_trans nts
+        | PJDN.MComplete_p_trans nts ->
+            if Util.int_array_contains start_nt nts then begin
+              LOGp(eof_ne, `"Final state found, start symbol.\n"');
+              Socvas.fold check_callset socvas false
+            end else (LOGp(eof_ne, `"Final states found, no start.\n"'); false)
+        | _ -> false in
+      let rec iter_do_check start_nt socvas txs n j =
+        if j >= n then false
+        else (do_check start_nt socvas txs.(j)
+              || iter_do_check start_nt socvas txs n (j + 1)) in
+
+      let search_for_succ term_table start_nt s socvas =
+        LOGp(eof_ne, "Checking state %d.\n" s);
+        let is_done = match term_table.(s) with
+          | PJDN.Complete_trans _ | PJDN.Complete_p_trans _
+          | PJDN.MComplete_trans _ | PJDN.MComplete_p_trans _ ->
+              do_check start_nt socvas term_table.(s)
+          | PJDN.Many_trans txs -> iter_do_check start_nt socvas txs (Array.length txs) 0
+          | PJDN.Box_trans _ | PJDN.When_trans _ | PJDN.When2_trans _ | PJDN.Action_trans _
+          | PJDN.Call_p_trans _
+          | PJDN.Maybe_nullable_trans2 _
+          | PJDN.Call_trans _| PJDN.Det_multi_trans _
+          | PJDN.TokLookahead_trans _ | PJDN.RegLookahead_trans _ | PJDN.ExtLookahead_trans _
+          | PJDN.Lookahead_trans _| PJDN.MScan_trans _
+          | PJDN.Scan_trans _ | PJDN.No_trans | PJDN.Det_trans _ | PJDN.Lexer_trans _ -> false in
+        if is_done then raise Is_found in
+
+      LOGp(eof_ne, "Checking for successful parses.\n");
+      try Int_map.iter (search_for_succ term_table start_nt) !cs; false with Is_found -> true
+
+    let collect_done_at_eof start_nt successes cs term_table =
+      let do_check socvas = function
+        | PJDN.Complete_trans nt
+        | PJDN.Complete_p_trans nt ->
+            if nt = start_nt then begin
+              LOGp(eof_ne, `"Final state found, start symbol.\n"');
+              successes :=
+                Socvas.fold (fun (callset, sv, _) a ->
+                               if callset.id <> 0 then a else sv::a)
+                  socvas
+                  !successes
+            end else LOGp(eof_ne, `"Final state found, not start: %d.\n" nt')
+
+        | PJDN.MComplete_trans nts
+        | PJDN.MComplete_p_trans nts ->
+            if Util.int_array_contains start_nt nts then begin
+              LOGp(eof_ne, `"Final state found, start symbol.\n"');
+              successes :=
+                Socvas.fold (fun (callset, sv, _) a ->
+                               if callset.id <> 0 then a else sv::a)
+                  socvas
+                  !successes
+            end else LOGp(eof_ne, `"Final states found, no start.\n"')
+        | _ -> () in
+      let f s socvas =
+        LOGp(eof_ne, "Checking state %d.\n" s);
+        match term_table.(s) with
+          | PJDN.Complete_trans _ | PJDN.Complete_p_trans _
+          | PJDN.MComplete_trans _ | PJDN.MComplete_p_trans _ ->
+              do_check socvas term_table.(s)
+          | PJDN. Many_trans txs -> Array.iter (do_check socvas) txs
+          | PJDN.Box_trans _ | PJDN.When_trans _ | PJDN.When2_trans _ | PJDN.Action_trans _
+          | PJDN.Call_p_trans _
+          | PJDN.Maybe_nullable_trans2 _
+          | PJDN.Call_trans _| PJDN.Det_multi_trans _
+          | PJDN.TokLookahead_trans _ | PJDN.RegLookahead_trans _ | PJDN.ExtLookahead_trans _
+          | PJDN.Lookahead_trans _| PJDN.MScan_trans _
+          | PJDN.Scan_trans _ | PJDN.No_trans | PJDN.Det_trans _ | PJDN.Lexer_trans _
+              -> () in
+      Int_map.iter f !cs
+
+    let get_size m = Int_map.fold (fun _ socvas n -> n + (Socvas.cardinal socvas)) !m 0
+
+  end
+
+  (**************************************************************)
+  (**************************************************************)
   module ESet = ESET_MODULE
 
   module Pcs = ESet.Proto_callset
@@ -1344,9 +1965,12 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
           | _ -> false in
     step term_table la_nt ykb start
 
-      (* PERF: push [is_new] binding code into logging -- it plays no other role. *)
+  (* PERF: push [is_new] binding code into logging -- it plays no other role.
+     For non-logging, all we need is to handle the [Process_elt] case.
+     Low priority b/c I doubt it will make any difference. *)
   DEF2(`CALL_CODE', `target', `grow_callset',`(
      IF_TRUE(grow_callset,`PCS_ADD_CALL_ITEM_C(`pre_cc', `s', `socvas_s');')
+
      let target_cva = (current_callset, sv0, sv0) in
      let is_new =
        match ESet.insert_elt ESET_WLD cs target target_cva with
@@ -1356,34 +1980,159 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
              IF_TRUE(grow_callset,`PCS_ADD_CALL_ITEM_E(`pre_cc', `target', `target_cva');')
                true in
 
+     IF_TRUE(DO_NULL_RET,
+      `let nts = dense_nonterm_table.(s) in
+       for k = 0 to Array.length nts - 1 do
+         let nt = nts.(k) in
+         if NR.mem null_rets nt then CONTINUE_CODE(`true', `s', `socvas_s')
+       done;
+
+       let nts = dense_nonterm_table.(target) in
+       let socvas_target = ESET_CONTAINER_SINGLETON(target_cva) in
+       for k = 0 to Array.length nts - 1 do
+         let nt = nts.(k) in
+         if NR.mem null_rets nt then CONTINUE_CODE(`true', `target', `socvas_target')
+       done;'
+     )
+
      LOG(
        if is_new then begin
          Logging.log Logging.Features.calls_ne
            "+C %d:%d.\n" (Imp_position.get_position ()) target;
 
-         if Logging.features_are_set Logging.Features.stats then begin
-           let n = PamJIT.DNELR.count_reachable_calls term_table target in
-           Logging.Distributions.add_value "MCC" n;
-         end;
+(*          if Logging.features_are_set Logging.Features.stats then begin *)
+(*            let n = PamJIT.DNELR.count_reachable_calls term_table target in *)
+(*            Logging.Distributions.add_value "MCC" n; *)
+(*          end; *)
        end
      );
   )')
 
   DEF3(`CALL_P_CODE', `target', `grow_callset', `call_act',`(
      IF_TRUE(grow_callset,`PCS_ADD_CALL_ITEM_C(`pre_cc', `s', `socvas_s');')
-     ESET_CONTAINER_ITER(`socvas_s', `(callset, sv, sv_arg)',
+
+     ESET_CONTAINER_ITER(`socvas_s', `((_, sv_item, _) IF_TRUE(DO_NULL_RET, `as item_cva') )',
        `let curr_pos = current_callset.id in
-        let arg = call_act curr_pos sv in
+        let arg = call_act curr_pos sv_item in
+
+        IF_TRUE(DO_NULL_RET,
+         `let nts = dense_nonterm_table.(s) in
+          for k = 0 to Array.length nts - 1 do
+            let nt = nts.(k) in
+            try
+              let results = NR.find_p null_p_rets nt arg in
+              NR.res_iter results begin fun sv ->
+                P_CALL_CONTINUE_CODE(`s', `item_cva', `arg', `sv')
+              end
+            with Not_found -> ()
+          done;
+
+          let nts = dense_nonterm_table.(target) in
+          let target_cva = (current_callset, arg, arg) in
+          for k = 0 to Array.length nts - 1 do
+            let nt = nts.(k) in
+            try
+              let results = NR.find_p null_p_rets nt arg in
+              NR.res_iter results begin fun sv ->
+                P_CALL_CONTINUE_CODE(`target', `target_cva', `arg', `sv')
+              end
+            with Not_found -> ()
+          done;'
+        )
+
         IFE_TRUE(grow_callset,
-        `let target_cva = (current_callset, arg, arg) in
-         (match ESet.insert_elt ESET_WLD cs target target_cva with
-            | Ignore_elt | Reprocess_elt -> ()
-            | Process_elt -> PCS_ADD_CALL_ITEM_E(`pre_cc', `target', `target_cva'))',
-        `ESet.insert_elt_ig ESET_WLD cs target current_callset arg arg')
+          `let target_cva = (current_callset, arg, arg) in
+           (match ESet.insert_elt ESET_WLD cs target target_cva with
+              | Ignore_elt | Reprocess_elt -> ()
+              | Process_elt -> PCS_ADD_CALL_ITEM_E(`pre_cc', `target', `target_cva'))',
+          `ESet.insert_elt_ig ESET_WLD cs target current_callset arg arg')
      ')
   )')
 
-  DEF2(`MCOMPLETE_CODE', `nts', `no_args', `(
+
+  (* Check for possible continuations on the specified item.
+     If no_args is false, captures [sv], ... *)
+  DEF3(`CONTINUE_CODE', `no_args', `s_l', `socvas_l',`(
+    let t = PJ.lookup_trans_nt nonterm_table s_l nt in
+    if t > 0 then begin
+      ESet.insert_container ESET_WLD cs t socvas_l;
+      LOG(
+        Logging.log Logging.Features.comp_ne "%d => %d [%d]\n" s_l t nt
+      );
+    end;
+    IF_FALSE(no_args,
+      `match PJDN.lookup_trans_pnt p_nonterm_table s_l nt with
+        | [||] -> ()
+        | entries ->
+            for idx = 0 to Array.length entries - 1 do
+              let {PJDN.ctarget = t; carg = arg_act; cbinder = binder} = entries.(idx) in
+              LOGp(comp_ne, "@%d: %d => %d [%d(_)]? " callset.id s_l t nt);
+              ESET_CONTAINER_ITER(`socvas_l', `(callset_s_l, sv_s_l, sv_arg_s_l)', `
+                            if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
+                              LOGp(comp_ne, "Y");
+                              ESet.insert_elt_ig ESET_WLD cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
+                            end else LOGp(comp_ne, "N")');
+              LOGp(comp_ne, "\n");
+            done');
+   )')
+
+  (** Check for possible continuations on a single Earley item (s_l, cva_l)
+      We only check in the p_nonterm_table because a parameterized call can
+      only correspond to an entry in that table (vice versa is not true, because
+      an unparameterized call with a binder will result in a p_nonterm_table entry).
+  *)
+  DEF4(`P_CALL_CONTINUE_CODE', `s_l', `cva_l', `sv_arg', `sv_res', `(
+     match PJDN.lookup_trans_pnt p_nonterm_table s_l nt with
+        | [||] -> ()
+        | entries ->
+            for idx = 0 to Array.length entries - 1 do
+              let {PJDN.ctarget = t; carg = arg_act; cbinder = binder} = entries.(idx) in
+              LOGp(comp_ne, "@%d: %d => %d [%d(_)]? " current_callset.id s_l t nt);
+              let (callset_s_l, sv_s_l, sv_arg_s_l) = cva_l in
+              if Sem_val.cmp (arg_act current_callset.id sv_s_l) sv_arg = 0 then begin
+                LOGp(comp_ne, "Y\n");
+                ESet.insert_elt_ig ESET_WLD cs t callset_s_l (binder curr_pos sv_s_l sv_res) sv_arg_s_l
+              end else LOGp(comp_ne, "N\n")
+            done
+   )')
+
+  DEF4(`HANDLE_NULL_RET', `no_args', `nt', `sv_arg', `sv', `(
+    (* Check if this completion has already been processed. *)
+    let cond = IFE_TRUE(no_args, `NR.mem null_rets nt', `NR.mem_p null_p_rets nt sv_arg sv') in
+    if not cond then begin
+      (* Register the completion for future items. *)
+      IFE_TRUE(no_args, `NR.add null_rets nt', `NR.add_p null_p_rets nt sv_arg sv');
+      (* Try to continue on any existing items in the current set. *)
+      Pcs.iter_current_callset cs pre_cc begin fun s_l socvas_l ->
+        CONTINUE_CODE(no_args,`s_l', `socvas_l')
+      end
+    end
+       ) ' )
+
+  DEF3(`COMPLETE_CODE', `no_args', `at_eof', `nt',`(
+    LOG(
+      IF_HIER(`if Logging.features_are_set Logging.Features.stats then begin
+        let n = Socvas.cardinal socvas_s in
+        Logging.Distributions.add_value IFE_TRUE(no_args, `"CSS"', `"CPSS"') n;
+      end;')
+
+      Logging.log Logging.Features.comp_ne "Attempting completion on nonterminal %d.\n" nt;
+    );
+    IF_TRUE(at_eof, `let is_nt = nt = start_nt in')
+    IF_FALSE(no_args,`let curr_pos = current_callset.id in')
+    ESET_CONTAINER_ITER(`socvas_s',
+      `IFE_TRUE(no_args, `(callset, _, _)', `(callset, sv, sv_arg)') ',
+      `IF_TRUE(at_eof, `if is_nt && callset.id = 0 then succeeded := true;')
+       CHECK_NULL_RET(
+         `HANDLE_NULL_RET(no_args, nt, sv_arg, sv)',
+         `let items = callset.data in
+          for l = 0 to Array.length items - 1 do
+            let ESET_ITEM_PATT(`s_l', `socvas_l') = items.(l) in
+            CONTINUE_CODE(no_args,`s_l', `socvas_l')
+          done ' )' )
+  )')
+
+  DEF2(`MCOMPLETE_CODE', `no_args', `nts', `(
          IF_HIER(`LOG(
            if Logging.features_are_set Logging.Features.stats then begin
              let n = Socvas.cardinal socvas_s in
@@ -1393,37 +2142,28 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
            end;
          );')
          let m_nts = Array.length nts - 1 in
-         IFE_TRUE(no_args, `',`let curr_pos = current_callset.id in')
-           ESET_CONTAINER_ITER(`socvas_s',
-                       `IFE_TRUE(no_args, `(callset, _, _)', `(callset, sv, sv_arg)') ',
-                       `let items = callset.data in
-                       for l = 0 to Array.length items - 1 do
-                         let ESET_ITEM_PATT(`s_l', `socvas_l') = items.(l) in
-                         for k = 0 to m_nts do
-                           let t = PJ.lookup_trans_nt nonterm_table s_l nts.(k) in
-                           if t > 0 then ESet.insert_container ESET_WLD cs t socvas_l;
-                           IFE_TRUE(no_args, `',
-                                    `match PJDN.lookup_trans_pnt p_nonterm_table s_l nts.(k) with
-                                      | [||] -> ()
-                                      | entries ->
-                                          for idx = 0 to Array.length entries - 1 do
-                                            let {PJDN.ctarget = t; carg = arg_act; cbinder = binder} = entries.(idx) in
-                                            LOGp(comp_ne, "@%d: %d => %d [%d(_)]? " callset.id s_l t nts.(k));
-                                            ESET_CONTAINER_ITER(`socvas_l', `(callset_s_l, sv_s_l, sv_arg_s_l)', `
-                                                          if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
-                                                            LOGp(comp_ne, "Y");
-                                                            ESet.insert_elt_ig ESET_WLD cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
-                                                          end else LOGp(comp_ne, "N")');
-                                            LOGp(comp_ne, "\n");
-                                          done');
-                         done
-                       done ')
+         IF_FALSE(no_args,`let curr_pos = current_callset.id in')
+         ESET_CONTAINER_ITER(`socvas_s',
+           `IFE_TRUE(no_args, `(callset, _, _)', `(callset, sv, sv_arg)') ',
+           `CHECK_NULL_RET(
+              `for k = 0 to m_nts do
+                let nt = nts.(k) in
+                HANDLE_NULL_RET(no_args, nt, sv_arg, sv)
+              done ',
+              `let items = callset.data in
+              for l = 0 to Array.length items - 1 do
+                let ESET_ITEM_PATT(`s_l', `socvas_l') = items.(l) in
+                for k = 0 to m_nts do
+                  let nt = nts.(k) in
+                  CONTINUE_CODE(no_args,`s_l',`socvas_l')
+                done
+              done ' ) ' )
        )')
 
   DEF4(`REGLA_CODE', `presence', `la_target', `la_nt', `target',`(
      let cp = YkBuf.save ykb in
-     if Logging.activated then begin
-       let cf = !Logging.current_features in
+     IFE_LOG(
+      `let cf = !Logging.current_features in
        Logging.set_features Logging.Features.none;
        let old_pos = Imp_position.get_position () in
 
@@ -1441,43 +2181,34 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
            "Lookahead succeeded: %d.\n" lookahead_pos;
        end;
        YkBuf.restore ykb cp;
-       result
-     end else begin
-       let b = lookahead_regexp_NELR0_tbl term_table la_nt ykb la_target in
+       result',
+      `let b = lookahead_regexp_NELR0_tbl term_table la_nt ykb la_target in
        YkBuf.restore ykb cp;
-       b = presence
-     end
+       b = presence')
   )')
 
   DEF4(`EXTLA_CODE', `presence', `la_target', `la_nt', `target',
     `(presence = nplookahead_fn la_nt la_target ykb)')
 
 
-  DEF4(`PROCESS_WORKLIST_HIER', `pes', `cs', `term_table', `overflow',`
-         begin
-           let d = cs.WI.dense_s in
-           let dcs = cs.WI.dense_sv in
+  DEF4(`PROCESS_WORKLIST_HIER', `pes', `cs', `term_table', `overflow',
+   `begin
+      let rec inner_loop pes d dcs k overflow cs term_table =
+        (* Process state s *)
+        let s = d.(k) in
+        process_trans pes s dcs.(k) k term_table.(s);
+        let k2 = k + 1 in
+        if k2 >= cs.WI.count then k
+        else
+          inner_loop pes d dcs k2 overflow cs term_table in
 
-           let i = ref 0 in
-           while !i < cs.WI.count do
-             let rec loop pes d dcs k overflow cs term_table =
-               let s = d.(k) in
+      let d = cs.WI.dense_s in
+      let dcs = cs.WI.dense_sv in
 
-               (* Process state s *)
-          (* FINAL VERSION (PERF): inline this call by hand but take care with
-             socvas_s -> dcs.(!i) in inlined version because both dcs and i are mutable
-             so you need to add
-             let socvas_s = dcs.(!i) in some cases rather than simply substituting.
-          *)
-          process_trans pes s dcs.(k) k term_table.(s);
+      let i = ref 0 in
+      while !i < cs.WI.count do
 
-          let k2 = k + 1 in
-          if k2 < cs.WI.count then
-            loop pes d dcs k2 overflow cs term_table
-          else k
-        in
-
-        i := loop pes d dcs !i overflow cs term_table;
+        i := inner_loop pes d dcs !i overflow cs term_table;
 
         (* Handle overflow from the worklist. *)
         while !overflow <> [] do
@@ -1526,8 +2257,56 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
       done;
    end ' )
 
-  DEF4(`PROCESS_WORKLIST_FLAT', `pes', `cs', `term_table', `worklist',`
-    begin
+  DEF4(`PROCESS_WORKLIST_HIERHASH', `pes', `cs', `term_table', `overflow',
+    `begin
+      let g s socvas = process_trans pes s socvas term_table.(s) in
+      let h (s, socvas) = process_trans pes s socvas term_table.(s) in
+      Hashtbl.iter g cs;
+      while !overflow <> [] do
+        let owl = !overflow in
+        overflow := [];
+        List.iter h owl;
+      done;
+    end ' )
+
+  DEF3(`PROCESS_EOF_WORKLIST_HIERHASH', `cs', `proc_eof_item', `overflow',
+   `begin
+      let g s socvas = proc_eof_item overflow s socvas in
+      let h (s, socvas) = proc_eof_item overflow s socvas in
+      Hashtbl.iter g cs;
+      while !overflow <> [] do
+        let owl = !overflow in
+        overflow := [];
+        List.iter h owl;
+      done;
+    end ' )
+
+  DEF4(`PROCESS_WORKLIST_HIERMAP', `pes', `cs', `term_table', `overflow',
+    `begin
+      let g s socvas = process_trans pes s socvas term_table.(s) in
+      let h (s, socvas) = process_trans pes s socvas term_table.(s) in
+      Int_map.iter g !cs;
+      while !overflow <> [] do
+        let owl = !overflow in
+        overflow := [];
+        List.iter h owl;
+      done;
+    end ' )
+
+  DEF3(`PROCESS_EOF_WORKLIST_HIERMAP', `cs', `proc_eof_item', `overflow',
+   `begin
+      let g s socvas = proc_eof_item overflow s socvas in
+      let h (s, socvas) = proc_eof_item overflow s socvas in
+      Int_map.iter g !cs;
+      while !overflow <> [] do
+        let owl = !overflow in
+        overflow := [];
+        List.iter h owl;
+      done;
+    end ' )
+
+  DEF4(`PROCESS_WORKLIST_FLAT', `pes', `cs', `term_table', `worklist',
+   `begin
       (* Breadth-first processing of Earley set. *)
 
       worklist := ESet.Earley_set.elements !cs;
@@ -1556,13 +2335,129 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
    end ' )
 
 
+  IF_HIER(`let rec try_recover_hier pes cs term_table nonterm_table overflow =
+      let d = cs.WI.dense_s in
+      let dcs = cs.WI.dense_sv in
+      let n_ex = cs.WI.count in
+
+      (* Scan all *existing* elements of eset looking for error transition.
+         if found, add in the same way we would during normal progression --
+         should end up either on the worklist or the overflow list. *)
+      for k = 0 to n_ex - 1 do
+        let s = d.(k) in
+
+        (* Check state s for error trans *)
+        let t = PJ.lookup_trans_nt nonterm_table s PJ.error_nt in
+        if t > 0 then begin
+          ESet.insert_container k overflow cs t dcs.(k);
+          LOG(
+            Logging.log Logging.Features.comp_ne "%d => %d [ERROR]\n" s t
+          );
+        end;
+      done;
+
+      (* Next, continue with all *new* elements, still checking
+         for error trans. same with overflow, until all is done. *)
+
+      let rec inner_loop pes d dcs k overflow cs term_table nonterm_table =
+        (* Process state s *)
+        let s = d.(k) in
+
+        process_trans pes s dcs.(k) k term_table.(s);
+
+        let t = PJ.lookup_trans_nt nonterm_table s PJ.error_nt in
+        if t > 0 then begin
+          ESet.insert_container k overflow cs t dcs.(k);
+          LOG(
+            Logging.log Logging.Features.comp_ne "%d => %d [ERROR]\n" s t
+          );
+        end;
+
+        let k2 = k + 1 in
+        if k2 >= cs.WI.count then k
+        else
+          inner_loop pes d dcs k2 overflow cs term_table nonterm_table in
+
+      (* Effectively, List.iter inlined to avoid closure allocation: *)
+      let rec overflow_loop pes k cs term_table nonterm_table = function
+        | [] -> ()
+        | (s, socvas)::xs ->
+            process_trans pes s socvas k term_table.(s);
+            let t = PJ.lookup_trans_nt nonterm_table s PJ.error_nt in
+            if t > 0 then begin
+              ESet.insert_container k overflow cs t socvas;
+              LOG(
+                Logging.log Logging.Features.comp_ne "%d => %d [ERROR]\n" s t
+              );
+            end;
+            overflow_loop pes k cs term_table nonterm_table xs in
+
+      let i = ref n_ex in
+      while !i < cs.WI.count do
+        i := inner_loop pes d dcs !i overflow cs term_table nonterm_table;
+
+        (* Handle overflow from the worklist. *)
+        while !overflow <> [] do
+          let owl = !overflow in
+          overflow := [];
+          overflow_loop pes !i cs term_table nonterm_table owl;
+        done;
+
+        incr i;
+      done ')
+
+  (* (TODO?) UNIMPLEMENTED. As of now, this feature does not factor into our performance tests. *)
+  IF_HIERHASH(`let rec try_recover_hierhash pes cs term_table nonterm_table worklist = ()')
+  IF_HIERMAP(`let rec try_recover_hiermap pes cs term_table nonterm_table worklist = ()')
+
+  IF_FLAT(`let rec try_recover_flat pes cs term_table nonterm_table worklist =
+      (* Scan all *existing* elements of eset looking for error transition.
+         if found, add in the same way we would during normal progression --
+         should end up either on the worklist or the overflow list. *)
+      let wl =  ESet.Earley_set.elements !cs in
+      (* Effectively, List.iter inlined to avoid closure allocation: *)
+      let rec loop pes term_table = function
+        | [] -> ()
+        | {ESet.state=s; cva=cva} :: wl ->
+            (* Check state s for error trans *)
+            let t = PJ.lookup_trans_nt nonterm_table s PJ.error_nt in
+            if t > 0 then begin
+              ESet.insert_container worklist cs t cva;
+              LOG(
+                Logging.log Logging.Features.comp_ne "%d => %d [ERROR]\n" s t
+              );
+            end;
+            loop pes term_table wl in
+      loop pes term_table wl;
+
+      (* Next, continue with all *new* elements, still checking
+         for error trans. same with overflow, until all is done. *)
+      (* Effectively, List.iter inlined to avoid closure allocation: *)
+      let rec loop pes term_table nonterm_table = function
+        | [] -> ()
+        | {ESet.state=s; cva=cva} :: wl ->
+            process_trans pes s cva term_table.(s);
+            let t = PJ.lookup_trans_nt nonterm_table s PJ.error_nt in
+            if t > 0 then begin
+              ESet.insert_container worklist cs t cva;
+              LOG(
+                Logging.log Logging.Features.comp_ne "%d => %d [ERROR]\n" s t
+              );
+            end;
+            loop pes term_table nonterm_table wl in
+      while !worklist <> [] do
+        let wl = !worklist in
+        worklist := [];
+        loop pes term_table nonterm_table wl;
+      done ')
+
   (** Invokes full-blown lookahead in CfgLA case. *)
-  let rec mk_lookahead term_table nonterm_table p_nonterm_table sv0
+  and mk_lookahead term_table nonterm_table p_nonterm_table sv0
       la_nt la_target ykb =
     let sv = Terms.save () in
     let cp = YkBuf.save ykb in
-    if Logging.activated then begin
-      let cf = !Logging.current_features in
+    IFE_LOG(
+     `let cf = !Logging.current_features in
       Logging.set_features Logging.Features.none;
       let old_pos = Imp_position.get_position () in
 
@@ -1578,17 +2473,15 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
       Imp_position.set_position old_pos;
       YkBuf.restore ykb cp;
       Terms.restore sv;
-      r
-    end else begin
-      let r = _parse false
+      r',
+     `let r = _parse false
         {PJDN.start_symb = la_nt; start_state = la_target;
          term_table = term_table; nonterm_table = nonterm_table;
          p_nonterm_table = p_nonterm_table;}
         sv0 ykb <> [] in
       YkBuf.restore ykb cp;
       Terms.restore sv;
-      r
-    end
+      r')
 
   and process_trans
       (** Parse-engine state. *)
@@ -1605,6 +2498,16 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
         cs, ns,
         (** The nascent current callset. *)
         pre_cc,
+        (** [null_rets]: the current "null return" set, for handling null returns.
+            Set of nonterminals.
+
+            [null_p_rets]: the current "null return" set, for handling null returns of parameterized
+            nonterms. Map from nonterminal, call semval pair to set of semval results.
+
+            [dense_nonterm_table]: a dense summary of both [nonterm_table] and [p_nonterm_table]
+            mapping each state to a list of nonterms with continuations for that state.
+        *)
+        IF_TRUE(DO_NULL_RET, `null_rets, null_p_rets, dense_nonterm_table,')
         (** The actual current callset. Used only for its id and its pointer --
             the actual contents are meaningless until the [pre_cc] is processed
             and used to backpatch this value. *)
@@ -1668,63 +2571,10 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
            | PJDN.Call_trans t -> CALL_CODE(`t',`true')
            | PJDN.Call_p_trans (call_act, t) -> CALL_P_CODE(`t',`true',`call_act')
 
-           | PJDN.Complete_trans nt ->
-               IF_HIER(`LOG(
-                 if Logging.features_are_set Logging.Features.stats then begin
-                   let n = Socvas.cardinal socvas_s in
-                   Logging.Distributions.add_value "CSS" n;
-                 end;
-               );')
-               ESET_CONTAINER_ITER(`socvas_s', `(callset, _, _)', `
-                 if CURRENT_CALLSET_GUARD then begin
-                   let items = callset.data in
-                   for l = 0 to Array.length items - 1 do
-                     let ESET_ITEM_PATT(`s_l', `socvas_l') = items.(l) in
-                     let t = PJ.lookup_trans_nt nonterm_table s_l nt in
-                     if t > 0 then ESet.insert_container ESET_WLD cs t socvas_l
-                   done
-                 end')
-
-           | PJDN.Complete_p_trans nt ->
-               LOG(
-                 IF_HIER(`if Logging.features_are_set Logging.Features.stats then begin
-                   let n = Socvas.cardinal socvas_s in
-                   Logging.Distributions.add_value "CPSS" n;
-                 end;')
-
-                 Logging.log Logging.Features.comp_ne "Attempting completion on nonterminal %d.\n" nt;
-               );
-               let curr_pos = current_callset.id in
-               ESET_CONTAINER_ITER(`socvas_s', `(callset, sv, sv_arg)', `
-                 let items = callset.data in
-                 for l = 0 to Array.length items - 1 do
-                   let ESET_ITEM_PATT(`s_l', `socvas_l') = items.(l) in
-
-                   let t = PJ.lookup_trans_nt nonterm_table s_l nt in
-                   if t > 0 then begin
-                     ESet.insert_container ESET_WLD cs t socvas_l;
-                     LOG(
-                       Logging.log Logging.Features.comp_ne "%d => %d [%d]\n" s_l t nt
-                     );
-                   end;
-
-                   match PJDN.lookup_trans_pnt p_nonterm_table s_l nt with
-                     | [||] -> ()
-                     | entries ->
-                         for idx = 0 to Array.length entries - 1 do
-                           let {PJDN.ctarget = t; carg = arg_act; cbinder = binder} = entries.(idx) in
-                           LOGp(comp_ne, "@%d: %d => %d [%d(_)]? " callset.id s_l t nt);
-                           ESET_CONTAINER_ITER(`socvas_l', `(callset_s_l, sv_s_l, sv_arg_s_l)', `
-                                         if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
-                                           LOGp(comp_ne, "Y");
-                                           ESet.insert_elt_ig ESET_WLD cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
-                                         end else LOGp(comp_ne, "N")');
-                           LOGp(comp_ne, "\n");
-                         done
-                 done')
-
-           | PJDN.MComplete_trans nts -> MCOMPLETE_CODE(`nts',`true')
-           | PJDN.MComplete_p_trans nts -> MCOMPLETE_CODE(`nts',`false')
+           | PJDN.Complete_trans nt ->   COMPLETE_CODE(`true', `false', `nt')
+           | PJDN.Complete_p_trans nt -> COMPLETE_CODE(`false', `false', `nt')
+           | PJDN.MComplete_trans nts -> MCOMPLETE_CODE(`true',`nts')
+           | PJDN.MComplete_p_trans nts -> MCOMPLETE_CODE(`false',`nts')
 
            | PJDN.Many_trans trans ->
                let n = Array.length trans in
@@ -1809,7 +2659,9 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
                   | target -> (* returns to next set *)
                       ESet.insert_container_nc ns target socvas_s)
 
-  and process_eof_trans start_nt succeeded cs socvas_s term_table nonterm_table p_nonterm_table nplookahead_fn
+  and process_eof_trans start_nt succeeded cs
+      IF_TRUE(DO_NULL_RET, `pre_cc null_rets null_p_rets dense_nonterm_table')
+      socvas_s term_table nonterm_table p_nonterm_table nplookahead_fn
       s sv0 current_callset ykb ESET_WLD = function
            | PJDN.No_trans -> ()
            | PJDN.Scan_trans _ | PJDN.MScan_trans _ -> ()
@@ -1830,47 +2682,11 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
            | PJDN.ExtLookahead_trans (presence, la_target, la_nt, target) ->
                if EXTLA_CODE(`presence', `la_target', `la_nt', `target') then
                  ESet.insert_container ESET_WLD cs target socvas_s
-           | PJDN.Call_trans t -> CALL_CODE(`t',`false')
-           | PJDN.Call_p_trans (call_act, t) -> CALL_P_CODE(`t',`false',`call_act')
+           | PJDN.Call_trans t -> CALL_CODE(`t', DO_NULL_RET)
+           | PJDN.Call_p_trans (call_act, t) -> CALL_P_CODE(`t', DO_NULL_RET, `call_act')
 
-           | PJDN.Complete_trans nt ->
-               let is_nt = nt = start_nt in
-               ESET_CONTAINER_ITER(`socvas_s', `(callset,_,_)', `
-                 if is_nt && callset.id = 0 then succeeded := true;
-                 let items = callset.data in
-                 for l = 0 to Array.length items - 1 do
-                   let ESET_ITEM_PATT(`s_l', `c_l') = items.(l) in
-                   let t = PJ.lookup_trans_nt nonterm_table s_l nt in
-                   if t > 0 then ESet.insert_container ESET_WLD cs t c_l
-                 done')
-
-           | PJDN.Complete_p_trans nt ->
-               let is_nt = nt = start_nt in
-               let curr_pos = current_callset.id in
-               ESET_CONTAINER_ITER(`socvas_s', `(callset, sv, sv_arg)', `
-                 if is_nt && callset.id = 0 then succeeded := true;
-                 let items = callset.data in
-                 for l = 0 to Array.length items - 1 do
-                   let ESET_ITEM_PATT(`s_l', `socvas_l') = items.(l) in
-
-                   let t = PJ.lookup_trans_nt nonterm_table s_l nt in
-                   if t > 0 then ESet.insert_container ESET_WLD cs t socvas_l;
-
-                   match PJDN.lookup_trans_pnt p_nonterm_table s_l nt with
-                     | [||] -> ()
-                     | entries ->
-                         for idx = 0 to Array.length entries - 1 do
-                           let {PJDN.ctarget = t; carg = arg_act; cbinder = binder} = entries.(idx) in
-                           LOGp(comp_ne, "@%d: %d => %d [%d(_)]? " callset.id s_l t nt);
-                           ESET_CONTAINER_ITER(`socvas_l', `(callset_s_l, sv_s_l, sv_arg_s_l)', `
-                                         if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
-                                           LOGp(comp_ne, "Y");
-                                           ESet.insert_elt_ig ESET_WLD cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
-                                         end else LOGp(comp_ne, "N")');
-                           LOGp(comp_ne, "\n");
-                         done
-
-                 done')
+           | PJDN.Complete_trans nt ->   COMPLETE_CODE(`true', `true', `nt')
+           | PJDN.Complete_p_trans nt -> COMPLETE_CODE(`false', `true', `nt')
 
            | PJDN.MComplete_trans nts ->
                let m_nts = Array.length nts - 1 in
@@ -1882,12 +2698,12 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
                      let nt = nts.(k) in
                      if is_start && nt = start_nt then
                        succeeded := true (* ... and do not bother performing the completion. *)
-                     else
-                       for l = 0 to m_items do
+                     else CHECK_NULL_RET(
+                       `HANDLE_NULL_RET(`true', nt, sv_arg, sv)',
+                       `for l = 0 to m_items do
                          let ESET_ITEM_PATT(`s_l', `c_l') = items.(l) in
-                         let t = PJ.lookup_trans_nt nonterm_table s_l nt in
-                         if t > 0 then ESet.insert_container ESET_WLD cs t c_l
-                       done
+                         CONTINUE_CODE(`true', `s_l', `c_l')
+                       done ')
                    done')
 
            | PJDN.MComplete_p_trans nts ->
@@ -1901,33 +2717,20 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
                      let nt = nts.(k) in
                      if is_start && nt = start_nt then
                        succeeded := true (* ... and do not bother performing the completion. *)
-                     else
-                       for l = 0 to m_items do
+                     else CHECK_NULL_RET(
+                       `HANDLE_NULL_RET(`true', nt, sv_arg, sv)',
+                       `for l = 0 to m_items do
                          let ESET_ITEM_PATT(`s_l', `socvas_l') = items.(l) in
-
-                         let t = PJ.lookup_trans_nt nonterm_table s_l nt in
-                         if t > 0 then ESet.insert_container ESET_WLD cs t socvas_l;
-
-                         match PJDN.lookup_trans_pnt p_nonterm_table s_l nt with
-                           | [||] -> ()
-                           | entries ->
-                               for idx = 0 to Array.length entries - 1 do
-                                 let {PJDN.ctarget = t; carg = arg_act; cbinder = binder} = entries.(idx) in
-                                 LOGp(comp_ne, "@%d: %d => %d [%d(_)]? " callset.id s_l t nt);
-                                 ESET_CONTAINER_ITER(`socvas_l', `(callset_s_l, sv_s_l, sv_arg_s_l)', `
-                                               if Sem_val.cmp (arg_act callset.id sv_s_l) sv_arg = 0 then begin
-                                                 LOGp(comp_ne, "Y");
-                                                 ESet.insert_elt_ig ESET_WLD cs t callset_s_l (binder curr_pos sv_s_l sv) sv_arg_s_l
-                                               end else LOGp(comp_ne, "N")');
-                                 LOGp(comp_ne, "\n");
-                               done
-                       done
+                         CONTINUE_CODE(`false', `s_l', `socvas_l')
+                       done ')
                    done')
 
            | PJDN.Many_trans trans ->
                let n = Array.length trans in
                for j = 0 to n-1 do
-                 process_eof_trans start_nt succeeded cs socvas_s term_table nonterm_table p_nonterm_table nplookahead_fn s sv0
+                 process_eof_trans start_nt succeeded cs
+                   IF_TRUE(DO_NULL_RET, `pre_cc null_rets null_p_rets dense_nonterm_table')
+                   socvas_s term_table nonterm_table p_nonterm_table nplookahead_fn s sv0
                    current_callset ykb ESET_WLD trans.(j)
                done
 
@@ -1989,17 +2792,19 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
                   | target -> ESet.insert_container ESET_WLD cs target socvas_s)
 
   and _parse is_exact_match
-      {PJDN.start_symb = start_nt; start_state = start_state;
+      ({PJDN.start_symb = start_nt; start_state = start_state;
        term_table = term_table; nonterm_table = nonterm_table;
        p_nonterm_table = p_nonterm_table;}
+       IF_TRUE(DO_NULL_RET, ` as trans_data'))
       sv0 (ykb : YkBuf.t) =
 
     LOG(
       if Logging.features_are_set Logging.Features.stats then begin
         Logging.Distributions.init ();
-        Logging.Distributions.register "CSS"; (* call-set size. *)
+        Logging.Distributions.register "CSS"; (* Call-Set Size. Distribution of sizes of callsets
+                                                 encountered during completion.  *)
         Logging.Distributions.register "CPSS";(* parameterized call-set size. *)
-        Logging.Distributions.register "MCC"; (* Missed call collapsing. *)
+(*         Logging.Distributions.register "MCC"; (\* Missed call collapsing. *\) *)
       end;
 
       if Logging.features_are_set Logging.Features.eset_stats then begin
@@ -2022,9 +2827,12 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
     let futuresq = Ordered_queue.init () in
     let nplookahead_fn = mk_lookahead term_table nonterm_table p_nonterm_table sv0 in
 
-    if Logging.activated then begin
-      Imp_position.set_position 0
-    end;
+    IF_TRUE(DO_NULL_RET,
+     `let null_rets = NR.create (Array.length nonterm_table) in
+      let null_p_rets = NR.create_p (Array.length nonterm_table) in
+      let dense_nonterm_table = PJDN.mk_called_table trans_data in ')
+
+    LOG( Imp_position.set_position 0 );
 
     (* We initialize next_set, rather than current_set, because they
        are swapped first-thing in the loop. *)
@@ -2051,11 +2859,9 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
     (**************************************************************
      *                      BEGIN MAIN LOOP
      **************************************************************)
-
     let s_matched = ref false in
-    while ( IFE_FLA(`(is_exact_match || not !s_matched)',`true') &&
-              if ESET_NOT_EMPTY(`!next_set') then !can_scan
-              else fast_forward current_callset futuresq !next_set ykb) do
+    let main_loop_unfinished = ref (ESET_NOT_EMPTY(`!next_set') && !can_scan) in
+    while ( !main_loop_unfinished ) do
 
       (* swap_and_clear. We place this code here,
          rather than at the end of the loop, with the other
@@ -2082,17 +2888,20 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
           Parse-engine state.
       *)
       let pes = ESET_EXTEND_PES_EXPR(`term_table, nonterm_table, p_nonterm_table, sv0,
-            cs, ns, pre_cc, ccs, ykb, futuresq, nplookahead_fn') in
+            cs, ns, pre_cc,
+            IF_TRUE(DO_NULL_RET, `null_rets, null_p_rets, dense_nonterm_table,')
+            ccs, ykb, futuresq, nplookahead_fn') in
 
       (* Process the worklist (which can grow during processing). *)
       PROCESS_WORKLIST(`pes', `cs', `term_table', `overflow');
 
       (* Report size of the Earley set. *)
-      LOGp(stats, "%d %d\n" ccs.id (ESet.get_size cs));
+      LOGp(stats, "ES %d %d\n" ccs.id (ESet.get_size cs));
+      IF_HIER(LOGp(stats, "ESs %d %d\n" ccs.id (ESet.get_active_states cs));)
 
       (* Report memory size of the data accessable from the Earley set (focusing on
          the semantic values). *)
-      LOG(
+      IF_HIER(LOG(
        `if Logging.features_are_set Logging.Features.hist_size then
          let p = ccs.id in
          if p <= 500 ||
@@ -2108,20 +2917,19 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
                else 0, "n/a" in
              Logging.log Logging.Features.hist_size "%d %d %d %d %s\n%!"
                p es_size sv_count msize insp_summary'
-      );
+      );)
 
-      IF_FLA(
-        `if not is_exact_match && ESet.check_done term_table start_nt cs then
-          s_matched := true;'
-      );
+      (* Cleanup and setup for next round. *)
 
-      (* cleanup and setup for next round. *)
+      (* Convert the precallset to an actual callset *)
       ccs.data <- Pcs.convert_current_callset cs pre_cc;
-      let pos = ccs.id + 1 in
-      current_callset := mk_callset pos;
-      Terms.advance ykb;
-      can_scan := Terms.fill ykb;
       Pcs.reset pre_cc;
+
+      (* Report size of the call set. *)
+      LOGp(stats, "CS %d %d\n" ccs.id (length_callset ccs));
+
+      let pos = ccs.id + 1 in
+      IF_TRUE(DO_NULL_RET, `NR.clear null_rets; NR.clear_p null_p_rets;')
 
       (* Check whether there's any blackbox results to load into the next set. *)
       if Ordered_queue.next futuresq = pos then begin
@@ -2132,6 +2940,42 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
       LOG(
         Imp_position.set_position pos;
       );
+
+      IF_FLA(`if not is_exact_match then s_matched := ESet.check_done term_table start_nt cs');
+      if IFE_FLA(`!s_matched',`false') then
+        main_loop_unfinished := false
+      else if ESET_NOT_EMPTY(`ns') then
+        begin
+          current_callset := mk_callset pos;
+          Terms.advance ykb;
+          main_loop_unfinished := Terms.fill ykb
+        end
+      else
+        let (k, l) = Ordered_queue.pop futuresq in
+        if k <> -1 then
+          begin
+            (* PERF: manually lift up this closure *)
+            List.iter (fun (s,cva) -> ESet.insert_elt_nc ns s cva) l;
+            ignore (YkBuf.skip ykb (k - ccs.id));
+            current_callset := mk_callset k;
+            main_loop_unfinished := YkBuf.fill2 ykb 1
+          end
+        else
+          begin
+            ESET_TRY_RECOVER pes cs term_table nonterm_table overflow;
+            IF_FLA(`if not is_exact_match then
+                     s_matched := ESet.check_done term_table start_nt cs');
+            if IFE_FLA(`!s_matched',`false') then
+              main_loop_unfinished := false
+            else if ESET_NOT_EMPTY(`ns') then
+              begin
+                current_callset := mk_callset pos;
+                Terms.advance ykb;
+                main_loop_unfinished := Terms.fill ykb
+              end
+            else
+              main_loop_unfinished := fast_forward current_callset futuresq ns ykb
+          end
     done;
 
     (**************************************************************
@@ -2143,7 +2987,7 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
     (* PERF: apply the same optimizations used above to the following code. *)
 
     (* We've either hit a shortest match or we're either at EOF or a failure. *)
-    if support_FLA && not is_exact_match && !s_matched then
+    if support_FLA && !s_matched then
       [sv0] (* stands in for boolean true. *)
     else if ESET_NOT_EMPTY(`!next_set') then begin
       (* Compute closure on final set. Ignore scans b/c we're at EOF. *)
@@ -2153,8 +2997,9 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
 
       let proc_eof_item ESET_WLD s socvas =
         LOGp(eof_ne, "Processing state %d.\n" s);
-        process_eof_trans start_nt succeeded cs socvas
-          term_table nonterm_table p_nonterm_table nplookahead_fn
+        process_eof_trans start_nt succeeded cs
+          IF_TRUE(DO_NULL_RET, `pre_cc null_rets null_p_rets dense_nonterm_table')
+          socvas term_table nonterm_table p_nonterm_table nplookahead_fn
           s sv0 !current_callset ykb ESET_WLD term_table.(s) in
 
       PROCESS_EOF_WORKLIST(`cs', `proc_eof_item', `overflow');
@@ -2175,7 +3020,7 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
       );
 
 
-      LOG(
+      IF_HIER(LOG(
        `if Logging.features_are_set Logging.Features.hist_size then
           let ccs = !current_callset in
           let msize = Util.memsize () in (* will force a major GC. *)
@@ -2193,13 +3038,13 @@ module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) = struct
             "Success %d %d %d %s %s\n%!"
             ccs.id es_size msize
             insp_summary insp_summary_s'
-      );
+      );)
 
       !successes
     end
     else begin
       (* There was no succesful scan of the last element (token, byte,
-         etc.), so we backtrack by one to ensure proper error
+         etc.) We backtrack by one to ensure proper error
          reporting -- specifically, that the penultimate element is
          reported as at fault, rather than the EOF. *)
       Terms.step_back ykb;

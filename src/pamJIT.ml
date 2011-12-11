@@ -101,6 +101,8 @@ let lookup_trans_nt (tbl : PI.label array array) s nt =
 (*   tbl.(s).(nt) *)
   Array.unsafe_get (Array.unsafe_get tbl s) nt
 
+let error_nt = 0
+
 exception Not_ELR0 of string
 
 (* convert a program into lookup tables for
@@ -1179,6 +1181,20 @@ module DNELR = struct
       mk_table Full_opt p start_symb start_state min_nonterm num_nonterms
         f_no_arg f_no_binder
 
+    let mk_called_table {nonterm_table = nts; p_nonterm_table = p_nts} =
+      Array.init (Array.length nts) begin fun s ->
+        let a = nts.(s) in
+        let b = p_nts.(s) in
+        let n = Array.length a in     (* [b] should have the same length. *)
+        let r = ref [] in
+        for nt = 0 to n - 1 do
+          if a.(nt) > 0 || b.(nt) != [||] then r := nt :: !r
+        done;
+        Array.of_list !r
+      end
+
+    let get_num_states {term_table=t} = Array.length t
+
     let measure_percent {term_table=tbl} p =
       let rec loop tbl p sz i n =
         if i = sz then n
@@ -1265,6 +1281,9 @@ module DNELR = struct
     (* sure could use a good optimizing compiler here: *)
     List.length (reachable_calls term_table start)
 
+  (** Computer an interger property for every state included in the
+      [states] set. [states] is encoded with a boolean array. If [states.(i)]
+      then [i] is in the set. *)
   let compute_integer_property p term_table states =
     let n = Array.length states in
     let rec loop i vs =

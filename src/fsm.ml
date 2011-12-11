@@ -266,6 +266,10 @@ let mklit_fsm(case_sensitive, x) =
 
 (* convert a RHS to an NFA according to the Thompson algorithm *)
 let thompson_symb = function
+  | Symb("error", None, None) ->
+      let (s,f) = fresh2() in
+      atrans(s,f, Cont("error", None, None), ONE);
+      (s,f)
   | Symb(n,f_arg,f_ret) -> (* Call() instead of CallEps as in merge *)
      (*
         s--[n(args)]-->f
@@ -368,6 +372,10 @@ let rec thompson =  function
    return the s.v. argument (because the s.v. argument equals the
    semantic value in contexts where call collapsing occurs). *)
 let merge_symb = function
+  | Symb("error", None, None) ->
+      let (s,f,e) = fresh3() in
+      atrans(s,f, Cont("error", None, None), ONE);
+      (s,f,e)
   | Symb(n,None, None) when !Compileopt.collapse_calls ->
       let (s,f,e) = fresh3() in
       let sn0 = nonterminal2fsm n in
@@ -659,7 +667,8 @@ let varname prefix =
 let fsm_transducer is_sv_known gr inch outch =
 
   let tbl_ntnames = Hashtbl.create 11 in
-  let ntnum = ref min_symbol in
+  Hashtbl.add tbl_ntnames "error" min_symbol; (* Bind the special nonterminals [error]. *)
+  let ntnum = ref (min_symbol + 1) in
   let add_nonterm nt =
     begin
       match Util.find_option tbl_ntnames nt with
@@ -805,11 +814,17 @@ let fsm_transducer is_sv_known gr inch outch =
      open Yak.Pam_internal for use in the automaton definition.*)
   Printf.fprintf outch "module Pred3 = Yak.Pam_internal.Pred3\n";
 
-  (* Print the nullability predicates. *)
-  Nullable_pred.Gil.process_grammar outch (Hashtbl.find tbl_ntnames) (fun nt -> List.assoc nt !starts) is_sv_known gr;
+  (* (Optionally) print the nullability predicates. *)
+  begin
+    match gr.Gul.npreds with
+      | Some npreds ->
+          Nullable_pred.Gil.print_preds outch
+            (Hashtbl.find tbl_ntnames) (fun nt -> List.assoc nt !starts)
+          is_sv_known npreds
+      | None -> ()
+  end;
 
   (* Print the expression bindings used in the automaton.
-
      Note: for expressions which are already variables (defn = v), we
      do not print a binding. *)
   Hashtbl.iter

@@ -19,19 +19,6 @@ let mk_pvar c = Printf.sprintf "_p%d_" c
 let mk_npname n = Variables.bnf2ocaml (nullable_pred_prefix ^ n)
 let mk_nptblname n = Variables.bnf2ocaml (nullable_pred_table_prefix ^ n)
 
-let callc symb_pred action binder =
-  (* The generated code binds expression to avoid capture. There are
-     no (possibly) open expressions in the body of the generated
-     code. *)
-  Printf.sprintf "(let symb_pred = %s
-       and action = %s
-       and binder = %s
-    in
-    fun la v ->
-     match symb_pred la (action v) with
-        None -> None
-      | Some v2 -> Some (binder v v2))" symb_pred action binder
-
 let gil_callc symb_pred action binder =
   (* The generated code binds expression to avoid capture. There are
      no (possibly) open expressions in the body of the generated
@@ -47,148 +34,7 @@ let gil_callc symb_pred action binder =
       | Some v2 -> Some (f_ret p v v2))" symb_pred action binder
 
 
-(*****************************************)
-(* DeBruijn Levels *)
-
-module DB_levels =
-struct
-
-  (**
-      General DeBruin-levels machinery
-  *)
-
-  type exp =
-    Var of int
-  | App of exp * exp
-  | Lam of exp
-  | NoneE
-  | SomeE of exp
-  | CallE of string * exp * exp
-  | AndE of exp * exp
-  | OrE of exp * exp
-  | InjectE of string
-  | CfgLookaheadE of bool * string (** context-free lookahead*)
-  | CsLookaheadE of bool * Cs.t
-  | DBranchE of string * Gil.constr * string
-
-  let app2 f x y = App (App (f,x), y)
-  let app3 f x y z = App (App (App (f, x), y), z)
-
-  let exp_map f e =
-    let rec walk c = function
-      | Var i -> f c i
-      | Lam f -> Lam (walk (c+1) f)
-      | App (e1, e2) -> App (walk c e1, walk c e2)
-      | NoneE -> NoneE
-      | SomeE e -> SomeE (walk c e)
-      | CallE (nt,e1,e2) -> CallE (nt, walk c e1, walk c e2)
-      | AndE (e1, e2) -> AndE (walk c e1, walk c e2)
-      | OrE (e1, e2) -> OrE (walk c e1, walk c e2)
-      | InjectE s -> InjectE s
-      | DBranchE (f1, c, f2) -> DBranchE (f1, c, f2)
-      | CfgLookaheadE (b,n) -> CfgLookaheadE (b,n)
-      | CsLookaheadE (b,cs) -> CsLookaheadE (b,cs)
-    in
-    walk 0 e
-
-  (** Adjust the numbering of bound variables so that the expression
-      can be placed in a new context. Free variables remain
-      unchanged. Note that we abstract over the distinction between
-      free and bound by taking it as an argument, [mf]. So, what we
-      call "free" is actually relatively free, with respect to [mf].
-
-      mf = the maximum free variable.
-      n = the amount by which to shift.
-
-      For example, if we want to place [e] in a context with two more
-      outer lambdas than the current context, we need to increase the
-      value of all bound variables by two, because their binders are about to
-      be forced deeper into the tree.
-
-      The result expression will have minimum bound variable of mf + 1 + n
-      (which is equivalent to maximum free variable of mf + n).
-
-      (A note regarding the wildcard on the first argument of the
-      function supplied to [exp_map]. This argument, [c], is the count
-      of binders traversed during the map process.
-      Now, every variable should be in 0..c + mf, because free variables should only
-      be taken from 0..mf and variables i, mf < i <= c + mf, are bound variables.
-      So, we can ignore c.)
-  *)
-  let shift mf n e = exp_map (fun _ i_var -> if mf < i_var then Var (i_var + n) else Var i_var) e
-
-  (**
-      subst m e_s e ==  [m -> e_s]e
-
-      e_s and e must be numbered relative to the same maximum free variable m.  That is,
-      variables <= m are free for both e_s and e.
-      We simplify to assume that we are substituting for the greatest free variable in e,
-      namely m.
-  *)
-  let subst mf e_s e = exp_map (fun c i -> if i = mf then (shift mf c e_s) else Var i) e
-
-  (* e1 has an mf of k, while e2 has an mf of k-1. So, we shift e2 up to equalize the mf,
-     and then shift down the result, because we've eliminated free variable k.
-  *)
-  let beta_reduce k e1 e2 = shift k (-1) (subst k (shift (k-1) 1 e2) e1)
-
-  (** Beta-reduce where possible *)
-  let simplify e =
-    let rec simplify' c = function  (* c is the count of binders *)
-      | App (e1, e2) ->
-          let e1 = simplify' c e1 in
-          let e2 = simplify' c e2 in
-          (match e1 with
-             | Lam e -> simplify' c (beta_reduce c e e2)
-             | _ -> App (e1, e2))
-      | Var i -> Var i
-      | Lam f -> Lam (simplify' (c+1) f)
-      | NoneE -> NoneE
-      | SomeE e -> SomeE (simplify' c e)
-      | AndE (e1, e2) -> AndE (simplify' c e1, simplify' c e2)
-      | OrE (e1, e2) ->  OrE (simplify' c e1, simplify' c e2)
-      | InjectE s -> InjectE s
-      | DBranchE (f1, c, f2) -> DBranchE (f1, c, f2)
-      | CfgLookaheadE (b,n) -> CfgLookaheadE (b,n)
-      | CsLookaheadE (b,cs) -> CsLookaheadE (b,cs)
-      | CallE (nt,e1,e2) -> CallE (nt, simplify' c e1, simplify' c e2)
-    in simplify' 0 e
-
-  (** check that the expression has at most [n] free variables.*)
-  let rec check_free_at_most n = function
-    | Var i -> i < n
-    | Lam f -> check_free_at_most (n+1) f
-    | App (e1, e2) -> check_free_at_most n e1 && check_free_at_most n e2
-    | NoneE -> true
-    | SomeE e -> check_free_at_most n e
-    | CallE (nt,e1,e2) -> check_free_at_most n e1 && check_free_at_most n e2
-    | AndE (e1, e2) -> check_free_at_most n e1 && check_free_at_most n e2
-    | OrE (e1, e2) -> check_free_at_most n e1 && check_free_at_most n e2
-    | InjectE _ -> true
-    | DBranchE _ -> true
-    | CfgLookaheadE _ -> true
-    | CsLookaheadE _ -> true
-
-  let is_closed = check_free_at_most 0
-
-  (** Note any called nonterminals *)
-  let rec note_called s = function
-    | InjectE _
-    | DBranchE _
-    | CfgLookaheadE _
-    | CsLookaheadE _
-    | Var _
-    | NoneE
-    | SomeE _ -> s
-    | Lam f -> note_called s f
-    | AndE (e1, e2)
-    | OrE (e1, e2)
-    | App (e1, e2) -> note_called (note_called s e1) e2
-    | CallE (nt,_,_) -> PSet.add nt s
-
-end
-
-module DBL = DB_levels
+module DBL = Gil.DB_levels
 
 (******************************************************************************)
 
@@ -199,6 +45,7 @@ module PHOAS = struct
   | Lam of ('a -> 'a exp)
   | NoneE
   | SomeE of 'a exp
+  | StarE of 'a exp
   | CallE of string * 'a exp * 'a exp
   | AndE of 'a exp * 'a exp
   | OrE of 'a exp * 'a exp
@@ -222,6 +69,7 @@ module PHOAS = struct
     | App (e1, e2) -> DBL.App (to_dB level e1, to_dB level e2)
     | NoneE -> DBL.NoneE
     | SomeE e -> DBL.SomeE (to_dB level e)
+    | StarE e -> DBL.StarE (to_dB level e)
     | CallE (nt,e1,e2) -> DBL.CallE (nt, to_dB level e1, to_dB level e2)
     | AndE (e1, e2) -> DBL.AndE (to_dB level e1, to_dB level e2)
     | OrE (e1, e2) -> DBL.OrE (to_dB level e1, to_dB level e2)
@@ -237,6 +85,7 @@ module PHOAS = struct
     | App (e1, e2) -> App (subst' e1, subst' e2)
     | NoneE -> NoneE
     | SomeE e -> SomeE (subst' e)
+    | StarE e -> StarE (subst' e)
     | CallE (nt,e1,e2) -> CallE (nt, subst' e1, subst' e2)
     | AndE (e1, e2) -> AndE (subst' e1, subst' e2)
     | OrE (e1, e2) -> OrE (subst' e1, subst' e2)
@@ -266,6 +115,7 @@ module PHOAS = struct
     | DBL.App (e1, e2) -> App (from_dB ctxt e1, from_dB ctxt e2)
     | DBL.NoneE -> NoneE
     | DBL.SomeE e -> SomeE (from_dB ctxt e)
+    | DBL.StarE e -> StarE (from_dB ctxt e)
     | DBL.CallE (nt,e1,e2) -> CallE (nt, from_dB ctxt e1, from_dB ctxt e2)
     | DBL.AndE (e1, e2) -> AndE (from_dB ctxt e1, from_dB ctxt e2)
     | DBL.OrE (e1, e2) -> OrE (from_dB ctxt e1, from_dB ctxt e2)
@@ -455,7 +305,7 @@ end
     which are called by other predicates (after the analysis)). Hopefully, memoization will not be used often. Still,
     I'm concerned about performance (time + memory) implications.  We will have to revisit this at some point to test affect.
 
-    Worth testing because we correctness only requires we memoize recursive predicates. So, if performance is an issue we
+    Worth testing because correctness only requires we memoize recursive predicates. So, if performance is an issue we
     could see what happens if we only memoize recursive predicates, instead of all called predicates.
 *)
 
@@ -475,6 +325,7 @@ module Expr_gil = struct
     | App (e1,e2) -> Printf.sprintf "(%s %s)" (to_string_raw c e1) (to_string_raw c e2)
     | NoneE -> "None"
     | SomeE e -> Printf.sprintf "(Some %s)" (to_string_raw c e)
+    | StarE e -> Printf.sprintf "(Star %s)" (to_string_raw c e)
     | AndE (e1,e2) -> Printf.sprintf "(Pred2.andc %s %s)" (to_string_raw c e1) (to_string_raw c e2)
     | OrE (e1,e2) -> Printf.sprintf "(Pred2.orc %s %s)" (to_string_raw c e1) (to_string_raw c e2)
     | CallE (nt,e1,e2) -> gil_callc (mk_npname nt) (to_string_raw c e1) (to_string_raw c e2)
@@ -512,15 +363,38 @@ module Expr_gil = struct
                     to the position variable. *)
                  Lam (Lam (Lam (app3 e2_s la_var p_var e)))
              | _ -> AndE (e1, e2))
+      | StarE e ->
+          let e = rewrite' c e in
+          (match e with
+             | Lam Lam Lam NoneE -> true_e
+             | Lam Lam Lam SomeE Var 2 -> true_e
+             | _ ->
+                 Util.warn Util.Sys_warn
+                   ("Epsilon-ambiguity detected in nullability predicate generation.\n\
+                     Alternative: " ^ to_string_raw 0 e);
+                 true_e)
       | OrE (e1, e2) ->
           let e1 = rewrite' c e1 in
           let e2 = rewrite' c e2 in
           (match (e1,e2) with
-               (Lam Lam Lam (SomeE _), _) -> e1
-             | (_, Lam Lam Lam (SomeE _)) -> e2
              | (Lam Lam Lam NoneE, _) -> e2
              | (_, Lam Lam Lam NoneE) -> e1
-             | _ -> OrE (e1, e2))
+             | (Lam Lam Lam (SomeE _), _) ->
+                 Util.warn Util.Sys_warn
+                   ("Epsilon-ambiguity detected in nullability predicate generation.\n\
+                     Alternative: " ^ to_string_raw 0 e2);
+                 e1
+             | (_, Lam Lam Lam (SomeE _)) ->
+                 Util.warn Util.Sys_warn
+                   ("Epsilon-ambiguity detected in nullability predicate generation.\n\
+                     Alternative: " ^ to_string_raw 0 e1);
+                 e2
+             | _ ->
+                 Util.warn Util.Sys_warn
+                   ("Epsilon-ambiguity detected in nullability predicate generation.\n\
+                     Alternative 1: " ^ to_string_raw 0 e1 ^
+                     "\nAlternative 2: " ^ to_string_raw 0 e2);
+                 OrE (e1, e2))
       | CallE (nt, e1, e2) as e_orig ->
           let nt_pred = preds nt in
           (match nt_pred with
@@ -595,7 +469,7 @@ end
 open PHOAS
 
 (******************************************************************************)
-let to_string' callts get_action get_start memo_cs =
+let to_string' callts get_action get_start memo_cs warn_lookahead =
   let rec recur c = function
     | Lam f ->
         let x = mk_var c in
@@ -610,6 +484,7 @@ let to_string' callts get_action get_start memo_cs =
           | t -> Printf.sprintf "(fun %s -> %s)" x (recur (c+1) t))
     | Var x -> x
     | App (e1,e2) -> Printf.sprintf "(%s %s)" (recur c e1) (recur c e2)
+    | StarE _ -> Util.todo "StarE codegen unsupported."
     | NoneE -> "None"
     | SomeE e -> Printf.sprintf "(Some %s)" (recur c e)
     | AndE (e1,e2) -> Printf.sprintf "(Pred.andc %s %s)" (recur c e1) (recur c e2)
@@ -620,8 +495,11 @@ let to_string' callts get_action get_start memo_cs =
         (* ignore [f2]. TODO-dbranch: use [f2] properly. *)
         let pat = if c.Gil.arity = 0 then "" else " _" in
         Printf.sprintf "(Pred.dbranchc (%s) (function | %s%s -> true | _ -> false))" f1 c.Gil.cname pat
-    | CfgLookaheadE (b,n) ->
-        let n_act = get_action n in
+    | CfgLookaheadE (b,nt) ->
+        if warn_lookahead then
+          Util.warn Util.Sys_warn
+            ("using extended lookahead for nonterminal " ^ nt ^ " in nullability predicate.");
+        let n_act = get_action nt in
         Printf.sprintf "(Pred.full_lookaheadc %B %d %d)" b n_act (get_start n_act)
     | CsLookaheadE (b,la_cs) ->
         (* Complement w.r.t. 257 to account for EOF, which we represent as character 256. *)
@@ -638,6 +516,7 @@ let to_rhs e =
     | DBL.App (e1,e2) -> invalid_arg "app"
     | DBL.NoneE -> invalid_arg "none"
     | DBL.SomeE e -> invalid_arg "some"
+    | DBL.StarE e -> Gil.Star (recur e)
     | DBL.AndE (e1,e2) -> Gil.Seq (recur e1, recur e2)
     | DBL.OrE (e1,e2) -> Gil.Alt (recur e1, recur e2)
     | DBL.CallE (nt,e1,e2) -> invalid_arg "nonterminal"
@@ -728,7 +607,8 @@ fun _ ykb v -> match f1 v with | Yk_done %s %s (%s) -> Some (f2 v (%s)) | _ -> N
   | Gil.Seq (r1,r2) -> AndE (trans' r1, trans' r2)
   | Gil.Alt (r1,r2) -> OrE (trans' r1, trans' r2)
   | Gil.Star _ -> true_e ()
-  | Gil.Lookahead (b, Gil.Symb(nt,None,None)) -> CfgLookaheadE(b,nt)
+  | Gil.Lookahead (b, Gil.Symb(nt,None,None)) ->
+      CfgLookaheadE(b,nt)
   | Gil.Lookahead (b, r1) as r ->
       (match Gil.to_cs r1 with
          | Some cs -> CsLookaheadE(b,cs)
@@ -801,8 +681,7 @@ fun _ ykb v -> match f1 v with | Yk_done %s %s (%s) -> Some (f2 v (%s)) | _ -> N
       | DBL.Lam DBL.Lam DBL.Lam DBL.SomeE DBL.Var 2 -> Yes_n
       | _ -> (match to_rhs e_n with None -> Maybe_n | Some r -> Rhs_n r)
 
-  let process_grammar ch get_action get_start is_sv_known gr =
-    let preds = preds_from_grammar gr in
+  let print_preds ch get_action get_start is_sv_known preds =
     (* Record which nonterminals are called from other nonterminals
        (including themselves) that require predicates to be printed
        (i.e. if its called from a nonterminal for which we will not
@@ -853,9 +732,9 @@ fun _ ykb v -> match f1 v with | Yk_done %s %s (%s) -> Some (f2 v (%s)) | _ -> N
               | _ ->  app3 (p.e()) (Var lookahead_name) (Var ykb) (Var v)
             in
             let tbls, preds = acc in
+            let body_code = to_string' gil_callc get_action get_start memo_cs true 1 body in
             (* TODO: extend comment here to explain memoization process *)
             if ntcalled then begin
-              let body_code = to_string' gil_callc get_action get_start memo_cs 1 body in
               let tbl = mk_nptblname nt in
               let pred = Printf.sprintf "%s %s %s %s =\n  \
                 let __p1 = Yak.YkBuf.get_offset %s in\n    \
@@ -873,8 +752,7 @@ fun _ ykb v -> match f1 v with | Yk_done %s %s (%s) -> Some (f2 v (%s)) | _ -> N
               nt :: tbls, pred :: preds
             end
             else begin
-              let pred = Printf.sprintf "%s %s %s %s = %s\n\n" (mk_npname nt) lookahead_name ykb v
-                (to_string' gil_callc get_action get_start memo_cs 1 body) in
+              let pred = Printf.sprintf "%s %s %s %s = %s\n\n" (mk_npname nt) lookahead_name ykb v body_code in
               tbls, pred :: preds
             end in
     let tyannot = if is_sv_known then ": (sv option * int) SV_hashtbl.t" else "" in

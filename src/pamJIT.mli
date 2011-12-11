@@ -58,6 +58,8 @@ type elr0_trans =
 val lookup_trans_nt : Pam_internal.label array array -> Pam_internal.label -> int
   -> Pam_internal.label
 
+val error_nt : int
+
 (** [parse_ELR0_tbl pam_program start_symb start_state min_symb num_symbs]
     @return start_nonterminal, start_state, term_table, nonterm_table
 *)
@@ -189,9 +191,19 @@ module DNELR :
       'a Pam_internal.action2 -> 'a Pam_internal.binder2 ->
       'a data
 
+    (** Derive a summary of both [nonterm_table] and [p_nonterm_table]
+        fields, mapping each state to a list of nonterms with continuations
+        for that state. In effect, records the called nonterminals for
+        each callsite. The length of the result will be the number of states,
+        with a (variable-length) array of nonterminals at each index. *)
+    val mk_called_table : 'a data -> Pam_internal.nonterm array array
+
+    val call_targets : 'a trans array -> bool array
+
+    val get_num_states : 'a data -> int
+
     val measure_percent : 'a data -> ('a trans -> bool) -> float
     val measure_percenti : 'a data -> (int -> 'a trans -> bool) -> float
-    val call_targets : 'a trans array -> bool array
 
     (**
         [refl_trans_closure term_table state]
@@ -208,9 +220,24 @@ module DNELR :
     val reachable_calls : 'a trans array -> Pam_internal.label -> Pam_internal.label list
 
     val count_reachable_calls : 'a trans array -> Pam_internal.label -> int
+
+
+    (** invocation: [compute_integer_property p term_table states]
+        [p] takes the transition function of the transducer and a state, and computes,
+        for that state, an integer property.
+        [term_table] is the transition function.
+        [states] is a set of states of interest. It is encoded with a boolean array.
+        If [states.(i)] then [i] is in the set.
+
+        Compute an interger property for every state included in the [states] set.
+
+        Returns a list of pairs mapping each state of interest to its integer property.
+    *)
     val compute_integer_property : ('a trans array -> Pam_internal.label -> int) ->
       'a trans array -> bool array -> (Pam_internal.label * int) list
 
+    (** For every callee in the transducer, count the number of caller states
+        reachable from that callee. *)
     val compute_callee_reachable_calls : 'a trans array -> (Pam_internal.label * int) list
 
   end

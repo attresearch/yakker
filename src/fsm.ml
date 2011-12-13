@@ -881,7 +881,8 @@ let fsm_transducer is_sv_known gr inch outch =
   (* Version 3: [f1] is an box-like function, taking the
      ykbuf and returning an option like
      blackboxes.  This version is weaker than the previous in that any
-     values carried by the matched constructor are ignored and it does not involve the semantic value at all. *)
+     values carried by the matched constructor are ignored and it does
+     not involve the semantic value at all. *)
   let branches2instr3 (f1, c_ty, cs) =
     let xvar = "x" in
     (* note that we ignore [f2] here.

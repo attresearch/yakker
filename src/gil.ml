@@ -35,8 +35,8 @@ type ('expr,'nt) rhs =
   | Action of 'expr
   | Box of 'expr * 'expr boxnull
   | DBranch of 'expr                    (** generating expression *)
-      * constr                          (** constructor information (means different things depending on
-                                            whether late_branch_only is on) *)
+      * constr                          (** constructor information (means different things
+                                            depending on whether late_branch_only is on) *)
       * 'expr                           (** branch function (unused when late_branch_only is on). *)
       (** A deterministic branch on a datatype value,
           annotated with its type's wrap constructor. *)

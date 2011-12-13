@@ -19,7 +19,7 @@ let mk_pvar c = Printf.sprintf "_p%d_" c
 let mk_npname n = Variables.bnf2ocaml (nullable_pred_prefix ^ n)
 let mk_nptblname n = Variables.bnf2ocaml (nullable_pred_table_prefix ^ n)
 
-let gil_callc symb_pred action binder =
+let gil_callc =
   (* The generated code binds expression to avoid capture. There are
      no (possibly) open expressions in the body of the generated
      code. *)
@@ -31,8 +31,31 @@ let gil_callc symb_pred action binder =
      let p = Yak.YkBuf.get_offset ykb in
      match symb_pred la ykb (f_call p v) with
         None -> None
-      | Some v2 -> Some (f_ret p v v2))" symb_pred action binder
+      | Some v2 -> Some (f_ret p v v2))"
 
+let callc nt arg_opt merge_opt =
+  let name = mk_npname nt in
+  match arg_opt, merge_opt with
+    | None,   None ->
+        Printf.sprintf "(fun la ykb v -> \
+                          match %s la ykb sv0 with \
+                            | None -> None \
+                            | Some _ -> Some v)" name
+    | Some e, None ->
+        Printf.sprintf "let f_call = %s in \
+                         (fun la ykb v -> \
+                         let p = Yak.YkBuf.get_offset ykb in
+                         match %s la ykb (f_call p v) with
+                            None -> None
+                          | Some _ -> Some v)" e name
+    | None, Some f ->
+        Printf.sprintf "let f_ret = %s in \
+                         (fun la ykb v -> \
+                         let p = Yak.YkBuf.get_offset ykb in
+                         match %s la ykb sv0 with
+                            None -> None
+                          | Some v2 -> Some (f_ret p v v2))" f name
+    | Some e, Some f -> gil_callc name e f
 
 module DBL = Gil.DB_levels
 
@@ -251,7 +274,7 @@ end
     or perform some other precomputation that would potentially speed up the run time computation? Here
     are three points to consider:
 
-    1) We can precompute as many entries as we like. Indeed, when none of the nonterminals of parameterized,
+    1) We can precompute as many entries as we like. Indeed, when none of the nonterminals are parameterized,
        solving every nonterminal is like tabling every nonterminal at the unit-value argument.
 
     2) For some parameterized nonterminals, we can precompute their answer *independently* of their parameter.
@@ -274,7 +297,7 @@ end
     nonterminals to `unsure (false)`.  As sure values are computed, they flip to sure. Anything remaining unsure
     once fixpoint is reached will be computed dynamically.
 
-    ### Version 4: Recursion instead of iteration
+    ### Version 4: Recursion instead of iteration (WRONG!)
 
     An alternative to the sure/unsure approach is to guarantee that one pass is enough. That is, find an
     evaluation sequence which will return the fixpoint after a single evaluation.  I believe there are two
@@ -290,8 +313,13 @@ end
     which represent more than two values. However, I think that the constraint that alts must have the same
     semantic value is enough to ensure that are is only one possible `v` for which the function evaluates to
     `Some v`. My reasoning is that in order for a recursive nonterminal to include epsilon, epsilon must appear
-     on some branch which *doesn't* include a recursive case. So, the fixpoint value shouldn't affect the final
+     on some branch which *doesn't* include a recursive case (FALSE!). So, the fixpoint value shouldn't affect the final
     outcome.
+
+    ### Version 5: Use one pass to get "good enough"
+
+    Similar to above, but to preserve correctness, we initialize the table to the unrewritten values for each nonterminal.
+    Then, we rewrite each nonterminal in graph order.
 
     ### Memoization
 
@@ -509,6 +537,28 @@ let to_string' callts get_action get_start memo_cs warn_lookahead =
   in
   recur
 
+let to_string2 =
+  let rec recur c = function
+    | Lam f ->
+       let x = mk_var c in
+       (match f x with
+         | Lam g ->
+               let y = mk_var (c+1) in
+               (match g y with
+                 | Lam h ->
+                     let z = mk_var (c+2) in
+                     Printf.sprintf "(fun %s %s %s -> %s)" x y z (recur (c+3) (h z))
+                 | t -> Printf.sprintf "(fun %s %s -> %s)" x y (recur (c+2) t))
+         | t -> Printf.sprintf "(fun %s -> %s)" x (recur (c+1) t))
+    | Var x -> x
+    | App (e1,e2) -> Printf.sprintf "(%s %s)" (recur c e1) (recur c e2)
+    | SomeE e -> Printf.sprintf "(Some %s)" (recur c e)
+    | AndE (e1,e2) -> Printf.sprintf "(Pred.andc %s %s)" (recur c e1) (recur c e2)
+    | InjectE s -> Printf.sprintf "(%s)" s
+    | _ -> invalid_arg "Attempted to apply to_string2 to unexpected construct."
+  in
+  recur
+
 let to_rhs e =
   let rec recur = function
     | DBL.Lam _ -> invalid_arg "lam"
@@ -551,12 +601,430 @@ type nullability = Yes_n | No_n | Maybe_n
 
 module Gil = struct
 
-  let true_e () = lam3 (fun la p v -> SomeE (Var v))
-  let false_e () = lam3 (fun la p v -> NoneE)
+  type nt_namespace =
+    | Orig_nt        of string
+    | Null_nt     of string
+    | Substantive_nt of string
+
   (* For reasons of type-var generalization, we use Lam constructors directly,
      rather than using lam3. *)
   let ignore_binder_e = Lam (fun p -> Lam (fun x -> Lam (fun y -> Var x)))
   let app_iv f ykb v = app2 (InjectE f) (App (InjectE "Yak.YkBuf.get_offset", Var ykb)) (Var v)
+
+  let null_nt_name nt = Null_nt nt
+  let subs_nt_name nt = Substantive_nt nt
+
+  (** Inject a Gil s_rhs into a Gil rhs with
+      nt_namespace as the nonterminal type. *)
+  let rec ns_inject (r : ('a, string) Gil.rhs) : ('a, nt_namespace) Gil.rhs =
+    let g = function
+      | Gil.Symb (nt, x, y) -> Gil.Symb (Orig_nt nt, x, y)
+      | Gil.Lookahead (b, r) -> Gil.Lookahead (b, ns_inject r)
+      | r -> Gil.rebuild r in
+    Gil.map g r
+
+  (** Project a Gil s_rhs from a Gil rhs with
+      nt_namespace as the nonterminal type. *)
+  let rec ns_project (r : ('a, nt_namespace) Gil.rhs) : ('a, string) Gil.rhs =
+    let g = function
+    | Gil.Symb (Orig_nt nt, x, y) -> Gil.Symb (nt, x, y)
+    | Gil.Symb (Substantive_nt nt, x, y) -> Gil.Symb ("SUBS::" ^ nt, x, y)
+    | Gil.Symb (Null_nt nt, x, y) -> Gil.Symb ("NULL::" ^ nt, x, y)
+    | Gil.Lookahead (b, r) -> Gil.Lookahead (b, ns_project r)
+    | r -> Gil.rebuild r in
+    Gil.map g r
+
+  let inject_dbranch f1 c f2 =
+    if c.Gil.arity = 0 then
+      InjectE (Printf.sprintf
+                 "let f1 = %s and f2 = %s in\n\
+                            fun _ ykb v -> match f1 v with\n\
+                              | Yk_done %s %s -> Some (f2 v ()) | _ -> None"
+                 f1 f2 c.Gil.cty c.Gil.cname)
+    else
+      let vars = Util.list_make c.Gil.arity (Printf.sprintf "v%d") in
+      let pattern = String.concat ", " vars in
+      InjectE (Printf.sprintf
+                 "let f1 = %s and f2 = %s in\n\
+                            fun _ ykb v -> match f1 v with\n\
+                              | Yk_done %s %s (%s) -> Some (f2 v (%s)) | _ -> None"
+                 f1 f2 c.Gil.cty c.Gil.cname pattern pattern)
+
+  let fail = Gil.When ("F", "F")    (* dummy value *)
+
+  (** Derive the epsilon subgrammar of a rhs. *)
+  let derive_eps r =
+    let open Gil in
+    let nullify =
+      Printf.sprintf "let f = %s in fun _ ykb v ->
+      match f v (YkBuf.get_offset ykb) ykb with
+      | (Some (0, _)) as x -> x
+      | _ -> None" in
+    let predify e = "let p = " ^ e ^ " in fun _ _ -> p" in
+    let rec trans2 = function
+      | Symb (nt, x, y) -> Symb (nt, x, y)
+      | ( Lit (_, "")
+        | Action _
+        | When _
+        | Box (_, Always_null)
+        | When_special _
+        ) as r -> r
+      | Lookahead (b,r) -> Lookahead (b, r)
+      | Lit (_,_) -> fail
+      | CharRange _ -> fail
+      | Box (_, Never_null) -> fail
+      | Box (e, Runbox_null) -> Box (nullify e, Always_null)
+      | Box (_, Runpred_null e) -> When_special (predify e)
+      | DBranch _ as r ->
+          if !Compileopt.late_only_dbranch then fail
+          else r
+      | Seq (r1,r2) -> Seq (trans2 r1, trans2 r2)
+      | Alt (r1,r2) -> Alt (trans2 r1, trans2 r2)
+      | Star r -> Star (trans2 r) in
+    trans2 r
+
+  (** Derive the non-epsilon (substantive) subgrammar of a rhs. *)
+  let derive_subs r =
+    let open Gil in
+    let substantiate =
+      Printf.sprintf "let f = %s in fun _ ykb v ->
+      match f v (YkBuf.get_offset ykb) ykb with
+      | Some (0, _) -> None
+      | x -> x" in
+    let rec trans3 = function
+      | Symb (nt, x, y) -> Symb (subs_nt_name nt, x, y)
+      | ( Lit (_, "")
+        | Action _
+        | When _
+        | Box (_, Always_null)
+        | When_special _
+        | Lookahead _ ) -> fail
+      | ( Lit _
+        | CharRange _
+        | Box (_, Never_null)
+        ) as r -> rebuild r
+      | Box (f, Runbox_null) -> Box (substantiate f, Never_null)
+      | Box (f, Runpred_null _) -> Box (substantiate f, Never_null)
+      | DBranch _ as r ->
+          if !Compileopt.late_only_dbranch then rebuild r
+          else fail
+      | Seq (r1,r2) -> Alt (Seq (trans3 r1, ns_inject r2), Seq (ns_inject r1, trans3 r2))
+      | Alt (r1,r2) -> Alt (trans3 r1, trans3 r2)
+      | Star r -> Seq (trans3 r, ns_inject r) in
+    trans3 r
+
+  (** Rewrite a nullable gil rhs to drop "fail". *)
+  let rewrite eps_defs r =
+    let open Gil in
+    let rec irr = function
+        | Symb (_, _, None) -> true (* grammars are assumed to be pure, so if the
+                                        result is not bound, it is irrelevant. *)
+        | Symb (_, _, Some _) -> false
+        | ( Lit _
+          | CharRange _
+          | Lookahead _) -> true
+        | ( Action _
+          | When _
+          | Box _
+          | When_special _) -> false
+        | DBranch _ -> !Compileopt.late_only_dbranch
+        | Seq (r1,r2) -> irr r1 && irr r2
+        | Alt (r1,r2) -> irr r1 && irr r2
+        | Star r -> irr r in
+    let rec rewrite' = function
+      | Symb (nt, _, _) as r_orig ->
+          let r_nt = eps_defs nt in
+          (match r_nt with
+             | (Lit (_, "") | When ("F", _)) -> r_nt
+             | _ -> r_orig)
+      | Seq (r1, r2) ->
+          let r1 = rewrite' r1 in
+          let r2 = rewrite' r2 in
+          (match (r1, r2) with
+             | (When ("F", _), _) -> r1
+             | (_, When ("F", _)) -> r2
+             | (_, Lit (_,"")) -> r1
+             | (Lit (_,""), _) -> r2
+             | _ -> Seq (r1, r2))
+      | Alt (r1, r2) ->
+          let r1 = rewrite' r1 in
+          let r2 = rewrite' r2 in
+          (match (r1,r2) with
+             | (When ("F", _), _) -> r2
+             | (_, When ("F", _)) -> r1
+             | (_, Lit (_,"")) when irr r1-> r2
+             | (Lit (_,""), _) when irr r2 -> r1
+             | _ -> Alt (r1, r2))
+      | Star r1 ->
+          (match rewrite' r1 with
+             | When ("F", _) -> Lit (false, "")
+             | r when irr r -> Lit (false, "")
+             | x -> Star x)
+      | (Lit _ | CharRange _ | Action _ | When _ | When_special _ | DBranch _ | Box _ | Lookahead _) as r -> r
+    in
+    rewrite' r
+
+
+  (** Conservative determination of when an epsilon right-side is okay
+      to inline. *)
+  let rec can_inline_eps =
+    let open Gil in function
+    | ( Lit (_,"") | Lookahead _ ) -> true
+    | ( Lit _
+      | Symb _
+      | Action _
+      | When _
+      | Box _
+      | CharRange _
+      | When_special _
+      | DBranch _ ) -> false
+    | ( Seq (r1,r2) | Alt (r1,r2) ) ->
+        can_inline_eps r1 && can_inline_eps r2
+    | Star r1 -> can_inline_eps r1
+
+  (** [prep_for_inlining r] prepares the (epsilon) right-side [r] for inlining.
+      It translates the rhs [r] into a new rhs that is either a nullability predicate
+      containing a parsing function, or a rhs with no nonterminals. *)
+  let prep_for_inlining nt arg_opt merge_opt r =
+    let open Gil in
+    (* check that it is free of calls and sem-val transformations. *)
+    if can_inline_eps r then
+      match merge_opt with
+        | None -> r
+        | Some f ->
+            let r_b = match arg_opt with
+              | None -> Action ("let f = " ^ f ^ " in (fun p v -> f p v sv0)")
+              | Some e ->
+                  Action ("let e = " ^ e
+                              ^ " and f = " ^ f
+                              ^ " in (fun p v -> f p v (e p v))") in
+            Seq (r, r_b)
+    else
+      When_special (callc nt arg_opt merge_opt)
+
+  (* TODO_DOC:...
+
+     The inlining ensures that no regular nonterminal names will remain. All
+     such references should have been split into substantive names and
+     inlined epsilon definitions. So, we can also remap subs. names to regular
+     names in the same transformation. *)
+  let inline_eps_and_rename eps_defs r =
+    let open Gil in
+    let rec recur r =
+      let rhs_inline_leaf = function
+        | Symb (Orig_nt nt, arg_opt, merge_opt) ->
+            let nt_subs = Symb (nt, arg_opt, merge_opt) in
+            (match eps_defs nt with
+                 (* optimize case of non-nullable nonterminal. *)
+               | When ("F", "F") -> nt_subs
+               | nt_eps ->
+                   let nt_eps = prep_for_inlining nt arg_opt merge_opt nt_eps in
+                   Alt (nt_subs, nt_eps))
+        | Symb (Substantive_nt nt, arg_opt, merge_opt) -> Symb (nt, arg_opt, merge_opt)
+        | Symb (Null_nt nt, _, _) -> invalid_arg "Input grammar should not contain references to epsilon-symbols."
+        | Lookahead (b, r) -> Lookahead (b, recur r)
+        | r -> rebuild r in
+      map rhs_inline_leaf r in
+    recur r
+
+  (* Driver that applies all various above functions:
+     neg <- non-eps grammar.
+     eg <- eps grammar.
+     eg <- rewrite eg.
+     g, neg, eg.
+     neg <- rename_neps (inline_eps eg neg)
+     return start-def + neg
+  *)
+  let eliminate_nullables grm =
+    let start_def, ds = Gil.remove_definition grm.Gul.start_symbol grm.Gul.gildefs in
+    let ds = Gil.sort_definitions ds in
+    let sg = List.map (fun (n,r) -> (n, derive_subs r)) ds in
+    let eg_tbl = Hashtbl.create 101 in
+    let eps_defs nt =
+      try Hashtbl.find eg_tbl nt
+      with Not_found ->
+        Util.warn_undefined nt;
+        fail in
+    (* Step 1: initialize the table with epsilon subgrammars. *)
+    List.iter (fun (n,r) -> Hashtbl.add eg_tbl n (derive_eps r)) ds;
+    (* Step 2: rewrite the entries, according to the order of [ds]. *)
+    List.iter (fun (n,_) ->
+                 let r = rewrite eps_defs (eps_defs n) in
+                 Hashtbl.replace eg_tbl n r) ds;
+    (* TODO: do we want to rewrite subs. entries to percolate failure? *)
+    let sg = List.map (fun (n,r) -> (n, inline_eps_and_rename eps_defs r)) sg in
+    let start_def = inline_eps_and_rename eps_defs (ns_inject start_def) in
+    (grm.Gul.start_symbol, start_def) :: sg, eg_tbl
+
+  (** [compile r] compiles the (null) rhs [r] into a parsing function with a
+      nullability predicate signature. *)
+  let compile get_action get_start memo_cs r =
+    let open Gil in
+    let predify_box f = InjectE("Pred3.boxc (" ^ f ^ ")") in
+    (** [e1] and [e2] are closed expressions. *)
+  (*   let deforest_seq e1 e2 = *)
+  (*     match convert_to_dB e1 with *)
+  (*       | DBL.Lam DBL.Lam DBL.Lam DBL.SomeE e -> *)
+  (*           let c = 0 in *)
+  (*           (\* Since c is the count of binders, c - 1 is *)
+  (*              the maximum possible free variable. We shift *)
+  (*              by 3 since we will be surrounding [e2] by 3 *)
+  (*              lambdas. *\) *)
+  (*           let e2_s = shift (c - 1) 3 (convert_to_dB e2) in *)
+  (*           let la_var = DBL.Var c in *)
+  (*           let p_var = DBL.Var (c + 1) in *)
+  (*           (\* [Var c] is the outermost lambda, which, in this case, *)
+  (*              is the lookahead variable; [Var (c + 1)] corresponds *)
+  (*              to the position variable. *\) *)
+  (*           let e_db = DBL.Lam (DBL.Lam (DBL.Lam (DBL.app3 e2_s la_var p_var e))) in *)
+  (*           convert_from_dB e_dB *)
+  (*       | _ -> app2 (InjectE "Pred.andc") (e1.e ()) (e2.e ())  in *)
+    (** Rewrite AndEs that have an immediate Some in the first component. *)
+    let deforest_seqs e =
+      let dummy_preds nt = Expr_gil.false_e in
+      Expr_gil.rewrite dummy_preds e in
+    let rec recur = function
+        | Symb (Null_nt nt, arg, binder) -> InjectE (callc nt arg binder)
+        | Symb _ -> invalid_arg "Non-null nonterminals cannot be compiled to epsilon parser."
+        | Lit (_, "") -> lam3 (fun la p v -> SomeE (Var v))
+        | Action f -> lam3 (fun la ykb v -> SomeE (app_iv f ykb v))
+        | When (f_pred, f_next) ->
+            InjectE ("let p =  and n =  in " ^
+                       "fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb "^
+                       "in if " ^ f_pred ^ " pos v then Some(" ^ f_next ^ " pos v)" ^
+                       " else None")
+        | Box (f, Always_null) -> predify_box f
+        | When_special p -> InjectE p
+        | Lookahead (_, Gil.Symb( (Substantive_nt _ | Null_nt _), _, _)) ->
+            invalid_arg "Lookahead should only reference user-specified symbols."
+        | Lookahead (b, Gil.Symb(Orig_nt nt, None, None)) ->
+            Util.warn Util.Sys_warn
+              ("using extended lookahead for nonterminal " ^ nt ^ " in nullability predicate.");
+            let n_act = get_action nt in
+            InjectE (Printf.sprintf "Pred.full_lookaheadc %B %d %d" b n_act (get_start n_act))
+        | Lookahead (b, r1) as r ->
+            (match to_cs r1 with
+               | Some la_cs ->
+                   (* Complement w.r.t. 257 to account for EOF, which we
+                      represent as character 256. *)
+                   let cs = if b then la_cs else Cs.complement 257 la_cs in
+                   let cs_code = memo_cs cs in
+                   InjectE (Printf.sprintf "Pred.cs_lookaheadc (%s)" cs_code)
+               | None ->
+                   Util.error Util.Sys_warn
+                     (Printf.sprintf "lookahead limited to character sets or argument-free symbols.\nRule: %s\n"
+                        (Pr.Gil.Pretty.rule2string (ns_project r)));
+                   InjectE "ERROR")
+        | DBranch (f1, c, f2) ->
+            if !Compileopt.late_only_dbranch then invalid_arg "Non-null ..."
+            else inject_dbranch f1 c f2
+        | Seq (r1,r2) ->
+  (*           let x = deforest_seq ({e = fun () -> recur r1}) ({e = fun () -> recur r2}) in *)
+  (*           x.e () *)
+            AndE (recur r1, recur r2)
+        | (Lit _ | CharRange _ | Box (_, Never_null)) -> invalid_arg "Non-null ..."
+        | Box _ -> invalid_arg "This box version should have been desugared."
+        | (Alt _ | Star _) -> invalid_arg "Potentially ambiguous ..." in
+    let parser_r = {e = fun () -> recur r} in
+    DBL.simplify (deforest_seqs (convert_to_dB parser_r))
+
+  let print_null_parsers ch get_action get_start is_sv_known eps_defs_tbl =
+    (* Record which nonterminals are called from other nonterminals
+       (including themselves) in the epsilon grammar. This set is used only
+       to determine which functions should be memoized. *)
+    let called_set = Hashtbl.fold (fun _ r s -> Gil.add_called_symbs s (ns_project r)) eps_defs_tbl (PSet.create compare) in
+    let css = Hashtbl.create 11 in
+    let memo_cs cs =
+      try fst (Hashtbl.find css cs)
+      with Not_found ->
+        let x = Variables.freshn "cs" in
+        let cd = Cs.to_code cs in
+        Hashtbl.add css cs (x,cd); x in
+
+    (* To ensure "let rec" compatibility, we force all generated code to be a syntactic function.
+       We can special case functions, b/c they already meet the criterion, and eta-expand
+       everything else. *)
+    (* If the nonterminal is called from another predicate, then there
+       might be recursion and we should memoize the result. Otherwise,
+       it doesn't need to be memoized. However, because it could be
+       called directly from the grammar, it still needs a function. *)
+    let collect nt r acc =
+      let ntcalled = PSet.mem nt called_set in
+      (* if [e_p] is a boolean then it will have been inlined into any
+         other calling contexts, so there's no reason to print the
+         function. *)
+      match r with
+        | Gil.When ("F", "F") -> acc
+        | r when can_inline_eps r && not ntcalled -> acc
+            (* first condition guarantees not called externally,
+               while second guarantees not called internally. *)
+        | _ ->
+            let ykb = mk_pvar 0 in
+            let v = mk_var 0 in
+            let e_p = compile get_action get_start memo_cs r in
+            let p = convert_from_dB e_p in
+            let exc = Failure "Internal error in module Nullable_pred: De Bruin and PHOAS representations out-of-sync." in
+            let body = match e_p with
+                DBL.Lam DBL.Lam DBL.Lam _ ->
+                  (match p.e () with
+                     | Lam f ->
+                         (match f lookahead_name with
+                            | Lam f2 ->
+                                (match f2 ykb with
+                                   | Lam f3 -> f3 v
+                                   | _ -> raise exc)
+                            | _ -> raise exc)
+                     | _ -> raise exc)
+              | _ ->  app3 (p.e()) (Var lookahead_name) (Var ykb) (Var v)
+            in
+            let tbls, preds = acc in
+            let body_code = to_string2 1 body in
+            (* TODO: extend comment here to explain memoization process *)
+            if ntcalled then begin
+              let tbl = mk_nptblname nt in
+              let pred = Printf.sprintf "%s %s %s %s =\n  \
+                let __p1 = Yak.YkBuf.get_offset %s in\n    \
+                  try\n      \
+                    let (r, __p2)  = SV_hashtbl.find %s %s in\n      \
+                    if __p1 = __p2 then r else\n      \
+                    let x = %s in SV_hashtbl.replace %s %s (x, __p1); x\n    \
+                  with Not_found ->\n      \
+                    let x = %s in SV_hashtbl.add %s %s (x, __p1); x\n\n"
+                (mk_npname nt) lookahead_name ykb v
+                ykb
+                tbl v
+                body_code tbl v
+                body_code tbl v in
+              nt :: tbls, pred :: preds
+            end
+            else begin
+              let pred = Printf.sprintf "%s %s %s %s = %s\n\n" (mk_npname nt) lookahead_name ykb v body_code in
+              tbls, pred :: preds
+            end in
+    let tyannot = if is_sv_known then ": (sv option * int) SV_hashtbl.t" else "" in
+    let print_table nt = Printf.fprintf ch "let %s %s = SV_hashtbl.create 11;;\n" (mk_nptblname nt) tyannot in
+    let print_cs _ (varname, code) = Printf.fprintf ch "let %s = %s;;\n" varname code in
+    let print_pred = Printf.fprintf ch "and %s" in
+    let need_tbls, preds = Hashtbl.fold collect eps_defs_tbl ([],[]) in
+    match List.rev preds with
+      | [] -> ()
+      | p::preds ->
+          if is_sv_known then
+            Printf.fprintf ch "module SV_hashtbl = Hashtbl.Make(struct
+                      type t = sv
+                      let equal a b = sv_compare a b = 0
+                      let hash = Hashtbl.hash end)\n"
+          else Printf.fprintf ch "module SV_hashtbl = Hashtbl\n";
+          Printf.fprintf ch "module Pred = Pred3\n";
+          List.iter print_table need_tbls;
+          Hashtbl.iter print_cs css;
+          Printf.fprintf ch "let rec %s" p;
+          List.iter print_pred preds
+
+
+
+  let true_e () = lam3 (fun la p v -> SomeE (Var v))
+  let false_e () = lam3 (fun la p v -> NoneE)
 
   (* invariant: branches return an npred, which now includes lookahead arg. *)
   let rec trans' = function
@@ -588,21 +1056,7 @@ module Gil = struct
 (*           let f1 = "let f1 = "^ f1 ^" in fun p ykb -> match f1 p ykb with | Some (0,_) as x -> x | (Some _ | None) -> None" in *)
 (*           DBranchE (f1, c, f2) *)
         end
-      else
-        begin
-          if c.Gil.arity = 0 then
-            InjectE (Printf.sprintf
-                       "let f1 = %s and f2 = %s in
-fun _ ykb v -> match f1 v with | Yk_done %s %s -> Some (f2 v ()) | _ -> None"
-                       f1 f2 c.Gil.cty c.Gil.cname)
-          else
-            let vars = Util.list_make c.Gil.arity (Printf.sprintf "v%d") in
-            let pattern = String.concat ", " vars in
-            InjectE (Printf.sprintf
-                       "let f1 = %s and f2 = %s in
-fun _ ykb v -> match f1 v with | Yk_done %s %s (%s) -> Some (f2 v (%s)) | _ -> None"
-                       f1 f2 c.Gil.cty c.Gil.cname pattern pattern)
-        end
+      else inject_dbranch f1 c f2
   | Gil.When_special p -> InjectE p
   | Gil.Seq (r1,r2) -> AndE (trans' r1, trans' r2)
   | Gil.Alt (r1,r2) -> OrE (trans' r1, trans' r2)
@@ -711,6 +1165,15 @@ fun _ ykb v -> match f1 v with | Yk_done %s %s (%s) -> Some (f2 v (%s)) | _ -> N
          other calling contexts, so there's no reason to print the
          function. *)
       match get_expr_nullability e_p with
+            (* TODO: how do we justify the Yes_n case below? I guess
+               the idea is that if the predicates were rewritten to a
+               fixpoint properly, then we can be sure that a Yes_n
+               would result in inlining in the predicate itself, hence
+               nullifying ntcalled. Seems better, then, to just
+               consult the ntcalled predicate. Also, given bug in
+               rewriting, I'm not sure that the assumption is even
+               correct. Again, a good reason to just use "not
+               ntcalled". *)
         | No_n | Yes_n -> acc
         | Rhs_n _ when not ntcalled -> acc
         | _ ->

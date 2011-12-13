@@ -102,6 +102,17 @@ let rebuild : 'a 'b. ('e,'a) rhs -> ('e,'b) rhs = function
   | (Symb _ | Lookahead _ | Seq _ | Alt _ | Star _) ->
       invalid_arg "Only always-polymorphic constructors are handled by rebuild"
 
+let add_called_symbs =
+  let rec recur s = function
+  | Symb (nt, _, _) -> PSet.add nt s
+  | ( Action _ | Box _ | When _ | When_special _ | Lit _
+    | CharRange _ | Lookahead _ | DBranch _) -> s
+  | ( Alt (r1, r2) | Seq (r1, r2) ) -> recur (recur s r1) r2
+  | Star r1 -> recur s r1 in
+  recur
+
+let get_called_symbs r = add_called_symbs (PSet.create compare) r
+
 let rec map f = function
   | ( Action _ | Symb _ | Box _
     | When _ | When_special _ | Lit _ | CharRange _ | Lookahead _ | DBranch _)
@@ -152,6 +163,11 @@ let sort_definitions ds =
   in
   List.sort cmp ds
 
+let remove_definition n ds =
+  let rec loop p = function
+    | ((n2, r) as x) :: ds -> if n = n2 then r, List.rev_append p ds else loop (x :: p) ds
+    | [] -> raise Not_found in
+  loop [] ds
 
 (*********************************************************************
  * character-set analysis

@@ -122,7 +122,7 @@ let mk_lexer2 is_simple_dbranch tokenizer token_type decls =
   let other_defs =
     List.map
       (fun (nonterminal, carried_type, ocaml_constructor) ->
-         let nb = if nonterminal = "EOF" then Attr.N.Unknown else Attr.N.Never_null in
+         let nb = if (String.uppercase nonterminal) = "EOF" then Attr.N.Unknown else Attr.N.Never_null in
          let a = { (mkAttr ()) with Attr.nullability = nb} in
          let rhs =
            (* TODO: support arities other than 0, 1. *)

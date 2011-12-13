@@ -26,8 +26,8 @@ type 'expr boxnull =
    nonterminal that requires sv0, then pass sv0 as an explicit
    parameter. The correctness of call collapsing relies on this
    condition being met. *)
-type 'expr rhs =
-    Symb of nonterminal
+type ('expr,'nt) rhs =
+    Symb of 'nt
       * 'expr option                 (* call function.  *)
          * 'expr option                 (* merge functiono *)
   | Lit of bool * string              (* true iff case sensitive *)
@@ -42,13 +42,16 @@ type 'expr rhs =
           annotated with its type's wrap constructor. *)
   | When of 'expr * 'expr
   | When_special of 'expr   (* Used for inlining nullability predicates. *)
-  | Seq of 'expr rhs * 'expr rhs
-  | Alt of 'expr rhs * 'expr rhs
-  | Star of 'expr rhs
+  | Seq of ('expr, 'nt) rhs * ('expr, 'nt) rhs
+  | Alt of ('expr, 'nt) rhs * ('expr, 'nt) rhs
+  | Star of ('expr, 'nt) rhs
   | Lookahead of bool          (** flag indicating whether or not the rhs is
                                    expected to succeed. *)
-      * 'expr rhs              (** Currently limited to character sets
+      * ('expr, 'nt) rhs              (** Currently limited to character sets
                                    or argument-free symbols. *)
+
+(** The standard [rhs] will have strings for both type parameters, so we abbreviate it here. *)
+type s_rhs = (string, string) rhs
 
 let charrange2alt low high =
   let rec loop i alt =
@@ -81,6 +84,23 @@ let rec mkSEQ_rev = function
   | [] -> Lit (true, "")
   | [r] -> r
   | r::rs -> List.fold_left (fun r_acc r -> Seq(r, r_acc)) r rs
+
+(** Rebuild elements that do not influence the ['nt] type parameter
+    of the [rhs] so as to change the instantiation of the ['nt] parameter
+    of the [rhs].
+
+    Handles everything but Symb, Lookahead, Seq, Alt and Star.
+ *)
+let rebuild : 'a 'b. ('e,'a) rhs -> ('e,'b) rhs = function
+  | Action f             -> Action f
+  | Box (f, bn)          -> Box (f, bn)
+  | When (f, g)          -> When (f, g)
+  | When_special p       -> When_special p
+  | Lit (b, s)           -> Lit (b, s)
+  | CharRange (m, n)     -> CharRange (m, n)
+  | DBranch (f1, c, f2)  -> DBranch (f1, c, f2)
+  | (Symb _ | Lookahead _ | Seq _ | Alt _ | Star _) ->
+      invalid_arg "Only always-polymorphic constructors are handled by rebuild"
 
 let rec map f = function
   | ( Action _ | Symb _ | Box _
@@ -179,8 +199,8 @@ module Meta = struct
   module PHOAS = Meta_prog.PHOAS
   module DBL = Meta_prog.DBL
 
-  type rhs_phoas = PHOAS.hoas_exp rhs
-  type rhs_dbl = DBL.exp rhs
+  type 'nt rhs_phoas = (PHOAS.hoas_exp, 'nt) rhs
+  type 'nt rhs_dbl = (DBL.exp, 'nt) rhs
 
   let boxnull_map f = function
     | Always_null -> Always_null
@@ -209,9 +229,9 @@ module Meta = struct
 
   open Util.Operators
 
-  let phoas_to_string = map_expr PHOAS.to_string
-  let string_to_phoas = map_expr PHOAS.inject_string
-  let phoas_simplify_to_string = map_expr (PHOAS.to_string $ PHOAS.simplify)
+  let phoas_to_string r = map_expr PHOAS.to_string r
+  let string_to_phoas r = map_expr PHOAS.inject_string r
+  let phoas_simplify_to_string r = map_expr (PHOAS.to_string $ PHOAS.simplify) r
 
 end
 

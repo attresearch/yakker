@@ -544,7 +544,7 @@ let ignore_binder_e = Lam (fun x -> Lam (fun y -> Var x))
 (******************************************************************************)
 
 type nullability = Yes_n | No_n | Maybe_n
-                   | Rhs_n of string Gil.rhs (** The predicate can be represented by a nonterminal-free rhs. *)
+                   | Rhs_n of Gil.s_rhs (** The predicate can be represented by a nonterminal-free rhs. *)
 
 
 (******************************************************************************)

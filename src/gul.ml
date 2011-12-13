@@ -198,7 +198,7 @@ type grammar = {
         lexer, vs. scannerless and/or multilex. *)
 
     mutable tokmap: (expr * (nonterminal * (nonterminal * expr option)) list) list;
-    mutable gildefs: (nonterminal * string Gil.rhs) list;
+    mutable gildefs: (nonterminal * Gil.s_rhs) list;
     mutable npreds: (nonterminal, Gil.DB_levels.exp) Hashtbl.t option;
 
     mutable precs : (assoc * nonterminal list) array

@@ -1763,8 +1763,8 @@ module First_set_gil_lex = struct
   type tokens = string * (string * (string option)) list  (* tokenizer, (ocaml_constructor,carried_type) list: store all tokens from the same tokenizer *)
 
   type t = {nonempty: Cs.t * tokens list; (* first set (cs,ts), including single characters from default tokenizer (cs) and all tokens from ocaml lexer tokenizers (ts) *)
-                maybe_nonempty: (string Gil.rhs * Cs.t) list; (* guarded first set*)
-                maybe_empty: string Gil.rhs list; (* guarded nullable *)
+                maybe_nonempty: (Gil.s_rhs * Cs.t) list; (* guarded first set*)
+                maybe_empty: Gil.s_rhs list; (* guarded nullable *)
                 epsilon: bool; (* nullable *)
            }
 

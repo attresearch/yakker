@@ -29,13 +29,20 @@ let skip_opt_coroutine = ref false
   (** Perform the label-skipping optimization early actions. *)
 
 let late_only_dbranch = ref true
-  (** Treat dbranch as a late-only construct. *)
+  (** Treat dbranch as a late-only construct.
+      Moreover, compile dbranches into LexerInstr rather than DetBranchInstr.
+      In essence, this flag completely redefines dbranch. Currently, there
+      is no code in elsewhere in Yakker that turns this off.
+      NOTE: The late_only_dbranch is never epsilon, while the normal one is always
+      epsilon. This distinction comes up when building nullability predicates. *)
 
 let use_dbranch = ref false
   (** Flag: translate lexer declarations into uses of DBranch. Default off.
       NOTE: the set-lexer syntax uses dbranch regardless of the setting of
       this flag.
-      NOTE: Currently, use of this flag is incompatible with the arrow notation. *)
+      NOTE: Currently, use of this flag is incompatible with the arrow notation
+      and the [late_only_dbranch] flag, because it will cause lexer code to attempt
+      to generate dbranch code that isn't late only. *)
 
 let use_fsm = ref false
   (** Use FSM toolkit to build transducer; use FST otherwise. *)

@@ -366,7 +366,8 @@ module Gil = struct
               bprintf f "{%s}" e
           | Gil.When(e1,e2) ->
               bprintf f "@when(%s,%s)" e1 e2
-          | Gil.When_special _ -> Util.todo "Pr.Gil.Pretty.pr.loop.When_special"
+          | Gil.When_special e ->
+              bprintf f "@when-sp(%s)" e
           | Gil.DBranch (f1, c, f2) ->
               bprintf f "@match(%s, {%s, %d, %s}, %s)"
                 f1 c.Gil.cname c.Gil.arity c.Gil.cty f2
@@ -427,6 +428,18 @@ module Gil = struct
            Printf.bprintf b "%s = " n;
            pr b gil;
            Printf.bprintf b "\n")
+
+    let ds2string ds =
+      let b = Buffer.create 11 in
+      pr_definitions b ds;
+      Buffer.contents b
+
+    (** [print_defs_by defs ds] prints [defs], a table of Gil definitions, to
+        [stdout] according to the set (and order) of nonterminals in [ns].
+        Useful debugging code. *)
+    let print_defs_by defs ns =
+      let s_ds = ds2string (List.map (fun n -> (n, defs n)) ns) in
+      Printf.printf "%s\n%!" s_ds
 
     let rule2string r =
       let b = Buffer.create 11 in

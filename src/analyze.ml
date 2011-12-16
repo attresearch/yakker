@@ -1757,282 +1757,7 @@ let report gr outc tokmap =
 
 end
 
-
-module First_set_gil_lex = struct
-
-  type tokens = string * (string * (string option)) list  (* tokenizer, (ocaml_constructor,carried_type) list: store all tokens from the same tokenizer *)
-
-  type t = {nonempty: Cs.t * tokens list; (* first set (cs,ts), including single characters from default tokenizer (cs) and all tokens from ocaml lexer tokenizers (ts) *)
-                maybe_nonempty: (string Gil.rhs * Cs.t) list; (* guarded first set*)
-                maybe_empty: string Gil.rhs list; (* guarded nullable *)
-                epsilon: bool; (* nullable *)
-           }
-
-  let empty () = {nonempty = Cs.empty (),[];
-                          epsilon = false;
-                          maybe_empty = [];
-                          maybe_nonempty = []}
-
-  let non_singleton (l, u) = {nonempty = Cs.range l (u+1),[];
-                                          epsilon = false;
-                                          maybe_empty = [];
-                                          maybe_nonempty = []}
-
-  let non_singleton_tok tokenizer ocaml_constructor carried_type = {nonempty = Cs.empty (), [(tokenizer, [(ocaml_constructor,carried_type)])];
-                                          epsilon = false;
-                                          maybe_empty = [];
-                                          maybe_nonempty = []}
-
-  let maybe_singleton r = {nonempty = Cs.empty (),[];
-                                       epsilon = true;
-                                       maybe_empty = [r];
-                                       maybe_nonempty = []}
-
-  let epsilon_singleton () =  {nonempty = Cs.empty (),[];
-                               epsilon = true;
-                               maybe_empty = [];
-                               maybe_nonempty = []}
-
-
-  (* function to get the sting of token list field if t.nonempty *)
-  let pr_ts ts =
-    let printone (tokenizer, ntl) =
-      Printf.sprintf "%s: %s\n" tokenizer (String.concat "," (List.map (fun (oc,ct) -> (Printf.sprintf "%s" oc)) ntl))
-    in
-      String.concat "\n" (List.map printone ts)
-
-  (* function to get the string of the first set of one nonterminal *)
-  let print_fs fs =
-    let nonemptystr = let cs,ts=fs.nonempty in Printf.sprintf "cs: %s, ts: %s" (Cs.to_nice_string cs) (pr_ts ts) in
-    let epsilonstr = if fs.epsilon then "nullable" else "not nullable" in
-    let maybe_nonemptystr = if fs.maybe_nonempty == [] then "empty" else "not empty" in
-    let maybe_emptystr = if fs.maybe_empty == [] then "empty" else "not empty" in
-      ("nonempty: "^nonemptystr^"\nepsilon: "^epsilonstr^"\nmaybe_nonempty: "^maybe_nonemptystr^"\nmaybe_empty: "^maybe_emptystr^"\n")
-
-
-  (* helper functions that computes the union or concatenation of two first sets *)
-
-  let union_cs cs1 cs2 =
-    let cs = Cs.dup cs1 in
-      Cs.union cs cs2; cs
-
-  let union_ts ts1 ts2 =
-    match ts1,ts2 with
-      | [],[] -> []
-      | [],s -> s
-      | s,[] -> s
-      | _ ->
-    let merge_one (tokenizer, nontlist) =
-      if List.mem_assoc tokenizer ts2 then
-        let nontlist2 = List.assoc tokenizer ts2 in
-          (tokenizer, nontlist@(List.filter (fun t2 -> not(List.mem t2 nontlist)) nontlist2))
-      else
-        (tokenizer, nontlist)
-    in
-      List.map merge_one ts1
-
-  let union fs1 fs2 =
-    let fs1cs,fs1ts = fs1.nonempty in
-    let fs2cs,fs2ts = fs2.nonempty in
-    let cs = Cs.dup fs1cs in
-      Cs.union cs fs2cs;
-      {nonempty = cs,union_ts fs1ts fs2ts;
-       epsilon = fs1.epsilon || fs2.epsilon;
-      maybe_empty = fs1.maybe_empty @ fs2.maybe_empty;
-      maybe_nonempty = fs1.maybe_nonempty @ fs2.maybe_nonempty}
-
-  let fs_notempty fs =
-    let fscs,fsts = fs in
-      Cs.count fscs <> 0 || fsts <> []
-
-  let concat fs1 fs2 =
-    let fs1cs,fs1ts = fs1.nonempty in
-    let fs2cs,fs2ts = fs2.nonempty in
-    {nonempty = if not(fs_notempty fs1.nonempty) || fs1.epsilon || fs1.maybe_empty <> [] then
-       (let cs = Cs.dup fs1cs in
-          Cs.union cs fs2cs;
-          cs,union_ts fs1ts fs2ts)
-     else fs1.nonempty;
-     epsilon = fs1.epsilon && fs2.epsilon;
-       maybe_nonempty =
-          if Cs.count fs2cs > 0 || fs2ts != [] then
-                fs1.maybe_nonempty @
-                  List.map (fun r -> r, fs2cs) fs1.maybe_empty
-          else fs1.maybe_nonempty;
-       maybe_empty =
-          if fs2.maybe_empty = [] then fs1.maybe_empty
-          else
-            let cross_comb l r =
-              l@(List.map (fun r1 -> Gil.Seq(r,r1)) fs2.maybe_empty)
-            in
-              List.fold_left cross_comb [] fs1.maybe_empty
-      }
-
-  let is_nonempty fs = (not fs.epsilon) && fs.maybe_empty = [] && fs.maybe_nonempty = []
-
-  (* search the list that stores the token info, given a constructor/type name, return the tokenizer, constructor(this is redundant, should be the same as the argument), and carried_type.  *)
-  let search_tokmap tokmap n =
-    let search_tokenizer ret (tokenizer, lit_env) =
-      match ret with
-        | None ->
-            if List.mem_assoc n lit_env then let (ocaml_constructor, carried_type) = List.assoc n lit_env in Some (tokenizer,ocaml_constructor,carried_type)
-            else None
-        | Some _ -> ret
-    in
-      List.fold_left search_tokenizer None tokmap
-
-  let pr_tokmap tokmap =
-    let printone (tokenizer, lit_env) =
-      Printf.sprintf "%s: %s\n" tokenizer (String.concat "," (List.map (fun (s1,s2) -> s1^" "^s2) lit_env))
-    in
-      String.concat "\n" (List.map printone tokmap)
-
-  let print_fsmap first_map =
-    let print_one name fs str =
-      (str^name^":\n"^(print_fs fs))
-    in
-    let str = PMap.foldi print_one first_map "" in
-      str
-
-  (** The main function that computes the first sets for all nonterminal
-      in the grammar gr. assume tokens are non-nullable and all tokens
-      from the same tokenizer are non-ambiguous, which I think is true
-      in ocamllex *)
-  let first_gr_gil_lex gr tokmap =
-    (* [fv] stands for first visit. it is used to help determine if
-       there's any change in the current pass *)
-    let rec loop first_map r fv =
-      match r with
-        | Gil.Symb (n1, _, _) ->
-            if PMap.mem n1 first_map then
-              let fs1 = PMap.find n1 first_map in
-              (fs1, true)
-            else  (empty(), false)
-        | Gil.When _
-        | Gil.When_special _
-        | Gil.Lookahead _ -> if fv then (maybe_singleton r, false) else (maybe_singleton r, true)
-        | Gil.Box _
-        | Gil.Action _
-        | Gil.Lit (_, "") ->
-            if fv then
-              (epsilon_singleton (), false)
-            else
-              (epsilon_singleton (), true)
-        | Gil.Lit (b, s) ->
-            let c = s.[0] in
-            if b then
-              let c = Char.code c in
-              if fv then
-                (non_singleton (c,c), false)
-              else
-                (non_singleton (c,c), true)
-            else
-              let lower = Char.lowercase c in
-              let lower = Char.code lower in
-              let upper = Char.uppercase c in
-              let upper = Char.code upper in
-              let fs = union (non_singleton (lower, lower)) (non_singleton (upper, upper)) in
-              if fv then (fs, false) else (fs, true)
-        | Gil.CharRange (x,y) -> if fv then (non_singleton (x,y), false) else (non_singleton (x,y), true)
-        | Gil.Seq(r1,r2) ->
-            let (fs1, has_change1) = loop first_map r1 fv in
-            let (fs2, has_change2) = loop first_map r2 fv in
-            if has_change1 || has_change2 then
-              (concat fs1 fs2, true)
-            else
-              (concat fs1 fs2, false)
-        | Gil.Alt(r1,r2) ->
-            let (fs1, has_change1) = loop first_map r1 fv in
-            let (fs2, has_change2) = loop first_map r2 fv in
-            if has_change1 || has_change2 then
-              (union fs1 fs2, true)
-            else
-              (union fs1 fs2, false)
-        | Gil.Star r1 ->
-            let (fs1, has_change1) = loop first_map r1 fv in
-            ({nonempty = fs1.nonempty; epsilon = true; maybe_empty = fs1.maybe_empty; maybe_nonempty = fs1.maybe_nonempty}, has_change1)
-        | Gil.DBranch _ -> Util.todo "Analyze.First_set_gil_lex.first_gr_gil_lex.loop.DBranch"
-    in
-    let flag = ref false in
-    let iter grdefs =
-      let map = ref PMap.empty in
-      let loopfunc first_map (n,r_gil) =
-        let fv = PMap.mem n first_map in
-        let (fs1, has_change) =
-          match search_tokmap tokmap n with
-            | None -> loop first_map r_gil fv
-            | Some (tokenizer,ocamlconstructor,carried_type) -> (non_singleton_tok tokenizer ocamlconstructor carried_type, true)
-        in
-        let newmap =
-          if has_change then
-            if fv then
-              let fs = PMap.find n first_map in
-              if compare fs fs1 <> 0 then
-                let newmap = PMap.remove n first_map in
-                let newmap = PMap.add n fs1 newmap in
-                let _ = flag := true in
-                newmap
-              else
-                first_map
-            else
-              (let newmap = PMap.add n fs1 first_map in let _ = flag := true in newmap)
-          else first_map
-        in
-        newmap
-      in
-      let _ = flag := true in
-      while !flag do
-        let _ = flag := false in
-        let first_map = List.fold_left loopfunc !map grdefs in
-        map := first_map
-      done;
-      !map
-    in
-    iter gr
-
-  let pr_fls fls =
-    let flscs,flsts = fls in
-    Printf.sprintf "cs: %s, ts: %s\n" (Cs.to_nice_string flscs) (pr_ts flsts)
-
-  (* given the first_map that stores the pre-calculated first sets for all nonterminals in the grammar, return the first set of a particular rhs r. *)
-  let first_gil_lex r first_map =
-    let rec loop r =
-      match r with
-        | Gil.Symb (n1, _, _) ->
-            (try PMap.find n1 first_map with Not_found -> Printf.eprintf "Warning: Unable to compute %s's FIRST set." n1; empty ())
-        | Gil.Box _
-        | Gil.When _ | Gil.When_special _
-        | Gil.Lookahead _ -> maybe_singleton r
-        | Gil.Action _
-        | Gil.Lit (_, "") -> epsilon_singleton ()
-            | Gil.Lit (b, s) ->
-                let c = s.[0] in
-              if b then
-                let c = Char.code c in
-                        non_singleton (c,c)
-              else
-                let lower = Char.lowercase c in
-                let lower = Char.code lower in
-                let upper = Char.uppercase c in
-                let upper = Char.code upper in
-                  union (non_singleton (lower, lower)) (non_singleton (upper, upper))
-            | Gil.CharRange (x,y) -> non_singleton (x,y)
-        | Gil.Seq(r1,r2) -> concat (loop r1) (loop r2)
-        | Gil.Alt(r1,r2) -> union (loop r1) (loop r2)
-        | Gil.Star r1 ->
-            let fs1 = loop r1 in
-              {nonempty = fs1.nonempty; epsilon = true; maybe_empty = fs1.maybe_empty; maybe_nonempty = fs1.maybe_nonempty}
-        | Gil.DBranch _ -> Util.todo "Analyze.First_set_gil_lex.first_gil_lex.loop.DBranch"
-    in
-      loop r
-
-  (*
-     the following part is all about follow set computing:
-     a follow set of a nonterminal contains only the nonempty field in a first set, which includes a character set (cs) and a token list (ts), and which means there's no nullability info.
-     the naming rule: fs usually means first set, while fls means follow set, but there're exceptions which is a little confusing...
-  *)
-
-
+module Gil = struct
   (** [reachable_graph grammar] builds a graph with a node for every
       nonterminal in the grammar and an edge from B to A if A is
       reachable from B. We say "A is reachable from B" if there exists
@@ -2040,272 +1765,554 @@ module First_set_gil_lex = struct
   let reachable_graph gr =
     Tgraph.tc (Gil.dependency_graph gr)
 
-  let lrec_graph gr first_map =
-    let rec loop g n r = match r with
-      | Gil.Symb(x,_,_) ->
-          Tgraph.add_edge (Tgraph.add_node g x) n x
-      | Gil.Action _
-      | Gil.Box _
-      | Gil.Lit _
-      | Gil.CharRange _
-      | Gil.When _ | Gil.When_special _  | Gil.DBranch _
-      | Gil.Lookahead _ ->
-          g
-      | Gil.Seq(r1,r2) ->
-          let fs = first_gil_lex r1 first_map in
-          if not(fs_notempty fs.nonempty) || fs.epsilon || fs.maybe_empty <> []
-          then loop (loop g n r1) n r2
-          else
-            loop g n r1
-      | Gil.Alt(r1,r2) ->
-          loop (loop g n r1) n r2
-      | Gil.Star r1 ->
-          loop g n r1
-    in
-    Tgraph.tc
-      (List.fold_left
-         (fun result (n,r_gil) ->
-            loop (Tgraph.add_node result n) n r_gil
-         )
-         Tgraph.empty
-         gr)
+  (** Like [reachable_graph], but discounting paths through negative lookahead.  *)
+  let reachable_graph_nnla gr =
+    Tgraph.tc (Gil.dependency_graph_nnla gr)
 
   let is_rec n g = Tgraph.is_edge g n n
 
-  let union_fls fls1 fls2 =
-    let fls1cs,fls1ts = fls1 in
-    let fls2cs,fls2ts = fls2 in
-    union_cs fls1cs fls2cs, union_ts fls1ts fls2ts
+  module First_set_lex = struct
 
-  let empty_fls () = Cs.empty (), []
+    type tokens = string * (string * (string option)) list  (* tokenizer, (ocaml_constructor,carried_type) list: store all tokens from the same tokenizer *)
 
-  let print_flsmap follow_map =
-    let print_one name fls str =
-      (str^name^":\n"^(pr_fls fls))
-    in
-    let str = PMap.foldi print_one follow_map "" in
-    str
+    type t = {nonempty: Cs.t * tokens list; (* first set (cs,ts), including single characters from default tokenizer (cs) and all tokens from ocaml lexer tokenizers (ts) *)
+                  maybe_nonempty: (Gil.s_rhs * Cs.t) list; (* guarded first set*)
+                  maybe_empty: Gil.s_rhs list; (* guarded nullable *)
+                  epsilon: bool; (* nullable *)
+             }
 
-  (*
-    the main function that computes the follow sets for all nonterminals in the grammar gr:
-    the framework is the same as in the first set computing, it iterates until a fixed point is reached. the flags are all used to help determine if there's any change in the current pass.
-    while computing follow set, there're two directions of propagation: assume r -> alpha r1
-    follow set of r needs to be propagated to follow set of r1 and vice versa
-  *)
-  let follow_gr_gil_lex gr first_map =
-    let flag = ref false in
-    let rec loop follow_map r cur_fls =
-      match r with
-        | Gil.Symb (n1, _, _) ->
-            if PMap.mem n1 follow_map then
-              let flsr = PMap.find n1 follow_map in
-              let nfls = union_fls flsr cur_fls in
-                if compare nfls flsr <> 0 then
-                  let _ = flag := true in
-                  let newmap = PMap.remove n1 follow_map in
-                  let newmap = PMap.add n1 nfls newmap in
-                    newmap
-                else
-                  follow_map
-            else
-              PMap.add n1 cur_fls follow_map
-        | Gil.Box _
-        | Gil.When _ | Gil.When_special _ | Gil.DBranch _
-        | Gil.Lookahead _
-        | Gil.Action _
-        | Gil.Lit _
-            | Gil.CharRange _ -> follow_map
-        | Gil.Alt (r1,r2) ->
-            let newmap = loop follow_map r1 cur_fls in
-            let newmap = loop newmap r2 cur_fls in
-              newmap
-        | Gil.Star r1 ->
-            let newmap = loop follow_map r1 cur_fls in
-              newmap
-        | Gil.Seq(r1,r2) ->
-            let newmap = loop follow_map r2 cur_fls in
-            let fs2 = first_gil_lex r2 first_map in
-            let newmap =
-              if not(fs_notempty fs2.nonempty) || fs2.epsilon || fs2.maybe_empty <> [] then
-                let nfls = union_fls cur_fls fs2.nonempty in
-                  loop newmap r1 nfls
-              else loop newmap r1 fs2.nonempty
-            in
-              newmap
-    in
-    let iter grdefs =
-      let map = ref PMap.empty in
-      let loopfunc follow_map (n,r_gil) =
-        let cur_fls = try PMap.find n follow_map with Not_found -> empty_fls () in
-        let newmap = loop follow_map r_gil cur_fls in
-          if PMap.mem n newmap then
-            newmap
-          else (flag := true; PMap.add n cur_fls newmap)
+    let empty () = {nonempty = Cs.empty (),[];
+                            epsilon = false;
+                            maybe_empty = [];
+                            maybe_nonempty = []}
+
+    let non_singleton (l, u) = {nonempty = Cs.range l (u+1),[];
+                                            epsilon = false;
+                                            maybe_empty = [];
+                                            maybe_nonempty = []}
+
+    let non_singleton_tok tokenizer ocaml_constructor carried_type = {nonempty = Cs.empty (), [(tokenizer, [(ocaml_constructor,carried_type)])];
+                                            epsilon = false;
+                                            maybe_empty = [];
+                                            maybe_nonempty = []}
+
+    let maybe_singleton r = {nonempty = Cs.empty (),[];
+                                         epsilon = true;
+                                         maybe_empty = [r];
+                                         maybe_nonempty = []}
+
+    let epsilon_singleton () =  {nonempty = Cs.empty (),[];
+                                 epsilon = true;
+                                 maybe_empty = [];
+                                 maybe_nonempty = []}
+
+
+    (* function to get the sting of token list field if t.nonempty *)
+    let pr_ts ts =
+      let printone (tokenizer, ntl) =
+        Printf.sprintf "%s: %s\n" tokenizer (String.concat "," (List.map (fun (oc,ct) -> (Printf.sprintf "%s" oc)) ntl))
       in
-      let _ = flag := true in
+        String.concat "\n" (List.map printone ts)
+
+    (* function to get the string of the first set of one nonterminal *)
+    let print_fs fs =
+      let nonemptystr = let cs,ts=fs.nonempty in Printf.sprintf "cs: %s, ts: %s" (Cs.to_nice_string cs) (pr_ts ts) in
+      let epsilonstr = if fs.epsilon then "nullable" else "not nullable" in
+      let maybe_nonemptystr = if fs.maybe_nonempty == [] then "empty" else "not empty" in
+      let maybe_emptystr = if fs.maybe_empty == [] then "empty" else "not empty" in
+        ("nonempty: "^nonemptystr^"\nepsilon: "^epsilonstr^"\nmaybe_nonempty: "^maybe_nonemptystr^"\nmaybe_empty: "^maybe_emptystr^"\n")
+
+
+    (* helper functions that computes the union or concatenation of two first sets *)
+
+    let union_cs cs1 cs2 =
+      let cs = Cs.dup cs1 in
+        Cs.union cs cs2; cs
+
+    let union_ts ts1 ts2 =
+      match ts1,ts2 with
+        | [],[] -> []
+        | [],s -> s
+        | s,[] -> s
+        | _ ->
+      let merge_one (tokenizer, nontlist) =
+        if List.mem_assoc tokenizer ts2 then
+          let nontlist2 = List.assoc tokenizer ts2 in
+            (tokenizer, nontlist@(List.filter (fun t2 -> not(List.mem t2 nontlist)) nontlist2))
+        else
+          (tokenizer, nontlist)
+      in
+        List.map merge_one ts1
+
+    let union fs1 fs2 =
+      let fs1cs,fs1ts = fs1.nonempty in
+      let fs2cs,fs2ts = fs2.nonempty in
+      let cs = Cs.dup fs1cs in
+        Cs.union cs fs2cs;
+        {nonempty = cs,union_ts fs1ts fs2ts;
+         epsilon = fs1.epsilon || fs2.epsilon;
+        maybe_empty = fs1.maybe_empty @ fs2.maybe_empty;
+        maybe_nonempty = fs1.maybe_nonempty @ fs2.maybe_nonempty}
+
+    let fs_notempty fs =
+      let fscs,fsts = fs in
+        Cs.count fscs <> 0 || fsts <> []
+
+    let concat fs1 fs2 =
+      let fs1cs,fs1ts = fs1.nonempty in
+      let fs2cs,fs2ts = fs2.nonempty in
+      {nonempty = if not(fs_notempty fs1.nonempty) || fs1.epsilon || fs1.maybe_empty <> [] then
+         (let cs = Cs.dup fs1cs in
+            Cs.union cs fs2cs;
+            cs,union_ts fs1ts fs2ts)
+       else fs1.nonempty;
+       epsilon = fs1.epsilon && fs2.epsilon;
+         maybe_nonempty =
+            if Cs.count fs2cs > 0 || fs2ts != [] then
+                  fs1.maybe_nonempty @
+                    List.map (fun r -> r, fs2cs) fs1.maybe_empty
+            else fs1.maybe_nonempty;
+         maybe_empty =
+            if fs2.maybe_empty = [] then fs1.maybe_empty
+            else
+              let cross_comb l r =
+                l@(List.map (fun r1 -> Gil.Seq(r,r1)) fs2.maybe_empty)
+              in
+                List.fold_left cross_comb [] fs1.maybe_empty
+        }
+
+    let is_nonempty fs = (not fs.epsilon) && fs.maybe_empty = [] && fs.maybe_nonempty = []
+
+    (* search the list that stores the token info, given a constructor/type name, return the tokenizer, constructor(this is redundant, should be the same as the argument), and carried_type.  *)
+    let search_tokmap tokmap n =
+      let search_tokenizer ret (tokenizer, lit_env) =
+        match ret with
+          | None ->
+              if List.mem_assoc n lit_env then let (ocaml_constructor, carried_type) = List.assoc n lit_env in Some (tokenizer,ocaml_constructor,carried_type)
+              else None
+          | Some _ -> ret
+      in
+        List.fold_left search_tokenizer None tokmap
+
+    let pr_tokmap tokmap =
+      let printone (tokenizer, lit_env) =
+        Printf.sprintf "%s: %s\n" tokenizer (String.concat "," (List.map (fun (s1,s2) -> s1^" "^s2) lit_env))
+      in
+        String.concat "\n" (List.map printone tokmap)
+
+    let print_fsmap first_map =
+      let print_one name fs str =
+        (str^name^":\n"^(print_fs fs))
+      in
+      let str = PMap.foldi print_one first_map "" in
+        str
+
+    (** The main function that computes the first sets for all nonterminal
+        in the grammar gr. assume tokens are non-nullable and all tokens
+        from the same tokenizer are non-ambiguous, which I think is true
+        in ocamllex *)
+    let first_gr_gil_lex gr tokmap =
+      (* [fv] stands for first visit. it is used to help determine if
+         there's any change in the current pass *)
+      let rec loop first_map r fv =
+        match r with
+          | Gil.Symb (n1, _, _) ->
+              if PMap.mem n1 first_map then
+                let fs1 = PMap.find n1 first_map in
+                (fs1, true)
+              else  (empty(), false)
+          | Gil.When _
+          | Gil.When_special _
+          | Gil.Lookahead _ -> if fv then (maybe_singleton r, false) else (maybe_singleton r, true)
+          | Gil.Box _
+          | Gil.Action _
+          | Gil.Lit (_, "") ->
+              if fv then
+                (epsilon_singleton (), false)
+              else
+                (epsilon_singleton (), true)
+          | Gil.Lit (b, s) ->
+              let c = s.[0] in
+              if b then
+                let c = Char.code c in
+                if fv then
+                  (non_singleton (c,c), false)
+                else
+                  (non_singleton (c,c), true)
+              else
+                let lower = Char.lowercase c in
+                let lower = Char.code lower in
+                let upper = Char.uppercase c in
+                let upper = Char.code upper in
+                let fs = union (non_singleton (lower, lower)) (non_singleton (upper, upper)) in
+                if fv then (fs, false) else (fs, true)
+          | Gil.CharRange (x,y) -> if fv then (non_singleton (x,y), false) else (non_singleton (x,y), true)
+          | Gil.Seq(r1,r2) ->
+              let (fs1, has_change1) = loop first_map r1 fv in
+              let (fs2, has_change2) = loop first_map r2 fv in
+              if has_change1 || has_change2 then
+                (concat fs1 fs2, true)
+              else
+                (concat fs1 fs2, false)
+          | Gil.Alt(r1,r2) ->
+              let (fs1, has_change1) = loop first_map r1 fv in
+              let (fs2, has_change2) = loop first_map r2 fv in
+              if has_change1 || has_change2 then
+                (union fs1 fs2, true)
+              else
+                (union fs1 fs2, false)
+          | Gil.Star r1 ->
+              let (fs1, has_change1) = loop first_map r1 fv in
+              ({nonempty = fs1.nonempty; epsilon = true; maybe_empty = fs1.maybe_empty; maybe_nonempty = fs1.maybe_nonempty}, has_change1)
+          | Gil.DBranch _ -> Util.todo "Analyze.First_set_gil_lex.first_gr_gil_lex.loop.DBranch"
+      in
+      let flag = ref false in
+      let iter grdefs =
+        let map = ref PMap.empty in
+        let loopfunc first_map (n,r_gil) =
+          let fv = PMap.mem n first_map in
+          let (fs1, has_change) =
+            match search_tokmap tokmap n with
+              | None -> loop first_map r_gil fv
+              | Some (tokenizer,ocamlconstructor,carried_type) -> (non_singleton_tok tokenizer ocamlconstructor carried_type, true)
+          in
+          let newmap =
+            if has_change then
+              if fv then
+                let fs = PMap.find n first_map in
+                if compare fs fs1 <> 0 then
+                  let newmap = PMap.remove n first_map in
+                  let newmap = PMap.add n fs1 newmap in
+                  let _ = flag := true in
+                  newmap
+                else
+                  first_map
+              else
+                (let newmap = PMap.add n fs1 first_map in let _ = flag := true in newmap)
+            else first_map
+          in
+          newmap
+        in
+        let _ = flag := true in
         while !flag do
           let _ = flag := false in
-          let follow_map = List.fold_left loopfunc !map grdefs in
-            map := follow_map
+          let first_map = List.fold_left loopfunc !map grdefs in
+          map := first_map
         done;
         !map
-    in
+      in
       iter gr
 
-  let tks_dstct ntl1 ntl2 =
-    if ntl1 = [] || ntl2 = [] then
-      false
-    else
-    let l = List.filter (fun nt -> List.mem nt ntl1) ntl2 in
-      l = []
+    let pr_fls fls =
+      let flscs,flsts = fls in
+      Printf.sprintf "cs: %s, ts: %s\n" (Cs.to_nice_string flscs) (pr_ts flsts)
 
-  let fs_fs_dstct fs1 fs2 = (* in the token case, if one of fs is empty, the function will return false *)
-    let fs1cs,fs1ts = fs1 in
-    let fs2cs,fs2ts = fs2 in
-      if Cs.count fs1cs = 0 && Cs.count fs2cs = 0 then (* only has ocamllex tokenizer *)
-        match fs1ts,fs2ts with
-            [(tknz1,ntl1)],[(tknz2,ntl2)] ->
-              if String.compare tknz1 tknz2 = 0 then
-                tks_dstct ntl1 ntl2,true
-              else
-                false,false
-          | _ -> false,false
-      else if fs1ts = [] && fs2ts = [] then (* no ocamllex tokenizer *)
-        let x = Cs.dup fs1cs in
-        let _ = Cs.intersect x fs2cs in
-          Cs.count x = 0,false
-      else
-        false,false
-
-  let fs3dstct fs1 fs2 fs3 =
-    let fs1cs,fs1ts = fs1 in
-    let fs2cs,fs2ts = fs2 in
-    let fs3cs,fs3ts = fs3 in
-      if Cs.count fs1cs = 0 && Cs.count fs2cs = 0 && Cs.count fs3cs = 0 then (* only has ocamllex tokenizer *)
-        match fs1ts,fs2ts,fs3ts with
-            [(tknz1,ntl1)],[(tknz2,ntl2)],[(tknz3,ntl3)] ->
-              if String.compare tknz1 tknz2 = 0 && String.compare tknz2 tknz3 = 0 && tks_dstct ntl1 ntl2 && tks_dstct ntl2 ntl3 && tks_dstct ntl3 ntl1 then
-                true,true
-              else
-                false,false
-          | _ -> false,false
-      else if fs1ts = [] && fs2ts = [] && fs3ts = [] then (* no ocamllex tokenizer *)
-        let x = Cs.dup fs1cs in
-        let y = Cs.dup fs2cs in
-        let z = Cs.dup fs3cs in
-        let _ = Cs.intersect x fs2cs;Cs.intersect y fs3cs;Cs.intersect z fs1cs in
-          Cs.count x = 0 && Cs.count y = 0 && Cs.count z = 0,false
-      else
-        false,false
-
-  let fssdstct fss =
-    if List.for_all (fun (fscs,fsts) -> Cs.count fscs = 0) fss then
-      let compareone (tag,(unioncs,unionts)) (fscs,fsts) =
-        if tag then
-          match unionts,fsts with
-              [(tknz1,ntl1)],[(tknz2,ntl2)] ->
-                if String.compare tknz1 tknz2 = 0 && tks_dstct ntl1 ntl2 then
-                  let newunion = union_cs unioncs fscs,union_ts unionts fsts in
-                    (tag,newunion)
-                else (false,(unioncs,unionts))
-            | _ -> (false,(unioncs,unionts))
-        else (tag,(unioncs,unionts))
+    (* given the first_map that stores the pre-calculated first sets for all nonterminals in the grammar, return the first set of a particular rhs r. *)
+    let first_gil_lex r first_map =
+      let rec loop r =
+        match r with
+          | Gil.Symb (n1, _, _) ->
+              (try PMap.find n1 first_map with Not_found -> Printf.eprintf "Warning: Unable to compute %s's FIRST set." n1; empty ())
+          | Gil.Box _
+          | Gil.When _ | Gil.When_special _
+          | Gil.Lookahead _ -> maybe_singleton r
+          | Gil.Action _
+          | Gil.Lit (_, "") -> epsilon_singleton ()
+              | Gil.Lit (b, s) ->
+                  let c = s.[0] in
+                if b then
+                  let c = Char.code c in
+                          non_singleton (c,c)
+                else
+                  let lower = Char.lowercase c in
+                  let lower = Char.code lower in
+                  let upper = Char.uppercase c in
+                  let upper = Char.code upper in
+                    union (non_singleton (lower, lower)) (non_singleton (upper, upper))
+              | Gil.CharRange (x,y) -> non_singleton (x,y)
+          | Gil.Seq(r1,r2) -> concat (loop r1) (loop r2)
+          | Gil.Alt(r1,r2) -> union (loop r1) (loop r2)
+          | Gil.Star r1 ->
+              let fs1 = loop r1 in
+                {nonempty = fs1.nonempty; epsilon = true; maybe_empty = fs1.maybe_empty; maybe_nonempty = fs1.maybe_nonempty}
+          | Gil.DBranch _ -> Util.todo "Analyze.First_set_gil_lex.first_gil_lex.loop.DBranch"
       in
-      let tag,_ = List.fold_left compareone (true,(List.hd fss)) (List.tl fss) in
-        if tag then true,true
-        else false,false
-    else if List.for_all (fun (fscs,fsts) -> fsts = []) fss then
-      let compareone (tag,(unioncs,unionts)) (fscs,fsts) =
-        if tag then
-          let x = Cs.dup unioncs in
-          let _ = Cs.intersect x fscs in
-          let newunion = union_cs unioncs fscs, union_ts unionts fsts in
-            if Cs.count x = 0 then (tag,newunion)
-            else (false,(unioncs,unionts))
-        else (tag,(unioncs,unionts))
-      in
-      let tag,_ = List.fold_left compareone (true,List.hd fss) (List.tl fss) in
-        if tag then true,false
-        else false,false
-    else false,false
+        loop r
+
+    (*
+       the following part is all about follow set computing:
+       a follow set of a nonterminal contains only the nonempty field in a first set, which includes a character set (cs) and a token list (ts), and which means there's no nullability info.
+       the naming rule: fs usually means first set, while fls means follow set, but there're exceptions which is a little confusing...
+    *)
 
 
-  let one_tokenizer fss =
-    if List.for_all (fun (fscs,fsts) -> Cs.count fscs = 0) fss then
-      let (_,ts) = List.hd fss in
-      let (tokenizer,_) = List.hd ts in
-        List.for_all (fun (_,unionts) -> match unionts with [(tokenizer1,ntl1)] -> String.compare tokenizer tokenizer1 = 0 | _ -> false) fss
-    else false
 
-  let all_char fss = List.for_all (fun (fscs,fsts) -> fsts = []) fss
-
-  let is_ll1 r first_map follow_map n tokmap =
-    let rec loop r cur_fls =
-      match r with
+    let lrec_graph gr first_map =
+      let rec loop g n r = match r with
+        | Gil.Symb(x,_,_) ->
+            Tgraph.add_edge (Tgraph.add_node g x) n x
         | Gil.Action _
-        | Gil.When _ | Gil.When_special _
         | Gil.Box _
-        | Gil.Symb _
-        | Gil.CharRange _
         | Gil.Lit _
-        | Gil.Lookahead _ -> true
-        | Gil.Star(r2) ->
-            let fs = first_gil_lex r2 first_map in
-            let fls = cur_fls in
-            let is,flag = fs_fs_dstct fs.nonempty fls in
-              if is && fs_notempty fs.nonempty && fs_notempty fls && fs.maybe_nonempty = [] && fs.maybe_empty = [] then
-                true && (loop r2 cur_fls)
-              else false
-        | Gil.Seq (r2, r3) ->
-            let fs = first_gil_lex r3 first_map in
-            let new_fls =
-              if not(fs_notempty fs.nonempty) || fs.epsilon || fs.maybe_empty <> [] then
-                union_fls fs.nonempty cur_fls
-              else fs.nonempty
-            in
-                  (loop r2 new_fls) && (loop r3 cur_fls)
-        | Gil.Alt (r2, r3) ->
-            let fs2,fs3 = first_gil_lex r2 first_map, first_gil_lex r3 first_map in
-              if fs2.maybe_empty <> [] || fs3.maybe_empty <> [] || fs2.maybe_nonempty <> [] || fs3.maybe_nonempty <> [] then
-                false
-              else
-                (match (fs2.epsilon,fs3.epsilon) with
-                  | (false,false) ->
-                      let is,flag = fs_fs_dstct fs2.nonempty fs3.nonempty in
-                        if is && fs_notempty fs2.nonempty && fs_notempty fs3.nonempty then
-                          true && (loop r2 cur_fls) && (loop r3 cur_fls)
-                        else false
-                  | (true,false) ->
-                      let fls = cur_fls in
-                      let fs2cs,fs2ts = fs2.nonempty in
-                      let flscs,flsts = fls in
-                      let fs2u = union_cs fs2cs flscs,union_ts fs2ts flsts in
-                        if fs_notempty fls && fs_notempty fs3.nonempty then begin
-                          let is,flag = fs_fs_dstct fs2u fs3.nonempty in
-                            if is then true && (loop r2 cur_fls) && (loop r3 cur_fls)
-                            else false
-                        end
-                        else false
-                  | (false,true) ->
-                      let fls = cur_fls in
-                      let fs3cs,fs3ts = fs3.nonempty in
-                      let flscs,flsts = fls in
-                      let fs3u = union_cs fs3cs flscs,union_ts fs3ts flsts in
-                        if fs_notempty fls && fs_notempty fs2.nonempty then begin
-                          let is,flag = fs_fs_dstct fs3u fs2.nonempty in
-                            if is then true && (loop r2 cur_fls) && (loop r3 cur_fls)
-                            else false
-                        end
-                        else false
-                  | (true,true) ->
-                      let fls = cur_fls in
-                      let is,flag = fs3dstct fs2.nonempty fs3.nonempty fls in
-                        if is && fs_notempty fs2.nonempty && fs_notempty fs3.nonempty && fs_notempty fls then
-                          true && (loop r2 cur_fls) && (loop r3 cur_fls)
-                        else false)
-        | Gil.DBranch _ -> Util.todo "Analyze.First_set_gil_lex.is_ll1.loop.DBranch"
-    in
-    let init_fls = try PMap.find n follow_map with Not_found -> (Printf.eprintf "Warning: Unable to compute %s's FOLLOW set\n" n; Cs.empty (), []) in
-      loop r init_fls
+        | Gil.CharRange _
+        | Gil.When _ | Gil.When_special _  | Gil.DBranch _
+        | Gil.Lookahead _ ->
+            g
+        | Gil.Seq(r1,r2) ->
+            let fs = first_gil_lex r1 first_map in
+            if not(fs_notempty fs.nonempty) || fs.epsilon || fs.maybe_empty <> []
+            then loop (loop g n r1) n r2
+            else
+              loop g n r1
+        | Gil.Alt(r1,r2) ->
+            loop (loop g n r1) n r2
+        | Gil.Star r1 ->
+            loop g n r1
+      in
+      Tgraph.tc
+        (List.fold_left
+           (fun result (n,r_gil) ->
+              loop (Tgraph.add_node result n) n r_gil
+           )
+           Tgraph.empty
+           gr)
 
+
+    let union_fls fls1 fls2 =
+      let fls1cs,fls1ts = fls1 in
+      let fls2cs,fls2ts = fls2 in
+      union_cs fls1cs fls2cs, union_ts fls1ts fls2ts
+
+    let empty_fls () = Cs.empty (), []
+
+    let print_flsmap follow_map =
+      let print_one name fls str =
+        (str^name^":\n"^(pr_fls fls))
+      in
+      let str = PMap.foldi print_one follow_map "" in
+      str
+
+    (*
+      the main function that computes the follow sets for all nonterminals in the grammar gr:
+      the framework is the same as in the first set computing, it iterates until a fixed point is reached. the flags are all used to help determine if there's any change in the current pass.
+      while computing follow set, there're two directions of propagation: assume r -> alpha r1
+      follow set of r needs to be propagated to follow set of r1 and vice versa
+    *)
+    let follow_gr_gil_lex gr first_map =
+      let flag = ref false in
+      let rec loop follow_map r cur_fls =
+        match r with
+          | Gil.Symb (n1, _, _) ->
+              if PMap.mem n1 follow_map then
+                let flsr = PMap.find n1 follow_map in
+                let nfls = union_fls flsr cur_fls in
+                  if compare nfls flsr <> 0 then
+                    let _ = flag := true in
+                    let newmap = PMap.remove n1 follow_map in
+                    let newmap = PMap.add n1 nfls newmap in
+                      newmap
+                  else
+                    follow_map
+              else
+                PMap.add n1 cur_fls follow_map
+          | Gil.Box _
+          | Gil.When _ | Gil.When_special _ | Gil.DBranch _
+          | Gil.Lookahead _
+          | Gil.Action _
+          | Gil.Lit _
+              | Gil.CharRange _ -> follow_map
+          | Gil.Alt (r1,r2) ->
+              let newmap = loop follow_map r1 cur_fls in
+              let newmap = loop newmap r2 cur_fls in
+                newmap
+          | Gil.Star r1 ->
+              let newmap = loop follow_map r1 cur_fls in
+                newmap
+          | Gil.Seq(r1,r2) ->
+              let newmap = loop follow_map r2 cur_fls in
+              let fs2 = first_gil_lex r2 first_map in
+              let newmap =
+                if not(fs_notempty fs2.nonempty) || fs2.epsilon || fs2.maybe_empty <> [] then
+                  let nfls = union_fls cur_fls fs2.nonempty in
+                    loop newmap r1 nfls
+                else loop newmap r1 fs2.nonempty
+              in
+                newmap
+      in
+      let iter grdefs =
+        let map = ref PMap.empty in
+        let loopfunc follow_map (n,r_gil) =
+          let cur_fls = try PMap.find n follow_map with Not_found -> empty_fls () in
+          let newmap = loop follow_map r_gil cur_fls in
+            if PMap.mem n newmap then
+              newmap
+            else (flag := true; PMap.add n cur_fls newmap)
+        in
+        let _ = flag := true in
+          while !flag do
+            let _ = flag := false in
+            let follow_map = List.fold_left loopfunc !map grdefs in
+              map := follow_map
+          done;
+          !map
+      in
+        iter gr
+
+    let tks_dstct ntl1 ntl2 =
+      if ntl1 = [] || ntl2 = [] then
+        false
+      else
+      let l = List.filter (fun nt -> List.mem nt ntl1) ntl2 in
+        l = []
+
+    let fs_fs_dstct fs1 fs2 = (* in the token case, if one of fs is empty, the function will return false *)
+      let fs1cs,fs1ts = fs1 in
+      let fs2cs,fs2ts = fs2 in
+        if Cs.count fs1cs = 0 && Cs.count fs2cs = 0 then (* only has ocamllex tokenizer *)
+          match fs1ts,fs2ts with
+              [(tknz1,ntl1)],[(tknz2,ntl2)] ->
+                if String.compare tknz1 tknz2 = 0 then
+                  tks_dstct ntl1 ntl2,true
+                else
+                  false,false
+            | _ -> false,false
+        else if fs1ts = [] && fs2ts = [] then (* no ocamllex tokenizer *)
+          let x = Cs.dup fs1cs in
+          let _ = Cs.intersect x fs2cs in
+            Cs.count x = 0,false
+        else
+          false,false
+
+    let fs3dstct fs1 fs2 fs3 =
+      let fs1cs,fs1ts = fs1 in
+      let fs2cs,fs2ts = fs2 in
+      let fs3cs,fs3ts = fs3 in
+        if Cs.count fs1cs = 0 && Cs.count fs2cs = 0 && Cs.count fs3cs = 0 then (* only has ocamllex tokenizer *)
+          match fs1ts,fs2ts,fs3ts with
+              [(tknz1,ntl1)],[(tknz2,ntl2)],[(tknz3,ntl3)] ->
+                if String.compare tknz1 tknz2 = 0 && String.compare tknz2 tknz3 = 0 && tks_dstct ntl1 ntl2 && tks_dstct ntl2 ntl3 && tks_dstct ntl3 ntl1 then
+                  true,true
+                else
+                  false,false
+            | _ -> false,false
+        else if fs1ts = [] && fs2ts = [] && fs3ts = [] then (* no ocamllex tokenizer *)
+          let x = Cs.dup fs1cs in
+          let y = Cs.dup fs2cs in
+          let z = Cs.dup fs3cs in
+          let _ = Cs.intersect x fs2cs;Cs.intersect y fs3cs;Cs.intersect z fs1cs in
+            Cs.count x = 0 && Cs.count y = 0 && Cs.count z = 0,false
+        else
+          false,false
+
+    let fssdstct fss =
+      if List.for_all (fun (fscs,fsts) -> Cs.count fscs = 0) fss then
+        let compareone (tag,(unioncs,unionts)) (fscs,fsts) =
+          if tag then
+            match unionts,fsts with
+                [(tknz1,ntl1)],[(tknz2,ntl2)] ->
+                  if String.compare tknz1 tknz2 = 0 && tks_dstct ntl1 ntl2 then
+                    let newunion = union_cs unioncs fscs,union_ts unionts fsts in
+                      (tag,newunion)
+                  else (false,(unioncs,unionts))
+              | _ -> (false,(unioncs,unionts))
+          else (tag,(unioncs,unionts))
+        in
+        let tag,_ = List.fold_left compareone (true,(List.hd fss)) (List.tl fss) in
+          if tag then true,true
+          else false,false
+      else if List.for_all (fun (fscs,fsts) -> fsts = []) fss then
+        let compareone (tag,(unioncs,unionts)) (fscs,fsts) =
+          if tag then
+            let x = Cs.dup unioncs in
+            let _ = Cs.intersect x fscs in
+            let newunion = union_cs unioncs fscs, union_ts unionts fsts in
+              if Cs.count x = 0 then (tag,newunion)
+              else (false,(unioncs,unionts))
+          else (tag,(unioncs,unionts))
+        in
+        let tag,_ = List.fold_left compareone (true,List.hd fss) (List.tl fss) in
+          if tag then true,false
+          else false,false
+      else false,false
+
+
+    let one_tokenizer fss =
+      if List.for_all (fun (fscs,fsts) -> Cs.count fscs = 0) fss then
+        let (_,ts) = List.hd fss in
+        let (tokenizer,_) = List.hd ts in
+          List.for_all (fun (_,unionts) -> match unionts with [(tokenizer1,ntl1)] -> String.compare tokenizer tokenizer1 = 0 | _ -> false) fss
+      else false
+
+    let all_char fss = List.for_all (fun (fscs,fsts) -> fsts = []) fss
+
+    let is_ll1 r first_map follow_map n tokmap =
+      let rec loop r cur_fls =
+        match r with
+          | Gil.Action _
+          | Gil.When _ | Gil.When_special _
+          | Gil.Box _
+          | Gil.Symb _
+          | Gil.CharRange _
+          | Gil.Lit _
+          | Gil.Lookahead _ -> true
+          | Gil.Star(r2) ->
+              let fs = first_gil_lex r2 first_map in
+              let fls = cur_fls in
+              let is,flag = fs_fs_dstct fs.nonempty fls in
+                if is && fs_notempty fs.nonempty && fs_notempty fls && fs.maybe_nonempty = [] && fs.maybe_empty = [] then
+                  true && (loop r2 cur_fls)
+                else false
+          | Gil.Seq (r2, r3) ->
+              let fs = first_gil_lex r3 first_map in
+              let new_fls =
+                if not(fs_notempty fs.nonempty) || fs.epsilon || fs.maybe_empty <> [] then
+                  union_fls fs.nonempty cur_fls
+                else fs.nonempty
+              in
+                    (loop r2 new_fls) && (loop r3 cur_fls)
+          | Gil.Alt (r2, r3) ->
+              let fs2,fs3 = first_gil_lex r2 first_map, first_gil_lex r3 first_map in
+                if fs2.maybe_empty <> [] || fs3.maybe_empty <> [] || fs2.maybe_nonempty <> [] || fs3.maybe_nonempty <> [] then
+                  false
+                else
+                  (match (fs2.epsilon,fs3.epsilon) with
+                    | (false,false) ->
+                        let is,flag = fs_fs_dstct fs2.nonempty fs3.nonempty in
+                          if is && fs_notempty fs2.nonempty && fs_notempty fs3.nonempty then
+                            true && (loop r2 cur_fls) && (loop r3 cur_fls)
+                          else false
+                    | (true,false) ->
+                        let fls = cur_fls in
+                        let fs2cs,fs2ts = fs2.nonempty in
+                        let flscs,flsts = fls in
+                        let fs2u = union_cs fs2cs flscs,union_ts fs2ts flsts in
+                          if fs_notempty fls && fs_notempty fs3.nonempty then begin
+                            let is,flag = fs_fs_dstct fs2u fs3.nonempty in
+                              if is then true && (loop r2 cur_fls) && (loop r3 cur_fls)
+                              else false
+                          end
+                          else false
+                    | (false,true) ->
+                        let fls = cur_fls in
+                        let fs3cs,fs3ts = fs3.nonempty in
+                        let flscs,flsts = fls in
+                        let fs3u = union_cs fs3cs flscs,union_ts fs3ts flsts in
+                          if fs_notempty fls && fs_notempty fs2.nonempty then begin
+                            let is,flag = fs_fs_dstct fs3u fs2.nonempty in
+                              if is then true && (loop r2 cur_fls) && (loop r3 cur_fls)
+                              else false
+                          end
+                          else false
+                    | (true,true) ->
+                        let fls = cur_fls in
+                        let is,flag = fs3dstct fs2.nonempty fs3.nonempty fls in
+                          if is && fs_notempty fs2.nonempty && fs_notempty fs3.nonempty && fs_notempty fls then
+                            true && (loop r2 cur_fls) && (loop r3 cur_fls)
+                          else false)
+          | Gil.DBranch _ -> Util.todo "Analyze.First_set_gil_lex.is_ll1.loop.DBranch"
+      in
+      let init_fls = try PMap.find n follow_map with Not_found -> (Printf.eprintf "Warning: Unable to compute %s's FOLLOW set\n" n; Cs.empty (), []) in
+        loop r init_fls
+
+  end
 end

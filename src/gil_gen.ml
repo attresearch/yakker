@@ -10,7 +10,8 @@
  *******************************************************************************)
 
 open Yak
-open Analyze.First_set_gil_lex
+open Analyze.Gil
+open First_set_lex
 
 let remove_memo = ref true
 let use_bucket = ref true

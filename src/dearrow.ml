@@ -952,7 +952,7 @@ let transform gr =
     | Minus _     -> Util.impossible "Dearrow.transform.gul2gil.Minus"
     | Prose _     -> Util.impossible "Dearrow.transform.gul2gil.Prose" in
 
-  let rec _tr (g : pl ctxt) xs bind_q r : 'a ctxt * 'b Gil.rhs=
+  let rec _tr (g : pl ctxt) xs bind_q r : 'a ctxt * ('b, string) Gil.rhs =
 
     (** Should only be used for Gul rules which are *not* considered
         early producers. *)

@@ -26,8 +26,8 @@ type 'expr boxnull =
    nonterminal that requires sv0, then pass sv0 as an explicit
    parameter. The correctness of call collapsing relies on this
    condition being met. *)
-type 'expr rhs =
-    Symb of nonterminal
+type ('expr,'nt) rhs =
+    Symb of 'nt
       * 'expr option                 (* call function.  *)
          * 'expr option                 (* merge functiono *)
   | Lit of bool * string              (* true iff case sensitive *)
@@ -35,20 +35,23 @@ type 'expr rhs =
   | Action of 'expr
   | Box of 'expr * 'expr boxnull
   | DBranch of 'expr                    (** generating expression *)
-      * constr                          (** constructor information (means different things depending on
-                                            whether late_branch_only is on) *)
+      * constr                          (** constructor information (means different things
+                                            depending on whether late_branch_only is on) *)
       * 'expr                           (** branch function (unused when late_branch_only is on). *)
       (** A deterministic branch on a datatype value,
           annotated with its type's wrap constructor. *)
   | When of 'expr * 'expr
   | When_special of 'expr   (* Used for inlining nullability predicates. *)
-  | Seq of 'expr rhs * 'expr rhs
-  | Alt of 'expr rhs * 'expr rhs
-  | Star of 'expr rhs
+  | Seq of ('expr, 'nt) rhs * ('expr, 'nt) rhs
+  | Alt of ('expr, 'nt) rhs * ('expr, 'nt) rhs
+  | Star of ('expr, 'nt) rhs
   | Lookahead of bool          (** flag indicating whether or not the rhs is
                                    expected to succeed. *)
-      * 'expr rhs              (** Currently limited to character sets
+      * ('expr, 'nt) rhs              (** Currently limited to character sets
                                    or argument-free symbols. *)
+
+(** The standard [rhs] will have strings for both type parameters, so we abbreviate it here. *)
+type s_rhs = (string, string) rhs
 
 let charrange2alt low high =
   let rec loop i alt =
@@ -81,6 +84,34 @@ let rec mkSEQ_rev = function
   | [] -> Lit (true, "")
   | [r] -> r
   | r::rs -> List.fold_left (fun r_acc r -> Seq(r, r_acc)) r rs
+
+(** Rebuild elements that do not influence the ['nt] type parameter
+    of the [rhs] so as to change the instantiation of the ['nt] parameter
+    of the [rhs].
+
+    Handles everything but Symb, Lookahead, Seq, Alt and Star.
+ *)
+let rebuild : 'a 'b. ('e,'a) rhs -> ('e,'b) rhs = function
+  | Action f             -> Action f
+  | Box (f, bn)          -> Box (f, bn)
+  | When (f, g)          -> When (f, g)
+  | When_special p       -> When_special p
+  | Lit (b, s)           -> Lit (b, s)
+  | CharRange (m, n)     -> CharRange (m, n)
+  | DBranch (f1, c, f2)  -> DBranch (f1, c, f2)
+  | (Symb _ | Lookahead _ | Seq _ | Alt _ | Star _) ->
+      invalid_arg "Only always-polymorphic constructors are handled by rebuild"
+
+let add_called_symbs =
+  let rec recur s = function
+  | Symb (nt, _, _) -> PSet.add nt s
+  | ( Action _ | Box _ | When _ | When_special _ | Lit _
+    | CharRange _ | Lookahead _ | DBranch _) -> s
+  | ( Alt (r1, r2) | Seq (r1, r2) ) -> recur (recur s r1) r2
+  | Star r1 -> recur s r1 in
+  recur
+
+let get_called_symbs r = add_called_symbs (PSet.create compare) r
 
 let rec map f = function
   | ( Action _ | Symb _ | Box _
@@ -118,20 +149,47 @@ let dependency_graph ds =
     Tgraph.empty
     ds
 
+(** A special-version of [dependency_graph] in which negative
+    lookahead is not counted, because it forms an unusual dependency. This
+    can be relevant in checking whether a nonterminal's language is
+    empty. *)
+let dependency_graph_nnla ds =
+  let rec get_depend g n = function
+      (* Add dependencies for n to a graph given definition r *)
+  | Symb(x,_,_) ->
+      Tgraph.add_edge (Tgraph.add_node g x) n x
+  | When _ | When_special _ | Action _ | Box _
+  | Lookahead (false,_) | DBranch _ | CharRange _ | Lit _ -> g
+  | Seq(r2,r3)
+  | Alt(r2,r3) ->
+      get_depend (get_depend g n r2) n r3
+  | Star(r2) | Lookahead(true, r2) ->
+      get_depend g n r2
+  in
+  List.fold_left
+    (fun result (n,r) -> get_depend (Tgraph.add_node result n) n r)
+    Tgraph.empty
+    ds
+
 let sort_definitions ds =
   let cmp =
     let (index_map,_) = (* Maps nonterminals to indices 0..n in topological sort order *)
       let g = dependency_graph ds in
-      let in_order = List.rev(Tgraph.tsort g) in
+      let in_order = List.rev (Tgraph.tsort g) in
       List.fold_left
-        (fun (m,i) n -> (PMap.add n i m, i+1))
-        (PMap.empty,0)
+        (fun (m, i) nt -> (PMap.add nt i m, i+1))
+        (PMap.empty, 0)
         in_order in
     (fun (n1,_) (n2,_) ->
              compare (PMap.find n1 index_map) (PMap.find n2 index_map))
   in
   List.sort cmp ds
 
+let remove_definition n ds =
+  let rec loop p = function
+    | ((n2, r) as x) :: ds -> if n = n2 then r, List.rev_append p ds else loop (x :: p) ds
+    | [] -> raise Not_found in
+  loop [] ds
 
 (*********************************************************************
  * character-set analysis
@@ -179,8 +237,8 @@ module Meta = struct
   module PHOAS = Meta_prog.PHOAS
   module DBL = Meta_prog.DBL
 
-  type rhs_phoas = PHOAS.hoas_exp rhs
-  type rhs_dbl = DBL.exp rhs
+  type 'nt rhs_phoas = (PHOAS.hoas_exp, 'nt) rhs
+  type 'nt rhs_dbl = (DBL.exp, 'nt) rhs
 
   let boxnull_map f = function
     | Always_null -> Always_null
@@ -209,9 +267,9 @@ module Meta = struct
 
   open Util.Operators
 
-  let phoas_to_string = map_expr PHOAS.to_string
-  let string_to_phoas = map_expr PHOAS.inject_string
-  let phoas_simplify_to_string = map_expr (PHOAS.to_string $ PHOAS.simplify)
+  let phoas_to_string r = map_expr PHOAS.to_string r
+  let string_to_phoas r = map_expr PHOAS.inject_string r
+  let phoas_simplify_to_string r = map_expr (PHOAS.to_string $ PHOAS.simplify) r
 
 end
 

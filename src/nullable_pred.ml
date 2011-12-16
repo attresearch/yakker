@@ -297,7 +297,7 @@ end
     nonterminals to `unsure (false)`.  As sure values are computed, they flip to sure. Anything remaining unsure
     once fixpoint is reached will be computed dynamically.
 
-    ### Version 4: Recursion instead of iteration (WRONG!)
+    ### Version 4: Recursion instead of iteration (WRONG! See counterexample below)
 
     An alternative to the sure/unsure approach is to guarantee that one pass is enough. That is, find an
     evaluation sequence which will return the fixpoint after a single evaluation.  I believe there are two
@@ -313,8 +313,16 @@ end
     which represent more than two values. However, I think that the constraint that alts must have the same
     semantic value is enough to ensure that are is only one possible `v` for which the function evaluates to
     `Some v`. My reasoning is that in order for a recursive nonterminal to include epsilon, epsilon must appear
-     on some branch which *doesn't* include a recursive case (FALSE!). So, the fixpoint value shouldn't affect the final
+    on some branch which *doesn't* include a recursive case (FALSE!). So, the fixpoint value shouldn't affect the final
     outcome.
+
+    COUNTEREXAMPLE:
+      S = e
+      e = f "b" | "".
+      f = e | "a".
+    both e and f are nullable, but initializing the table to false will result in f being
+    rewritten to false.  The topo. sort will give: f, e, S. So, the first pass of f will use
+    e = false, which is wrong.
 
     ### Version 5: Use one pass to get "good enough"
 
@@ -614,11 +622,22 @@ module Gil = struct
   let null_nt_name nt = Null_nt nt
   let subs_nt_name nt = Substantive_nt nt
 
-  (** Inject a Gil s_rhs into a Gil rhs with
-      nt_namespace as the nonterminal type. *)
+  (** Inject a Gil s_rhs into a Gil rhs with nt_namespace as the
+      nonterminal type. All nonterminals are assumed to inhabit the
+      Orig_nt namespace. *)
   let rec ns_inject (r : ('a, string) Gil.rhs) : ('a, nt_namespace) Gil.rhs =
     let g = function
       | Gil.Symb (nt, x, y) -> Gil.Symb (Orig_nt nt, x, y)
+      | Gil.Lookahead (b, r) -> Gil.Lookahead (b, ns_inject r)
+      | r -> Gil.rebuild r in
+    Gil.map g r
+
+  (** Inject a Gil s_rhs into a Gil rhs with nt_namespace as the
+      nonterminal type, assuming all nonterminals inhabit the Null_nt
+      namespace, except for those in Lookahead. *)
+  let rec null_ns_inject (r : ('a, string) Gil.rhs) : ('a, nt_namespace) Gil.rhs =
+    let g = function
+      | Gil.Symb (nt, x, y) -> Gil.Symb (Null_nt nt, x, y)
       | Gil.Lookahead (b, r) -> Gil.Lookahead (b, ns_inject r)
       | r -> Gil.rebuild r in
     Gil.map g r
@@ -650,14 +669,23 @@ module Gil = struct
                               | Yk_done %s %s (%s) -> Some (f2 v (%s)) | _ -> None"
                  f1 f2 c.Gil.cty c.Gil.cname pattern pattern)
 
-  let fail = Gil.When ("F", "F")    (* dummy value *)
+  (** Dummy value. Invalid arguments in When make sure that we catch
+      it if it escapes use in this module.  For cases where we intend
+      it to escape, we manually convert it to a valid form with [fix_fail],
+      below. *)
+  let fail = Gil.When ("F", "F")
+
+  let fix_fail = function
+    | Gil.When("F","F") -> Gil.When("fun _ _ -> false", "fun _ v -> v")
+    | r -> r
 
   (** Derive the epsilon subgrammar of a rhs. *)
   let derive_eps r =
     let open Gil in
     let nullify =
-      Printf.sprintf "let f = %s in fun _ ykb v ->
-      match f v (YkBuf.get_offset ykb) ykb with
+      Printf.sprintf "let f = %s in\n\
+      fun v pos ykb ->\n\
+      match f v pos ykb with
       | (Some (0, _)) as x -> x
       | _ -> None" in
     let predify e = "let p = " ^ e ^ " in fun _ _ -> p" in
@@ -670,7 +698,7 @@ module Gil = struct
         | When_special _
         ) as r -> r
       | Lookahead (b,r) -> Lookahead (b, r)
-      | Lit (_,_) -> fail
+      | Lit _ -> fail
       | CharRange _ -> fail
       | Box (_, Never_null) -> fail
       | Box (e, Runbox_null) -> Box (nullify e, Always_null)
@@ -687,8 +715,9 @@ module Gil = struct
   let derive_subs r =
     let open Gil in
     let substantiate =
-      Printf.sprintf "let f = %s in fun _ ykb v ->
-      match f v (YkBuf.get_offset ykb) ykb with
+      Printf.sprintf "let f = %s in\n\
+      fun v pos ykb ->
+      match f v pos ykb with
       | Some (0, _) -> None
       | x -> x" in
     let rec trans3 = function
@@ -708,35 +737,45 @@ module Gil = struct
       | DBranch _ as r ->
           if !Compileopt.late_only_dbranch then rebuild r
           else fail
-      | Seq (r1,r2) -> Alt (Seq (trans3 r1, ns_inject r2), Seq (ns_inject r1, trans3 r2))
+      | Seq (r1,r2) -> Alt (Seq (trans3 r1, ns_inject r2), Seq (null_ns_inject (derive_eps r1), trans3 r2))
       | Alt (r1,r2) -> Alt (trans3 r1, trans3 r2)
-      | Star r -> Seq (trans3 r, ns_inject r) in
+      | Star r -> Seq (trans3 r, Star (ns_inject r)) in
     trans3 r
 
-  (** Rewrite a nullable gil rhs to drop "fail". *)
-  let rewrite eps_defs r =
+  (** epsilon-equivalence for epsilon right-sides. *)
+  let rec eps_is_eps_eq =
     let open Gil in
-    let rec irr = function
-        | Symb (_, _, None) -> true (* grammars are assumed to be pure, so if the
-                                        result is not bound, it is irrelevant. *)
-        | Symb (_, _, Some _) -> false
-        | ( Lit _
-          | CharRange _
-          | Lookahead _) -> true
-        | ( Action _
-          | When _
-          | Box _
-          | When_special _) -> false
-        | DBranch _ -> !Compileopt.late_only_dbranch
-        | Seq (r1,r2) -> irr r1 && irr r2
-        | Alt (r1,r2) -> irr r1 && irr r2
-        | Star r -> irr r in
+    function
+    | Symb (_, _, None) -> true (* grammars are assumed to be pure, so if the
+                                   result is not bound, it does not have semantic impact. *)
+    | Symb (_, _, Some _) -> false
+    | ( Lit (_, "") | Lookahead _) -> true
+    | ( Action _ | When _ | Box _ | When_special _) -> false
+    | Seq (r1,r2) -> eps_is_eps_eq r1 && eps_is_eps_eq r2
+    | Alt (r1,r2) -> eps_is_eps_eq r1 && eps_is_eps_eq r2
+    | Star r -> eps_is_eps_eq r
+    | DBranch _  ->
+        if !Compileopt.late_only_dbranch then
+          invalid_arg "terminals should not appear in epsilon right-sides."
+        else false
+    | ( Lit _ | CharRange _ ) -> invalid_arg "terminals should not appear in epsilon right-sides."
+
+  let noneps_is_eps_eq r = false
+
+  (** Rewrite a gil rhs based on rules relating to "fail" and epsilon.
+      The rewrite rules relating to epsilon depend on a predicate [is_irr]
+      to determine whether the rule is equivalent to epsilon.
+  *)
+  let rewrite nt_defs is_eps_eq r =
+    let open Gil in
     let rec rewrite' = function
       | Symb (nt, _, _) as r_orig ->
-          let r_nt = eps_defs nt in
-          (match r_nt with
-             | (Lit (_, "") | When ("F", _)) -> r_nt
-             | _ -> r_orig)
+          (try
+             let r_nt = nt_defs nt in
+             match r_nt with
+                | (Lit (_, "") | When ("F", _)) -> r_nt
+                | _ -> r_orig
+           with Not_found -> r_orig)
       | Seq (r1, r2) ->
           let r1 = rewrite' r1 in
           let r2 = rewrite' r2 in
@@ -752,21 +791,24 @@ module Gil = struct
           (match (r1,r2) with
              | (When ("F", _), _) -> r2
              | (_, When ("F", _)) -> r1
-             | (_, Lit (_,"")) when irr r1-> r2
-             | (Lit (_,""), _) when irr r2 -> r1
+             | (_, Lit (_,"")) when is_eps_eq r1-> r2
+             | (Lit (_,""), _) when is_eps_eq r2 -> r1
              | _ -> Alt (r1, r2))
       | Star r1 ->
           (match rewrite' r1 with
              | When ("F", _) -> Lit (false, "")
-             | r when irr r -> Lit (false, "")
-             | x -> Star x)
+             | r when is_eps_eq r -> Lit (false, "")
+             | r -> Star r)
       | (Lit _ | CharRange _ | Action _ | When _ | When_special _ | DBranch _ | Box _ | Lookahead _) as r -> r
     in
     rewrite' r
 
 
   (** Conservative determination of when an epsilon right-side is okay
-      to inline. *)
+      to inline.
+
+      TODO: make this a bit smarter: inline any single element other than Symb.
+  *)
   let rec can_inline_eps =
     let open Gil in function
     | ( Lit (_,"") | Lookahead _ ) -> true
@@ -813,6 +855,7 @@ module Gil = struct
     let rec recur r =
       let rhs_inline_leaf = function
         | Symb (Orig_nt nt, arg_opt, merge_opt) ->
+            (* Split the nonterminal and then inline the null part. *)
             let nt_subs = Symb (nt, arg_opt, merge_opt) in
             (match eps_defs nt with
                  (* optimize case of non-nullable nonterminal. *)
@@ -820,12 +863,53 @@ module Gil = struct
                | nt_eps ->
                    let nt_eps = prep_for_inlining nt arg_opt merge_opt nt_eps in
                    Alt (nt_subs, nt_eps))
-        | Symb (Substantive_nt nt, arg_opt, merge_opt) -> Symb (nt, arg_opt, merge_opt)
-        | Symb (Null_nt nt, _, _) -> invalid_arg "Input grammar should not contain references to epsilon-symbols."
+        | Symb (Substantive_nt nt, arg_opt, merge_opt) ->
+            Symb (nt, arg_opt, merge_opt)
+        | Symb (Null_nt nt, arg_opt, merge_opt) ->
+            let nt_eps = eps_defs nt in
+            (match nt_eps with
+                 (* optimize case of non-nullable nonterminal. *)
+               | When ("F", "F") -> nt_eps
+               | nt_eps -> prep_for_inlining nt arg_opt merge_opt nt_eps)
         | Lookahead (b, r) -> Lookahead (b, recur r)
         | r -> rebuild r in
       map rhs_inline_leaf r in
     recur r
+
+  (** [rewrite_recursion tbl] rewrites recursive symbols recorded in
+      [tbl] to fail.  Given a grammar in which definitions do not
+      contain alternatives, any recursive symbols must be empty. So,
+      we can rewrite them accordingly. This rewriting it important if
+      we want to translate the grammar to a recursive-descent parser.
+
+      If the input grammar in [tbl] contains alternatives (except in
+      negative lookahead), then this rewriting may be incorrect. So,
+      in that case, we raise [Invalid_argument].
+
+      Negative lookahead is excluded because recursion through
+      negative lookahead does not force a nonterminal to have an empty
+      language. Simply put, if the language is really empty, then the
+      lookahead will always *succeed*, so it doesn't contribute to the
+      language's emptyness. Therefore, we don't even check right-sides
+      in negative lookahead positions, so the presence of alts therein
+      is irrelevant.
+  *)
+  let rewrite_recursion tbl =
+    let open Gil in
+    let rec assert_no_alts = function
+      | Alt _ -> invalid_arg "Right-side contains Alt."
+      | Star _ -> invalid_arg "Right-side contains Star."
+      | Seq (r1,r2) -> assert_no_alts r1; assert_no_alts r2
+      | Lookahead (true, r) -> assert_no_alts r
+      | _ -> () in
+    let ds = Hashtbl.fold (fun n r ds -> (n,r) :: ds) tbl [] in
+    let recgraph = Analyze.Gil.reachable_graph_nnla ds in
+    List.iter (fun (n,r) ->
+                 if Analyze.Gil.is_rec n recgraph then
+                   begin
+                     assert_no_alts r;
+                     Hashtbl.replace tbl n fail
+                   end) ds
 
   (* Driver that applies all various above functions:
      neg <- non-eps grammar.
@@ -834,27 +918,68 @@ module Gil = struct
      g, neg, eg.
      neg <- rename_neps (inline_eps eg neg)
      return start-def + neg
+
+     Important to sort first, then remove the start definition in order to
+     get the topo. sort correct.
+
+      TODO: The recursion-related rewriting might result in more
+      opportunities to apply the normal rewrite rules. So, ideally,
+      we'd have some sort of iteration happen here. At least, we could
+      change the treatment of alternatives. Instead of creating the
+      recursion graph, and then asserting lack of alternatives, we could a priori
+      build the recursion graph such that it excluded cycles through alternatives.
   *)
-  let eliminate_nullables grm =
-    let start_def, ds = Gil.remove_definition grm.Gul.start_symbol grm.Gul.gildefs in
-    let ds = Gil.sort_definitions ds in
-    let sg = List.map (fun (n,r) -> (n, derive_subs r)) ds in
+  let eliminate_nullables gr =
+    let attrs = Gul.attribute_table_of_grammar gr in
+    let ds = Gil.sort_definitions gr.Gul.gildefs in
+    let start_def, ds = Gil.remove_definition gr.Gul.start_symbol ds in
     let eg_tbl = Hashtbl.create 101 in
-    let eps_defs nt =
+    let eps_defs = Hashtbl.find eg_tbl in
+    let eps_defs_total nt =
       try Hashtbl.find eg_tbl nt
-      with Not_found ->
-        Util.warn_undefined nt;
-        fail in
+      with Not_found -> Util.warn_undefined nt; fail in
+
+    let sg = List.map (fun (n,r) ->
+                         let r = match (Hashtbl.find attrs n).Gul.Attr.nullability with
+                           | Gul.Attr.N.Always_null -> fail
+                           | Gul.Attr.N.Never_null -> ns_inject r
+                           | Gul.Attr.N.Unknown -> derive_subs r in
+                         (n, r)) ds in
+
     (* Step 1: initialize the table with epsilon subgrammars. *)
-    List.iter (fun (n,r) -> Hashtbl.add eg_tbl n (derive_eps r)) ds;
+    List.iter (fun (n,r) ->
+                 let r = match (Hashtbl.find attrs n).Gul.Attr.nullability with
+                   | Gul.Attr.N.Always_null -> r
+                   | Gul.Attr.N.Never_null -> fail
+                   | Gul.Attr.N.Unknown -> derive_eps r in
+                 Hashtbl.add eg_tbl n r) ds;
     (* Step 2: rewrite the entries, according to the order of [ds]. *)
     List.iter (fun (n,_) ->
-                 let r = rewrite eps_defs (eps_defs n) in
+                 let r = rewrite eps_defs eps_is_eps_eq (eps_defs n) in
                  Hashtbl.replace eg_tbl n r) ds;
-    (* TODO: do we want to rewrite subs. entries to percolate failure? *)
-    let sg = List.map (fun (n,r) -> (n, inline_eps_and_rename eps_defs r)) sg in
-    let start_def = inline_eps_and_rename eps_defs (ns_inject start_def) in
-    (grm.Gul.start_symbol, start_def) :: sg, eg_tbl
+    (* Step 2.5: rewrite the entries again. Second time does the trick for all test grammars. *)
+    List.iter (fun (n,_) ->
+                 let r = rewrite eps_defs eps_is_eps_eq (eps_defs n) in
+                 Hashtbl.replace eg_tbl n r) ds;
+
+    (* Step 3: eliminate recursion from the epsilon grammar, assuming that
+       alternatives are already gone (via rewriting).  TODO: handle
+       case where alternatives have not, or cannot, be eliminated.  *)
+    rewrite_recursion eg_tbl;
+
+    let ds = List.map (fun (n,r) -> (n, inline_eps_and_rename eps_defs_total r)) sg in
+
+    (* Rewrite subs. entries to percolate [fail]. *)
+    let ds_tbl = Hashtbl.create 101 in
+    let ds_defs = Hashtbl.find ds_tbl in
+    List.iter (fun (n,r) -> Hashtbl.add ds_tbl n r) ds;
+    List.iter (fun (n,_) ->
+                 let r = rewrite ds_defs noneps_is_eps_eq (ds_defs n) in
+                 Hashtbl.replace ds_tbl n r) ds;
+    let ds = List.rev_map (fun (n,_) -> (n, fix_fail (ds_defs n))) ds in
+    let start_def = inline_eps_and_rename eps_defs_total (ns_inject start_def) in
+    let ds = List.rev ((gr.Gul.start_symbol, start_def) :: ds) in
+    ds, eg_tbl
 
   (** [compile r] compiles the (null) rhs [r] into a parsing function with a
       nullability predicate signature. *)
@@ -884,20 +1009,17 @@ module Gil = struct
       let dummy_preds nt = Expr_gil.false_e in
       Expr_gil.rewrite dummy_preds e in
     let rec recur = function
-        | Symb (Null_nt nt, arg, binder) -> InjectE (callc nt arg binder)
-        | Symb _ -> invalid_arg "Non-null nonterminals cannot be compiled to epsilon parser."
+        | Symb (nt, arg, binder) -> InjectE (callc nt arg binder)
         | Lit (_, "") -> lam3 (fun la p v -> SomeE (Var v))
         | Action f -> lam3 (fun la ykb v -> SomeE (app_iv f ykb v))
         | When (f_pred, f_next) ->
-            InjectE ("let p =  and n =  in " ^
+            InjectE ("let p = " ^ f_pred ^ " and n = " ^ f_next ^ " in " ^
                        "fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb "^
-                       "in if " ^ f_pred ^ " pos v then Some(" ^ f_next ^ " pos v)" ^
+                       "in if p pos v then Some(n pos v)" ^
                        " else None")
         | Box (f, Always_null) -> predify_box f
         | When_special p -> InjectE p
-        | Lookahead (_, Gil.Symb( (Substantive_nt _ | Null_nt _), _, _)) ->
-            invalid_arg "Lookahead should only reference user-specified symbols."
-        | Lookahead (b, Gil.Symb(Orig_nt nt, None, None)) ->
+        | Lookahead (b, Gil.Symb(nt, None, None)) ->
             Util.warn Util.Sys_warn
               ("using extended lookahead for nonterminal " ^ nt ^ " in nullability predicate.");
             let n_act = get_action nt in
@@ -913,8 +1035,9 @@ module Gil = struct
                | None ->
                    Util.error Util.Sys_warn
                      (Printf.sprintf "lookahead limited to character sets or argument-free symbols.\nRule: %s\n"
-                        (Pr.Gil.Pretty.rule2string (ns_project r)));
+                        (Pr.Gil.Pretty.rule2string r));
                    InjectE "ERROR")
+              (* TODO: expand error messages! *)
         | DBranch (f1, c, f2) ->
             if !Compileopt.late_only_dbranch then invalid_arg "Non-null ..."
             else inject_dbranch f1 c f2
@@ -924,15 +1047,21 @@ module Gil = struct
             AndE (recur r1, recur r2)
         | (Lit _ | CharRange _ | Box (_, Never_null)) -> invalid_arg "Non-null ..."
         | Box _ -> invalid_arg "This box version should have been desugared."
-        | (Alt _ | Star _) -> invalid_arg "Potentially ambiguous ..." in
+        | (Alt _ | Star _) as r ->
+            Util.warn Util.Sys_warn (Printf.sprintf
+                                       "Potentially ambiguous right-sides in epsilon grammar:\n%s\n"
+                                       (Pr.Gil.Pretty.rule2string r));
+            invalid_arg "Potentially ambiguous ..." in
     let parser_r = {e = fun () -> recur r} in
     DBL.simplify (deforest_seqs (convert_to_dB parser_r))
 
+  (* TODO: maybe get rid of memoization altogether? *)
   let print_null_parsers ch get_action get_start is_sv_known eps_defs_tbl =
     (* Record which nonterminals are called from other nonterminals
-       (including themselves) in the epsilon grammar. This set is used only
+       (including themselves) in the epsilon grammar. This set is only used
        to determine which functions should be memoized. *)
-    let called_set = Hashtbl.fold (fun _ r s -> Gil.add_called_symbs s (ns_project r)) eps_defs_tbl (PSet.create compare) in
+    let called_set = Hashtbl.fold (fun _ r s -> Gil.add_called_symbs s r) eps_defs_tbl (PSet.create compare) in
+
     let css = Hashtbl.create 11 in
     let memo_cs cs =
       try fst (Hashtbl.find css cs)
@@ -948,22 +1077,22 @@ module Gil = struct
        might be recursion and we should memoize the result. Otherwise,
        it doesn't need to be memoized. However, because it could be
        called directly from the grammar, it still needs a function. *)
-    let collect nt r acc =
+    let select nt r acc =
       let ntcalled = PSet.mem nt called_set in
       (* if [e_p] is a boolean then it will have been inlined into any
          other calling contexts, so there's no reason to print the
          function. *)
       match r with
-        | Gil.When ("F", "F") -> acc
+        | Gil.When ("F", "F") when not ntcalled -> acc
         | r when can_inline_eps r && not ntcalled -> acc
             (* first condition guarantees not called externally,
                while second guarantees not called internally. *)
         | _ ->
-            let ykb = mk_pvar 0 in
-            let v = mk_var 0 in
-            let e_p = compile get_action get_start memo_cs r in
+            let e_p = compile get_action get_start memo_cs (fix_fail r) in
             let p = convert_from_dB e_p in
             let exc = Failure "Internal error in module Nullable_pred: De Bruin and PHOAS representations out-of-sync." in
+            let ykb = mk_pvar 0 in
+            let v = mk_var 0 in
             let body = match e_p with
                 DBL.Lam DBL.Lam DBL.Lam _ ->
                   (match p.e () with
@@ -977,8 +1106,8 @@ module Gil = struct
                      | _ -> raise exc)
               | _ ->  app3 (p.e()) (Var lookahead_name) (Var ykb) (Var v)
             in
-            let tbls, preds = acc in
             let body_code = to_string2 1 body in
+            let tbls, preds = acc in
             (* TODO: extend comment here to explain memoization process *)
             if ntcalled then begin
               let tbl = mk_nptblname nt in
@@ -1005,7 +1134,7 @@ module Gil = struct
     let print_table nt = Printf.fprintf ch "let %s %s = SV_hashtbl.create 11;;\n" (mk_nptblname nt) tyannot in
     let print_cs _ (varname, code) = Printf.fprintf ch "let %s = %s;;\n" varname code in
     let print_pred = Printf.fprintf ch "and %s" in
-    let need_tbls, preds = Hashtbl.fold collect eps_defs_tbl ([],[]) in
+    let need_tbls, preds = Hashtbl.fold select eps_defs_tbl ([],[]) in
     match List.rev preds with
       | [] -> ()
       | p::preds ->

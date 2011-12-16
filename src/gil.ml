@@ -149,14 +149,36 @@ let dependency_graph ds =
     Tgraph.empty
     ds
 
+(** A special-version of [dependency_graph] in which negative
+    lookahead is not counted, because it forms an unusual dependency. This
+    can be relevant in checking whether a nonterminal's language is
+    empty. *)
+let dependency_graph_nnla ds =
+  let rec get_depend g n = function
+      (* Add dependencies for n to a graph given definition r *)
+  | Symb(x,_,_) ->
+      Tgraph.add_edge (Tgraph.add_node g x) n x
+  | When _ | When_special _ | Action _ | Box _
+  | Lookahead (false,_) | DBranch _ | CharRange _ | Lit _ -> g
+  | Seq(r2,r3)
+  | Alt(r2,r3) ->
+      get_depend (get_depend g n r2) n r3
+  | Star(r2) | Lookahead(true, r2) ->
+      get_depend g n r2
+  in
+  List.fold_left
+    (fun result (n,r) -> get_depend (Tgraph.add_node result n) n r)
+    Tgraph.empty
+    ds
+
 let sort_definitions ds =
   let cmp =
     let (index_map,_) = (* Maps nonterminals to indices 0..n in topological sort order *)
       let g = dependency_graph ds in
-      let in_order = List.rev(Tgraph.tsort g) in
+      let in_order = List.rev (Tgraph.tsort g) in
       List.fold_left
-        (fun (m,i) n -> (PMap.add n i m, i+1))
-        (PMap.empty,0)
+        (fun (m, i) nt -> (PMap.add nt i m, i+1))
+        (PMap.empty, 0)
         in_order in
     (fun (n1,_) (n2,_) ->
              compare (PMap.find n1 index_map) (PMap.find n2 index_map))

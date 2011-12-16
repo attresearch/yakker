@@ -823,6 +823,14 @@ let fsm_transducer is_sv_known gr inch outch =
           is_sv_known npreds
       | None -> ()
   end;
+  begin
+    match gr.Gul.nulldefs with
+      | Some npreds ->
+          Nullable_pred.Gil.print_null_parsers outch
+            (Hashtbl.find tbl_ntnames) (fun nt -> List.assoc nt !starts)
+          is_sv_known npreds
+      | None -> ()
+  end;
 
   (* Print the expression bindings used in the automaton.
      Note: for expressions which are already variables (defn = v), we

@@ -1,4 +1,3 @@
-
 # Set the build directory:
 ifdef DO_PROF
   OBJDIR = profbuild
@@ -50,11 +49,19 @@ DOCDIR=$(TOPDIR)/doc
 
 # $(info VPATH = $(VPATH))
 
+
+# YAKKER_TEST_PERF is intended as an environment variable.
+ifdef YAKKER_TEST_PERF
+  EXTRA_ENGINES=engine_hh.ml engine_hm.ml engine_nr.ml engine_fl.ml engine_nrfl.ml
+else
+  EXTRA_ENGINES=
+endif
+
 BATTERIES_SOURCES = enum.ml enum.mli dynArray.ml pMap.ml pMap.mli return.ml return.mli pSet.ml pSet.mli bitSet.ml bitSet.mli
 YAKKER_SOURCES := logging.ml util.ml ykBuf.ml cs.ml \
            wf_set.ml pam_internal.mli pam_internal.ml pamJIT.mli pamJIT.ml \
 	   history.mli history.ml viz.ml\
-           allp.ml pami.ml engine.ml engine_hh.ml engine_hm.ml engine_nr.ml engine_fl.ml engine_nrfl.ml
+           allp.ml pami.ml engine.ml $(EXTRA_ENGINES)
 
 SOURCES := $(BATTERIES_SOURCES) $(YAKKER_SOURCES)
 

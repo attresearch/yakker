@@ -16,7 +16,7 @@ module N = Nullable_pred
 let inline npreds ds =
   let rec rhs_inline r =
     let rhs_inline_leaf = function
-      | Gil.Lookahead (false, r) -> Gil.Lookahead (false, rhs_inline r)
+      | Gil.Lookahead (b, r) -> Gil.Lookahead (b, rhs_inline r)
       | (Gil.Symb (nt, arg_opt, merge_opt)) as r ->
           (match N.Gil.get_symbol_nullability npreds nt with
              | N.No_n -> r
@@ -34,28 +34,7 @@ let inline npreds ds =
                                    ^ " in (fun p v -> f p v (e p v))") in
                  Gil.Alt (r, r_null)
              | N.Maybe_n ->
-                 let name = Nullable_pred.mk_npname nt in
-                 let p = match arg_opt, merge_opt with
-                   | None,   None ->
-                       Printf.sprintf "(fun la ykb v -> \
-                          match %s la ykb sv0 with \
-                            | None -> None \
-                            | Some _ -> Some v)" name
-                   | Some e, None ->
-                       Printf.sprintf "let f_call = %s in \
-                         (fun la ykb v -> \
-                         let p = Yak.YkBuf.get_offset ykb in
-                         match %s la ykb (f_call p v) with
-                            None -> None
-                          | Some _ -> Some v)" e name
-                   | None, Some f ->
-                       Printf.sprintf "let f_ret = %s in \
-                         (fun la ykb v -> \
-                         let p = Yak.YkBuf.get_offset ykb in
-                         match %s la ykb sv0 with
-                            None -> None
-                          | Some v2 -> Some (f_ret p v v2))" f name
-                   | Some e, Some f -> Nullable_pred.gil_callc name e f in
+                 let p = Nullable_pred.callc nt arg_opt merge_opt in
                  Gil.Alt (r, Gil.When_special p)
              | N.Rhs_n r2 -> Gil.Alt (r, r2)
           )

@@ -13,7 +13,7 @@
 
 (* Run like this:
 
-echo 'A ~x ~y : ~z = "a" { x + y} *{ x + y } ?z { x+y+z } | (A ~x:x ~y:y)?y{y}; B ~a : ~b ~c = {(a,3)}?(b,c) {0} {*b=c}"a" (A ~x:a ~y:b);' | build/nu
+echo 'A ~x ~y : ~z = < "a" > { x + y} *{ x + y } ?z { x+y+z } | (A ~x:x ~y:y)?y{y}; B ~a : ~b ~c = {(a,3)}?(b,c) {0} {*b=c}"a" (A ~x:a ~y:b);' | build/nu
 
 *)
 open Yak
@@ -31,8 +31,9 @@ type lhs =
   | Lhs of string * attribute list * attribute list
 type repeat = Infinity | Num of int
 (* Compared to Gul:
-   Dropped Hash, Prose, DBranch, Opt, Rcount
-   TODO: Lookahead, Charrange, Position, Minus, nullities on Box
+   Dropped Hash, Prose, DBranch, Opt, Rcount, Position
+   Position is replaced by the < and > operators which record positions in attributes
+   TODO: Lookahead, Charrange, Minus, nullities on Box
    We only use attributes, and Pat instead of Assign
    Lexical scope can be mimicked with Cut
    Added While and Token
@@ -63,7 +64,7 @@ type grammar = {
     (* all lists in reverse order *)
     mutable prologue: text list;
     mutable rules: (lhs * rhs) list;
-    mutable gildefs: (string * string Gil.rhs) list;
+    mutable gildefs: (string * (string,string) Gil.rhs) list;
     mutable epilogue: text list;
   }
 let add_to_prologue g s = g.prologue <- (Ocaml s)::g.prologue

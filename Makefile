@@ -76,10 +76,10 @@ CMOS:=$(ML_SOURCES:.ml=.cmo)
 CMXS:=$(ML_SOURCES:.ml=.cmx)
 
 FRONT_END_SOURCES := compileopt.ml variables.ml tgraph.ml meta_prog.ml tyspec.ml gil.ml gul.ml pr.ml \
-                     minus.ml desugar.ml hash.ml copyrule.ml \
+                     minus.ml desugar.ml hash.ml copyrule.ml oqv.ml \
                      analyze.ml nullable_pred.ml unroll.ml fusion.ml attributes.ml wrap.ml \
                      coroutine.ml replay.ml \
-                     ty_infer.ml lift.ml inline_nullable.ml fsm.ml dearrow.ml \
+                     ty_infer.ml lift.ml fsm.ml dearrow.ml \
 		     extract_grammar.ml rfc.ml ocaml_lexer.mll ocamllex_lexer.mll yakker_grammar.ml \
                      cmdline.ml gil_gen.ml version.ml lexutil.ml lookahead.ml main.ml
 FRONT_END_MLL_SOURCES := $(filter %.mll, $(FRONT_END_SOURCES))

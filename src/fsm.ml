@@ -818,7 +818,7 @@ let fsm_transducer is_sv_known gr inch outch =
   begin
     match gr.Gul.npreds with
       | Some npreds ->
-          Nullable_pred.Gil.print_preds outch
+          Oqv.Nullable_pred.print_preds outch
             (Hashtbl.find tbl_ntnames) (fun nt -> List.assoc nt !starts)
           is_sv_known npreds
       | None -> ()
@@ -826,7 +826,7 @@ let fsm_transducer is_sv_known gr inch outch =
   begin
     match gr.Gul.nulldefs with
       | Some npreds ->
-          Nullable_pred.Gil.print_null_parsers outch
+          Nullable_pred.print_null_parsers outch
             (Hashtbl.find tbl_ntnames) (fun nt -> List.assoc nt !starts)
           is_sv_known npreds
       | None -> ()

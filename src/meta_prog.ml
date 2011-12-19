@@ -249,14 +249,16 @@ module DB_levels = struct
       we've eliminated free variable [k + 1].  *)
   let beta_reduce k e_body e_arg = shift (k+1) (-1) (subst (k+1) (shift k 1 e_arg) e_body)
 
-  (** [args] have an mf of [k], while [e_body] has an mf of [k + n],
-      because [e_body] is underneath a set of binders.  So, we shift [args]
+  (** [case_reduce k n e_tgt es] substitutes the [n] expressions [es] into target expression [e_tgt].
+
+      [es] have an mf of [k], while [e_tgt] has an mf of [k + n],
+      because [e_tgt] is underneath a set of binders.  So, we shift [es]
       up to equalize the mf, and then shift down the result, because
-      we've eliminated free variable [k + 1]...[k + n].  *)
-  let case_reduce k n e_body =
+      we've eliminated free variables [k + 1]...[k + n].  *)
+  let case_reduce k n e_tgt =
     shift (k + n) (-n)
       $ fst
-      $ List.fold_left (fun (e_body, m) e -> subst m e e_body, m - 1) (e_body, k + n)
+      $ List.fold_left (fun (e_tgt, m) e -> subst m e e_tgt, m - 1) (e_tgt, k + n)
       $ List.rev_map (shift k n)  (* rev_map so fold_left will subst args in reverse order,
                                      highest to lowest. *)
 
@@ -485,12 +487,15 @@ module PHOAS = struct
           Printf.sprintf "(if %s then %s)" (recur c d) (recur c (e_then []))
       | Case (d, cs) ->
           let pcase ((con,n), e) =
-            let vars =
-              let rec l k xs = if k < c then xs else l (k - 1) (mk_var k :: xs) in
-              l (c + n - 1) [] in
-            let s_pat = String.concat ", " vars in
-            let s_body = recur (c + n) (e vars) in
-            Printf.sprintf "%s(%s) -> %s" con s_pat s_body in
+            if n = 0 then
+              Printf.sprintf "%s -> %s" con (recur c (e []))
+            else
+              let vars =
+                let rec l k xs = if k < c then xs else l (k - 1) (mk_var k :: xs) in
+                l (c + n - 1) [] in
+              let s_pat = String.concat ", " vars in
+              let s_body = recur (c + n) (e vars) in
+              Printf.sprintf "%s(%s) -> %s" con s_pat s_body in
           Printf.sprintf "(match %s with %s)" (recur c d)
             $ String.concat "| " $ List.map pcase $| cs
       | App (e1,e2) -> Printf.sprintf "(%s %s)" (recur c e1) (recur c e2)

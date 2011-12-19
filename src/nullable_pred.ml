@@ -19,138 +19,12 @@ let mk_pvar c = Printf.sprintf "_p%d_" c
 let mk_npname n = Variables.bnf2ocaml (nullable_pred_prefix ^ n)
 let mk_nptblname n = Variables.bnf2ocaml (nullable_pred_table_prefix ^ n)
 
-module DBL = Gil.DB_levels
 
 (******************************************************************************)
 
-module PHOAS = struct
-  type 'a exp =
-    Var of 'a
-  | App of 'a exp * 'a exp
-  | Lam of ('a -> 'a exp)
-  | SomeE of 'a exp
-  | AndE of 'a exp * 'a exp
-  | InjectE of string
+module DBL = Meta_prog.DB_levels
+open Meta_prog.PHOAS
 
-  type hoas_exp = {e:'a. unit -> 'a exp}
-  type open1_hoas_exp = {e_open1:'a. 'a -> 'a exp}
-  type open2_hoas_exp = {e_open2:'a. 'a -> 'a -> 'a exp}
-  type open3_hoas_exp = {e_open3:'a. 'a -> 'a -> 'a -> 'a exp}
-
-  (** Sugar for a let expression. An alternative to actually applying.
-      Useful for promoting sharing of results (given the CBV semantics. *)
-  let let_e e1 e2 = App (e2, e1)
-
-  let rec to_dB level = function
-    | Var i -> DBL.Var i
-    | Lam f -> DBL.Lam (to_dB (level+1) (f level))
-    | App (e1, e2) -> DBL.App (to_dB level e1, to_dB level e2)
-    | SomeE e -> DBL.SomeE (to_dB level e)
-    | AndE (e1, e2) -> DBL.AndE (to_dB level e1, to_dB level e2)
-    | InjectE s -> DBL.InjectE s
-
-  (* val subst' : 'a exp exp -> 'a exp *)
-  let rec subst' = function
-    | Var e -> e
-    | Lam f -> Lam (fun x -> subst' (f (Var x)))
-    | App (e1, e2) -> App (subst' e1, subst' e2)
-    | SomeE e -> SomeE (subst' e)
-    | AndE (e1, e2) -> AndE (subst' e1, subst' e2)
-    | InjectE s -> InjectE s
-
-  let subst e1 e2 = {e = fun () -> subst' (e1.e_open1 (e2.e ()))}
-  let subst2 e1 e2 e3 = {e = fun () -> subst' ( e1.e_open2 (e2.e ()) (e3.e ()) )}
-
-  (** Close an open expression with a variable. Useful for lifting the
-      "openness" of an expression out into a surrounding expression. *)
-  let vsub e v = subst' (e.e_open1 (Var v))
-  let vsub2' e v1 v2 = subst' (e (Var v1) (Var v2))
-  let vsub2 e v1 v2 = vsub2' e.e_open2 v1 v2
-
-  let convert_to_dB {e=f} = to_dB 0 (f())
-
-  let get_var (n,elts) i = List.nth elts (n - i - 1)
-  let extend_ctxt (n,elts) x = (n+1,x::elts)
-  let empty_ctxt () = (0,[])
-
-  let rec from_dB ctxt = function
-    | DBL.Var i -> Var (get_var ctxt i)
-    | DBL.Lam f -> Lam (fun x -> from_dB (extend_ctxt ctxt x) f)
-    | DBL.App (e1, e2) -> App (from_dB ctxt e1, from_dB ctxt e2)
-    | DBL.SomeE e -> SomeE (from_dB ctxt e)
-    | DBL.AndE (e1, e2) -> AndE (from_dB ctxt e1, from_dB ctxt e2)
-    | DBL.InjectE s -> InjectE s
-    | _ -> invalid_arg "Attempted to apply from_dB to unexpected construct."
-
-  (** Convert a closed expression in DeBruijn levels
-      representation to PHOAS. *)
-  let convert_from_dB e_db =
-    {e = fun () -> from_dB (empty_ctxt ()) e_db}
-
-  let close e = {e = fun () -> Lam e.e_open1}
-
-  let open1' = function
-    | Lam f -> f
-    | _ -> invalid_arg "PHOAS.open1: expression is not function."
-
-  (** Convert a lambda to an open expression. *)
-  let open1 e = {e_open1 = fun x -> open1' (e.e ()) x}
-
-  let open2' e x =
-    match e with
-      | Lam f ->
-          (match f x with Lam f -> f
-             | _ -> invalid_arg "PHOAS.open3': expression is not function.")
-      | _ -> invalid_arg "PHOAS.open3': expression is not function."
-
-  (** Convert a double-lambda to a 2-variable open expression. *)
-  let open2 e = {e_open2 = fun x y -> open2' (e.e ()) x y}
-
-  let open3' e x y =
-    match e with
-      | Lam f ->
-          (match f x with Lam f ->
-             (match f y with Lam f -> f
-                | _ -> invalid_arg "PHOAS.open3': expression is not function.")
-             | _ -> invalid_arg "PHOAS.open3': expression is not function.")
-      | _ -> invalid_arg "PHOAS.open3': expression is not function."
-
-  (** Convert a triple-lambda to an 3-variable open expression. *)
-  let open3 e = {e_open3 = fun x y z -> open3' (e.e ()) x y z}
-
-  let apply_exp' e1 e2 =
-    match e1 with
-      | Lam f -> subst' (f e2)
-      | InjectE s -> App (InjectE s, e2)
-      | _ -> invalid_arg "PHOAS.apply: first argument is not function."
-
-  let apply_exp (e1 : hoas_exp) (e2 : hoas_exp) =
-    {e = fun () -> apply_exp' (e1.e ()) (e2.e())}
-
-  let to_code =
-    let rec recur c = function
-      | Lam f ->
-          let x = mk_var c in
-          (match f x with
-             | Lam g ->
-                 let y = mk_var (c+1) in
-                 (match g y with
-                    | Lam h ->
-                        let z = mk_var (c+2) in
-                        Printf.sprintf "(fun %s %s %s -> %s)" x y z (recur (c+3) (h z))
-                    | t -> Printf.sprintf "(fun %s %s -> %s)" x y (recur (c+2) t))
-             | t -> Printf.sprintf "(fun %s -> %s)" x (recur (c+1) t))
-      | Var x -> x
-      | App (e1,e2) -> Printf.sprintf "(%s %s)" (recur c e1) (recur c e2)
-      | SomeE e -> Printf.sprintf "(Some %s)" (recur c e)
-      | AndE (e1,e2) -> Printf.sprintf "(Pred.andc %s %s)" (recur c e1) (recur c e2)
-      | InjectE s -> Printf.sprintf "(%s)" s
-    in
-    recur
-
-end
-
-open PHOAS
 
 (******************************************************************************)
 
@@ -162,6 +36,7 @@ let app2 x y z = App (App (x,y), z)
 let app3 f x y z = App (App (App (f, x), y), z)
 let lam2 f = Lam (fun x -> Lam (f x))
 let lam3 f = Lam (fun x -> lam2 (f x))
+let some e = Con ("Some", [e])
 
 let gil_callc =
   (* The generated code binds expression to avoid capture. There are
@@ -577,40 +452,6 @@ let eliminate_nullables gr =
   let ds = List.rev ((gr.Gul.start_symbol, start_def) :: ds) in
   ds, eg_tbl
 
-(** Rewrite AndEs that have an immediate Some in the first component. *)
-let deforest_seqs e =
-  let open DBL in
-  let rec rewrite' c = function  (* c is the count of binders *)
-    | AndE (e1, e2) ->
-        let e1 = rewrite' c e1 in
-        let e2 = rewrite' c e2 in
-        (match (e1, e2) with
-           | (Lam Lam Lam SomeE e, _) ->
-               (* Since c is the count of binders, c - 1 is
-                  the maximum possible free variable. We shift
-                  by 3 since we will be surrounding [e2] by 3
-                  lambdas. *)
-               let e2_s = shift (c - 1) 3 e2 in
-               let la_var = Var c in
-               let p_var = Var (c + 1) in
-               (* [Var c] is the outermost lambda, which, in this case,
-                  is the lookahead variable; [Var (c + 1)] corresponds
-                  to the position variable. *)
-               Lam (Lam (Lam (app3 e2_s la_var p_var e)))
-           | _ -> AndE (e1, e2))
-    | Lam f -> Lam (rewrite' (c+1) f)
-    | App (e1, e2) -> App (rewrite' c e1, rewrite' c e2)
-    | (InjectE _
-      | Var _
-      | CfgLookaheadE _
-      | CsLookaheadE _
-      | NoneE
-      | SomeE _
-      | StarE _ | CallE _ | OrE _
-      | DBranchE _) as r -> r
-  in
-  rewrite' 0 e
-
 (** [compile r] compiles the (null) rhs [r] into a parsing function with a
     nullability predicate signature. *)
 let compile get_action get_start memo_cs r =
@@ -619,8 +460,8 @@ let compile get_action get_start memo_cs r =
   (** [e1] and [e2] are closed expressions. *)
   let rec recur = function
       | Symb (nt, arg, binder) -> InjectE (callc nt arg binder)
-      | Lit (_, "") -> lam3 (fun la ykb v -> SomeE (Var v))
-      | Action f -> lam3 (fun la ykb v -> SomeE (app_iv f ykb v))
+      | Lit (_, "") -> lam3 (fun la ykb v -> some (Var v))
+      | Action f -> lam3 (fun la ykb v -> some (app_iv f ykb v))
       | When (f_pred, f_next) ->
           InjectE ("let p = " ^ f_pred ^ " and n = " ^ f_next ^ " in " ^
                      "fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb "^
@@ -650,7 +491,14 @@ let compile get_action get_start memo_cs r =
       | DBranch (f1, c, f2) ->
           if !Compileopt.late_only_dbranch then invalid_arg "Non-null ..."
           else inject_dbranch f1 c f2
-      | Seq (r1,r2) -> AndE (recur r1, recur r2)
+      | Seq (r1,r2) ->
+          let e1 = recur r1 in
+          let e2 = recur r2 in
+          lam3 begin fun la ykb v ->
+            Case (app3 e1 (Var la) (Var ykb) (Var v),
+                  [("None", 0), (fun [] -> Con ("None",[]));
+                   ("Some", 1), (fun [v] -> app3 e2 (Var la) (Var ykb) (Var v))])
+          end
       | (Lit _ | CharRange _ | Box (_, Never_null)) -> invalid_arg "Non-null ..."
       | Box _ -> invalid_arg "This box version should have been desugared."
       | (Alt _ | Star _) as r ->
@@ -659,7 +507,7 @@ let compile get_action get_start memo_cs r =
                                      (Pr.Gil.Pretty.rule2string r));
           invalid_arg "Potentially ambiguous ..." in
   let parser_r = {e = fun () -> recur r} in
-  DBL.simplify (deforest_seqs (convert_to_dB parser_r))
+  DBL.simplify (convert_to_dB parser_r)
 
 (* TODO: maybe get rid of memoization altogether? *)
 let print_null_parsers ch get_action get_start is_sv_known eps_defs_tbl =
@@ -712,7 +560,7 @@ let print_null_parsers ch get_action get_start is_sv_known eps_defs_tbl =
                    | _ -> raise exc)
             | _ ->  app3 (p.e()) (Var lookahead_name) (Var ykb) (Var v)
           in
-          let body_code = to_code 1 body in
+          let body_code = to_string' 1 body in
           let tbls, preds = acc in
           (* TODO: extend comment here to explain memoization process *)
           if ntcalled then begin

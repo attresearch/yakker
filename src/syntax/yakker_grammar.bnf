@@ -225,6 +225,7 @@ end
   | DOLLAR
   | ATDOLLAR
   | STAR
+  | PLUS
   | HASH
   | EXCL
   | AMP
@@ -293,6 +294,7 @@ end
   | "$"                    {DOLLAR}
   | "@$"                   {ATDOLLAR}
   | "*"                    {STAR}
+  | "+"                    {PLUS}
   | "#"                    {HASH}
   | "!"                    {EXCL}
   | "&"                    {AMP}
@@ -372,6 +374,7 @@ end
 | DOLLAR =                "$"
 | ATDOLLAR =              "@$"
 | STAR =                  "*"
+| PLUS =                  "+"
 | HASH =                  "#"
 | EXCL =                  "!"
 | AMP =                   "&"

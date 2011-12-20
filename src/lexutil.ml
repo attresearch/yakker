@@ -81,6 +81,7 @@ let mk_lexer use_new_syntax tokenizer token_type decls =
   let other_defs =
     List.map
       (fun (nonterminal, carried_type, ocaml_constructor) ->
+         (* EOF is unknown, rather than Always_null, because the EOF token can generally include whitespace. *)
          let nb = if (String.uppercase nonterminal) = "EOF" then Attr.N.Unknown else Attr.N.Never_null in
          let a = { (mkAttr ()) with Attr.nullability = nb } in
          (* In case the user has left off the carrier type simply because
@@ -122,6 +123,7 @@ let mk_lexer2 is_simple_dbranch tokenizer token_type decls =
   let other_defs =
     List.map
       (fun (nonterminal, carried_type, ocaml_constructor) ->
+         (* EOF is unknown, rather than Always_null, because the EOF token can generally include whitespace. *)
          let nb = if (String.uppercase nonterminal) = "EOF" then Attr.N.Unknown else Attr.N.Never_null in
          let a = { (mkAttr ()) with Attr.nullability = nb} in
          let rhs =

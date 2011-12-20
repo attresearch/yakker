@@ -414,16 +414,14 @@ let eliminate_nullables gr =
   let sg = List.map (fun (n,r) ->
                        let r = match (Hashtbl.find attrs n).Gul.Attr.nullability with
                          | Gul.Attr.N.Always_null -> fail
-                         | Gul.Attr.N.Never_null -> ns_inject r
-                         | Gul.Attr.N.Unknown -> derive_subs r in
+                         | Gul.Attr.N.Never_null | Gul.Attr.N.Unknown -> derive_subs r in
                        (n, r)) ds in
 
   (* Step 1: initialize the table with epsilon subgrammars. *)
   List.iter (fun (n,r) ->
                let r = match (Hashtbl.find attrs n).Gul.Attr.nullability with
-                 | Gul.Attr.N.Always_null -> r
                  | Gul.Attr.N.Never_null -> fail
-                 | Gul.Attr.N.Unknown -> derive_eps r in
+                 | Gul.Attr.N.Always_null | Gul.Attr.N.Unknown -> derive_eps r in
                Hashtbl.add eg_tbl n r) ds;
   (* Step 2: rewrite the entries, according to the order of [ds]. *)
   List.iter (fun (n,_) ->

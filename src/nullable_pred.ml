@@ -36,6 +36,7 @@ let app2 x y z = App (App (x,y), z)
 let app3 f x y z = App (App (App (f, x), y), z)
 let lam2 f = Lam (fun x -> Lam (f x))
 let lam3 f = Lam (fun x -> lam2 (f x))
+let none = Con ("None", [])
 let some e = Con ("Some", [e])
 
 let gil_callc =
@@ -456,6 +457,7 @@ let eliminate_nullables gr =
     nullability predicate signature. *)
 let compile get_action get_start memo_cs r =
   let open Gil in
+  let open Util.Operators in
   let predify_box f = InjectE("Pred3.boxc (" ^ f ^ ")") in
   (** [e1] and [e2] are closed expressions. *)
   let rec recur = function
@@ -463,10 +465,12 @@ let compile get_action get_start memo_cs r =
       | Lit (_, "") -> lam3 (fun la ykb v -> some (Var v))
       | Action f -> lam3 (fun la ykb v -> some (app_iv f ykb v))
       | When (f_pred, f_next) ->
-          InjectE ("let p = " ^ f_pred ^ " and n = " ^ f_next ^ " in " ^
-                     "fun _ ykb v -> let pos = Yak.YkBuf.get_offset ykb "^
-                     "in if p pos v then Some(n pos v)" ^
-                     " else None")
+          lam3 (fun x ykb v ->
+                  Let (App (InjectE "Yak.YkBuf.get_offset", Var ykb), begin fun pos ->
+                    if_then_else $| app2 (InjectE f_pred) (Var pos) (Var v)
+                      $| some (app2 (InjectE f_next) (Var pos) (Var v))
+                      $| none
+                  end))
       | Box (f, Always_null) -> predify_box f
       | When_special p -> InjectE p
       | Lookahead (b, Gil.Symb(nt, None, None)) ->
@@ -506,8 +510,7 @@ let compile get_action get_start memo_cs r =
                                      "Potentially ambiguous right-sides in epsilon grammar:\n%s\n"
                                      (Pr.Gil.Pretty.rule2string r));
           invalid_arg "Potentially ambiguous ..." in
-  let parser_r = {e = fun () -> recur r} in
-  DBL.simplify (convert_to_dB parser_r)
+  {e = fun () -> recur r}
 
 (* TODO: maybe get rid of memoization altogether? *)
 let print_null_parsers ch get_action get_start is_sv_known eps_defs_tbl =
@@ -525,8 +528,10 @@ let print_null_parsers ch get_action get_start is_sv_known eps_defs_tbl =
       Hashtbl.add css cs (x,cd); x in
 
   (* To ensure "let rec" compatibility, we force all generated code to be a syntactic function.
-     We can special case functions, b/c they already meet the criterion, and eta-expand
-     everything else. *)
+     We therefore eta-expand the expression resulting from compilation. To "prettify" the case
+     where the expression is already a syntactic function, we simplify the eta-expanded value.
+     Then, we
+  *)
   (* If the nonterminal is called from another predicate, then there
      might be recursion and we should memoize the result. Otherwise,
      it doesn't need to be memoized. However, because it could be
@@ -543,23 +548,11 @@ let print_null_parsers ch get_action get_start is_sv_known eps_defs_tbl =
              while second guarantees not called internally. *)
       | _ ->
           let e_p = compile get_action get_start memo_cs (fix_fail r) in
-          let p = convert_from_dB e_p in
-          let exc = Failure "Internal error in module Nullable_pred: De Bruin and PHOAS representations out-of-sync." in
+          let e_eta = simplify {e = fun () ->
+                          lam3 (fun la ykb v -> app3 (e_p.e ()) (Var la) (Var ykb) (Var v))} in
           let ykb = mk_pvar 0 in
           let v = mk_var 0 in
-          let body = match e_p with
-              DBL.Lam DBL.Lam DBL.Lam _ ->
-                (match p.e () with
-                   | Lam f ->
-                       (match f lookahead_name with
-                          | Lam f2 ->
-                              (match f2 ykb with
-                                 | Lam f3 -> f3 v
-                                 | _ -> raise exc)
-                          | _ -> raise exc)
-                   | _ -> raise exc)
-            | _ ->  app3 (p.e()) (Var lookahead_name) (Var ykb) (Var v)
-          in
+          let body = (open3 e_eta).e_open3 lookahead_name ykb v in
           let body_code = to_string' 1 body in
           let tbls, preds = acc in
           (* TODO: extend comment here to explain memoization process *)

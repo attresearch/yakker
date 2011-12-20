@@ -391,8 +391,12 @@ module PHOAS = struct
   (** Close an open expression with a variable. Useful for lifting the
       "openness" of an expression out into a surrounding expression. *)
   let vsub e v = subst' (e.e_open1 (Var v))
+
   let vsub2' e v1 v2 = subst' (e (Var v1) (Var v2))
   let vsub2 e v1 v2 = vsub2' e.e_open2 v1 v2
+
+  let vsub3' e v1 v2 v3 = subst' (e (Var v1) (Var v2) (Var v3))
+  let vsub3 e v1 v2 v3 = vsub3' e.e_open3 v1 v2 v3
 
 
   let get_var (n,elts) i = List.nth elts (n - i - 1)
@@ -512,7 +516,7 @@ module PHOAS = struct
   let app3 f x y z = App (App (App (f, x), y), z)
   let lam2 f = Lam (fun x -> Lam (f x))
   let lam3 f = Lam (fun x -> lam2 (f x))
-  let ifthenelse e e1 e2 =
+  let if_then_else e e1 e2 =
     Case (e, [("true", 0), (function [] -> e1 | _ -> invalid_arg "[] expected");
               ("false", 0), (function [] -> e2 | _ -> invalid_arg "[] expected")])
   let ifthen e e1 = Case (e, [("true", 0), (function [] -> e1 | _ -> invalid_arg "[] expected")])

@@ -434,28 +434,28 @@ not-line-end = ((CHAR - LF) - CR) .
 shebang-line = "#!" *not-line-end.
 
 ;;; auxilliary lexer for character literals
-dec-range = @box >@(rhs)(dec_range)@x @delay{rhs}(x)
-bin-range = @box >@(rhs)(bin_range)@x @delay{rhs}(x)
-hex-range = @box >@(rhs)(hex_range)@x @delay{rhs}(x)
+dec-range = @box >@(rhs)+(dec_range)@x @delay{rhs}(x)
+bin-range = @box >@(rhs)+(bin_range)@x @delay{rhs}(x)
+hex-range = @box >@(rhs)+(hex_range)@x @delay{rhs}(x)
 ; we don't put num-val into the ocamllex lexer because it is easier to handle sequences in yakker
 num-val =
   "%d" dec-range$r *("." dec-range)$rl {mkSEQ(r::rl)} ; no spaces allowed between ranges
 | "%x" hex-range$r *("." hex-range)$rl {mkSEQ(r::rl)}
 | "%b" bin-range$r *("." bin-range)$rl {mkSEQ(r::rl)}
 
-Ocaml_until_RBRACE = (@box >@(Ocaml_lexer.Parser.token) (Ocaml.until_RBRACE))@y$x @when(y=Ocaml_lexer.Parser.RBRACE) { all_but_last x }
+Ocaml_until_RBRACE = (@box >@(Ocaml_lexer.Parser.token) +(Ocaml.until_RBRACE))@y$x @when(y=Ocaml_lexer.Parser.RBRACE) { all_but_last x }
 .
 
-Ocaml_until_RPAREN = @box >@(Ocaml_lexer.Parser.token) (Ocaml.until_RPAREN)@y$x @when(y=Ocaml_lexer.Parser.RPAREN) { all_but_last x }
+Ocaml_until_RPAREN = @box >@(Ocaml_lexer.Parser.token) +(Ocaml.until_RPAREN)@y$x @when(y=Ocaml_lexer.Parser.RPAREN) { all_but_last x }
 .
 
-Ocaml_until_EQUAL = @box >@(Ocaml_lexer.Parser.token) (Ocaml.until_EQUAL)@y$x @when(y=Ocaml_lexer.Parser.EQUAL) { all_but_last x }
+Ocaml_until_EQUAL = @box >@(Ocaml_lexer.Parser.token) +(Ocaml.until_EQUAL)@y$x @when(y=Ocaml_lexer.Parser.EQUAL) { all_but_last x }
 .
 
-Ocaml_until_RBRACKET = @box >@(Ocaml_lexer.Parser.token) (Ocaml.until_RBRACKET)@y$x @when(y=Ocaml_lexer.Parser.RBRACKET) { all_but_last x }
+Ocaml_until_RBRACKET = @box >@(Ocaml_lexer.Parser.token) +(Ocaml.until_RBRACKET)@y$x @when(y=Ocaml_lexer.Parser.RBRACKET) { all_but_last x }
 .
 
-Ocamllex_until_RBRACE = @box >@(Ocamllex_lexer.Parser.token) (Ocamllex.until_RBRACE)@y$x @when(y=Ocamllex_lexer.Parser.RBRACE) { all_but_last x }
+Ocamllex_until_RBRACE = @box >@(Ocamllex_lexer.Parser.token) +(Ocamllex.until_RBRACE)@y$x @when(y=Ocamllex_lexer.Parser.RBRACE) { all_but_last x }
 .
 
 ;posn = (@box >@(int*int) (Posn.get))@x @delay{Lexing.position}(x)

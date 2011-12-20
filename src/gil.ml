@@ -15,10 +15,11 @@ type nonterminal = string
 type expr = string
 
 type 'expr boxnull =
-    Always_null          (* box always accepts null, e.g., position *)
-  | Never_null           (* box never accepts null *)
-  | Runbox_null          (* run box to determine if it accepts null *)
-  | Runpred_null of 'expr (* run separate predicate to determine if box accepts null *)
+    Always_null          (* box never accepts a non-empty string
+                            (i.e. it accepts, at most, the empty-string) e.g., EOF, position *)
+  | Never_null           (* box never accepts the empty string *)
+  | Runbox_null          (* run box to determine if it accepts the empty string. Default. *)
+  | Runpred_null of 'expr (* run separate predicate to determine if box accepts the empty string. *)
 
 (* N.B. if the call field of Symbol = None, then the targeted
    nonterminal must not make any assumptions about its inflowing

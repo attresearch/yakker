@@ -38,10 +38,11 @@ type annot = { mutable css: Cs.t option;
              }
 
 type 'expr boxnull = 'expr Gil.boxnull =
-    Always_null          (* box always accepts null, e.g., position *)
-  | Never_null           (* box never accepts null *)
-  | Runbox_null          (* run box to determine if it accepts null *)
-  | Runpred_null of 'expr (* run separate predicate to determine if box accepts null *)
+    Always_null           (* box never accepts a non-empty string
+                             (i.e. it accepts, at most, the empty-string) e.g., EOF, position *)
+  | Never_null            (* box never accepts the empty string *)
+  | Runbox_null           (* run box to determine if it accepts the empty string. Default. *)
+  | Runpred_null of 'expr (* run separate predicate to determine if box accepts the empty string. *)
 
 type rhs = { mutable a: annot;
              mutable r: rhs0 }
@@ -110,7 +111,11 @@ type symb_class = Lexical | Other
 module Attr = struct
   module N = struct
     (* Note: similar to [boxnull] type. We wrap the def. in a module to help with constructor-name clashes. *)
-    type nullability = Always_null | Never_null | Unknown
+    type nullability =
+        Always_null           (* symbol never accepts a non-empty string
+                                 (i.e. it accepts, at most, the empty-string) e.g., EOF, position *)
+      | Never_null            (* symbol never accepts the empty string *)
+      | Unknown
   end
 
   type t = {mutable early_params: string option;

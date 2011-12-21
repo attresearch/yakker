@@ -174,7 +174,10 @@ module Parse_engine = %s
 let start_symb = get_symb_action %S
 
 module P2__ = Parse_engine.Full_yakker (%s)
-                                     (struct type t = sv let cmp = sv_compare %s end)
+                                     (struct
+                                        type t = sv let cmp = sv_compare
+                                        %s
+                                      end)
 
 let _wfe_data_ = Yak.PamJIT.DNELR.mk_table %s (Yak.Pam_internal.load_internal_program program)
   start_symb (get_symb_start start_symb) %d num_symbols
@@ -206,8 +209,8 @@ let visualize_string = Yak.Pami.Simple.parse_string visualize\n\n" in
               "include Parse_engine.Dummy_inspector" in
           let opt_mode = if !Compileopt.gen_optimize_pam then "Yak.PamJIT.Full_opt"
             else "Yak.PamJIT.No_opt" in
-          mk_trans_bp1 parse_engine gr.start_symbol term_lang inspector_fields opt_mode Fsm.min_symbol Fsm.default_call_tx
-            Fsm.default_binder_tx post_parse_function
+          mk_trans_bp1 parse_engine gr.start_symbol term_lang inspector_fields opt_mode Fsm.min_symbol
+            Fsm.default_call_tx Fsm.default_binder_tx post_parse_function
       | Fun_BE | Peg_BE _ ->
           let mk_other_bp1 = Printf.sprintf "\nlet visualize = Yak.Pami.mk_parse_fun __parse
    (fun input state_node ->

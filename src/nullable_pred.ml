@@ -39,20 +39,6 @@ let lam3 f = Lam (fun x -> lam2 (f x))
 let none = Con ("None", [])
 let some e = Con ("Some", [e])
 
-let gil_callc =
-  (* The generated code binds expression to avoid capture. There are
-     no (possibly) open expressions in the body of the generated
-     code. *)
-  Printf.sprintf "(let symb_pred = %s
-       and f_call = %s
-       and f_ret = %s
-    in
-    fun la ykb v ->
-     let p = Yak.YkBuf.get_offset ykb in
-     match symb_pred la ykb (f_call p v) with
-        None -> None
-      | Some v2 -> Some (f_ret p v v2))"
-
 let callc nt arg_opt merge_opt =
   let name = mk_npname nt in
   match arg_opt, merge_opt with
@@ -75,7 +61,19 @@ let callc nt arg_opt merge_opt =
                          match %s la ykb sv0 with
                             None -> None
                           | Some v2 -> Some (f_ret p v v2))" f name
-    | Some e, Some f -> gil_callc name e f
+    | Some e, Some f ->
+        (* The generated code binds expression to avoid capture. There are
+           no (possibly) open expressions in the body of the generated
+           code. *)
+        Printf.sprintf "(let symb_pred = %s
+       and f_call = %s
+       and f_ret = %s
+    in
+    fun la ykb v ->
+     let p = Yak.YkBuf.get_offset ykb in
+     match symb_pred la ykb (f_call p v) with
+        None -> None
+      | Some v2 -> Some (f_ret p v v2))" name e f
 
 
 

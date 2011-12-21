@@ -145,7 +145,7 @@ in _x19(Yak.Util.nil)) in (List.rev _x8)) in ();  files := f::!files; exec_l := 
 and
  _r_args(_n,_p,ykinput) = (match _n() with
  | (2051) -> ((); (); (let p = _r_phases(_n,_p,ykinput) in  after := Some p ; ()))
- | (2052) -> ((); ();  O.use_wrap_and_attr := false;      
+ | (2052) -> ((); ();  O.use_wrap_and_attr := false;
                                             O.use_coroutines    := false ; ())
  | (2053) -> ((); ();  O.use_coroutines := false ; ())
  | (2054) -> ((); (); (let b = (match _n() with
@@ -1227,15 +1227,112 @@ let program = [
 (382, [EatInstr(101,430)]);
 ]
 
+module type PARSE_ENGINE =
+sig
+  module type TERM_LANG
+  module type SEMVAL =
+  sig
+    type t
+    val cmp : t -> t -> int
+    type idata
+    val create_idata : unit -> idata
+    val inspect : t -> idata -> idata
+    val summarize_inspection : idata -> string
+  end
+  module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) :
+    sig
+      val parse : Sem_val.t PamJIT.DNELR.data -> Sem_val.t -> YkBuf.t -> Sem_val.t list
+    end
+end
+
+module type BACKEND_INPUTS =
+sig
+  module Parse_engine : PARSE_ENGINE
+  module Term_language : Parse_engine.TERM_LANG
+  val start_symbol_name : string
+  module Semval : Parse_engine.SEMVAL
+  val sv0 : Semval.t
+  val program : (int * Semval.t Yak.Pam_internal.instruction list) list (** transducer *)
+  val get_symb_action : string -> int
+  val get_symb_start : int -> int
+  val min_symbol : int
+  val num_symbols : int
+  val opt_mode : PamJIT.opt_mode
+  val default_call : Semval.t Pam_internal.action2
+  val default_ret : Semval.t Pam_internal.binder2
+  type res
+  val post_parse_fun : YkBuf.Snapshot.t -> Semval.t -> res
+end
+
+module F(BI : BACKEND_INPUTS) = struct
+  open BI
+  let start_symb = get_symb_action start_symbol_name
+
+  module P2__ = Parse_engine.Full_yakker (Term_language) (Semval)
+
+  let _wfe_data_ = Yak.PamJIT.DNELR.mk_table opt_mode (Yak.Pam_internal.load_internal_program program)
+    start_symb (get_symb_start start_symb) min_symbol num_symbols
+    default_call default_ret
+
+  let parse = Yak.Pami.Wfe.mk_parse P2__.parse _wfe_data_ sv0 post_parse_fun
+  let parse_file = Yak.Pami.Simple.parse_file parse
+  let parse_string = Yak.Pami.Simple.parse_string parse
+end
+
+
+module G = struct
+  module Parse_engine = Yak.Engine
+  module Term_language = Yak.Engine.Scannerless_term_lang
+  let start_symbol_name = "cmd-line-args"
+  module Semval =
+  struct
+    type t = sv
+    let cmp = sv_compare
+    type idata = Yk_History.Root_id_set.t
+    let create_idata () = Yk_History.Root_id_set.empty
+    let inspect h s = Yk_History.add_id_set h#get_root s
+    let summarize_inspection s = string_of_int (Yk_History.Root_id_set.cardinal s)
+  end
+  let sv0 = sv0
+  let program = program
+  let get_symb_action = get_symb_action
+  let get_symb_start = get_symb_start
+  let min_symbol = 264
+  let num_symbols = num_symbols
+  let opt_mode = Yak.PamJIT.Full_opt
+  let default_call = __default_call
+  let default_ret = __default_ret
+
+module type Ty =
+sig
+  type t
+  val v : YkBuf.Snapshot.t -> Semval.t -> t
+end
+
+let get_type = fun (type s) (x : YkBuf.Snapshot.t -> Semval.t -> s) ->
+  let module M = struct type t = s let v = x end in
+  (module M : Ty)
+;;
+
+
+  module M = (val get_type _replay_cmd_line_args : Ty)
+  type res = M.t
+  let post_parse_fun = M.v
+end
+
+module H = F(G)
+
 module Parse_engine = Yak.Engine
 
 let start_symb = get_symb_action "cmd-line-args"
 
 module P2__ = Parse_engine.Full_yakker (Parse_engine.Scannerless_term_lang)
-                                     (struct type t = sv let cmp = sv_compare type idata = Yk_History.Root_id_set.t
+                                     (struct type t = sv let cmp = sv_compare
+  type idata = Yk_History.Root_id_set.t
   let create_idata () = Yk_History.Root_id_set.empty
   let inspect h s = Yk_History.add_id_set h#get_root s
-  let summarize_inspection s = string_of_int (Yk_History.Root_id_set.cardinal s) end)
+  let summarize_inspection s = string_of_int (Yk_History.Root_id_set.cardinal s)
+                                      end)
 
 let _wfe_data_ = Yak.PamJIT.DNELR.mk_table Yak.PamJIT.Full_opt (Yak.Pam_internal.load_internal_program program)
   start_symb (get_symb_start start_symb) 264 num_symbols

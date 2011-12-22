@@ -293,6 +293,20 @@ module Wfe = struct
     end
   end
 
+  module History_inspector (Yk_History : History.S) = struct
+    type idata = Yk_History.Root_id_set.t
+    let create_idata () = Yk_History.Root_id_set.empty
+    let inspect h s = Yk_History.add_id_set h#get_root s
+    let summarize_inspection s = string_of_int (Yk_History.Root_id_set.cardinal s)
+  end
+
+  module E_History_inspector (Yk_History : History.S) = struct
+    type idata = Yk_History.Root_id_set.t
+    let create_idata () = Yk_History.Root_id_set.empty
+    let inspect (_,h) s = Yk_History.add_id_set h#get_root s
+    let summarize_inspection s = string_of_int (Yk_History.Root_id_set.cardinal s)
+  end
+
   module type BACKEND_INPUTS =
   sig
     module Parse_engine : PARSE_ENGINE
@@ -311,12 +325,11 @@ module Wfe = struct
     val opt_mode : PamJIT.opt_mode
     val default_call : Semval.t Pam_internal.action2
     val default_ret : Semval.t Pam_internal.binder2
-    type res
-    val post_parse_fun : YkBuf.Snapshot.t -> Semval.t -> res
   end
 
-  module Make(BI : BACKEND_INPUTS) = struct
+  module Make (BI : BACKEND_INPUTS) = struct
     open BI
+
     let start_symb = get_symb_action start_symbol_name
 
     module P = Parse_engine.Full_yakker (Term_language) (Semval)
@@ -325,11 +338,8 @@ module Wfe = struct
       start_symb (get_symb_start start_symb) min_symbol num_symbols
       default_call default_ret
 
-    let parse = mk_parse P.parse _wfe_data_ sv0 post_parse_fun
-    let parse_file = Simple.parse_file parse
-    let parse_string = Simple.parse_string parse
+    let gen_parse ppf = mk_parse P.parse _wfe_data_ sv0 ppf
   end
-
 end
 
 (** Express as a functor so as to avoid requiring the dypgen libraries to be compiled

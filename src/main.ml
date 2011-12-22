@@ -153,6 +153,66 @@ let gil_transducer,gil_dot =
     (* FST *)
     (fun is_sv_known -> try_fst (Fsm.fsm_transducer is_sv_known)), try_fst Fsm.fsm_dot
 
+let mk_trans_bp = Printf.sprintf "
+module M = Yak.Pami.Wfe.Make(
+    struct
+      module Parse_engine = %s
+      module Term_language = %s
+      let start_symbol_name = %S
+
+      let sv0 = sv0
+      module Semval =
+      struct
+        type t = sv
+        let cmp = sv_compare
+        include %s
+      end
+
+      let program = program
+      let get_symb_action = get_symb_action
+      let get_symb_start = get_symb_start
+      let min_symbol = %d
+      let num_symbols = num_symbols
+      let opt_mode = %s
+      let default_call = %s
+      let default_ret = %s
+    end)
+let parse = M.gen_parse %s
+"
+
+let trans_bp gr ppf =
+  let parse_engine =
+    match !Compileopt.gen_nullpreds, !Compileopt.earley_ds with
+      | true, Compileopt.Sparse_eds -> "Yak.Engine"
+      | false, Compileopt.Sparse_eds -> "Yak.Engine_nr"
+      | true, Compileopt.Hierhash_eds -> "Yak.Engine_hh"
+      | false, Compileopt.Hierhash_eds -> Util.todo "Hierarchical engine data structures cannot (yet) be used without nullpreds."
+      | true, Compileopt.Hiermap_eds -> "Yak.Engine_hm"
+      | false, Compileopt.Hiermap_eds -> Util.todo "Hierarchical engine data structures cannot (yet) be used without nullpreds."
+      | true, Compileopt.Flat_eds -> "Yak.Engine_fl"
+      | false, Compileopt.Flat_eds -> "Yak.Engine_nrfl" in
+  let term_lang = if gr.has_single_lexer then Variables.tk_mod else "Parse_engine.Scannerless_term_lang" in
+  let inspector_mod =
+    if gr.grammar_late_relevant && not !Compileopt.unit_history then
+      let prefix = if gr.grammar_early_relevant then "E_" else "" in
+      Printf.sprintf "Yak.Pami.Wfe.%sHistory_inspector(Yk_History)" prefix
+    else
+      "Parse_engine.Dummy_inspector" in
+  let opt_mode =
+    if !Compileopt.gen_optimize_pam
+    then "Yak.PamJIT.Full_opt"
+    else "Yak.PamJIT.No_opt" in
+  mk_trans_bp
+    parse_engine
+    term_lang
+    gr.start_symbol
+    inspector_mod
+    Fsm.min_symbol
+    opt_mode
+    Fsm.default_call_tx
+    Fsm.default_binder_tx
+    ppf
+
 let add_boilerplate backend gr =
   if backend = Wadler_BE then ()
   else
@@ -167,63 +227,13 @@ let add_boilerplate backend gr =
       "(fun ykinput x -> ())" in
   let boilerplate_vary =
     match backend with
-      | Trans_BE ->
-          let mk_trans_bp1 = Printf.sprintf "
-module Parse_engine = %s
-
-let start_symb = get_symb_action %S
-
-module P2__ = Parse_engine.Full_yakker (%s)
-                                     (struct
-                                        type t = sv let cmp = sv_compare
-                                        %s
-                                      end)
-
-let _wfe_data_ = Yak.PamJIT.DNELR.mk_table %s (Yak.Pam_internal.load_internal_program program)
-  start_symb (get_symb_start start_symb) %d num_symbols
-  %s %s
-
-let parse = Yak.Pami.Wfe.mk_parse P2__.parse _wfe_data_ sv0 %s
-let visualize = parse
-let visualize_file = Yak.Pami.Simple.parse_file visualize
-let visualize_string = Yak.Pami.Simple.parse_string visualize\n\n" in
-          let parse_engine =
-            match !Compileopt.gen_nullpreds, !Compileopt.earley_ds with
-              | true, Compileopt.Sparse_eds -> "Yak.Engine"
-              | false, Compileopt.Sparse_eds -> "Yak.Engine_nr"
-              | true, Compileopt.Hierhash_eds -> "Yak.Engine_hh"
-              | false, Compileopt.Hierhash_eds -> Util.todo "Hierarchical engine data structures cannot (yet) be used without nullpreds."
-              | true, Compileopt.Hiermap_eds -> "Yak.Engine_hm"
-              | false, Compileopt.Hiermap_eds -> Util.todo "Hierarchical engine data structures cannot (yet) be used without nullpreds."
-              | true, Compileopt.Flat_eds -> "Yak.Engine_fl"
-              | false, Compileopt.Flat_eds -> "Yak.Engine_nrfl" in
-          let term_lang = if gr.has_single_lexer then Variables.tk_mod else "Parse_engine.Scannerless_term_lang" in
-          let inspector_fields =
-            if gr.grammar_late_relevant && not !Compileopt.unit_history then
-              let patt = if gr.grammar_early_relevant then "(_,h)" else "h" in
-              Printf.sprintf "type idata = Yk_History.Root_id_set.t
-  let create_idata () = Yk_History.Root_id_set.empty
-  let inspect %s s = Yk_History.add_id_set h#get_root s
-  let summarize_inspection s = string_of_int (Yk_History.Root_id_set.cardinal s)" patt
-            else
-              "include Parse_engine.Dummy_inspector" in
-          let opt_mode = if !Compileopt.gen_optimize_pam then "Yak.PamJIT.Full_opt"
-            else "Yak.PamJIT.No_opt" in
-          mk_trans_bp1 parse_engine gr.start_symbol term_lang inspector_fields opt_mode Fsm.min_symbol
-            Fsm.default_call_tx Fsm.default_binder_tx post_parse_function
+      | Trans_BE -> trans_bp gr post_parse_function
       | Fun_BE | Peg_BE _ ->
-          let mk_other_bp1 = Printf.sprintf "\nlet visualize = Yak.Pami.mk_parse_fun __parse
-   (fun input state_node ->
-      Printf.printf \"Visualization not supported by Gil interpreter.\n\")
-let visualize_file = Yak.Pami.Simple.parse_file visualize
-let visualize_string = Yak.Pami.Simple.parse_string visualize
-
-let parse = Yak.Pami.mk_parse_fun __parse %s\n" in
-          mk_other_bp1 post_parse_function
+          "\nlet parse = Yak.Pami.mk_parse_fun __parse " ^ post_parse_function
       | Wadler_BE -> "" in
   let boilerplate_shared =
-    "let parse_file = Yak.Pami.Simple.parse_file parse
-let parse_string = Yak.Pami.Simple.parse_string parse\n;;\n"in
+    "let parse_file = Yak.Pami.Simple.parse_file parse\n\
+     let parse_string = Yak.Pami.Simple.parse_string parse\n;;\n"in
   add_to_epilogue gr (boilerplate_vary ^ boilerplate_shared)
 
 let print_prologue ch gr =

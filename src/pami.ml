@@ -274,6 +274,62 @@ module Wfe = struct
           let b = YkBuf.snapshot ykb cp in
           YkBuf.commit ykb;
           pp b x
+
+  module type PARSE_ENGINE =
+  sig
+    module type TERM_LANG
+    module type SEMVAL =
+    sig
+      type t
+      val cmp : t -> t -> int
+      type idata
+      val create_idata : unit -> idata
+      val inspect : t -> idata -> idata
+      val summarize_inspection : idata -> string
+    end
+    module Full_yakker (Terms : TERM_LANG) (Sem_val : SEMVAL) :
+    sig
+      val parse : Sem_val.t PamJIT.DNELR.data -> Sem_val.t -> YkBuf.t -> Sem_val.t list
+    end
+  end
+
+  module type BACKEND_INPUTS =
+  sig
+    module Parse_engine : PARSE_ENGINE
+    module Term_language : Parse_engine.TERM_LANG
+    val start_symbol_name : string
+    module Semval : Parse_engine.SEMVAL
+    val sv0 : Semval.t
+
+    (** transducer *)
+    val program : (int * Semval.t Pam_internal.instruction list) list
+
+    val get_symb_action : string -> int
+    val get_symb_start : int -> int
+    val min_symbol : int
+    val num_symbols : int
+    val opt_mode : PamJIT.opt_mode
+    val default_call : Semval.t Pam_internal.action2
+    val default_ret : Semval.t Pam_internal.binder2
+    type res
+    val post_parse_fun : YkBuf.Snapshot.t -> Semval.t -> res
+  end
+
+  module Make(BI : BACKEND_INPUTS) = struct
+    open BI
+    let start_symb = get_symb_action start_symbol_name
+
+    module P = Parse_engine.Full_yakker (Term_language) (Semval)
+
+    let _wfe_data_ = PamJIT.DNELR.mk_table opt_mode (Pam_internal.load_internal_program program)
+      start_symb (get_symb_start start_symb) min_symbol num_symbols
+      default_call default_ret
+
+    let parse = mk_parse P.parse _wfe_data_ sv0 post_parse_fun
+    let parse_file = Simple.parse_file parse
+    let parse_string = Simple.parse_string parse
+  end
+
 end
 
 (** Express as a functor so as to avoid requiring the dypgen libraries to be compiled

@@ -158,7 +158,25 @@ module type HV = sig
   val memoize : bool
 end
 
+module type S =
+sig
+  type hv
+  val compare : (hv, label) history -> (hv, label) history -> int
+  val hash : (hv, label) history -> int
+  val new_history : unit -> (hv, label) history
+
+  module Root_id_set : Set.S
+  val get_id_set : (hv, label) root -> Root_id_set.t
+    (** Get the set of (unique) identifiers reachable from the given root. *)
+  val add_id_set : (hv, label) root -> Root_id_set.t -> Root_id_set.t
+    (** Add the set of (unique) identifiers reachable from the given root to the given id set. *)
+
+  val dot_show : (hv -> string) -> (hv, label) history -> unit
+  val dot_show_pretty : (hv -> string) -> (hv, label) history -> unit
+end
+
 module Make (Hv : HV) = struct
+  type hv = Hv.t
 
   module Info = struct
     type t = (Hv.t,label) info

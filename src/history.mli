@@ -42,18 +42,21 @@ module type HV = sig
   val memoize : bool
 end
 
-module Make (Hv : HV) :
-    sig
-      val compare : (Hv.t, label) history -> (Hv.t, label) history -> int
-      val hash : (Hv.t, label) history -> int
-      val new_history : unit -> (Hv.t, label) history
+module type S =
+sig
+  type hv
+  val compare : (hv, label) history -> (hv, label) history -> int
+  val hash : (hv, label) history -> int
+  val new_history : unit -> (hv, label) history
 
-      module Root_id_set : Set.S
-      val get_id_set : (Hv.t, label) root -> Root_id_set.t
-        (** Get the set of (unique) identifiers reachable from the given root. *)
-      val add_id_set : (Hv.t, label) root -> Root_id_set.t -> Root_id_set.t
-        (** Add the set of (unique) identifiers reachable from the given root to the given id set. *)
+  module Root_id_set : Set.S
+  val get_id_set : (hv, label) root -> Root_id_set.t
+    (** Get the set of (unique) identifiers reachable from the given root. *)
+  val add_id_set : (hv, label) root -> Root_id_set.t -> Root_id_set.t
+    (** Add the set of (unique) identifiers reachable from the given root to the given id set. *)
 
-      val dot_show : (Hv.t -> string) -> (Hv.t, label) history -> unit
-      val dot_show_pretty : (Hv.t -> string) -> (Hv.t, label) history -> unit
-    end
+  val dot_show : (hv -> string) -> (hv, label) history -> unit
+  val dot_show_pretty : (hv -> string) -> (hv, label) history -> unit
+end
+
+module Make (Hv : HV) : S with type hv = Hv.t

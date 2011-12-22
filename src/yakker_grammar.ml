@@ -3033,10 +3033,18 @@ let
   let hex_range = Yak.YkBuf.wrap_ocamllex hex_range
   
 # 2840 "yakker_grammar_lexer.ml"
+
+(* History value type*)
 type hv =
 | Ykd_int of int
 | Ykd_x107 of (rhs)
 | Ykd_x108 of (string)
+
+(* History constructors *)
+let _e p h = h#empty p
+let _p lbl hv p = (fun h->h#push p (lbl, hv, p))
+let _m lbl p = (fun h1 h2-> h1#merge p (lbl, Ykd_int lbl, p) h2)
+
 
 module Yk_Hashed = struct
   type t = int * hv * int
@@ -3045,6 +3053,8 @@ module Yk_Hashed = struct
   let memoize = true
 end
 module Yk_History = Yak.History.Make(Yk_Hashed)
+
+(* Replay-related functions *)
 
 let rec
  _r_CHARVAL(_n,_p,ykinput) = (); (); (let _x110 = _n() in (match _x110 with Ykd_x108(_x109) -> _x109 | _ -> failwith "@delay wrap"))
@@ -3308,6 +3318,7 @@ and
 in _x133(Yak.Util.nil)) in (List.rev _x104))
 and
  _r_directive(_n,_p,ykinput) = (); (); (let _x106 = _p() in (); (let _x105 = _p() in (let x = Yak.YkBuf.get_string _x106 _x105 ykinput in ();  Variables.counter := (int_of_string x))))
+
 class ['a] rvs (labels: 'a History.enum) =
 let s = ref [] in
 let push x = s := x::!s in
@@ -3519,10 +3530,7 @@ let _replay_rulelist ykinput h =
   let _n() = _o#next() in
   let _p() = match _o#next() with | Ykd_int(p) -> p | _ -> failwith "wrong constructor for position." in
   _r_rulelist(_n,_p,ykinput)
-(* History constructors *)
-let _e p h = h#empty p
-let _p lbl hv p = (fun h->h#push p (lbl, hv, p))
-let _m lbl p = (fun h1 h2-> h1#merge p (lbl, Ykd_int lbl, p) h2)
+
 type ('yk_x243 , 'yk_x242) _ev = 
 | Ykenv_empty
 | Ykenv_x244 of tok
@@ -3556,13 +3564,6 @@ let sv_hash (x,h) =
 
 let _m2 l p (x,h1) (_,h2) = x, _m l p h1 h2
 let _e2 p (_,h) = ev0, _e p h
-let sv_eq x y = sv_compare x y = 0
-let key_eq (i,v1) (j,v2) = i = j &&  sv_eq v1 v2
-let key_hash (i,v) = i lxor (sv_hash v)
-
-(** Hashtable for top-down parsing. *)
-module TDHashtable = Hashtbl.Make(struct type t = int * sv let equal = key_eq let hash = key_hash end)
-
 let __default_call _ _ = sv0;;
 let __cc_call _ x = x;;
 let __default_ret _ v1 _ = v1;;
@@ -4918,25 +4919,30 @@ let program = [
 (382, [ACallInstr3(__default_call,27);ASimpleCont2Instr(291,__binder0,441)]);
 ]
 
-module Parse_engine = Yak.Engine
+module M = Yak.Pami.Wfe.Make(
+    struct
+      module Parse_engine = Yak.Engine
+      module Term_language = Parse_engine.Scannerless_term_lang
+      let start_symbol_name = "rulelist"
 
-let start_symb = get_symb_action "rulelist"
+      let sv0 = sv0
+      module Semval =
+      struct
+        type t = sv
+        let cmp = sv_compare
+        include Yak.Pami.Wfe.E_History_inspector(Yk_History)
+      end
 
-module P2__ = Parse_engine.Full_yakker (Parse_engine.Scannerless_term_lang)
-                                     (struct type t = sv let cmp = sv_compare type idata = Yk_History.Root_id_set.t
-  let create_idata () = Yk_History.Root_id_set.empty
-  let inspect (_,h) s = Yk_History.add_id_set h#get_root s
-  let summarize_inspection s = string_of_int (Yk_History.Root_id_set.cardinal s) end)
-
-let _wfe_data_ = Yak.PamJIT.DNELR.mk_table Yak.PamJIT.Full_opt (Yak.Pam_internal.load_internal_program program)
-  start_symb (get_symb_start start_symb) 264 num_symbols
-  __default_call __default_ret
-
-let parse = Yak.Pami.Wfe.mk_parse P2__.parse _wfe_data_ sv0 (fun ykinput (_,h) -> _replay_rulelist ykinput h)
-let visualize = parse
-let visualize_file = Yak.Pami.Simple.parse_file visualize
-let visualize_string = Yak.Pami.Simple.parse_string visualize
-
+      let program = program
+      let get_symb_action = get_symb_action
+      let get_symb_start = get_symb_start
+      let min_symbol = 264
+      let num_symbols = num_symbols
+      let opt_mode = Yak.PamJIT.Full_opt
+      let default_call = __default_call
+      let default_ret = __default_ret
+    end)
+let parse = M.gen_parse (fun ykinput (_,h) -> _replay_rulelist ykinput h)
 let parse_file = Yak.Pami.Simple.parse_file parse
 let parse_string = Yak.Pami.Simple.parse_string parse
 ;;

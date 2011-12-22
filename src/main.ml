@@ -415,7 +415,8 @@ let do_phases gr =
           Pr.pr_grammar stdout gr
       | Replay_cmd ->
           do_phase "replay transformation" (fun () ->
-            Replay.transform gr)
+            let rp = Replay.transform gr in
+            add_to_prologue gr rp)
       | Coroutine_cmd ->
           do_phase "dispatching" begin fun () ->
             Analyze.producers gr;

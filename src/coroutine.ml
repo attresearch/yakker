@@ -211,16 +211,6 @@ let sv0 = Yk_History.new_history()
 let sv_compare = hv_compare
 let sv_hash = Yk_History.hash
 "
-
-let all_prologue = "let sv_eq x y = sv_compare x y = 0
-let key_eq (i,v1) (j,v2) = i = j &&  sv_eq v1 v2
-let key_hash (i,v) = i lxor (sv_hash v)
-
-(** Hashtable for top-down parsing. *)
-module TDHashtable = Hashtbl.Make(struct type t = int * sv let equal = key_eq let hash = key_hash end)
-
-"
-
 let transform_grammar gr =
 
   (match gr.grammar_early_relevant,gr.grammar_late_relevant with
@@ -232,7 +222,6 @@ let transform_grammar gr =
       add_late_prologue gr
   | false,false ->
       add_no_early_or_late_prologue gr);
-  add_to_prologue gr all_prologue;
 
   let disp          = Printf.sprintf "_d %d" in
   let disp_when     = Printf.sprintf "_dwhen %d" in

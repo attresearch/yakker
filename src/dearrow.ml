@@ -1312,15 +1312,13 @@ let _e2 p (_,h) = ev0, _e p h
     (* Clean up temp file *)
     Sys.remove temp_file_name
   in
-
-    (match gr.grammar_early_relevant,gr.grammar_late_relevant with
-       | true, true ->
-           set_env_type gr.grammar_late_relevant gr;
-           add_to_prologue gr early_late_prologue
-       | true, false ->
-           set_env_type gr.grammar_late_relevant gr;
-           add_to_prologue gr early_prologue
-       | false,true -> Coroutine.add_late_prologue gr
-       | false,false -> Coroutine.add_no_early_or_late_prologue gr);
-    add_to_prologue gr Coroutine.all_prologue
+  match gr.grammar_early_relevant,gr.grammar_late_relevant with
+    | true, true ->
+        set_env_type gr.grammar_late_relevant gr;
+        add_to_prologue gr early_late_prologue
+    | true, false ->
+        set_env_type gr.grammar_late_relevant gr;
+        add_to_prologue gr early_prologue
+    | false,true -> Coroutine.add_late_prologue gr
+    | false,false -> Coroutine.add_no_early_or_late_prologue gr
 

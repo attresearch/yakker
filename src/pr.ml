@@ -463,7 +463,7 @@ module Gil = struct
     let default_reduction = " {()}"
 
     let prologue = Printf.sprintf "let local_data = sv0
-let local_data_equal = sv_eq
+let local_data_equal x y = sv_compare x y = 0
 let _upd dyp f = [Dyp.Local_data (f dyp.Dyp.local_data)]
 let _updp dyp f = [Dyp.Local_data (f %s dyp.Dyp.local_data)]
 let _upd_l dyp f = [Dyp.Local_data (f dyp.Dyp.last_local_data)]

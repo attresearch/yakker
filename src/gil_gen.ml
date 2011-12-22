@@ -723,6 +723,11 @@ let pr_gil_definitions2 f start tokmap = function
         let follow_map = if !Compileopt.lookahead then follow_gr_gil_lex ds first_map else PMap.empty in
         let tcg = reachable_graph ds in
         Printf.bprintf b "(*PARSER-COMBINATOR PROLOGUE*)
+(** Hashtable for top-down parsing. *)
+let sv_eq x y = sv_compare x y = 0
+let key_eq (i,v1) (j,v2) = i = j &&  sv_eq v1 v2
+let key_hash (i,v) = i lxor (sv_hash v)
+module TDHashtable = Hashtbl.Make(struct type t = int * sv let equal = key_eq let hash = key_hash end)
 module Memo_symb = Allp.Make(struct type semval = sv
                                module HT = TDHashtable
                         end)
@@ -845,6 +850,11 @@ let pr_definitions f liberal start = function
   | ds ->
       let b = Buffer.create 11 in
       Printf.bprintf b "(*PEG PARSER-COMBINATOR PROLOGUE*)
+(** Hashtable for top-down parsing. *)
+let sv_eq x y = sv_compare x y = 0
+let key_eq (i,v1) (j,v2) = i = j &&  sv_eq v1 v2
+let key_hash (i,v) = i lxor (sv_hash v)
+module TDHashtable = Hashtbl.Make(struct type t = int * sv let equal = key_eq let hash = key_hash end)
 module Memo_symb = Allp.Peg.Make(struct type semval = sv
                                module HT = TDHashtable
                         end)

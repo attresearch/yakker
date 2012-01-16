@@ -651,17 +651,17 @@ let varnum = ref 0
    The function uses the prefix to ensure that if two strings map to the same variable after the
    standard modification, there is a way to distinguish them.
 *)
-let varname prefix =
+let varname prefix eta_expand =
   (fun str ->
-     match Util.find_option tbl_varnames str with
+     if Variables.already_var str then str
+     else
+       let exp_str = eta_expand str in
+       match Util.find_option tbl_varnames exp_str with
        | Some x -> x
        | None ->
-           let v =
-             if Variables.already_var str then str
-             else
-               let num = Util.postincr varnum in
-               Printf.sprintf "%s%d" prefix num in
-           Hashtbl.add tbl_varnames str v;
+           let num = Util.postincr varnum in
+           let v = Printf.sprintf "%s%d" prefix num in
+           Hashtbl.add tbl_varnames exp_str v;
            v)
 
 let fsm_transducer is_sv_known gr inch outch =
@@ -680,10 +680,22 @@ let fsm_transducer is_sv_known gr inch outch =
     end in
 
   varnum := 0; Hashtbl.clear tbl_varnames;
-  let action = varname "__a" in
-  let predicate = varname "__p" in
-  let box = varname "__b" in
-  let arg_namer = varname "__g" in
+  let action, predicate, box, arg_namer =
+    if !Compileopt.eta_expand_tx_bindings then
+      let ap_ee = Printf.sprintf "(fun p v -> (%s) p v)" in
+      let box_ee = Printf.sprintf "(fun v p ykb -> (%s) v p ykb)" in
+      let action = varname "__a" ap_ee in
+      let predicate = varname "__p" ap_ee in
+      let box = varname "__b" box_ee in
+      let arg_namer = varname "__g" ap_ee in
+      action, predicate, box, arg_namer
+    else
+      let id s = s in
+      let action = varname "__a" id in
+      let predicate = varname "__p" id in
+      let box = varname "__b" id in
+      let arg_namer = varname "__g" id in
+      action, predicate, box, arg_namer in
   let arg = function
       None -> default_call_tx
     | Some x -> arg_namer x in

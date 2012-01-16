@@ -3870,8 +3870,8 @@ module SV_hashtbl = Hashtbl.Make(struct
                     type t = sv
                     let equal a b = sv_compare a b = 0
                     let hash = Hashtbl.hash end)
-module Pred = Pred3
 let npt__x3 : (sv option * int) SV_hashtbl.t = SV_hashtbl.create 11;;
+module Pred = Pred3
 let rec nullable_params __lookahead _p0_ _x0_ = Some(((((fun p (_v450,_h451) -> (_v450,_p 1838 (Ykd_int(2066)) p _h451))) ((Yak.YkBuf.get_offset) _p0_)) _x0_))
 
 and nullable_typestuff __lookahead _p0_ _x0_ = Some(((((fun p (_v506,_h507) -> (_v506,_p 2186 (Ykd_int(2094)) p _h507))) ((Yak.YkBuf.get_offset) _p0_)) ((((fun p (_v502,_h503) -> (_v502,_p 2171 (Ykd_int(2092)) p _h503))) ((Yak.YkBuf.get_offset) _p0_)) ((((fun p (_v498,_h499) -> (_v498,_p 2156 (Ykd_int(2090)) p _h499))) ((Yak.YkBuf.get_offset) _p0_)) ((((fun p (_v494,_h495) -> (_v494,_p 2141 (Ykd_int(2088)) p _h495))) ((Yak.YkBuf.get_offset) _p0_)) _x0_)))))
@@ -3890,7 +3890,7 @@ and nullable__x3 __lookahead _p0_ _x0_ =
     try
       let (r, __p2)  = SV_hashtbl.find npt__x3 _x0_ in
       if __p1 = __p2 then r else
-      let x = ((((Pred3.boxc (let f = (let f = token in
+      let x = ((((Pred.boxc (let f = (let f = token in
   fun (_,h) input pos ->
     begin match f input pos with
     | None -> None
@@ -3901,7 +3901,7 @@ match f v pos ykb with
     | (Some (0, _)) as x -> x
     | _ -> None)) __lookahead) _p0_) _x0_) in SV_hashtbl.replace npt__x3 _x0_ (x, __p1); x
     with Not_found ->
-      let x = ((((Pred3.boxc (let f = (let f = token in
+      let x = ((((Pred.boxc (let f = (let f = token in
   fun (_,h) input pos ->
     begin match f input pos with
     | None -> None

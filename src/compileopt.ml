@@ -75,8 +75,20 @@ let earley_ds = ref Sparse_eds
   (** Designates the choice of the engine's (Earley) data structures.
       Uses sparse sets by default.*)
 
+let eta_expand_tx_bindings = ref false
+  (** Flag: Eta-expand bindings for actions, predicates, boxes,
+      etc. used in transducer representation. Avoids causing compiler
+      error relating to ungeneralizable type variable. *)
+
+let memoize_eps_parsers = ref true
+  (** Flag: Insert code into epsilon-grammar parsing functions to
+      memoize calls. Memoization is not necessary, because epsilon
+      grammars cannot be left-recursive. It is only a potential
+      optimization. In many tested cases, it actually causes a slow
+      down. *)
+
 (*
-   testing-related flags
+  testing-related flags
 *)
 
 let unit_history = ref false

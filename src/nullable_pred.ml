@@ -454,7 +454,7 @@ let eliminate_nullables gr =
 let compile get_action get_start memo_cs r =
   let open Gil in
   let open Util.Operators in
-  let predify_box f = InjectE("Pred3.boxc (" ^ f ^ ")") in
+  let predify_box f = InjectE("Pred.boxc (" ^ f ^ ")") in
   (** [e1] and [e2] are closed expressions. *)
   let rec recur = function
       | Symb (nt, arg, binder) -> InjectE (callc nt arg binder)
@@ -513,8 +513,11 @@ let print_null_parsers ch get_action get_start is_sv_known eps_defs_tbl =
   (* Record which nonterminals are called from other nonterminals
      (including themselves) in the epsilon grammar. This set is only used
      to determine which functions should be memoized. *)
-  let called_set = Hashtbl.fold (fun _ r s -> Gil.add_called_symbs s r) eps_defs_tbl (PSet.create compare) in
-
+  let called_set =
+    let empty = PSet.create compare in
+    if !Compileopt.memoize_eps_parsers then
+      Hashtbl.fold (fun _ r s -> Gil.add_called_symbs s r) eps_defs_tbl empty
+    else empty in
   let css = Hashtbl.create 11 in
   let memo_cs cs =
     try fst (Hashtbl.find css cs)
@@ -526,7 +529,6 @@ let print_null_parsers ch get_action get_start is_sv_known eps_defs_tbl =
   (* To ensure "let rec" compatibility, we force all generated code to be a syntactic function.
      We therefore eta-expand the expression resulting from compilation. To "prettify" the case
      where the expression is already a syntactic function, we simplify the eta-expanded value.
-     Then, we
   *)
   (* If the nonterminal is called from another predicate, then there
      might be recursion and we should memoize the result. Otherwise,
@@ -573,22 +575,25 @@ let print_null_parsers ch get_action get_start is_sv_known eps_defs_tbl =
             let pred = Printf.sprintf "%s %s %s %s = %s\n\n" (mk_npname nt) lookahead_name ykb v body_code in
             tbls, pred :: preds
           end in
-  let tyannot = if is_sv_known then ": (sv option * int) SV_hashtbl.t" else "" in
-  let print_table nt = Printf.fprintf ch "let %s %s = SV_hashtbl.create 11;;\n" (mk_nptblname nt) tyannot in
   let print_cs _ (varname, code) = Printf.fprintf ch "let %s = %s;;\n" varname code in
   let print_pred = Printf.fprintf ch "and %s" in
   let need_tbls, preds = Hashtbl.fold select eps_defs_tbl ([],[]) in
   match List.rev preds with
     | [] -> ()
     | p::preds ->
-        if is_sv_known then
-          Printf.fprintf ch "module SV_hashtbl = Hashtbl.Make(struct
+        if !Compileopt.memoize_eps_parsers then
+          begin
+            let tyannot = if is_sv_known then ": (sv option * int) SV_hashtbl.t" else "" in
+            let print_table nt = Printf.fprintf ch "let %s %s = SV_hashtbl.create 11;;\n" (mk_nptblname nt) tyannot in
+            if is_sv_known then
+              Printf.fprintf ch "module SV_hashtbl = Hashtbl.Make(struct
                     type t = sv
                     let equal a b = sv_compare a b = 0
                     let hash = Hashtbl.hash end)\n"
-        else Printf.fprintf ch "module SV_hashtbl = Hashtbl\n";
+            else Printf.fprintf ch "module SV_hashtbl = Hashtbl\n";
+            List.iter print_table need_tbls;
+          end;
         Printf.fprintf ch "module Pred = Pred3\n";
-        List.iter print_table need_tbls;
         Hashtbl.iter print_cs css;
         Printf.fprintf ch "let rec %s" p;
         List.iter print_pred preds

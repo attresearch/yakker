@@ -419,6 +419,11 @@ module EL_combs = struct
   let hist_new_exp s = gen "(%s,_e %s h)" s reserved_pos_var
   let hist_merge_exp s i = gen "(%s,_m %d %s h1 h2)" s i reserved_pos_var
   let hist_prop_exp = gen "(%s,h1)"
+  let m2_meta lbl =
+    if !Compileopt.eta_expand_tx_bindings then
+      gen "fun p (x,h1) (_,h2) -> x, _m %d p h1 h2" lbl
+    else
+      gen "_m2 %d" lbl
 
   let mk_box env_pat box_exp some_pat some_exp =
     match env_pat with
@@ -444,7 +449,7 @@ module EL_combs = struct
 
   let mk_merge is_late_rel lbl env_pat child_pat result_exp =
     if env_pat = result_exp && child_pat = "_" then
-      if is_late_rel then gen "_m2 %d" lbl
+      if is_late_rel then m2_meta lbl
       else Fsm.default_binder_tx
     else if child_pat = result_exp then
       let v = Variables.freshn "v" in

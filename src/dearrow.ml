@@ -1230,11 +1230,8 @@ let prop2 _ x = x
 
 let early_late_prologue = "
 (*EARLY-LATE PROLOGUE*)
-type _pos = int (* input positions *)
-
 let hv_compare = Yk_History.compare
 
-type sv = ev * (int * hv * _pos, Yak.History.label) Yak.History.history
 let sv0 = (ev0, Yk_History.new_history())
 let sv_compare (x1,x2) (y1,y2) =
   (match ev_compare x1 y1 with
@@ -1251,10 +1248,23 @@ let _e2 p (_,h) = ev0, _e p h
 
 let early_prologue = "
 (*EARLY PROLOGUE*)
-type sv = ev
 let sv0 = ev0
 let sv_compare = ev_compare
 let sv_hash = Hashtbl.hash
+"
+
+let late_prologue = "
+(*LATE PROLOGUE*)
+let hv_compare = Yk_History.compare
+let sv0 = Yk_History.new_history()
+let sv_compare = hv_compare
+let sv_hash = Yk_History.hash
+"
+
+let none_prologue = "
+let sv_compare = compare
+let sv0 = ()
+let sv_hash () = 0
 "
 
 (** @raise [Failure], if failure occurs in attempting to retrieve type information or parse is ambiguous. *)
@@ -1275,12 +1285,13 @@ let get_type_info filename =
     | [x] -> x
     | _ -> Util.error Util.Sys_warn "Ambiguous parse of type information."; raise (Failure  "Ambigous parse of input.")
 
-(* must be early relevant. argument [is_late_rel] tells us whether it is late relevant as well. *)
-let extend_prologue pcompile gr =
+(* must be early relevant. argument [is_late_rel] tells us whether it
+   is late relevant as well. *)
+let extend_prologue pcompile_opt gr =
   (** [set_env_type partial_compile gr], where [partial_compile]
       compiles the grammar w/o outputing the epilogue. Adds the [ev] type
       and related definitions to the prologue. *)
-  let set_env_type is_late_rel gr =
+  let set_env_type pcompile is_late_rel gr =
     (* redirect output to a temporary file *)
     let (temp_file_name, temp_chan) = Filename.open_temp_file "yakker" ".ml" in
 
@@ -1313,17 +1324,31 @@ let _e2 p (_,h) = ev0, _e p h
     add_many_to_prologue gr abstract_ty_defs;
     let ev_ty_def = "type ev = " ^ tyargs ^ " " ^ env_type_name ^ "\n" in
     add_to_prologue gr ev_ty_def;
-
+    if is_late_rel then
+      add_to_prologue gr "type sv = ev * (int * hv * _pos, Yak.History.label) Yak.History.history"
+    else
+      add_to_prologue gr "type sv = ev";
     (* Clean up temp file *)
     Sys.remove temp_file_name
   in
+  add_to_prologue gr "type _pos = int (** input positions *)";
   match gr.grammar_early_relevant,gr.grammar_late_relevant with
     | true, true ->
-        set_env_type gr.grammar_late_relevant gr;
+        (match pcompile_opt with
+           | Some f -> set_env_type f gr.grammar_late_relevant gr
+           | None -> add_to_prologue gr "type 'ev svt = 'ev * (int * hv * _pos, Yak.History.label) Yak.History.history");
         add_to_prologue gr early_late_prologue
     | true, false ->
-        set_env_type gr.grammar_late_relevant gr;
+        (match pcompile_opt with
+           | Some f -> set_env_type f gr.grammar_late_relevant gr
+           | None -> add_to_prologue gr "type 'ev svt = 'ev");
         add_to_prologue gr early_prologue
-    | false,true -> Coroutine.add_late_prologue gr
-    | false,false -> Coroutine.add_no_early_or_late_prologue gr
+    | false,true ->
+        if pcompile_opt = None then
+          add_to_prologue gr "type 'ev svt = (int * hv * _pos, Yak.History.label) Yak.History.history";
+        add_to_prologue gr late_prologue
+    | false,false ->
+        if pcompile_opt = None then
+          add_to_prologue gr "type 'ev svt = unit";
+        add_to_prologue gr none_prologue
 

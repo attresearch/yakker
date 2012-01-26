@@ -87,6 +87,8 @@ let memoize_eps_parsers = ref true
       optimization. In many tested cases, it actually causes a slow
       down. *)
 
+let infer_types_in_two_passes = ref true
+
 (*
   testing-related flags
 *)

@@ -39,7 +39,6 @@ let add_early_late_prologue gr =
 (*EARLY-LATE PROLOGUE*)
 (*TODO:sv,sv0,sv_compare*)
 type _uid = int (* for sharing *)
-type _pos = int (* input positions *)
 type _lab = int (* dispatch labels *)
 (** Early values, aka coroutines.
     ['a] is the type of values eventually computed
@@ -146,7 +145,6 @@ let _m lbl p (v1,h1) (_,h2) = (v1, _m lbl p h1 h2)
 let early_prologue = "
 (*EARLY PROLOGUE*)
 type _uid = int (* for sharing *)
-type _pos = int (* input positions *)
 type _lab = int (* dispatch labels *)
 type 'a ev = (* early values, aka coroutines.  'a is the type of values eventually computed by the coroutines *)
   | Yk_more of _uid * (_lab -> _pos -> 'a ev)
@@ -204,7 +202,6 @@ let add_late_prologue gr =
   add_to_prologue gr
 "
 (*LATE PROLOGUE*)
-type _pos = int (* input positions *)
 let hv_compare = Yk_History.compare
 type sv = (int * hv * _pos, Yak.History.label) Yak.History.history
 let sv0 = Yk_History.new_history()
@@ -213,6 +210,7 @@ let sv_hash = Yk_History.hash
 "
 let transform_grammar gr =
 
+  add_to_prologue gr "type _pos = int (** input positions *)";
   (match gr.grammar_early_relevant,gr.grammar_late_relevant with
   | true,true ->
       add_early_late_prologue gr

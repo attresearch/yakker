@@ -472,11 +472,13 @@ let do_phases gr =
             do_compile true !outch gr
           else
             begin
-              Dearrow.extend_prologue (do_compile false) gr;
-              (* Output full version of compiled output *)
+              let f_opt =
+                if !Compileopt.infer_types_in_two_passes
+                then Some (do_compile false)
+                else None in
+              Dearrow.extend_prologue f_opt gr;
               do_compile_for_arrow !outch gr;
             end
-
       | Exec_cmd ->
           begin
             (* If the commands come with no epilogue, default to parsing the start symbol. *)

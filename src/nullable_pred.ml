@@ -511,13 +511,10 @@ let compile get_action get_start memo_cs r =
 (* TODO: maybe get rid of memoization altogether? *)
 let print_null_parsers ch get_action get_start is_sv_known eps_defs_tbl =
   (* Record which nonterminals are called from other nonterminals
-     (including themselves) in the epsilon grammar. This set is only used
-     to determine which functions should be memoized. *)
+     (including themselves) in the epsilon grammar. *)
   let called_set =
     let empty = PSet.create compare in
-    if !Compileopt.memoize_eps_parsers then
-      Hashtbl.fold (fun _ r s -> Gil.add_called_symbs s r) eps_defs_tbl empty
-    else empty in
+    Hashtbl.fold (fun _ r s -> Gil.add_called_symbs s r) eps_defs_tbl empty in
   let css = Hashtbl.create 11 in
   let memo_cs cs =
     try fst (Hashtbl.find css cs)
@@ -554,7 +551,7 @@ let print_null_parsers ch get_action get_start is_sv_known eps_defs_tbl =
           let body_code = to_string' 1 body in
           let tbls, preds = acc in
           (* TODO: extend comment here to explain memoization process *)
-          if ntcalled then begin
+          if ntcalled && !Compileopt.memoize_eps_parsers then begin
             let tbl = mk_nptblname nt in
             let pred = Printf.sprintf "%s %s %s %s =\n  \
               let __p1 = Yak.YkBuf.get_offset %s in\n    \

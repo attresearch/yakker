@@ -1345,10 +1345,14 @@ let _e2 p (_,h) = ev0, _e p h
         add_to_prologue gr early_prologue
     | false,true ->
         if pcompile_opt = None then
-          add_to_prologue gr "type 'ev svt = (int * hv * _pos, Yak.History.label) Yak.History.history";
+          add_to_prologue gr "type 'ev svt = (int * hv * _pos, Yak.History.label) Yak.History.history"
+        else
+          add_to_prologue gr "type sv = (int * hv * _pos, Yak.History.label) Yak.History.history";
         add_to_prologue gr late_prologue
     | false,false ->
         if pcompile_opt = None then
-          add_to_prologue gr "type 'ev svt = unit";
+          add_to_prologue gr "type 'ev svt = unit"
+        else
+          add_to_prologue gr "type sv = unit";
         add_to_prologue gr none_prologue
 
